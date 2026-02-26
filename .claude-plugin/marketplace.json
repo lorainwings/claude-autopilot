@@ -1,14 +1,16 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "lorainwings-plugins",
+  "description": "lorainwings Claude Code plugins",
   "owner": {
     "name": "lorainwings"
   },
   "plugins": [
     {
       "name": "spec-autopilot",
-      "source": ".",
+      "source": "./plugins/spec-autopilot",
       "description": "Spec-driven autopilot orchestration for delivery pipelines",
-      "version": "1.0.0"
+      "category": "development"
     }
   ]
 }
