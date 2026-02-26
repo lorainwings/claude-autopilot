@@ -1,0 +1,11 @@
+{
+  "name": "spec-autopilot",
+  "version": "1.0.0",
+  "description": "Generic autopilot orchestration framework for spec-driven delivery pipelines",
+  "author": { "name": "vibeflow-team" },
+  "license": "MIT",
+  "keywords": ["autopilot", "orchestration", "spec-driven", "gate-enforcement"],
+  "skills": "../skills/",
+  "agents": "../agents/",
+  "hooks": "../hooks/hooks.json"
+}
