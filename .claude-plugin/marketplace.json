@@ -1,0 +1,14 @@
+{
+  "name": "lorainwings-plugins",
+  "owner": {
+    "name": "lorainwings"
+  },
+  "plugins": [
+    {
+      "name": "spec-autopilot",
+      "source": ".",
+      "description": "Spec-driven autopilot orchestration for delivery pipelines",
+      "version": "1.0.0"
+    }
+  ]
+}
