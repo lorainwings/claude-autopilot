@@ -6,17 +6,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(dirname \"$0\")/../scripts/check-predecessor-checkpoint.sh\""
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-predecessor-checkpoint.sh"
           }
         ]
       }
     ],
-    "SubagentStop": [
+    "PostToolUse": [
       {
+        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(dirname \"$0\")/../scripts/validate-json-envelope.sh\""
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-json-envelope.sh"
           }
         ]
       }
@@ -26,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(dirname \"$0\")/../scripts/scan-checkpoints-on-start.sh\""
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh"
           }
         ]
       }

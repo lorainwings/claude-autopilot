@@ -1,11 +1,9 @@
 {
   "name": "spec-autopilot",
   "version": "1.0.0",
-  "description": "Generic autopilot orchestration framework for spec-driven delivery pipelines",
+  "description": "Spec-driven autopilot orchestration for delivery pipelines",
   "author": { "name": "vibeflow-team" },
+  "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
-  "keywords": ["autopilot", "orchestration", "spec-driven", "gate-enforcement"],
-  "skills": "../skills/",
-  "agents": "../agents/",
-  "hooks": "../hooks/hooks.json"
+  "keywords": ["autopilot", "orchestration", "spec-driven", "gate-enforcement"]
 }
