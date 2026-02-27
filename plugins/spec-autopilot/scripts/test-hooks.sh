@@ -153,7 +153,7 @@ assert_contains "uses tool_response not tool_result" "$output" "block"
 
 # 3g. Nested JSON object (Phase 4 with test_counts) → should be extracted
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5}}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"

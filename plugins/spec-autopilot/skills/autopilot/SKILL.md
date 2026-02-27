@@ -138,7 +138,14 @@ autopilot-gate 额外验证（阈值从 config.phases.testing.gate 读取）：
    - 每任务后运行 quick_check，每 3 任务运行 full_test
    - 遵循 3 次失败暂停策略
    - 最大迭代次数从 config.phases.implementation.ralph_loop.max_iterations 读取
-4. **不可用且 fallback 禁用** → AskUserQuestion 提示用户安装或启用
+4. **不可用且 fallback 禁用** → AskUserQuestion：
+   ```
+   "ralph-loop 插件不可用，手动 fallback 也已禁用。请选择处理方式："
+   选项:
+   - "启用 fallback 模式 (Recommended)" → 修改 config 中 fallback_enabled 为 true，进入手动循环
+   - "暂停流水线，手动安装 ralph-loop" → 展示安装命令，暂停等待
+   - "跳过实施阶段（仅测试已有代码）" → 标记 Phase 5 为 warning，继续 Phase 6
+   ```
 
 ### Phase 5→6 特殊门禁
 

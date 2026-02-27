@@ -151,6 +151,25 @@ if 'artifacts' not in found_json:
 if 'next_ready' not in found_json:
     print('INFO: JSON envelope missing optional field: next_ready', file=sys.stderr)
 
+# 7) Phase-specific field validation (warn on stderr, block on critical missing)
+phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
+phase_num = int(phase_match.group(1)) if phase_match else 0
+
+phase_required = {
+    4: ['test_counts', 'dry_run_results'],
+    5: ['test_results_path', 'tasks_completed'],
+    6: ['pass_rate', 'report_path'],
+}
+
+if phase_num in phase_required:
+    missing_phase = [f for f in phase_required[phase_num] if f not in found_json]
+    if missing_phase:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase {phase_num} JSON envelope missing required phase-specific fields: {missing_phase}. The sub-agent must include these fields for gate verification.'
+        }))
+        sys.exit(0)
+
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
 sys.exit(0)

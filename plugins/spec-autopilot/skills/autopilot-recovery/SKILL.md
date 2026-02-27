@@ -13,11 +13,26 @@ description: "[ONLY for autopilot orchestrator] Crash recovery protocol for auto
 
 ### 1. 扫描 Checkpoint
 
-扫描 `openspec/changes/` 目录，找到活跃 change：
+扫描 `openspec/changes/` 目录，找到所有含 checkpoint 的 change：
 
 ```bash
 ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 ```
+
+### 2. 选择目标 Change
+
+**仅一个 change** → 自动选中。
+
+**多个 change 有 checkpoint** → 通过 AskUserQuestion 让用户明确选择：
+```
+"检测到多个活跃 change，请选择要恢复的："
+选项:（按最近修改时间排序，最新在前）
+- "feature-a（Phase 4 已完成）(Recommended)"
+- "feature-b（Phase 2 已完成）"
+- "从头开始新 change"
+```
+
+**`$ARGUMENTS` 包含 change 名称** → 直接匹配该 change，跳过选择。
 
 ### 2. 确定最后完成阶段
 

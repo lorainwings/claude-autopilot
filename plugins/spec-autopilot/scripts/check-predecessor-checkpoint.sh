@@ -189,6 +189,11 @@ get_last_checkpoint_phase() {
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
       local status
       status=$(read_checkpoint_status "$checkpoint_file")
+      if [ "$status" = "error" ]; then
+        # Corrupted checkpoint: deny with explicit error
+        deny "Checkpoint file $(basename "$checkpoint_file") contains invalid JSON. Possible file corruption. Please inspect and fix or delete the file, then retry."
+        return
+      fi
       if [ "$status" = "ok" ] || [ "$status" = "warning" ]; then
         last_phase=$phase_num
       fi
