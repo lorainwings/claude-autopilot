@@ -1,9 +1,11 @@
 ---
 name: autopilot-recovery
-description: "Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
+description: "[ONLY for autopilot orchestrator agent] Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
 ---
 
 # Autopilot Recovery — 崩溃恢复协议
+
+> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 

@@ -1,9 +1,11 @@
 ---
 name: autopilot-checkpoint
-description: "Checkpoint read/write protocol for autopilot phases. Manages phase-results directory and JSON checkpoint files."
+description: "[ONLY for autopilot orchestrator agent] Checkpoint read/write protocol for autopilot phases. Manages phase-results directory and JSON checkpoint files."
 ---
 
 # Autopilot Checkpoint — 状态持久化协议
+
+> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
 
 管理 `openspec/changes/<name>/context/phase-results/` 目录下的 checkpoint 文件。
 

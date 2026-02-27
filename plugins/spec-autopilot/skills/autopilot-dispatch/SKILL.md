@@ -1,9 +1,11 @@
 ---
 name: autopilot-dispatch
-description: "Sub-Agent dispatch protocol for autopilot phases. Constructs Task prompts with JSON envelope contract, explicit path injection, and parameterized templates."
+description: "[ONLY for autopilot orchestrator agent] Sub-Agent dispatch protocol for autopilot phases. Constructs Task prompts with JSON envelope contract, explicit path injection, and parameterized templates."
 ---
 
 # Autopilot Dispatch — 子 Agent 调度协议
+
+> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
 
 从 `autopilot.config.yaml` 读取项目配置，构造标准化 Task prompt 分派子 Agent。
 

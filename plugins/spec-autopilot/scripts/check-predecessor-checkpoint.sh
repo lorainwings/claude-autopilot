@@ -8,8 +8,24 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
+
+# Autopilot context detection: only run if there are phase-results
+has_autopilot_context() {
+  local found=false
+  for dir in "$CHANGES_DIR"/*/context/phase-results/; do
+    if [ -d "$dir" ] && ls "$dir"/*.json >/dev/null 2>&1; then
+      found=true
+      break
+    fi
+  done
+  $found
+}
+
+if ! has_autopilot_context; then
+  exit 0
+fi
 
 # Find active change directory (most recently modified)
 find_active_change() {
@@ -55,12 +71,12 @@ get_last_checkpoint_phase() {
       status=$(python3 -c "
 import json, sys
 try:
-    with open('$checkpoint_file') as f:
+    with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('status', 'unknown'))
 except:
     print('error')
-" 2>/dev/null || echo "error")
+" "$checkpoint_file" 2>/dev/null || echo "error")
 
       if [ "$status" = "ok" ] || [ "$status" = "warning" ]; then
         last_phase=$phase_num
@@ -86,9 +102,24 @@ main() {
   local last_phase
   last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
-  # Read the Task prompt from stdin to detect which phase is being dispatched
-  # The hook receives tool input via environment or stdin
-  local task_input="${TOOL_INPUT:-}"
+  # Read the Task prompt from stdin (PreToolUse receives JSON: {"tool_name":"Task","tool_input":{...}})
+  local stdin_data=""
+  if [ ! -t 0 ]; then
+    stdin_data=$(cat)
+  fi
+
+  local task_input=""
+  if [ -n "$stdin_data" ]; then
+    task_input=$(echo "$stdin_data" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    prompt = data.get('tool_input', {}).get('prompt', '')
+    print(prompt)
+except:
+    pass
+" 2>/dev/null || echo "")
+  fi
 
   if [ -z "$task_input" ]; then
     # No way to determine target phase, allow
@@ -120,7 +151,7 @@ main() {
       test_counts_valid=$(python3 -c "
 import json, sys
 try:
-    with open('$phase4_file') as f:
+    with open(sys.argv[1]) as f:
         data = json.load(f)
     counts = data.get('test_counts', {})
     min_count = 5
@@ -128,7 +159,7 @@ try:
     print('true' if all_valid else 'false')
 except:
     print('false')
-" 2>/dev/null || echo "false")
+" "$phase4_file" 2>/dev/null || echo "false")
 
       if [ "$test_counts_valid" = "false" ]; then
         echo "BLOCKED: Phase 4 test_counts gate failed. Each test type must have >= 5 test cases." >&2
@@ -147,13 +178,13 @@ except:
       zero_skip_passed=$(python3 -c "
 import json, sys
 try:
-    with open('$phase5_file') as f:
+    with open(sys.argv[1]) as f:
         data = json.load(f)
     zsc = data.get('zero_skip_check', {})
     print('true' if zsc.get('passed', False) else 'false')
 except:
     print('false')
-" 2>/dev/null || echo "false")
+" "$phase5_file" 2>/dev/null || echo "false")
 
       if [ "$zero_skip_passed" = "false" ]; then
         echo "BLOCKED: Phase 5 zero_skip_check gate failed. All tests must pass with zero skips." >&2

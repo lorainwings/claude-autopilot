@@ -1,9 +1,11 @@
 ---
 name: autopilot-gate
-description: "Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist, special gates, and cognitive shortcut immunity."
+description: "[ONLY for autopilot orchestrator agent] Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist, special gates, and cognitive shortcut immunity."
 ---
 
 # Autopilot Gate — 门禁验证协议
+
+> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
 
 阶段切换时的 AI 侧验证清单。Layer 1（Task blockedBy）和 Layer 2（磁盘 checkpoint）已由 Hooks 确定性执行，本 Skill 负责 Layer 3（AI 执行的补充检查清单）。
 

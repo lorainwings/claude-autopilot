@@ -8,7 +8,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
 if [ ! -d "$CHANGES_DIR" ]; then
@@ -34,24 +34,24 @@ for change_dir in "$CHANGES_DIR"/*/; do
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
       status=$(python3 -c "
-import json
+import json, sys
 try:
-    with open('$checkpoint_file') as f:
+    with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('status', 'unknown'))
 except:
     print('error')
-" 2>/dev/null || echo "error")
+" "$checkpoint_file" 2>/dev/null || echo "error")
 
       summary=$(python3 -c "
-import json
+import json, sys
 try:
-    with open('$checkpoint_file') as f:
+    with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('summary', 'N/A')[:60])
 except:
     print('N/A')
-" 2>/dev/null || echo "N/A")
+" "$checkpoint_file" 2>/dev/null || echo "N/A")
 
       checkpoints+=("  Phase $phase_num: [$status] $summary")
 
