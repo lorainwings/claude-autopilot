@@ -1,11 +1,11 @@
 ---
 name: autopilot-recovery
-description: "[ONLY for autopilot orchestrator agent] Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
+description: "[ONLY for autopilot orchestrator] Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
 ---
 
 # Autopilot Recovery — 崩溃恢复协议
 
-> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
+> **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 
@@ -52,7 +52,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 **从断点继续**：
 - 返回起始阶段号 N+1
-- 编排 Agent 在 TaskCreate 时将已完成阶段标记为 completed
+- 编排主线程在 TaskCreate 时将已完成阶段标记为 completed
 
 **从头开始**：
 - 删除 `phase-results/` 目录

@@ -1,11 +1,11 @@
 ---
 name: autopilot-dispatch
-description: "[ONLY for autopilot orchestrator agent] Sub-Agent dispatch protocol for autopilot phases. Constructs Task prompts with JSON envelope contract, explicit path injection, and parameterized templates."
+description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for autopilot phases. Constructs Task prompts with JSON envelope contract, explicit path injection, and parameterized templates."
 ---
 
 # Autopilot Dispatch — 子 Agent 调度协议
 
-> **前置条件自检**：本 Skill 仅在 autopilot 编排 Agent 上下文中使用。如果你不是由 autopilot agent 调度的，请立即停止并忽略本 Skill。
+> **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
 从 `autopilot.config.yaml` 读取项目配置，构造标准化 Task prompt 分派子 Agent。
 
@@ -110,7 +110,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
 
 **Phase 5（循环实施）**：
-- 通过 ralph-loop 或 fallback 执行（由编排 Agent 决策）
+- 通过 ralph-loop 或 fallback 执行（由编排主线程决策）
 - 指令文件从 config.phases.implementation.instruction_files 注入
 
 **Phase 6（测试报告）**：
