@@ -4,17 +4,31 @@
 # Purpose: Before dispatching a sub-Agent, verify the predecessor phase checkpoint
 #          exists and has status=ok/warning. Prevents phase skipping.
 #
-# Detection: Only processes Task calls whose prompt starts with
-#            <!-- autopilot-phase:N -->. All other Task calls are immediately allowed.
+# Detection: Only processes Task calls whose prompt contains
+#            <!-- autopilot-phase:N -->. All other Task calls exit 0 immediately.
 #
-# Exit codes: 0=allow, 2=block
+# Output: JSON with hookSpecificOutput.permissionDecision on deny (official spec).
+#         Plain exit 0 on allow.
 
-set -euo pipefail
+set -uo pipefail
+# NOTE: no `set -e` — we handle errors explicitly to avoid pipefail + ls crashes.
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
+# --- Dependency check ---
+if ! command -v python3 &>/dev/null; then
+  # Cannot validate without python3 → block to be safe (fail-closed)
+  cat <<'DENY_JSON'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "python3 is required for autopilot gate hooks but not found in PATH"
+  }
+}
+DENY_JSON
+  exit 0
+fi
 
-# Read stdin JSON (PreToolUse receives: {"tool_name":"Task","tool_input":{...}})
+# --- Read stdin JSON ---
 STDIN_DATA=""
 if [ ! -t 0 ]; then
   STDIN_DATA=$(cat)
@@ -24,7 +38,23 @@ if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
 
-# Extract phase number from <!-- autopilot-phase:N --> marker in tool_input.prompt
+# --- Extract project root from stdin cwd (preferred) or git fallback ---
+PROJECT_ROOT=$(echo "$STDIN_DATA" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(data.get('cwd', ''))
+except Exception:
+    pass
+" 2>/dev/null || echo "")
+
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+
+CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
+
+# --- Extract phase number from marker ---
 TARGET_PHASE=$(echo "$STDIN_DATA" | python3 -c "
 import json, sys, re
 try:
@@ -42,16 +72,48 @@ if [ -z "$TARGET_PHASE" ]; then
   exit 0
 fi
 
-# --- From here on, this is an autopilot Task for Phase $TARGET_PHASE ---
+# --- Helper: output deny JSON and exit 0 ---
+deny() {
+  local reason="$1"
+  python3 -c "
+import json, sys
+print(json.dumps({
+    'hookSpecificOutput': {
+        'hookEventName': 'PreToolUse',
+        'permissionDecision': 'deny',
+        'permissionDecisionReason': sys.argv[1]
+    }
+}))
+" "$reason"
+  exit 0
+}
 
-# Find active change directory (most recently modified)
+# --- Find active change directory ---
+# Uses the most recently modified checkpoint file to determine active change,
+# falling back to directory mtime if no checkpoints exist.
 find_active_change() {
-  local latest=""
-  local latest_time=0
-
   if [ ! -d "$CHANGES_DIR" ]; then
     return 1
   fi
+
+  # First try: find the change with the most recent checkpoint file
+  local latest_file=""
+  local latest_dir=""
+  latest_file=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null \
+    | xargs ls -t 2>/dev/null | head -1) || true
+
+  if [ -n "$latest_file" ]; then
+    # Extract change dir: .../changes/<name>/context/phase-results/file.json → .../changes/<name>/
+    latest_dir=$(echo "$latest_file" | sed 's|/context/phase-results/.*||')
+    if [ -d "$latest_dir" ]; then
+      echo "${latest_dir}/"
+      return 0
+    fi
+  fi
+
+  # Fallback: most recently modified change directory
+  local latest=""
+  local latest_time=0
 
   for dir in "$CHANGES_DIR"/*/; do
     [ -d "$dir" ] || continue
@@ -72,19 +134,18 @@ find_active_change() {
   return 1
 }
 
-# Get the last successful checkpoint phase number
-get_last_checkpoint_phase() {
-  local phase_results_dir="$1"
-  local last_phase=0
+# --- Find latest checkpoint file for a phase (by mtime, not alphabetical) ---
+find_checkpoint() {
+  local dir="$1"
+  local phase="$2"
+  find "$dir" -maxdepth 1 -name "phase-${phase}-*.json" -type f 2>/dev/null \
+    | xargs ls -t 2>/dev/null | head -1 || true
+}
 
-  for phase_num in 2 3 4 5 6; do
-    local pattern="$phase_results_dir/phase-${phase_num}-*.json"
-    local checkpoint_file
-    checkpoint_file=$(ls $pattern 2>/dev/null | head -1)
-
-    if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
-      local status
-      status=$(python3 -c "
+# --- Read checkpoint status ---
+read_checkpoint_status() {
+  local file="$1"
+  python3 -c "
 import json, sys
 try:
     with open(sys.argv[1]) as f:
@@ -92,8 +153,21 @@ try:
     print(data.get('status', 'unknown'))
 except Exception:
     print('error')
-" "$checkpoint_file" 2>/dev/null || echo "error")
+" "$file" 2>/dev/null || echo "error"
+}
 
+# --- Get the last successful checkpoint phase number ---
+get_last_checkpoint_phase() {
+  local phase_results_dir="$1"
+  local last_phase=0
+
+  for phase_num in 2 3 4 5 6; do
+    local checkpoint_file
+    checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
+
+    if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
+      local status
+      status=$(read_checkpoint_status "$checkpoint_file")
       if [ "$status" = "ok" ] || [ "$status" = "warning" ]; then
         last_phase=$phase_num
       fi
@@ -103,35 +177,30 @@ except Exception:
   echo $last_phase
 }
 
-# Main logic
-main() {
-  local change_dir
-  change_dir=$(find_active_change) || exit 0  # No active change, allow
+# === Main logic ===
 
-  local phase_results_dir="${change_dir}context/phase-results"
+change_dir=$(find_active_change) || exit 0  # No active change, allow
 
-  if [ ! -d "$phase_results_dir" ]; then
-    # No phase results yet, allow (Phase 2 is starting fresh)
-    exit 0
-  fi
+phase_results_dir="${change_dir}context/phase-results"
 
-  local last_phase
-  last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
+if [ ! -d "$phase_results_dir" ]; then
+  # No phase results yet → Phase 2 starting fresh
+  exit 0
+fi
 
-  # Check if skipping phases (target > last_phase + 1, and target >= 3)
-  if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
-    echo "BLOCKED: Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first." >&2
-    exit 2
-  fi
+last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
-  # Special gate: Phase 5 requires Phase 4 test_counts validation
-  if [ "$TARGET_PHASE" -eq 5 ]; then
-    local phase4_file
-    phase4_file=$(ls "$phase_results_dir"/phase-4-*.json 2>/dev/null | head -1)
+# Check sequential ordering (target > last_phase + 1, and target >= 3)
+if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
+  deny "Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first."
+fi
 
-    if [ -n "$phase4_file" ] && [ -f "$phase4_file" ]; then
-      local test_counts_valid
-      test_counts_valid=$(python3 -c "
+# Special gate: Phase 5 requires Phase 4 test_counts validation
+if [ "$TARGET_PHASE" -eq 5 ]; then
+  phase4_file=$(find_checkpoint "$phase_results_dir" 4)
+
+  if [ -n "$phase4_file" ] && [ -f "$phase4_file" ]; then
+    test_counts_valid=$(python3 -c "
 import json, sys
 try:
     with open(sys.argv[1]) as f:
@@ -144,21 +213,18 @@ except Exception:
     print('false')
 " "$phase4_file" 2>/dev/null || echo "false")
 
-      if [ "$test_counts_valid" = "false" ]; then
-        echo "BLOCKED: Phase 4 test_counts gate failed. Each test type must have >= 5 test cases." >&2
-        exit 2
-      fi
+    if [ "$test_counts_valid" = "false" ]; then
+      deny "Phase 4 test_counts gate failed. Each test type (unit, api, e2e, ui) must have >= 5 test cases."
     fi
   fi
+fi
 
-  # Special gate: Phase 6 requires Phase 5 zero_skip_check
-  if [ "$TARGET_PHASE" -eq 6 ]; then
-    local phase5_file
-    phase5_file=$(ls "$phase_results_dir"/phase-5-*.json 2>/dev/null | head -1)
+# Special gate: Phase 6 requires Phase 5 zero_skip_check
+if [ "$TARGET_PHASE" -eq 6 ]; then
+  phase5_file=$(find_checkpoint "$phase_results_dir" 5)
 
-    if [ -n "$phase5_file" ] && [ -f "$phase5_file" ]; then
-      local zero_skip_passed
-      zero_skip_passed=$(python3 -c "
+  if [ -n "$phase5_file" ] && [ -f "$phase5_file" ]; then
+    zero_skip_passed=$(python3 -c "
 import json, sys
 try:
     with open(sys.argv[1]) as f:
@@ -169,27 +235,20 @@ except Exception:
     print('false')
 " "$phase5_file" 2>/dev/null || echo "false")
 
-      if [ "$zero_skip_passed" = "false" ]; then
-        echo "BLOCKED: Phase 5 zero_skip_check gate failed. All tests must pass with zero skips." >&2
-        exit 2
-      fi
-    fi
-
-    # Also check tasks.md completion
-    local tasks_file="${change_dir}tasks.md"
-
-    if [ -f "$tasks_file" ]; then
-      local unchecked
-      unchecked=$(grep -c '\- \[ \]' "$tasks_file" 2>/dev/null || echo "0")
-      if [ "$unchecked" -gt 0 ]; then
-        echo "BLOCKED: tasks.md has $unchecked incomplete tasks. All must be [x] before Phase 6." >&2
-        exit 2
-      fi
+    if [ "$zero_skip_passed" = "false" ]; then
+      deny "Phase 5 zero_skip_check gate failed. All tests must pass with zero skips."
     fi
   fi
 
-  # All checks passed
-  exit 0
-}
+  # Also check tasks.md completion
+  tasks_file="${change_dir}tasks.md"
+  if [ -f "$tasks_file" ]; then
+    unchecked=$(grep -c '\- \[ \]' "$tasks_file" 2>/dev/null || echo "0")
+    if [ "$unchecked" -gt 0 ]; then
+      deny "tasks.md has $unchecked incomplete tasks. All must be [x] before Phase 6."
+    fi
+  fi
+fi
 
-main "$@"
+# All checks passed
+exit 0

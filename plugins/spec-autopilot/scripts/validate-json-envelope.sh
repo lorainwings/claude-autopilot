@@ -2,17 +2,26 @@
 # validate-json-envelope.sh
 # Hook: PostToolUse(Task)
 # Purpose: After a sub-Agent completes, validate its output contains a valid
-#          JSON envelope with required fields (status/summary/artifacts/next_ready).
+#          JSON envelope with required fields (status/summary).
 #
 # Detection: Only processes Task calls whose prompt contains
-#            <!-- autopilot-phase:N -->. All other Task calls are immediately allowed.
+#            <!-- autopilot-phase:N -->. All other Task calls exit 0 immediately.
 #
-# Exit codes: Always 0 (PostToolUse cannot undo completed operations).
-#             Warnings/errors are emitted to stderr for observability only.
+# Output: Uses PostToolUse `decision: "block"` with `reason` to feed validation
+#         errors back to Claude as actionable feedback. Exit is always 0.
+#         See: https://code.claude.com/docs/en/hooks#posttooluse-decision-control
 
-set -euo pipefail
+set -uo pipefail
+# NOTE: no `set -e` — we handle errors explicitly.
 
-# Read PostToolUse stdin JSON: {"tool_name":"Task","tool_input":{...},"tool_result":"..."}
+# --- Dependency check ---
+if ! command -v python3 &>/dev/null; then
+  echo "WARNING: python3 required for autopilot envelope validation but not found" >&2
+  exit 0
+fi
+
+# --- Read stdin JSON ---
+# PostToolUse receives: {"tool_name":"Task","tool_input":{...},"tool_response":"..."}
 STDIN_DATA=""
 if [ ! -t 0 ]; then
   STDIN_DATA=$(cat)
@@ -22,105 +31,111 @@ if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
 
-# Check for <!-- autopilot-phase:N --> marker in tool_input.prompt
-HAS_MARKER=$(echo "$STDIN_DATA" | python3 -c "
-import json, sys, re
-try:
-    data = json.load(sys.stdin)
-    prompt = data.get('tool_input', {}).get('prompt', '')
-    m = re.search(r'<!--\s*autopilot-phase:\d+\s*-->', prompt)
-    print('yes' if m else 'no')
-except Exception:
-    print('no')
-" 2>/dev/null || echo "no")
-
-# No marker → not an autopilot Task, skip validation
-if [ "$HAS_MARKER" != "yes" ]; then
-  exit 0
-fi
-
-# --- From here on, this is an autopilot Task result ---
-
-# Extract tool_result from the stdin JSON
-AGENT_OUTPUT=$(echo "$STDIN_DATA" | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    print(data.get('tool_result', ''))
-except Exception:
-    pass
-" 2>/dev/null || echo "")
-
-if [ -z "$AGENT_OUTPUT" ]; then
-  echo "WARNING: Empty sub-Agent output for autopilot Task" >&2
-  exit 0
-fi
-
-# Validate JSON envelope (all warnings go to stderr, always exit 0)
-echo "$AGENT_OUTPUT" | python3 -c "
+# --- Single python3 call to do all processing ---
+echo "$STDIN_DATA" | python3 -c "
 import json
 import re
 import sys
 
-output = sys.stdin.read()
+data = json.load(sys.stdin)
 
-# Try to find JSON block in the output
-json_patterns = [
-    # Fenced code block
-    r'\`\`\`(?:json)?\s*\n({.*?})\s*\n\`\`\`',
-    # Raw JSON object
-    r'(\{[^{}]*\"status\"[^{}]*\})',
-]
+# 1) Check for autopilot marker in tool_input.prompt
+prompt = data.get('tool_input', {}).get('prompt', '')
+if not re.search(r'<!--\s*autopilot-phase:\d+\s*-->', prompt):
+    # Not an autopilot Task → no validation needed
+    sys.exit(0)
 
+# 2) Extract tool_response (official PostToolUse field name)
+#    tool_response for Task is the sub-agent's output text
+tool_response = data.get('tool_response', '')
+if isinstance(tool_response, dict):
+    # Some tools return structured responses
+    output = json.dumps(tool_response)
+elif isinstance(tool_response, str):
+    output = tool_response
+else:
+    output = str(tool_response) if tool_response else ''
+
+if not output.strip():
+    # Empty output → tell Claude to re-dispatch
+    print(json.dumps({
+        'decision': 'block',
+        'reason': 'Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase.'
+    }))
+    sys.exit(0)
+
+# 3) Extract JSON envelope from output using raw_decode (handles nested objects)
 found_json = None
 
-for pattern in json_patterns:
-    matches = re.findall(pattern, output, re.DOTALL)
-    for match in matches:
+# Strategy A: Try json.JSONDecoder().raw_decode to find first valid JSON object
+decoder = json.JSONDecoder()
+# Search for '{' positions and try to decode from each
+for i, ch in enumerate(output):
+    if ch == '{':
         try:
-            data = json.loads(match)
-            if 'status' in data:
-                found_json = data
+            obj, end = decoder.raw_decode(output, i)
+            if isinstance(obj, dict) and 'status' in obj:
+                found_json = obj
                 break
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             continue
-    if found_json:
-        break
 
+# Strategy B: Try fenced code block extraction
 if not found_json:
-    # Try parsing the entire output as JSON
+    code_block_match = re.search(r'\x60\x60\x60(?:json)?\s*\n(.*?)\n\x60\x60\x60', output, re.DOTALL)
+    if code_block_match:
+        try:
+            obj = json.loads(code_block_match.group(1))
+            if isinstance(obj, dict) and 'status' in obj:
+                found_json = obj
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+# Strategy C: Try parsing entire output as JSON
+if not found_json:
     try:
-        found_json = json.loads(output.strip())
-    except json.JSONDecodeError:
+        obj = json.loads(output.strip())
+        if isinstance(obj, dict):
+            found_json = obj
+    except (json.JSONDecodeError, ValueError):
         pass
 
 if not found_json:
-    print('WARNING: No valid JSON envelope found in autopilot sub-Agent output', file=sys.stderr)
+    print(json.dumps({
+        'decision': 'block',
+        'reason': 'No valid JSON envelope found in autopilot sub-agent output. The sub-agent must return a JSON object with at least {\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\"}. Re-dispatch this phase with clearer instructions.'
+    }))
     sys.exit(0)
 
-# Validate required fields
+# 4) Validate required fields
 required_fields = ['status', 'summary']
 missing = [f for f in required_fields if f not in found_json]
 
 if missing:
-    print(f'WARNING: JSON envelope missing required fields: {missing}', file=sys.stderr)
+    print(json.dumps({
+        'decision': 'block',
+        'reason': f'Autopilot JSON envelope missing required fields: {missing}. The sub-agent must include both \"status\" and \"summary\" fields.'
+    }))
     sys.exit(0)
 
-# Validate status value
+# 5) Validate status value
 valid_statuses = ['ok', 'warning', 'blocked', 'failed']
 if found_json['status'] not in valid_statuses:
-    print(f'WARNING: Invalid status \"{found_json[\"status\"]}\". Must be one of: {valid_statuses}', file=sys.stderr)
+    print(json.dumps({
+        'decision': 'block',
+        'reason': f'Invalid autopilot status \"{found_json[\"status\"]}\". Must be one of: {valid_statuses}'
+    }))
     sys.exit(0)
 
-# Info-level notices for optional fields (stderr only)
+# 6) Info-level notices for optional fields (stderr only, not fed to Claude)
 if 'artifacts' not in found_json:
     print('INFO: JSON envelope missing optional field: artifacts', file=sys.stderr)
-
 if 'next_ready' not in found_json:
     print('INFO: JSON envelope missing optional field: next_ready', file=sys.stderr)
 
+# All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
 sys.exit(0)
-" 2>&1 >&2
+" 2>/dev/null
 
 exit 0

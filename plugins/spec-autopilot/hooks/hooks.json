@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-predecessor-checkpoint.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-predecessor-checkpoint.sh",
+            "timeout": 30
           }
         ]
       }
@@ -17,7 +18,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-json-envelope.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-json-envelope.sh",
+            "timeout": 30
           }
         ]
       }
@@ -27,7 +29,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh",
+            "timeout": 15
           }
         ]
       }

@@ -3,16 +3,24 @@
 # Hook: SessionStart
 # Purpose: Scan openspec/changes/*/context/phase-results/ for existing checkpoints
 #          and output a summary. Enables cross-session recovery awareness.
+#
+# Output: stdout text is added to Claude's context (SessionStart behavior).
+#         Only outputs if checkpoints exist; zero output for non-autopilot sessions.
 # Exit codes: 0 (informational only, never blocks)
 
-set -euo pipefail
+set -uo pipefail
+# NOTE: no `set -e` — we handle errors explicitly to avoid pipefail crashes.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
 if [ ! -d "$CHANGES_DIR" ]; then
   exit 0
+fi
+
+# Check python3 availability (needed for JSON parsing)
+if ! command -v python3 &>/dev/null; then
+  exit 0  # SessionStart: fail silently, don't block session
 fi
 
 found_any=false
@@ -30,7 +38,9 @@ for change_dir in "$CHANGES_DIR"/*/; do
   last_status=""
 
   for phase_num in 2 3 4 5 6; do
-    checkpoint_file=$(ls "$phase_results_dir"/phase-${phase_num}-*.json 2>/dev/null | head -1)
+    # Use find instead of ls to avoid pipefail crash on missing files
+    checkpoint_file=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null \
+      | xargs ls -t 2>/dev/null | head -1) || true
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
       status=$(python3 -c "
@@ -39,7 +49,7 @@ try:
     with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('status', 'unknown'))
-except:
+except Exception:
     print('error')
 " "$checkpoint_file" 2>/dev/null || echo "error")
 
@@ -49,7 +59,7 @@ try:
     with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('summary', 'N/A')[:60])
-except:
+except Exception:
     print('N/A')
 " "$checkpoint_file" 2>/dev/null || echo "N/A")
 
