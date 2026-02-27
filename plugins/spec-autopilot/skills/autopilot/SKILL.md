@@ -23,7 +23,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | `phases.reporting` | instruction_files、report_commands、coverage_target、zero_skip_required |
 | `test_suites` | 各测试套件命令和类型 |
 
-如果配置文件不存在 → AskUserQuestion 提示用户创建。
+如果配置文件不存在 → 自动调用 Skill(`spec-autopilot:autopilot-init`) 扫描项目生成配置。
 
 ## 协议技能
 
@@ -51,7 +51,9 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 
 ## Phase 0: 环境检查 + 崩溃恢复
 
-1. 读取 `.claude/autopilot.config.yaml` → 解析所有配置节
+1. 检查 `.claude/autopilot.config.yaml` 是否存在
+   - **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
+   - **存在** → 直接读取并解析所有配置节
 2. 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查 ralph-loop 插件是否启用
 3. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
 4. 使用 TaskCreate 创建 8 个阶段任务 + blockedBy 依赖链
@@ -187,7 +189,7 @@ autopilot-gate 额外验证：
 
 | 场景 | 处理方式 |
 |------|----------|
-| 配置文件缺失 | AskUserQuestion 引导创建 |
+| 配置文件缺失 | 调用 autopilot-init 自动生成 |
 | 工具未安装 | 主动安装，失败则联网搜索 |
 | ralph-loop 异常退出 | 保存进度到 phase-results，提示用户 |
 | 测试全部失败 | 分析根因，不盲目修改 |
