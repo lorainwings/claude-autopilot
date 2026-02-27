@@ -36,40 +36,33 @@ Two-layer design:
 
 ## Installation
 
-### Option 1: Direct install from GitHub
+### Step 1: Add marketplace
 
 ```bash
-claude plugin install --from github:lorainwings/claude-autopilot --scope project
+claude plugin marketplace add lorainwings/claude-autopilot
 ```
 
-### Option 2: Local development
+### Step 2: Install plugin
 
 ```bash
-claude --plugin-dir ./spec-autopilot
+# 项目级安装（推荐）
+claude plugin install spec-autopilot@lorainwings-plugins --scope project
+
+# 或用户级安装（所有项目生效）
+claude plugin install spec-autopilot@lorainwings-plugins --scope user
 ```
 
-### Option 3: Via marketplace
+### Step 3: Restart Claude Code
 
-Add to your marketplace's `marketplace.json`:
+重启 Claude Code 会话使插件生效。
 
-```json
-{
-  "plugins": [
-    {
-      "name": "spec-autopilot",
-      "source": { "source": "github", "repo": "lorainwings/claude-autopilot" },
-      "description": "Spec-driven autopilot orchestration",
-      "version": "1.0.0"
-    }
-  ]
-}
-```
-
-Then install:
+### Verify
 
 ```bash
-claude plugin install spec-autopilot@your-marketplace --scope project
+claude plugin list
 ```
+
+应看到 `spec-autopilot@lorainwings-plugins` 已安装。
 
 ## Project Setup
 
