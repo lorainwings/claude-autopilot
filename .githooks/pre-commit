@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# pre-commit hook: run spec-autopilot test suite when hook scripts change.
+
+set -uo pipefail
+
+# Check if any plugin script files are staged
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/.*\.(sh|json)$' || true)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+echo "Plugin files changed — running hook test suite..."
+
+TEST_SCRIPT="plugins/spec-autopilot/scripts/test-hooks.sh"
+
+if [ ! -f "$TEST_SCRIPT" ]; then
+  echo "WARNING: test-hooks.sh not found, skipping" >&2
+  exit 0
+fi
+
+if ! bash "$TEST_SCRIPT"; then
+  echo ""
+  echo "Hook tests failed. Fix the issues above before committing."
+  exit 1
+fi
+
+echo "All hook tests passed."
+exit 0

@@ -1,0 +1,28 @@
+name: Plugin Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+
+jobs:
+  test-hooks:
+    name: Test Hook Scripts
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify python3 available
+        run: python3 --version
+
+      - name: Run hook test suite
+        run: bash plugins/spec-autopilot/scripts/test-hooks.sh
