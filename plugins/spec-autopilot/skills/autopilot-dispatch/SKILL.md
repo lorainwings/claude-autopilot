@@ -28,7 +28,7 @@ description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for 
 | Phase | 额外字段 |
 |-------|----------|
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }` |
-| 5 | `test_results_path`, `tasks_completed`, `iterations_used` |
+| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }`, `iterations_used` |
 | 6 | `pass_rate`, `report_url`, `report_path` |
 
 ### 状态解析规则

@@ -158,12 +158,31 @@ output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"
 
+# 3h. Phase 5 with zero_skip_check → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"All tasks implemented\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":8,\"zero_skip_check\":{\"passed\":true},\"iterations_used\":12}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 5 with zero_skip_check → exit 0" 0 $exit_code
+assert_not_contains "Phase 5 complete → no block" "$output" "block"
+
+# 3i. Phase 5 missing zero_skip_check → should block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"All tasks implemented\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":8}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 5 missing zero_skip_check → exit 0" 0 $exit_code
+assert_contains "Phase 5 missing field → block" "$output" "block"
+
+# 3j. Phase 6 with required fields → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 complete → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 complete → no block" "$output" "block"
+
 echo ""
 
 # ============================================================
 echo "--- 4. scan-checkpoints-on-start.sh ---"
-
-# 4a. No changes dir → exit 0, no output
 exit_code=0
 output=$(bash "$SCRIPT_DIR/scan-checkpoints-on-start.sh" 2>/dev/null) || exit_code=$?
 assert_exit "SessionStart hook → exit 0" 0 $exit_code

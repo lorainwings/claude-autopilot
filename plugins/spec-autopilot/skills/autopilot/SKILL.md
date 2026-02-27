@@ -47,6 +47,8 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | 主线程 | 汇总展示 + **用户确认**归档 |
 
+> **Checkpoint 范围**: 只有 Phase 2-6（子 Agent 阶段）产生 checkpoint 文件。Phase 0、1、7 在主线程执行，不写 checkpoint。
+
 ---
 
 ## Phase 0: 环境检查 + 崩溃恢复

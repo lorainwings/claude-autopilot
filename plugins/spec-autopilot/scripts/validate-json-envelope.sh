@@ -157,7 +157,7 @@ phase_num = int(phase_match.group(1)) if phase_match else 0
 
 phase_required = {
     4: ['test_counts', 'dry_run_results'],
-    5: ['test_results_path', 'tasks_completed'],
+    5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
     6: ['pass_rate', 'report_path'],
 }
 
