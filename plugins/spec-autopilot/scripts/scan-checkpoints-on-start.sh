@@ -25,29 +25,29 @@ fi
 
 found_any=false
 
-for change_dir in "$CHANGES_DIR"/*/; do
-  [ -d "$change_dir" ] || continue
-  [[ "$(basename "$change_dir")" == _* ]] && continue
+# Process a single change directory and collect checkpoint info.
+# Extracted to function so `local` is valid.
+process_change_dir() {
+  local change_dir="$1"
+  local phase_results_dir="${change_dir}context/phase-results"
+  [ -d "$phase_results_dir" ] || return 0
 
-  phase_results_dir="${change_dir}context/phase-results"
-  [ -d "$phase_results_dir" ] || continue
-
+  local change_name
   change_name=$(basename "$change_dir")
-  checkpoints=()
-  last_phase=0
-  last_status=""
+  local checkpoints=()
+  local last_phase=0
+  local last_status=""
 
   for phase_num in 2 3 4 5 6; do
-    # Use find with empty-guard to avoid GNU xargs running ls on empty input
     local find_results=""
     find_results=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null) || true
+    local checkpoint_file=""
     if [ -n "$find_results" ]; then
       checkpoint_file=$(echo "$find_results" | xargs ls -t 2>/dev/null | head -1) || true
-    else
-      checkpoint_file=""
     fi
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
+      local status
       status=$(python3 -c "
 import json, sys
 try:
@@ -58,6 +58,7 @@ except Exception:
     print('error')
 " "$checkpoint_file" 2>/dev/null || echo "error")
 
+      local summary
       summary=$(python3 -c "
 import json, sys
 try:
@@ -92,6 +93,12 @@ except Exception:
       echo "$cp"
     done
   fi
+}
+
+for change_dir in "$CHANGES_DIR"/*/; do
+  [ -d "$change_dir" ] || continue
+  [[ "$(basename "$change_dir")" == _* ]] && continue
+  process_change_dir "$change_dir"
 done
 
 if [ "$found_any" = true ]; then

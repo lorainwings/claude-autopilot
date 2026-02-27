@@ -267,6 +267,82 @@ fi
 echo ""
 
 # ============================================================
+echo "--- 8. Pure bash marker bypass (P2 performance) ---"
+
+# 8a. Non-autopilot Task bypasses without calling python3
+# Verify no stdout output (no deny, no block) and exit 0
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"Search for all TODO comments in the codebase","subagent_type":"Explore"}}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "non-autopilot bypass (predecessor) → exit 0" 0 $exit_code
+assert_not_contains "non-autopilot bypass → no deny output" "$output" "deny"
+
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"Search for all TODO comments in the codebase"},"tool_response":"Found 42 TODOs"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "non-autopilot bypass (envelope) → exit 0" 0 $exit_code
+assert_not_contains "non-autopilot bypass → no block output" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 9. Fail-closed consistency check ---"
+
+# 9a. validate-json-envelope.sh should block autopilot tasks (verified by checking source)
+if grep -q 'decision.*block' "$SCRIPT_DIR/validate-json-envelope.sh" && \
+   grep -q 'python3 is required' "$SCRIPT_DIR/validate-json-envelope.sh"; then
+  green "  PASS: validate-json-envelope.sh has fail-closed block for missing python3"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: validate-json-envelope.sh missing fail-closed behavior"
+  FAIL=$((FAIL + 1))
+fi
+
+# 9b. check-predecessor-checkpoint.sh should deny autopilot tasks (verified by checking source)
+if grep -q 'permissionDecision.*deny' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" && \
+   grep -q 'python3 is required' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
+  green "  PASS: check-predecessor-checkpoint.sh has fail-closed deny for missing python3"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: check-predecessor-checkpoint.sh missing fail-closed behavior"
+  FAIL=$((FAIL + 1))
+fi
+
+# 9c. Both scripts use bash marker pre-check before python3
+if grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" && \
+   grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/validate-json-envelope.sh"; then
+  green "  PASS: both scripts use pure bash marker pre-check"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: missing bash marker pre-check in one or both scripts"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 10. SessionStart async configuration ---"
+
+# 10a. hooks.json SessionStart has async: true
+if python3 -c "
+import json
+with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+    data = json.load(f)
+for group in data['hooks']['SessionStart']:
+    for hook in group['hooks']:
+        assert hook.get('async') is True, f'SessionStart hook missing async: true'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: SessionStart hook has async: true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: SessionStart hook missing async: true"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
 echo "==================================="
 echo "Results: $PASS passed, $FAIL failed"
 echo "==================================="

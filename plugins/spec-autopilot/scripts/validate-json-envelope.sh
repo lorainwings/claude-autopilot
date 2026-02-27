@@ -14,12 +14,6 @@
 set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly.
 
-# --- Dependency check ---
-if ! command -v python3 &>/dev/null; then
-  echo "WARNING: python3 required for autopilot envelope validation but not found" >&2
-  exit 0
-fi
-
 # --- Read stdin JSON ---
 # PostToolUse receives: {"tool_name":"Task","tool_input":{...},"tool_response":"..."}
 STDIN_DATA=""
@@ -28,6 +22,26 @@ if [ ! -t 0 ]; then
 fi
 
 if [ -z "$STDIN_DATA" ]; then
+  exit 0
+fi
+
+# --- Fast bypass: pure bash marker detection ---
+# If the autopilot marker isn't present anywhere in stdin, skip python3 entirely.
+# This avoids forking python3 for every non-autopilot Task call (~200-500ms savings).
+if ! echo "$STDIN_DATA" | grep -q 'autopilot-phase:[0-9]'; then
+  exit 0
+fi
+
+# --- Dependency check (only needed for autopilot Tasks) ---
+if ! command -v python3 &>/dev/null; then
+  # Fail-closed: block autopilot tasks when python3 unavailable
+  # (consistent with check-predecessor-checkpoint.sh behavior)
+  cat <<'BLOCK_JSON'
+{
+  "decision": "block",
+  "reason": "python3 is required for autopilot envelope validation but not found in PATH. Install python3 to continue."
+}
+BLOCK_JSON
   exit 0
 fi
 

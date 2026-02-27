@@ -13,7 +13,24 @@
 set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly to avoid pipefail + ls crashes.
 
-# --- Dependency check ---
+# --- Read stdin JSON ---
+STDIN_DATA=""
+if [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
+
+if [ -z "$STDIN_DATA" ]; then
+  exit 0
+fi
+
+# --- Fast bypass: pure bash marker detection ---
+# If the autopilot marker isn't present anywhere in stdin, skip python3 entirely.
+# This avoids forking python3 for every non-autopilot Task call (~200-500ms savings).
+if ! echo "$STDIN_DATA" | grep -q 'autopilot-phase:[0-9]'; then
+  exit 0
+fi
+
+# --- Dependency check (only needed for autopilot Tasks) ---
 if ! command -v python3 &>/dev/null; then
   # Cannot validate without python3 → block to be safe (fail-closed)
   cat <<'DENY_JSON'
@@ -25,16 +42,6 @@ if ! command -v python3 &>/dev/null; then
   }
 }
 DENY_JSON
-  exit 0
-fi
-
-# --- Read stdin JSON ---
-STDIN_DATA=""
-if [ ! -t 0 ]; then
-  STDIN_DATA=$(cat)
-fi
-
-if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
 
