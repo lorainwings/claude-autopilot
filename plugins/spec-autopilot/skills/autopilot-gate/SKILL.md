@@ -1,6 +1,6 @@
 ---
 name: autopilot-gate
-description: "[ONLY for autopilot orchestrator agent] Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist, special gates, and cognitive shortcut immunity."
+description: "[ONLY for autopilot orchestrator agent] Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist and special gates (Phase 4→5 test_counts, Phase 5→6 zero_skip)."
 ---
 
 # Autopilot Gate — 门禁验证协议

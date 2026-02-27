@@ -211,6 +211,59 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# 6c. Matcher uses ^Task$ (exact match, not substring)
+if python3 -c "
+import json, re
+with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+    data = json.load(f)
+for event_name in ['PreToolUse', 'PostToolUse']:
+    for group in data['hooks'][event_name]:
+        m = group.get('matcher', '')
+        # Verify matcher only matches 'Task', not 'TaskCreate' etc.
+        assert re.fullmatch(m, 'Task'), f'{event_name} matcher {m!r} does not match Task'
+        assert not re.search(m, 'TaskCreate'), f'{event_name} matcher {m!r} also matches TaskCreate!'
+        assert not re.search(m, 'TaskUpdate'), f'{event_name} matcher {m!r} also matches TaskUpdate!'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: matchers use exact ^Task\$ (no collision with TaskCreate/TaskUpdate)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: matchers collide with TaskCreate/TaskUpdate/etc."
+  FAIL=$((FAIL + 1))
+fi
+
+# 6d. Plugin version is > 1.0.0
+if python3 -c "
+import json
+with open('$SCRIPT_DIR/../.claude-plugin/plugin.json') as f:
+    data = json.load(f)
+v = data.get('version', '0.0.0')
+major, minor, patch = (int(x) for x in v.split('.'))
+assert (major, minor, patch) > (1, 0, 0), f'Version {v} not bumped from 1.0.0'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: plugin.json version bumped (> 1.0.0)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: plugin.json version still 1.0.0"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 7. deny() fail-closed test ---"
+
+# 7a. Verify deny fallback works when python3 json.dumps "crashes"
+# We can't easily crash json.dumps, but we can verify the fallback structure exists
+if grep -q 'hookSpecificOutput.*permissionDecision.*deny.*internal error' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
+  green "  PASS: deny() has hardcoded JSON fallback for fail-closed behavior"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: deny() missing fail-closed fallback"
+  FAIL=$((FAIL + 1))
+fi
+
 echo ""
 
 # ============================================================

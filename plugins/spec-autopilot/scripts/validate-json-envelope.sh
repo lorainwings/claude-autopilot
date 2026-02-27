@@ -37,7 +37,11 @@ import json
 import re
 import sys
 
-data = json.load(sys.stdin)
+try:
+    data = json.load(sys.stdin)
+except (json.JSONDecodeError, ValueError) as e:
+    print(f'WARNING: Hook received malformed JSON from Claude Code: {e}', file=sys.stderr)
+    sys.exit(0)
 
 # 1) Check for autopilot marker in tool_input.prompt
 prompt = data.get('tool_input', {}).get('prompt', '')
@@ -136,6 +140,8 @@ if 'next_ready' not in found_json:
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
 sys.exit(0)
-" 2>/dev/null
+"
+# NOTE: python3 stderr is NOT suppressed — allows observability of INFO messages
+# and uncaught exceptions in verbose mode (Ctrl+O).
 
 exit 0

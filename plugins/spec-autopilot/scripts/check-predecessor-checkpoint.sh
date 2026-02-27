@@ -72,10 +72,11 @@ if [ -z "$TARGET_PHASE" ]; then
   exit 0
 fi
 
-# --- Helper: output deny JSON and exit 0 ---
+# --- Helper: output deny JSON and exit 0 (fail-closed) ---
 deny() {
   local reason="$1"
-  python3 -c "
+  local json_output
+  json_output=$(python3 -c "
 import json, sys
 print(json.dumps({
     'hookSpecificOutput': {
@@ -84,7 +85,14 @@ print(json.dumps({
         'permissionDecisionReason': sys.argv[1]
     }
 }))
-" "$reason"
+" "$reason" 2>/dev/null) || true
+
+  if [ -n "$json_output" ]; then
+    echo "$json_output"
+  else
+    # Fallback: hardcoded JSON if python3 fails (fail-closed, never allow)
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Autopilot gate check failed (internal error)"}}'
+  fi
   exit 0
 }
 
@@ -99,8 +107,11 @@ find_active_change() {
   # First try: find the change with the most recent checkpoint file
   local latest_file=""
   local latest_dir=""
-  latest_file=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null \
-    | xargs ls -t 2>/dev/null | head -1) || true
+  local find_results
+  find_results=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null) || true
+  if [ -n "$find_results" ]; then
+    latest_file=$(echo "$find_results" | xargs ls -t 2>/dev/null | head -1) || true
+  fi
 
   if [ -n "$latest_file" ]; then
     # Extract change dir: .../changes/<name>/context/phase-results/file.json → .../changes/<name>/
@@ -138,8 +149,11 @@ find_active_change() {
 find_checkpoint() {
   local dir="$1"
   local phase="$2"
-  find "$dir" -maxdepth 1 -name "phase-${phase}-*.json" -type f 2>/dev/null \
-    | xargs ls -t 2>/dev/null | head -1 || true
+  local results
+  results=$(find "$dir" -maxdepth 1 -name "phase-${phase}-*.json" -type f 2>/dev/null) || true
+  if [ -n "$results" ]; then
+    echo "$results" | xargs ls -t 2>/dev/null | head -1
+  fi
 }
 
 # --- Read checkpoint status ---

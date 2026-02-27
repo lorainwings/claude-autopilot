@@ -38,9 +38,14 @@ for change_dir in "$CHANGES_DIR"/*/; do
   last_status=""
 
   for phase_num in 2 3 4 5 6; do
-    # Use find instead of ls to avoid pipefail crash on missing files
-    checkpoint_file=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null \
-      | xargs ls -t 2>/dev/null | head -1) || true
+    # Use find with empty-guard to avoid GNU xargs running ls on empty input
+    local find_results=""
+    find_results=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null) || true
+    if [ -n "$find_results" ]; then
+      checkpoint_file=$(echo "$find_results" | xargs ls -t 2>/dev/null | head -1) || true
+    else
+      checkpoint_file=""
+    fi
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
       status=$(python3 -c "
