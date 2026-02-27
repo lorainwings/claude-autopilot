@@ -24,6 +24,17 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/save-state-before-compact.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -32,6 +43,16 @@
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh",
             "timeout": 15,
             "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/reinject-state-after-compact.sh",
+            "timeout": 15
           }
         ]
       }

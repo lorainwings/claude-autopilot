@@ -36,9 +36,11 @@ description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for 
 | status | 主线程行为 |
 |--------|-----------|
 | ok | 写入 checkpoint，继续下一阶段 |
-| warning | 写入 checkpoint，展示警告后继续 |
+| warning | 写入 checkpoint，展示警告后继续（**Phase 4 例外：见下**） |
 | blocked | 暂停，展示给用户，要求排除阻塞 |
 | failed | 暂停，展示给用户，可能需要重新执行本阶段 |
+
+**Phase 4 特殊规则**：Phase 4（测试设计）**不接受 warning**。如果 Phase 4 返回 warning 且 test_counts 任一项 < 门禁阈值，主线程必须将 status 覆盖为 blocked 并重新 dispatch。
 
 ## 结构化标记（Hook 识别依据）
 
@@ -108,6 +110,51 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - Agent: config.phases.testing.agent（默认 qa-expert）
 - 指令文件 + 参考文件从 config 注入
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
+- **Phase 4 不可跳过，不可降级为 warning**
+
+Phase 4 子 Agent prompt 必须包含以下强制指令：
+
+```markdown
+## 强制要求（不可违反）
+
+你**必须**创建实际的测试文件，不允许以"后续补充"或"纯 UI 变更不需要"为由跳过。
+
+### 必须创建的 4 类测试文件
+
+1. **单元测试**（≥5 个用例）
+   - 后端: `backend/src/test/java/.../*Test.java` (JUnit 5)
+   - 或前端: `frontend/*/src/**/*.spec.ts` (Vitest)
+2. **API 集成测试**（≥5 个用例）
+   - `tests/api/test_*_api.py` (pytest)
+   - 如无新 API，测试现有 API 的联通性和字段校验
+3. **E2E 端到端测试**（≥5 个用例）
+   - `tests/e2e/*.spec.ts` (Playwright)
+   - 覆盖完整用户操作流程
+4. **UI 自动化测试**（≥5 个用例）
+   - `tests/ui/test_*_ui.py` (Playwright + pytest)
+   - 覆盖组件渲染、交互、响应式
+
+### 测试计划文档（必须创建）
+
+在 `openspec/changes/{change_name}/context/test-plan.md` 中记录：
+- 测试策略概述
+- 各类型用例数量统计
+- 每个测试文件路径和覆盖范围
+
+### Dry-run 语法验证（必须执行）
+
+创建测试文件后必须执行语法检查：
+- 后端: `cd backend && ./gradlew test --dry-run` 或 `javac` 编译检查
+- pytest: `python -m py_compile <file>`
+- Playwright: `npx tsc --noEmit <file>`
+
+### 返回要求
+
+status 只允许 "ok" 或 "blocked"：
+- 所有测试文件创建成功 + dry-run 通过 → `"status": "ok"`
+- 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
+- **禁止返回 "warning"**：Phase 4 不接受降级通过
+```
 
 **Phase 5（循环实施）**：
 - 通过 ralph-loop 或 fallback 执行（由编排主线程决策）

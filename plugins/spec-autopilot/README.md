@@ -6,23 +6,19 @@ Spec-driven autopilot orchestration for delivery pipelines.
 
 Two-layer design:
 
-- **Layer 1 (this plugin)**: Reusable orchestration — Agent, Skills, Hooks, Scripts
+- **Layer 1 (this plugin)**: Reusable orchestration — Skills, Hooks, Scripts
 - **Layer 2 (project-side)**: Project-specific config + phase instruction files
 
 ## Components
-
-### Agent
-
-| File | Purpose |
-|------|---------|
-| `agents/autopilot.md` | Top-level orchestrator with 8-phase pipeline |
 
 ### Skills
 
 | Skill | Purpose |
 |-------|---------|
+| `autopilot` | Main orchestrator: 8-phase pipeline (runs in main thread) |
+| `autopilot-init` | Auto-detect project tech stack, generate autopilot.config.yaml |
 | `autopilot-dispatch` | Sub-Agent dispatch protocol with JSON envelope contract |
-| `autopilot-gate` | Gate verification: 8-step checklist + special gates + cognitive immunity |
+| `autopilot-gate` | Gate verification: 8-step checklist + special gates |
 | `autopilot-checkpoint` | Checkpoint read/write for phase-results |
 | `autopilot-recovery` | Crash recovery: scan checkpoints, determine resume point |
 
@@ -30,9 +26,9 @@ Two-layer design:
 
 | Script | Event | Purpose | Exit |
 |--------|-------|---------|------|
-| `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint before dispatch | 0=allow, 2=block |
-| `validate-json-envelope.sh` | PostToolUse(Task) | Validate sub-Agent output has valid JSON envelope | 0=pass, 1=warn |
-| `scan-checkpoints-on-start.sh` | SessionStart | Scan and report existing checkpoints | 0 (info only) |
+| `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint before dispatch | Always 0; stdout JSON `permissionDecision: deny` on block |
+| `validate-json-envelope.sh` | PostToolUse(Task) | Validate sub-Agent output has valid JSON envelope | Always 0; stdout JSON `decision: block` on failure |
+| `scan-checkpoints-on-start.sh` | SessionStart | Scan and report existing checkpoints | Always 0 (info only) |
 
 ## Installation
 
@@ -101,7 +97,18 @@ test_suites:
 
 ### 2. Create project-side skill entry
 
-Create `.claude/skills/autopilot/SKILL.md` as a thin wrapper that delegates to this plugin's Agent.
+Create `.claude/skills/autopilot/SKILL.md` as a thin wrapper that delegates to this plugin's Skill:
+
+```markdown
+---
+name: autopilot
+description: "Full autopilot orchestrator"
+argument-hint: "[需求描述或 PRD 文件路径]"
+---
+
+调用 Skill("spec-autopilot:autopilot", args="$ARGUMENTS") 启动 autopilot 编排器。
+不要在本 Skill 中执行任何编排逻辑，所有逻辑由插件 Skill 提供。
+```
 
 ### 3. Add phase instruction files
 

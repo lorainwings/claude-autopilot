@@ -115,7 +115,8 @@ Step 3: 使用 Task 工具派发子 Agent
         → prompt 开头必须包含 <!-- autopilot-phase:N --> 标记
         → Hook 脚本自动校验前置 checkpoint 和返回 JSON
 Step 4: 解析子 Agent 返回的 JSON 信封
-        → ok/warning → 继续
+        → ok → 继续
+        → warning → **Phase 4 特殊处理**（见下方）
         → blocked/failed → 暂停展示给用户
 Step 5: 调用 Skill("spec-autopilot:autopilot-checkpoint")
         → 写入 phase-results checkpoint 文件
@@ -128,6 +129,19 @@ autopilot-gate 额外验证（阈值从 config.phases.testing.gate 读取）：
 - `test_counts` 每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
 - `artifacts` 包含 config.phases.testing.gate.required_test_types 对应文件
 - `dry_run_results` 全部为 0（exit code）
+
+**Phase 4 warning 降级阻断规则**：
+
+Phase 4 返回 `status: "warning"` 时，主线程**必须**执行以下检查：
+1. 检查 `test_counts` 是否所有字段 ≥ min_test_count_per_type
+2. 检查 `artifacts` 是否非空
+3. **如果 test_counts 任一字段 < min_test_count_per_type 或 artifacts 为空**：
+   - 将 status 强制覆盖为 `"blocked"`
+   - 不写入 checkpoint
+   - 展示给用户：「Phase 4 返回 warning 但未创建足够测试用例，视为 blocked」
+   - 重新 dispatch Phase 4
+
+Phase 4 **不允许**以 warning 状态通过门禁。要么 ok（测试全部创建），要么 blocked（需要排除障碍）。
 
 ### Phase 5 特殊处理
 
@@ -202,3 +216,23 @@ autopilot-gate 额外验证：
 | 测试全部失败 | 分析根因，不盲目修改 |
 | 子 Agent 返回异常 | JSON 解析失败 → 标记 failed |
 | 阶段状态文件缺失 | 视为未完成，重新执行 |
+| **上下文压缩** | 见下方恢复协议 |
+
+## 上下文压缩恢复协议
+
+长流水线执行中 Claude Code 可能触发上下文压缩（compaction），导致对话历史被摘要化，丢失精确的阶段状态。
+
+### 自动机制（Hook 驱动，无需主线程干预）
+
+1. **PreCompact Hook**：压缩前自动将当前编排状态写入 `openspec/changes/<name>/context/autopilot-state.md`
+2. **SessionStart(compact) Hook**：压缩后自动将状态文件内容注入回 Claude 上下文
+
+### 主线程恢复行为
+
+如果检测到上下文被压缩（收到 `=== AUTOPILOT STATE RESTORED ===` 标记），主线程应：
+
+1. 读取 `autopilot-state.md` 获取当前进度（last completed phase、next phase）
+2. 读取 `autopilot.config.yaml` 重新加载配置
+3. 读取 `context/phase-results/` 目录下所有 checkpoint 确认状态
+4. 从下一个未完成阶段继续执行，无需重建 TaskCreate 链（已有的 Task 仍然有效）
+5. 调用 Skill(`spec-autopilot:autopilot-gate`) 验证前置条件后继续 dispatch

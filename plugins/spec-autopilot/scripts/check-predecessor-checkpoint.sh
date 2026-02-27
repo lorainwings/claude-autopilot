@@ -222,6 +222,10 @@ if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; the
 fi
 
 # Special gate: Phase 5 requires Phase 4 test_counts validation
+# NOTE: min_count=5 is a hardcoded safety floor. The project-level threshold
+# (config.phases.testing.gate.min_test_count_per_type) is enforced by the
+# autopilot-gate Skill (Layer 3). This Hook (Layer 2) uses a conservative
+# constant to avoid depending on PyYAML for YAML config parsing.
 if [ "$TARGET_PHASE" -eq 5 ]; then
   phase4_file=$(find_checkpoint "$phase_results_dir" 4)
 
