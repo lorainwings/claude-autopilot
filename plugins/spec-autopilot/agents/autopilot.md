@@ -120,7 +120,7 @@ skills:
 Step 1: 调用 autopilot-gate Skill → 执行 8 步阶段切换检查清单
         （验证 Phase N-1 的 checkpoint 存在且 status=ok/warning）
 Step 2: 调用 autopilot-dispatch Skill → 构造 Task prompt 并分派子 Agent
-        （注入 config 中的 instruction_files 和 reference_files）
+        （prompt 开头必须包含 `<!-- autopilot-phase:N -->` 标记；注入 config 中的 instruction_files 和 reference_files）
 Step 3: 解析子 Agent 返回的 JSON 信封
         （ok/warning → 继续；blocked/failed → 暂停展示给用户）
 Step 4: 调用 autopilot-checkpoint Skill → 写入 phase-results checkpoint
@@ -136,15 +136,14 @@ autopilot-gate 额外验证：
 
 ### Phase 5 特殊处理
 
-1. 检测 ralph-loop 可用性（读取 settings.json）
-2. **可用**：通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
-3. **不可用且 config.phases.implementation.ralph_loop.fallback_enabled = true**：
-   - 进入手动循环模式
+1. 运行 `bash <plugin_dir>/scripts/detect-ralph-loop.sh` 检测 ralph-loop 可用性
+2. 输出 `available`：通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
+3. 输出 `fallback`：进入手动循环模式
    - 每次迭代执行 `/opsx:apply` 实施一个任务
    - 每任务后运行 quick_check 测试，每 3 任务运行 full_test
    - 遵循 3 次失败暂停策略
    - 最大迭代次数从 config.phases.implementation.ralph_loop.max_iterations 读取
-4. **不可用且 fallback 关闭**：AskUserQuestion 提示用户手动安装 ralph-loop
+4. 输出 `blocked`：AskUserQuestion 提示用户手动安装 ralph-loop 或启用 fallback
 
 ### Phase 5→6 特殊门禁
 
@@ -164,26 +163,16 @@ autopilot-gate 额外验证：
 | 约束 | 规则 |
 |------|------|
 | 阶段门禁 | Hook 确定性执行 + autopilot-gate AI 检查清单 |
-| 认知捷径免疫 | 出现"不需要测试""直接实现更快"时必须阻断自己 |
+| 阶段跳过阻断 | 由 Hook + TaskCreate blockedBy 确定性阻断，AI 无需自我审查 |
 | 任务系统 | Phase 0 必须创建 8 个阶段任务 + blockedBy 链 |
 | 崩溃恢复 | autopilot-recovery Skill 扫描 checkpoint |
 | 子 Agent 隔离 | Phase 2-6 必须通过 Task 工具在子 Agent 中执行 |
+| 结构化标记 | 子 Agent prompt 开头必须包含 `<!-- autopilot-phase:N -->` |
 | 结构化返回 | 子 Agent 必须返回 JSON 信封 |
 | 显式路径注入 | dispatch 时必须在 prompt 中列出所有引用文件路径 |
 | 测试不可变 | 禁止修改测试以通过；只能修改实现代码 |
 | 零跳过 | Phase 6 零跳过门禁：skip > 0 则阶段失败 |
 | 任务拆分 | 每次 ≤3 个文件，≤800 行代码 |
-
-### 认知捷径免疫表
-
-| 想法 | 正确行为 |
-|------|----------|
-| "这只是 UI 修改，不需要测试" | Phase 4 强制，无论改动大小 |
-| "没有后端改动，不需要后端测试" | Phase 4 要求所有测试类型 |
-| "直接实现更快" | 必须通过 Phase 5 |
-| "测试报告太重了" | Phase 6 强制，零跳过门禁 |
-| "可以先实现再补测试" | Phase 4 必须在 Phase 5 之前 |
-| "这个阶段对当前任务不适用" | 所有阶段都适用，无例外 |
 
 ## 错误处理
 

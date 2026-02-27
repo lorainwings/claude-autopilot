@@ -40,12 +40,23 @@ description: "[ONLY for autopilot orchestrator agent] Sub-Agent dispatch protoco
 | blocked | 暂停，展示给用户，要求排除阻塞 |
 | failed | 暂停，展示给用户，可能需要重新执行本阶段 |
 
+## 结构化标记（Hook 识别依据）
+
+每个子 Agent 的 prompt **开头第一行**必须包含标记：
+
+```
+<!-- autopilot-phase:{phase_number} -->
+```
+
+此标记是 Hook 脚本（`check-predecessor-checkpoint.sh` / `validate-json-envelope.sh`）识别 autopilot Task 的**唯一依据**。无标记的 Task 调用会被 Hook 直接放行（exit 0），不执行任何校验。
+
 ## 显式路径注入模板
 
 dispatch 子 Agent 时**必须**在 prompt 中明确列出所有引用文件路径：
 
 ```markdown
-Task(prompt: "你是 autopilot 阶段 {phase_number} 的子 Agent。
+Task(prompt: "<!-- autopilot-phase:{phase_number} -->
+你是 autopilot 阶段 {phase_number} 的子 Agent。
 先读取以下指令文件：
 {for each file in config.phases[phase].instruction_files}
 - {file_path}

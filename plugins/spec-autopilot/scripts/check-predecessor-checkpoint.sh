@@ -3,29 +3,46 @@
 # Hook: PreToolUse(Task)
 # Purpose: Before dispatching a sub-Agent, verify the predecessor phase checkpoint
 #          exists and has status=ok/warning. Prevents phase skipping.
+#
+# Detection: Only processes Task calls whose prompt starts with
+#            <!-- autopilot-phase:N -->. All other Task calls are immediately allowed.
+#
 # Exit codes: 0=allow, 2=block
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
-# Autopilot context detection: only run if there are phase-results
-has_autopilot_context() {
-  local found=false
-  for dir in "$CHANGES_DIR"/*/context/phase-results/; do
-    if [ -d "$dir" ] && ls "$dir"/*.json >/dev/null 2>&1; then
-      found=true
-      break
-    fi
-  done
-  $found
-}
+# Read stdin JSON (PreToolUse receives: {"tool_name":"Task","tool_input":{...}})
+STDIN_DATA=""
+if [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
 
-if ! has_autopilot_context; then
+if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
+
+# Extract phase number from <!-- autopilot-phase:N --> marker in tool_input.prompt
+TARGET_PHASE=$(echo "$STDIN_DATA" | python3 -c "
+import json, sys, re
+try:
+    data = json.load(sys.stdin)
+    prompt = data.get('tool_input', {}).get('prompt', '')
+    m = re.search(r'<!--\s*autopilot-phase:(\d+)\s*-->', prompt)
+    if m:
+        print(m.group(1))
+except Exception:
+    pass
+" 2>/dev/null || echo "")
+
+# No marker → not an autopilot Task, allow immediately
+if [ -z "$TARGET_PHASE" ]; then
+  exit 0
+fi
+
+# --- From here on, this is an autopilot Task for Phase $TARGET_PHASE ---
 
 # Find active change directory (most recently modified)
 find_active_change() {
@@ -38,7 +55,6 @@ find_active_change() {
 
   for dir in "$CHANGES_DIR"/*/; do
     [ -d "$dir" ] || continue
-    # Skip archive-like directories
     [[ "$(basename "$dir")" == _* ]] && continue
 
     local mtime
@@ -74,7 +90,7 @@ try:
     with open(sys.argv[1]) as f:
         data = json.load(f)
     print(data.get('status', 'unknown'))
-except:
+except Exception:
     print('error')
 " "$checkpoint_file" 2>/dev/null || echo "error")
 
@@ -102,47 +118,14 @@ main() {
   local last_phase
   last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
-  # Read the Task prompt from stdin (PreToolUse receives JSON: {"tool_name":"Task","tool_input":{...}})
-  local stdin_data=""
-  if [ ! -t 0 ]; then
-    stdin_data=$(cat)
-  fi
-
-  local task_input=""
-  if [ -n "$stdin_data" ]; then
-    task_input=$(echo "$stdin_data" | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    prompt = data.get('tool_input', {}).get('prompt', '')
-    print(prompt)
-except:
-    pass
-" 2>/dev/null || echo "")
-  fi
-
-  if [ -z "$task_input" ]; then
-    # No way to determine target phase, allow
-    exit 0
-  fi
-
-  # Extract phase number from prompt (look for "阶段 N" or "Phase N" patterns)
-  local target_phase
-  target_phase=$(echo "$task_input" | grep -oE '(Phase|阶段)\s*[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
-
-  if [ -z "$target_phase" ]; then
-    # Cannot determine target phase from prompt, allow
-    exit 0
-  fi
-
   # Check if skipping phases (target > last_phase + 1, and target >= 3)
-  if [ "$target_phase" -ge 3 ] && [ "$target_phase" -gt $((last_phase + 1)) ]; then
-    echo "BLOCKED: Cannot start Phase $target_phase. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first." >&2
+  if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
+    echo "BLOCKED: Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first." >&2
     exit 2
   fi
 
   # Special gate: Phase 5 requires Phase 4 test_counts validation
-  if [ "$target_phase" -eq 5 ]; then
+  if [ "$TARGET_PHASE" -eq 5 ]; then
     local phase4_file
     phase4_file=$(ls "$phase_results_dir"/phase-4-*.json 2>/dev/null | head -1)
 
@@ -157,7 +140,7 @@ try:
     min_count = 5
     all_valid = all(counts.get(t, 0) >= min_count for t in ['unit', 'api', 'e2e', 'ui'])
     print('true' if all_valid else 'false')
-except:
+except Exception:
     print('false')
 " "$phase4_file" 2>/dev/null || echo "false")
 
@@ -169,7 +152,7 @@ except:
   fi
 
   # Special gate: Phase 6 requires Phase 5 zero_skip_check
-  if [ "$target_phase" -eq 6 ]; then
+  if [ "$TARGET_PHASE" -eq 6 ]; then
     local phase5_file
     phase5_file=$(ls "$phase_results_dir"/phase-5-*.json 2>/dev/null | head -1)
 
@@ -182,7 +165,7 @@ try:
         data = json.load(f)
     zsc = data.get('zero_skip_check', {})
     print('true' if zsc.get('passed', False) else 'false')
-except:
+except Exception:
     print('false')
 " "$phase5_file" 2>/dev/null || echo "false")
 
@@ -193,8 +176,6 @@ except:
     fi
 
     # Also check tasks.md completion
-    local change_name
-    change_name=$(basename "$change_dir")
     local tasks_file="${change_dir}tasks.md"
 
     if [ -f "$tasks_file" ]; then

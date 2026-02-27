@@ -58,17 +58,6 @@ description: "[ONLY for autopilot orchestrator agent] Gate verification protocol
 
 任何条件不满足 → 阻断 Phase 6。
 
-## 认知捷径免疫
+## 阶段强制执行保障
 
-以下想法出现时，**必须触发阻断**：
-
-| 想法 | 正确行为 |
-|------|----------|
-| "这只是 UI 修改，不需要测试" | Phase 4 强制，无论改动大小 |
-| "没有后端改动，不需要后端测试" | Phase 4 要求所有类型测试 |
-| "直接实现更快" | 必须通过 Phase 5 |
-| "测试报告太重了" | Phase 6 强制，零跳过门禁 |
-| "可以先实现再补测试" | Phase 4 必须在 Phase 5 之前 |
-| "这个阶段对当前任务不适用" | 所有阶段都适用，无例外 |
-
-**核心原则**：8 个阶段是不可分割整体。即使某阶段"看起来"不必要，也必须完整执行。产出为空时应产出 "N/A with justification" 而非跳过。
+阶段跳过由 Hook（`check-predecessor-checkpoint.sh`）+ TaskCreate blockedBy 依赖链确定性阻断，AI 无需自我审查。8 个阶段是不可分割整体，产出为空时应产出 "N/A with justification" 而非跳过。
