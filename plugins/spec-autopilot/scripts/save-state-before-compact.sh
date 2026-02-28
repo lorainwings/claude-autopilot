@@ -45,11 +45,23 @@ fi
 
 # --- Find active change (most recent checkpoint) ---
 find_active_change() {
+  # Priority 0: Read lock file written by autopilot Phase 0
+  local lock_file="$CHANGES_DIR/.autopilot-active"
+  if [ -f "$lock_file" ]; then
+    local active_name
+    active_name=$(cat "$lock_file" | tr -d '[:space:]')
+    if [ -n "$active_name" ] && [ -d "$CHANGES_DIR/$active_name" ]; then
+      echo "$CHANGES_DIR/$active_name"
+      return 0
+    fi
+  fi
+
+  # Priority 1: find the change with the most recent checkpoint file
   local latest_file=""
   local find_results
   find_results=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null) || true
   if [ -n "$find_results" ]; then
-    latest_file=$(echo "$find_results" | xargs ls -t 2>/dev/null | head -1) || true
+    latest_file=$(echo "$find_results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1) || true
   fi
 
   if [ -n "$latest_file" ]; then
@@ -57,13 +69,23 @@ find_active_change() {
     return 0
   fi
 
-  # Fallback: most recently modified change directory
+  # Fallback: most recently modified change directory (sorted by mtime)
+  local latest=""
+  local latest_time=0
   for dir in "$CHANGES_DIR"/*/; do
     [ -d "$dir" ] || continue
     [[ "$(basename "$dir")" == _* ]] && continue
-    echo "${dir%/}"
-    return 0
+    local mtime
+    mtime=$(stat -f "%m" "$dir" 2>/dev/null || stat -c "%Y" "$dir" 2>/dev/null || echo 0)
+    if [ "$mtime" -gt "$latest_time" ]; then
+      latest_time=$mtime
+      latest="${dir%/}"
+    fi
   done
+  if [ -n "$latest" ]; then
+    echo "$latest"
+    return 0
+  fi
   return 1
 }
 

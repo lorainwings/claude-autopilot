@@ -43,7 +43,7 @@ process_change_dir() {
     find_results=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null) || true
     local checkpoint_file=""
     if [ -n "$find_results" ]; then
-      checkpoint_file=$(echo "$find_results" | xargs ls -t 2>/dev/null | head -1) || true
+      checkpoint_file=$(echo "$find_results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1) || true
     fi
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then

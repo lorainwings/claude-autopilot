@@ -170,6 +170,30 @@ if phase_num in phase_required:
         }))
         sys.exit(0)
 
+# 8) Phase 4 special: warning status not acceptable if test_counts insufficient
+#    Layer 2 deterministic check — prevents LLM orchestrator from accidentally
+#    passing Phase 4 with warning when test counts are below the safety floor.
+if phase_num == 4 and found_json['status'] == 'warning':
+    counts = found_json.get('test_counts', {})
+    min_count = 5  # safety floor (project threshold enforced by autopilot-gate Layer 3)
+    insufficient = [t for t in ['unit', 'api', 'e2e', 'ui'] if counts.get(t, 0) < min_count]
+    if insufficient:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 4 returned \"warning\" with insufficient test counts for: {insufficient}. Each type requires >= {min_count}. Phase 4 only accepts \"ok\" or \"blocked\".'
+        }))
+        sys.exit(0)
+
+# 9) Phase 4 and 6: artifacts must be non-empty (test files / report files required)
+if phase_num in (4, 6):
+    artifacts = found_json.get('artifacts', [])
+    if not isinstance(artifacts, list) or len(artifacts) == 0:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase {phase_num} \"artifacts\" is empty or missing. Phase {phase_num} must produce actual output files.'
+        }))
+        sys.exit(0)
+
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
 sys.exit(0)

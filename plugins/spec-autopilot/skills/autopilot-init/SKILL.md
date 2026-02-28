@@ -125,6 +125,38 @@ test_suites:
 
 如果文件已存在 → AskUserQuestion 确认是否覆盖。
 
+### Step 6: Schema 验证
+
+写入后**必须**验证配置完整性，检查以下必须存在的 key：
+
+```
+必须的顶级 key:
+  - version (string)
+  - services (object, 至少一个服务)
+  - phases (object)
+  - test_suites (object, 至少一个套件)
+
+phases 内必须的 key:
+  - phases.requirements.agent (string)
+  - phases.testing.agent (string)
+  - phases.testing.gate.min_test_count_per_type (number, >= 1)
+  - phases.testing.gate.required_test_types (array, non-empty)
+  - phases.implementation.ralph_loop.enabled (boolean)
+  - phases.implementation.ralph_loop.max_iterations (number, >= 1)
+  - phases.implementation.ralph_loop.fallback_enabled (boolean)
+  - phases.reporting.coverage_target (number, 0-100)
+  - phases.reporting.zero_skip_required (boolean)
+
+每个 service 必须有:
+  - health_url (string, 以 http:// 或 https:// 开头)
+
+每个 test_suite 必须有:
+  - command (string, non-empty)
+  - type (string, one of: unit, integration, e2e, ui, typecheck)
+```
+
+如果校验失败 → 输出缺失/错误的 key 列表，AskUserQuestion 要求用户修正后重试。
+
 ## 检测规则
 
 ### test_suites 自动推导

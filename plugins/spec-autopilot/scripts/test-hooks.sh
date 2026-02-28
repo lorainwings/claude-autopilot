@@ -153,7 +153,7 @@ assert_contains "uses tool_response not tool_result" "$output" "block"
 
 # 3g. Nested JSON object (Phase 4 with test_counts) → should be extracted
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"
@@ -174,10 +174,34 @@ assert_contains "Phase 5 missing field → block" "$output" "block"
 
 # 3j. Phase 6 with required fields → should pass
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\",\"reports/results.json\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Phase 6 complete → exit 0" 0 $exit_code
 assert_not_contains "Phase 6 complete → no block" "$output" "block"
+
+# 3k. Phase 4 warning with insufficient test_counts → should block (C1 fix)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"warning\",\"summary\":\"Tests incomplete\",\"artifacts\":[\"tests/unit.test.ts\"],\"test_counts\":{\"unit\":3,\"api\":2,\"e2e\":1,\"ui\":0},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 warning+low counts → exit 0" 0 $exit_code
+assert_contains "Phase 4 warning+low counts → block" "$output" "block"
+
+# 3l. Phase 4 with empty artifacts → should block (M4 fix)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 empty artifacts → exit 0" 0 $exit_code
+assert_contains "Phase 4 empty artifacts → block" "$output" "block"
+
+# 3m. Phase 6 with empty artifacts → should block (M4 fix)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 empty artifacts → exit 0" 0 $exit_code
+assert_contains "Phase 6 empty artifacts → block" "$output" "block"
+
+# 3n. Lock file detection (C2 fix) — tested via predecessor hook
+# (Lock file test requires filesystem setup, covered by integration tests)
 
 echo ""
 

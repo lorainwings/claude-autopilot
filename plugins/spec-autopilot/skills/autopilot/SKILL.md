@@ -60,6 +60,8 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 3. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
 4. 使用 TaskCreate 创建 8 个阶段任务 + blockedBy 依赖链
    - 崩溃恢复时：已完成阶段直接标记 completed
+5. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（内容为 change 名称）
+   - 此文件供 Hook 脚本确定性识别当前活跃 change，避免多 change 并发时的误判
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
@@ -77,6 +79,8 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 - 功能清单
 - 疑问点列表（每个疑问必须转化为决策点）
 - 技术可行性初判
+
+> **返回值校验**: 主线程必须检查 business-analyst 子 Agent 返回非空，且包含功能清单和疑问点。如果返回为空或格式异常，应重新 dispatch 并在 prompt 中明确要求结构化输出。此 Task 不含 autopilot-phase 标记（设计预期），因此不受 Hook 门禁校验。
 
 ### 1.3 多轮决策循环（LOOP）
 
@@ -147,6 +151,20 @@ Phase 4 **不允许**以 warning 状态通过门禁。要么 ok（测试全部�
 
 ### Phase 5 特殊处理
 
+**Phase 5 启动前安全准备**：
+1. **Git 安全检查点**：在实施任何代码变更前，创建 git tag `autopilot-phase5-start` 标记当前状态
+   ```
+   git tag -f autopilot-phase5-start HEAD
+   ```
+   如果 Phase 5 实施失败需要回退，可通过 `git diff autopilot-phase5-start..HEAD` 查看所有变更，或通过 `git stash` 暂存后 `git checkout autopilot-phase5-start` 回退。
+2. **记录启动时间戳**：在 `openspec/changes/<name>/context/phase-results/phase5-start-time.txt` 写入 ISO-8601 时间戳，供 wall-clock 超时检查使用。
+
+**Wall-clock 超时机制**：
+- 每次迭代开始时检查已用时间 = 当前时间 - phase5-start-time
+- 超过 **2 小时** → 强制暂停，AskUserQuestion：「Phase 5 已运行 {elapsed} 分钟，是否继续？」
+- 选项："继续执行" / "保存进度并暂停" / "回退到 Phase 5 起始点"
+
+**实施流程**：
 1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
 2. **可用** → 通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
 3. **不可用但 config.phases.implementation.ralph_loop.fallback_enabled** → 进入手动循环模式
@@ -186,6 +204,8 @@ autopilot-gate 额外验证：
 3. 用户选择"立即归档" → 执行 Skill(`openspec-archive-change`)
 4. 用户选择"暂不归档" → 展示手动归档命令，结束流程
 5. 用户选择"需要修改" → 提示用户修改后可重新触发或手动归档
+6. **清理锁定文件**：删除 `openspec/changes/.autopilot-active`（无论用户选择何种归档方式）
+7. **清理 git tag**：删除 `autopilot-phase5-start` tag（如果存在）：`git tag -d autopilot-phase5-start 2>/dev/null`
 
 **禁止自动归档**: 归档操作必须经过用户明确确认。
 
