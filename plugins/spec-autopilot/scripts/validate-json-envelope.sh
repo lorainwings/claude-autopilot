@@ -156,9 +156,9 @@ phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
 phase_num = int(phase_match.group(1)) if phase_match else 0
 
 phase_required = {
-    4: ['test_counts', 'dry_run_results'],
+    4: ['test_counts', 'dry_run_results', 'test_pyramid'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
-    6: ['pass_rate', 'report_path'],
+    6: ['pass_rate', 'report_path', 'report_format'],
 }
 
 if phase_num in phase_required:
@@ -170,19 +170,15 @@ if phase_num in phase_required:
         }))
         sys.exit(0)
 
-# 8) Phase 4 special: warning status not acceptable if test_counts insufficient
+# 8) Phase 4 special: warning status not acceptable — Phase 4 protocol only allows ok/blocked
 #    Layer 2 deterministic check — prevents LLM orchestrator from accidentally
-#    passing Phase 4 with warning when test counts are below the safety floor.
+#    passing Phase 4 with warning. Phase 4 must re-dispatch until ok or blocked.
 if phase_num == 4 and found_json['status'] == 'warning':
-    counts = found_json.get('test_counts', {})
-    min_count = 5  # safety floor (project threshold enforced by autopilot-gate Layer 3)
-    insufficient = [t for t in ['unit', 'api', 'e2e', 'ui'] if counts.get(t, 0) < min_count]
-    if insufficient:
-        print(json.dumps({
-            'decision': 'block',
-            'reason': f'Phase 4 returned \"warning\" with insufficient test counts for: {insufficient}. Each type requires >= {min_count}. Phase 4 only accepts \"ok\" or \"blocked\".'
-        }))
-        sys.exit(0)
+    print(json.dumps({
+        'decision': 'block',
+        'reason': 'Phase 4 returned \"warning\" but only \"ok\" or \"blocked\" are accepted. Re-dispatch Phase 4.'
+    }))
+    sys.exit(0)
 
 # 9) Phase 4 and 6: artifacts must be non-empty (test files / report files required)
 if phase_num in (4, 6):

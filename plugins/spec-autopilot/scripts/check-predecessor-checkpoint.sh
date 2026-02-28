@@ -117,7 +117,7 @@ get_last_checkpoint_phase() {
   local phase_results_dir="$1"
   local last_phase=0
 
-  for phase_num in 1 2 3 4 5 6; do
+  for phase_num in 1 2 3 4 5 6 7; do
     local checkpoint_file
     checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
 
@@ -151,41 +151,38 @@ fi
 
 last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
+# Phase 2 independent check: verify Phase 1 checkpoint exists with ok/warning status
+# Phase 2 is checked separately because Phase 1 checkpoint is written by the main thread.
+if [ "$TARGET_PHASE" -eq 2 ]; then
+  phase1_file=$(find_checkpoint "$phase_results_dir" 1)
+  if [ -z "$phase1_file" ] || [ ! -f "$phase1_file" ]; then
+    deny "Phase 1 checkpoint not found. Phase 1 must complete before Phase 2."
+  fi
+  phase1_status=$(read_checkpoint_status "$phase1_file")
+  if [ "$phase1_status" != "ok" ] && [ "$phase1_status" != "warning" ]; then
+    deny "Phase 1 checkpoint status is '$phase1_status'. Must be ok/warning before Phase 2."
+  fi
+fi
+
 # Check sequential ordering (target > last_phase + 1, and target >= 3)
-# NOTE: Phase 2 is intentionally exempted (TARGET_PHASE >= 3) because:
-#   - Phase 1 checkpoint is written by the main thread (not a Task dispatch)
-#   - This hook only intercepts Task calls, so it cannot validate Phase 1 itself
-#   - Phase 1→2 transition is enforced by Layer 1 (TaskCreate blockedBy) and
-#     Layer 3 (autopilot-gate checklist + sub-agent self-check in dispatch template)
 if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
   deny "Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first."
 fi
 
-# Special gate: Phase 5 requires Phase 4 test_counts validation
-# NOTE: min_count=5 is a hardcoded safety floor. The project-level threshold
-# (config.phases.testing.gate.min_test_count_per_type) is enforced by the
-# autopilot-gate Skill (Layer 3). This Hook (Layer 2) uses a conservative
-# constant to avoid depending on PyYAML for YAML config parsing.
+# Special gate: Phase 5 requires Phase 4 checkpoint with status "ok"
+# Phase 4 protocol only allows "ok" or "blocked" — no "warning" state.
+# Test count thresholds are validated by Phase 4 sub-agent and Layer 3 (autopilot-gate).
 if [ "$TARGET_PHASE" -eq 5 ]; then
   phase4_file=$(find_checkpoint "$phase_results_dir" 4)
 
-  if [ -n "$phase4_file" ] && [ -f "$phase4_file" ]; then
-    test_counts_valid=$(python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    counts = data.get('test_counts', {})
-    min_count = 5
-    all_valid = all(counts.get(t, 0) >= min_count for t in ['unit', 'api', 'e2e', 'ui'])
-    print('true' if all_valid else 'false')
-except Exception:
-    print('false')
-" "$phase4_file" 2>/dev/null || echo "false")
+  if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
+    deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
+  fi
 
-    if [ "$test_counts_valid" = "false" ]; then
-      deny "Phase 4 test_counts gate failed. Each test type (unit, api, e2e, ui) must have >= 5 test cases."
-    fi
+  phase4_status=$(read_checkpoint_status "$phase4_file")
+
+  if [ "$phase4_status" != "ok" ]; then
+    deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
   fi
 fi
 

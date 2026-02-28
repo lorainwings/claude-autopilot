@@ -11,6 +11,10 @@
 set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly to avoid pipefail crashes.
 
+# --- Source shared utilities ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
@@ -26,7 +30,7 @@ fi
 found_any=false
 
 # Process a single change directory and collect checkpoint info.
-# Extracted to function so `local` is valid.
+# Uses find_checkpoint and read_checkpoint_status from _common.sh
 process_change_dir() {
   local change_dir="$1"
   local phase_results_dir="${change_dir}context/phase-results"
@@ -38,25 +42,13 @@ process_change_dir() {
   local last_phase=0
   local last_status=""
 
-  for phase_num in 1 2 3 4 5 6; do
-    local find_results=""
-    find_results=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null) || true
-    local checkpoint_file=""
-    if [ -n "$find_results" ]; then
-      checkpoint_file=$(echo "$find_results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1) || true
-    fi
+  for phase_num in 1 2 3 4 5 6 7; do
+    local checkpoint_file
+    checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
       local status
-      status=$(python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    print(data.get('status', 'unknown'))
-except Exception:
-    print('error')
-" "$checkpoint_file" 2>/dev/null || echo "error")
+      status=$(read_checkpoint_status "$checkpoint_file")
 
       local summary
       summary=$(python3 -c "

@@ -51,7 +51,7 @@ except Exception:
 }
 
 # Check if fallback is enabled in autopilot.config.yaml
-# Uses regex-based parsing to avoid PyYAML dependency
+# Uses two-stage YAML section parsing to avoid false positives from unrelated keys
 fallback_enabled() {
   if [ ! -f "$CONFIG_FILE" ]; then
     return 1
@@ -76,16 +76,29 @@ try:
 except ImportError:
     pass
 
-# Regex fallback: match fallback_enabled with various YAML true values
-# Handles: 'true', 'True', 'TRUE', 'yes', 'Yes', 'on', 'On'
-# Ignores commented lines and unrelated keys
+# Regex fallback: two-stage section-aware search
+# Stage 1: Find 'ralph_loop:' section and record its indent level
+# Stage 2: Within that section's indented block, search for 'fallback_enabled: true/yes/on'
+in_ralph_loop_section = False
+section_indent = 0
 for line in content.splitlines():
     stripped = line.strip()
     if stripped.startswith('#'):
         continue
-    m = re.match(r'fallback_enabled\s*:\s*(true|yes|on)\s*$', stripped, re.IGNORECASE)
-    if m:
-        sys.exit(0)
+    if not stripped:
+        continue
+    indent = len(line) - len(line.lstrip())
+    if re.match(r'ralph_loop\s*:', stripped):
+        in_ralph_loop_section = True
+        section_indent = indent
+        continue
+    if in_ralph_loop_section:
+        if indent <= section_indent and stripped:
+            in_ralph_loop_section = False
+            continue
+        m = re.match(r'fallback_enabled\s*:\s*(true|yes|on)\s*$', stripped, re.IGNORECASE)
+        if m:
+            sys.exit(0)
 
 sys.exit(1)
 " "$CONFIG_FILE" 2>/dev/null

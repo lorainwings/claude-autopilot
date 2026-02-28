@@ -23,7 +23,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | `phases.reporting` | instruction_files、report_commands、coverage_target、zero_skip_required |
 | `gates.user_confirmation` | 各阶段间可选用户确认点（after_phase_1, after_phase_3 等） |
 | `async_quality_scans` | Phase 6→7 并行质量扫描配置（契约/性能/视觉/变异测试） |
-| `context_management` | 上下文保护配置（每 Phase 自动 git commit、autocompact 阈值） |
+| `context_management` | 上下文保护配置（每 Phase 自动 git commit、autocompact 阈值、squash_on_archive） |
 | `test_suites` | 各测试套件命令和类型 |
 
 如果配置文件不存在 → 自动调用 Skill(`spec-autopilot:autopilot-init`) 扫描项目生成配置。
@@ -50,7 +50,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | 主线程 | 汇总展示 + **用户确认**归档 |
 
-> **Checkpoint 范围**: Phase 1-6 产生 checkpoint 文件。Phase 0、7 在主线程执行，不写 checkpoint。
+> **Checkpoint 范围**: Phase 1-7 产生 checkpoint 文件。Phase 0 在主线程执行，不写 checkpoint。
 
 ---
 
@@ -65,77 +65,33 @@ argument-hint: "[需求描述或 PRD 文件路径]"
    - 崩溃恢复时：已完成阶段直接标记 completed
 5. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（JSON 格式）：
    ```json
-   {"change":"<change_name>","pid":"<当前进程PID>","started":"<ISO-8601时间戳>","session_cwd":"<项目根目录>"}
+   {"change":"<change_name>","pid":"<当前进程PID>","started":"<ISO-8601时间戳>","session_cwd":"<项目根目录>","anchor_sha":"<SHA>","session_id":"<毫秒级时间戳>"}
    ```
    - 此文件供 Hook 脚本确定性识别当前活跃 change，避免多 change 并发时的误判
-   - 启动时检查：如果 lock 文件已存在，读取 `pid` 字段，检查该进程是否存活（`kill -0 <pid>`）
-     - 进程存活 → AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
-     - 进程不存在 → 视为崩溃残留，自动清理并覆盖
+   - 启动时检查：如果 lock 文件已存在，读取 `pid` 和 `session_id` 字段，执行防 PID 回收检测：
+     - PID 存活 + `session_id` 匹配 → 确认为同一进程，AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
+     - PID 存活 + `session_id` 不匹配 → PID 已被操作系统回收给其他进程，视为崩溃残留，自动清理并覆盖
+     - PID 不存在 → 视为崩溃残留，自动清理并覆盖
+6. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
+   ```
+   git commit --allow-empty -m "autopilot: start <change_name>"
+   ANCHOR_SHA=$(git rev-parse HEAD)
+   ```
+   将 `ANCHOR_SHA` 写入锁定文件的 `anchor_sha` 字段（更新已写入的 `.autopilot-active` 文件）
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
 **核心原则**: 绝不假设，始终列出选项由用户决策。
 
-### 1.1 获取需求来源
+**执行前读取**: `references/phase1-requirements.md`（完整的 7 步流程）
 
-- `$ARGUMENTS` 为文件路径 → 读取文件内容
-- `$ARGUMENTS` 为文本 → 直接作为需求描述
-- `$ARGUMENTS` 为空 → AskUserQuestion 要求输入
-
-### 1.2 需求分析
-
-调用 Task(subagent_type = config.phases.requirements.agent) 分析需求，产出:
-- 功能清单
-- 疑问点列表（每个疑问必须转化为决策点）
-- 技术可行性初判
-
-> **返回值校验**: 主线程必须检查 business-analyst 子 Agent 返回非空，且包含功能清单和疑问点。如果返回为空或格式异常，应重新 dispatch 并在 prompt 中明确要求结构化输出。此 Task 不含 autopilot-phase 标记（设计预期），因此不受 Hook 门禁校验。
-
-### 1.3 多轮决策循环（LOOP）
-
-**循环条件**: 存在任何未澄清的决策点
-
-每轮循环:
-1. 梳理当前所有未决策点
-2. 将每个决策点转化为 AskUserQuestion（2-4 个选项，推荐方案标 Recommended）
-3. 收集用户决策结果
-4. 检查是否产生新的决策点
-5. 重复直到**所有点全部澄清**
-
-### 1.4 生成结构化提示词
-
-整理所有决策结果，包含: 背景与目标、功能清单、决策结论、技术约束、验收标准。
-
-### 1.5 最终确认
-
-展示完整提示词，AskUserQuestion:
-"以上需求理解是否准确？如有遗漏请补充。"
-选项: "确认，开始实施 (Recommended)" / "需要补充修改"
-- 选"补充" → 回到 1.3 循环
-
-### 1.6 写入 Phase 1 Checkpoint
-
-需求确认后，调用 Skill(`spec-autopilot:autopilot-checkpoint`) 写入 `phase-1-requirements.json`：
-
-```json
-{
-  "status": "ok",
-  "summary": "需求分析完成，共 N 个功能点，M 个决策已确认",
-  "artifacts": ["openspec/changes/<name>/context/prd.md", "openspec/changes/<name>/context/discussion.md"],
-  "requirements_summary": "功能概要...",
-  "decisions": [{"point": "决策点描述", "choice": "用户选择"}],
-  "change_name": "<推导出的 kebab-case 名称>"
-}
-```
-
-> 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
-
-### 1.7 可配置用户确认点
-
-如果 `config.gates.user_confirmation.after_phase_1 === true`（默认 true）：
-- AskUserQuestion：「需求分析已完成，是否确认进入 OpenSpec 创建阶段？」
-- 选项: "继续 (Recommended)" / "暂停，我需要再想想"
-- 选"暂停" → 结束当前流水线，用户可后续通过崩溃恢复继续
+概要流程:
+1. 获取需求来源（$ARGUMENTS 解析）
+2. Task 调度 business-analyst 分析需求，产出功能清单 + 疑问点
+3. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认
+4. 生成结构化提示词 → 用户最终确认
+5. 写入 `phase-1-requirements.json` checkpoint
+6. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`）
 
 ---
 
@@ -162,10 +118,12 @@ Step 4: 解析子 Agent 返回的 JSON 信封
 Step 5: 调用 Skill("spec-autopilot:autopilot-checkpoint")
         → 写入 phase-results checkpoint 文件
 Step 6: TaskUpdate Phase N → completed
-Step 7: 上下文保护 — 自动 Git Commit（当 config.context_management.git_commit_per_phase = true）
+Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_management.git_commit_per_phase = true）
+        → 读取 `openspec/changes/.autopilot-active` 中的 `anchor_sha` 字段
         → git add openspec/changes/<name>/context/phase-results/
-        → git commit -m "autopilot: Phase N complete — <phase_summary>"
-        → 此 commit 是崩溃恢复的额外安全网，确保 checkpoint 持久化到 git 历史
+        → git commit --fixup=$ANCHOR_SHA
+        → 此 fixup commit 将在 Phase 7 归档时通过 autosquash 合并为一个 commit
+        → 同时也是崩溃恢复的额外安全网，确保 checkpoint 持久化到 git 历史
 ```
 
 ### Phase 4 特殊门禁
@@ -190,110 +148,47 @@ Phase 4 **不允许**以 warning 状态通过门禁。要么 ok（测试全部�
 
 ### Phase 5 特殊处理
 
-**Phase 5 启动前安全准备**：
-1. **Git 安全检查点**：在实施任何代码变更前，创建 git tag `autopilot-phase5-start` 标记当前状态
-   ```
-   git tag -f autopilot-phase5-start HEAD
-   ```
-   如果 Phase 5 实施失败需要回退，可通过 `git diff autopilot-phase5-start..HEAD` 查看所有变更，或通过 `git stash` 暂存后 `git checkout autopilot-phase5-start` 回退。
-2. **记录启动时间戳**：在 `openspec/changes/<name>/context/phase-results/phase5-start-time.txt` 写入 ISO-8601 时间戳，供 wall-clock 超时检查使用。
+**执行前读取**: `references/phase5-implementation.md`（完整的安全准备、超时机制、实施流程）
 
-**Wall-clock 超时机制**：
-- 每次迭代开始时检查已用时间 = 当前时间 - phase5-start-time
-- 超过 **2 小时** → 强制暂停，AskUserQuestion：「Phase 5 已运行 {elapsed} 分钟，是否继续？」
-- 选项："继续执行" / "保存进度并暂停" / "回退到 Phase 5 起始点"
-
-**实施流程**：
-1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
-2. **检查 worktree 隔离模式**：读取 `config.phases.implementation.worktree.enabled`
-   - **启用** → Phase 5 按 task 粒度派发，每个 task 通过 `Task(isolation: "worktree")` 在独立 worktree 中执行
-     - 每个 task 完成后，worktree 变更自动合并回主分支
-     - 如有合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
-     - 主线程上下文不被实现代码膨胀
-   - **禁用**（默认） → 使用下方 ralph-loop / fallback 策略
-3. **ralph-loop 可用** → 通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
-4. **不可用但 config.phases.implementation.ralph_loop.fallback_enabled** → 进入手动循环模式
-   - 每次迭代执行 Skill(`openspec-apply-change`) 实施一个任务
-   - 每任务后运行 quick_check，每 3 任务运行 full_test
-   - 遵循 3 次失败暂停策略
-   - 最大迭代次数从 config.phases.implementation.ralph_loop.max_iterations 读取
-4. **不可用且 fallback 禁用** → AskUserQuestion：
-   ```
-   "ralph-loop 插件不可用，手动 fallback 也已禁用。请选择处理方式："
-   选项:
-   - "启用 fallback 模式 (Recommended)" → 修改 config 中 fallback_enabled 为 true，进入手动循环
-   - "暂停流水线，手动安装 ralph-loop" → 展示安装命令，暂停等待
-   - "跳过实施阶段（仅测试已有代码）" → 标记 Phase 5 为 warning，继续 Phase 6
-   ```
+概要:
+1. Git 安全检查点 → `git tag -f autopilot-phase5-start HEAD`
+2. 记录启动时间戳 → wall-clock 超时机制（2 小时硬限）
+3. 检测 ralph-loop 可用性 + worktree 隔离配置
+4. **ralph-loop 可用** → 构造参数调用 `Skill("ralph-loop:ralph-loop")`，完成后从 test-results.json 构造 JSON 信封
+5. **不可用 + fallback 启用** → 手动循环模式（每任务 apply + 测试）
+6. **不可用 + fallback 禁用** → AskUserQuestion 让用户选择处理方式
 
 ### Phase 5→6 特殊门禁
 
-autopilot-gate 额外验证：
-- `test-results.json` 存在
-- `zero_skip_check.passed === true`
-- `tasks.md` 中所有任务标记为 `[x]`
+autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.passed === true`、`tasks.md` 全部 `[x]`
 
 ---
 
 ## Phase 6→7 过渡: 并行质量扫描（主线程派发，不阻塞）
 
-Phase 6 完成后、Phase 7 之前，主线程**同时**派发多个后台质量扫描 Agent。这些 Agent 与 Phase 7 的汇总准备并行执行。
+**执行前读取**: `references/quality-scans.md`（完整的派发流程、安装重试、结果收集、硬超时机制）
 
-### 派发流程
+概要:
+1. 读取 `config.async_quality_scans`，对每个扫描项检查工具安装 → 未安装自动安装 → 仍失败标记 "install_failed"
+2. 使用 `Task(run_in_background: true)` 并行派发所有扫描（prompt 不含 autopilot-phase 标记，不受 Hook 门禁）
+3. Phase 7 开始时收集结果，硬超时（默认 10 分钟，`config.async_quality_scans.timeout_minutes`）自动标记 "timeout"
+4. 生成质量汇总表（扫描项 / 状态 / 得分 / 阈值 / PASS|WARN|TIMEOUT）
 
-读取 `config.async_quality_scans`，对每个扫描项：
-
-1. **检查工具是否已安装**（通过 `command -v` 或 `npx --version` 验证）
-2. **未安装 → 自动安装**（使用项目包管理器：pnpm add -D / pip install / Gradle plugin）
-3. **安装失败 → 联网搜索安装方式，重试一次**
-4. **仍失败 → 标记该扫描为 "install_failed"，继续其他扫描**
-
-使用 `Task(run_in_background: true)` 并行派发所有扫描：
-
-```
-scan_agents = []
-for scan in config.async_quality_scans:
-  agent = Task(
-    subagent_type: "general-purpose",
-    run_in_background: true,
-    prompt: "<!-- autopilot-quality-scan:{scan.name} -->
-      1. 检查工具: {scan.check_command}
-      2. 未安装则执行: {scan.install_command}
-      3. 运行扫描: {scan.command}
-      4. 阈值: {scan.threshold}
-      返回 JSON: {status, summary, score, details, installed}"
-  )
-  scan_agents.append(agent)
-```
-
-### 结果收集
-
-Phase 7 开始时，逐一检查后台 Agent 状态：
-- **已完成** → 读取结果，纳入质量汇总表
-- **仍在运行** → AskUserQuestion：「{scan_name} 仍在执行，是否等待？」
-  - "等待完成" → 轮询直到完成
-  - "跳过，先看其他结果" → 标记该扫描为 pending
-
-### 质量汇总表（Phase 7 展示）
-
-```
-| 扫描项 | 状态 | 得分 | 阈值 | 结果 |
-|--------|------|------|------|------|
-| 核心测试 | ok | 95% | 90% | PASS |
-| 契约测试 | ok | 3/3 | all | PASS |
-| 性能审计 | warn | 76 | 80 | WARN |
-| 视觉回归 | ok | 0 diff | 0 | PASS |
-| 变异测试 | ok | 68% | 60% | PASS |
-```
-
-> **注意**: 质量扫描的 prompt 不含 `<!-- autopilot-phase:N -->` 标记，因此不受 Hook 门禁校验。这些是信息性扫描，不是阶段门禁。扫描失败不阻断归档，但会在汇总表中标红警告。
+> 扫描失败不阻断归档，但会在汇总表中标红警告。
 
 ---
 
 ## Phase 7: 汇总 + 用户确认归档（主线程）
 
+0. **写入 Phase 7 Checkpoint（进行中）**：调用 Skill(`spec-autopilot:autopilot-checkpoint`) 写入 `phase-7-summary.json`：
+   ```json
+   {"status": "in_progress", "phase": 7, "description": "Archive and cleanup"}
+   ```
 1. 读取所有 phase-results checkpoint，展示状态汇总表
 2. **收集并行质量扫描结果**：检查上一步派发的后台 Agent，展示质量汇总表（含得分和阈值对比）
+   - **硬超时机制**：等待扫描结果时，最多等待 `config.async_quality_scans.timeout_minutes` 分钟（默认 10 分钟）
+   - 超时后自动将该扫描标记为 `"timeout"`，**不询问用户是否继续等待**，直接继续后续步骤
+   - 超时的扫描在质量汇总表中显示 `TIMEOUT` 状态
 3. **必须** AskUserQuestion 询问用户：
    ```
    "所有阶段已完成。是否归档此 change？"
@@ -302,11 +197,23 @@ Phase 7 开始时，逐一检查后台 Agent 状态：
    - "暂不归档，稍后手动处理"
    - "需要修改后再归档"
    ```
-3. 用户选择"立即归档" → 执行 Skill(`openspec-archive-change`)
-4. 用户选择"暂不归档" → 展示手动归档命令，结束流程
-5. 用户选择"需要修改" → 提示用户修改后可重新触发或手动归档
-6. **清理锁定文件**：删除 `openspec/changes/.autopilot-active`（无论用户选择何种归档方式）
-7. **清理 git tag**：删除 `autopilot-phase5-start` tag（如果存在）：`git tag -d autopilot-phase5-start 2>/dev/null`
+4. 用户选择"立即归档"：
+   a. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 true，默认 true）：
+      - 读取 `openspec/changes/.autopilot-active` 中的 `anchor_sha`
+      - 执行 `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash $ANCHOR_SHA~1`
+      - 成功 → 修改最终 commit message 为 `feat(autopilot): <change_name> — <summary>`
+      - 失败（冲突等） → 执行 `git rebase --abort`，保留原始 fixup commits，警告用户需手动处理压缩
+   b. 执行 Skill(`openspec-archive-change`)
+   c. **更新 Phase 7 Checkpoint（完成）**：调用 Skill(`spec-autopilot:autopilot-checkpoint`) 更新 `phase-7-summary.json`：
+      ```json
+      {"status": "ok", "phase": 7, "description": "Archive complete", "archived_change": "<change_name>"}
+      ```
+5. 用户选择"暂不归档" → 展示手动归档命令，结束流程
+6. 用户选择"需要修改" → 提示用户修改后可重新触发或手动归档
+7. **清理临时文件**：
+   - 删除 `openspec/changes/<name>/context/phase-results/phase5-start-time.txt`（如果存在）
+8. **清理锁定文件**：删除 `openspec/changes/.autopilot-active`（无论用户选择何种归档方式）
+9. **清理 git tag**：删除 `autopilot-phase5-start` tag（如果存在）：`git tag -d autopilot-phase5-start 2>/dev/null`
 
 **禁止自动归档**: 归档操作必须经过用户明确确认。
 
@@ -328,7 +235,9 @@ Phase 7 开始时，逐一检查后台 Agent 状态：
 | 零跳过 | Phase 6 零跳过门禁 |
 | 任务拆分 | 每次 ≤3 个文件，≤800 行代码 |
 | 归档确认 | Phase 7 必须经用户确认后才能归档 |
-| 上下文保护 | 每 Phase 完成后 git commit checkpoint；子 Agent 回传精简摘要，不传原始输出 |
+| 上下文保护 | 每 Phase 完成后 git fixup commit checkpoint；子 Agent 回传精简摘要，不传原始输出；Phase 7 归档时 autosquash 合并 |
+| PID 回收防护 | 锁文件同时检查 PID 存活 + session_id 匹配，防止 PID 被系统回收导致误判 |
+| 质量扫描超时 | 硬超时（默认 10 分钟），超时自动标记 timeout，不询问用户 |
 
 ## 错误处理
 

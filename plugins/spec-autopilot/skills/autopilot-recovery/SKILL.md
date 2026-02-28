@@ -47,6 +47,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 | phase-4-testing.json | Phase 4 完成 |
 | phase-5-implement.json | Phase 5 完成 |
 | phase-6-report.json | Phase 6 完成 |
+| phase-7-summary.json | Phase 7 完成（归档完毕） |
 
 对每个文件：读取 JSON → 验证 `status` 为 `ok` 或 `warning`。
 
@@ -56,7 +57,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 **无 checkpoint**：从 Phase 1 正常开始。
 
-**有 checkpoint**：展示恢复信息，通过 AskUserQuestion 询问：
+**有 checkpoint（Phase 1-6）**：展示恢复信息，通过 AskUserQuestion 询问：
 
 ```
 "检测到 change '{name}' 的阶段 {N} 已完成。是否从阶段 {N+1} 继续？"
@@ -64,6 +65,11 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 - "从断点继续 (Recommended)"
 - "从头开始（清空历史）"
 ```
+
+**Phase 7 checkpoint 存在**：
+
+- `status === "in_progress"` → 归档未完成，提示用户手动执行 `/opsx:archive` 完成归档
+- `status === "ok"` → change 已完全完成（含归档），提示用户可清理 change 目录或开始新 change
 
 ### 4. 执行恢复
 

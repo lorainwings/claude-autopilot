@@ -26,6 +26,7 @@
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used` |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |
+| 7 | `archive_path`, `change_name` | `cleanup_actions` |
 
 ## 状态解析规则
 
@@ -57,7 +58,8 @@ phase-results/
 ├── phase-3-ff.json
 ├── phase-4-testing.json
 ├── phase-5-implement.json
-└── phase-6-report.json
+├── phase-6-report.json
+└── phase-7-summary.json
 ```
 
 ## 特殊门禁

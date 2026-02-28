@@ -30,6 +30,11 @@ Two-layer design:
 | `validate-json-envelope.sh` | PostToolUse(Task) | Validate sub-Agent output has valid JSON envelope | Always 0; stdout JSON `decision: block` on failure |
 | `scan-checkpoints-on-start.sh` | SessionStart | Scan and report existing checkpoints | Always 0 (info only) |
 
+## Requirements
+
+- **python3** (3.8+): Required for hook scripts (JSON parsing, gate validation)
+- Claude Code CLI
+
 ## Installation
 
 ### Step 1: Add marketplace

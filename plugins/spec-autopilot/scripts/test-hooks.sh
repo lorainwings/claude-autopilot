@@ -82,11 +82,11 @@ echo '{"tool_name":"Task","tool_input":{"prompt":"Find all API endpoints","subag
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" >/dev/null 2>&1 || exit_code=$?
 assert_exit "no marker → allow" 0 $exit_code
 
-# 2c. Autopilot Phase 2 (no predecessor needed) → exit 0
+# 2c. Autopilot Phase 2 with no changes dir → exit 0 (no active change to check)
 exit_code=0
 echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nYou are phase 2 agent","subagent_type":"general-purpose"},"cwd":"/tmp"}' \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" >/dev/null 2>&1 || exit_code=$?
-assert_exit "phase 2 (first phase) → allow" 0 $exit_code
+assert_exit "phase 2, no changes dir → allow" 0 $exit_code
 
 # 2d. Autopilot Phase 5 with no changes dir → exit 0 (no active change)
 exit_code=0
@@ -106,6 +106,18 @@ else
   green "  PASS: no deny needed (correctly allowed)"
   PASS=$((PASS + 1))
 fi
+
+# 2f. Phase 2 deny: Phase 1 checkpoint missing in active change → deny
+TMPDIR_P2=$(mktemp -d)
+mkdir -p "$TMPDIR_P2/openspec/changes/test-feature/context/phase-results"
+# No phase-1 checkpoint file exists → Phase 2 should deny
+echo "{\"change\":\"test-feature\",\"pid\":$$,\"started\":\"2026-01-01T00:00:00Z\",\"session_cwd\":\"$TMPDIR_P2\",\"anchor_sha\":\"abc123\",\"session_id\":\"$(date +%s%3N)\"}" > "$TMPDIR_P2/.autopilot-active"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_P2\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "phase 2 no phase-1 checkpoint → exit 0" 0 $exit_code
+assert_contains "phase 2 no phase-1 checkpoint → deny" "$output" "deny"
+rm -rf "$TMPDIR_P2"
 
 echo ""
 
@@ -151,9 +163,9 @@ output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:
 # tool_result has valid JSON but tool_response doesn't → should block (proving tool_response is used)
 assert_contains "uses tool_response not tool_result" "$output" "block"
 
-# 3g. Nested JSON object (Phase 4 with test_counts) → should be extracted
+# 3g. Nested JSON object (Phase 4 with test_counts + test_pyramid) → should be extracted
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit\":10,\"integration\":8,\"e2e\":5,\"ui\":5}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"
@@ -174,17 +186,17 @@ assert_contains "Phase 5 missing field → block" "$output" "block"
 
 # 3j. Phase 6 with required fields → should pass
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\",\"reports/results.json\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\",\"reports/results.json\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\",\"report_format\":\"html\"}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Phase 6 complete → exit 0" 0 $exit_code
 assert_not_contains "Phase 6 complete → no block" "$output" "block"
 
-# 3k. Phase 4 warning with insufficient test_counts → should block (C1 fix)
+# 3k. Phase 4 warning → should block (any Phase 4 warning blocks; only "ok" or "blocked" accepted)
 exit_code=0
 output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"warning\",\"summary\":\"Tests incomplete\",\"artifacts\":[\"tests/unit.test.ts\"],\"test_counts\":{\"unit\":3,\"api\":2,\"e2e\":1,\"ui\":0},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
-assert_exit "Phase 4 warning+low counts → exit 0" 0 $exit_code
-assert_contains "Phase 4 warning+low counts → block" "$output" "block"
+assert_exit "Phase 4 warning → exit 0" 0 $exit_code
+assert_contains "Phase 4 warning → block" "$output" "block"
 
 # 3l. Phase 4 with empty artifacts → should block (M4 fix)
 exit_code=0
@@ -339,7 +351,7 @@ echo ""
 # ============================================================
 echo "--- 9. Fail-closed consistency check ---"
 
-# 9a. validate-json-envelope.sh should block autopilot tasks (verified by checking source)
+# 9a. validate-json-envelope.sh should block autopilot tasks with fail-closed behavior
 if grep -q 'decision.*block' "$SCRIPT_DIR/validate-json-envelope.sh" && \
    grep -q 'python3 is required' "$SCRIPT_DIR/validate-json-envelope.sh"; then
   green "  PASS: validate-json-envelope.sh has fail-closed block for missing python3"
@@ -532,21 +544,21 @@ echo ""
 # ============================================================
 echo "--- 14. Phase 1 checkpoint compatibility ---"
 
-# 14a. check-predecessor-checkpoint.sh scans Phase 1
-if grep -q 'for phase_num in 1 2 3 4 5 6' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
-  green "  PASS: predecessor hook scans Phase 1 checkpoint"
+# 14a. check-predecessor-checkpoint.sh scans Phase 1-7
+if grep -q 'for phase_num in 1 2 3 4 5 6 7' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
+  green "  PASS: predecessor hook scans Phase 1-7 checkpoints"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: predecessor hook does not scan Phase 1"
+  red "  FAIL: predecessor hook does not scan Phase 1-7"
   FAIL=$((FAIL + 1))
 fi
 
-# 14b. scan-checkpoints-on-start.sh scans Phase 1
-if grep -q 'for phase_num in 1 2 3 4 5 6' "$SCRIPT_DIR/scan-checkpoints-on-start.sh"; then
-  green "  PASS: SessionStart scan includes Phase 1"
+# 14b. scan-checkpoints-on-start.sh scans Phase 1-7
+if grep -q 'for phase_num in 1 2 3 4 5 6 7' "$SCRIPT_DIR/scan-checkpoints-on-start.sh"; then
+  green "  PASS: SessionStart scan includes Phase 1-7"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: SessionStart scan does not include Phase 1"
+  red "  FAIL: SessionStart scan does not include Phase 1-7"
   FAIL=$((FAIL + 1))
 fi
 
@@ -559,12 +571,12 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 14d. Phase 2 Layer-2 exemption is documented
-if grep -q 'Phase 2 is intentionally exempted' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
-  green "  PASS: Phase 2 Layer-2 exemption documented in comments"
+# 14d. Phase 2 independent check is documented
+if grep -q 'Phase 2 independent check' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
+  green "  PASS: Phase 2 independent check documented in comments"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: Phase 2 Layer-2 exemption not documented"
+  red "  FAIL: Phase 2 independent check not documented"
   FAIL=$((FAIL + 1))
 fi
 

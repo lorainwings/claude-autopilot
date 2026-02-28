@@ -21,7 +21,8 @@ phase-results/
 ├── phase-3-ff.json
 ├── phase-4-testing.json
 ├── phase-5-implement.json
-└── phase-6-report.json
+├── phase-6-report.json
+└── phase-7-summary.json
 ```
 
 ## 写入 Checkpoint
@@ -64,7 +65,7 @@ phase-results/
 用于崩溃恢复，按阶段顺序扫描：
 
 ```
-phase-1 → phase-2 → phase-3 → phase-4 → phase-5 → phase-6
+phase-1 → phase-2 → phase-3 → phase-4 → phase-5 → phase-6 → phase-7
 ```
 
 找到最后一个 `status: "ok"` 或 `"warning"` 的文件 → 返回该阶段编号。
