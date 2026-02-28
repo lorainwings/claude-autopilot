@@ -19,8 +19,11 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | `services` | 服务健康检查地址 |
 | `phases.requirements` | 需求分析 Agent、最少 QA 轮数 |
 | `phases.testing` | 测试 Agent、instruction_files、reference_files、gate 门禁阈值 |
-| `phases.implementation` | instruction_files、ralph_loop 配置（enabled/max_iterations/fallback_enabled） |
+| `phases.implementation` | instruction_files、ralph_loop 配置、worktree 隔离配置 |
 | `phases.reporting` | instruction_files、report_commands、coverage_target、zero_skip_required |
+| `gates.user_confirmation` | 各阶段间可选用户确认点（after_phase_1, after_phase_3 等） |
+| `async_quality_scans` | Phase 6→7 并行质量扫描配置（契约/性能/视觉/变异测试） |
+| `context_management` | 上下文保护配置（每 Phase 自动 git commit、autocompact 阈值） |
 | `test_suites` | 各测试套件命令和类型 |
 
 如果配置文件不存在 → 自动调用 Skill(`spec-autopilot:autopilot-init`) 扫描项目生成配置。
@@ -47,7 +50,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | 主线程 | 汇总展示 + **用户确认**归档 |
 
-> **Checkpoint 范围**: 只有 Phase 2-6（子 Agent 阶段）产生 checkpoint 文件。Phase 0、1、7 在主线程执行，不写 checkpoint。
+> **Checkpoint 范围**: Phase 1-6 产生 checkpoint 文件。Phase 0、7 在主线程执行，不写 checkpoint。
 
 ---
 
@@ -60,8 +63,14 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 3. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
 4. 使用 TaskCreate 创建 8 个阶段任务 + blockedBy 依赖链
    - 崩溃恢复时：已完成阶段直接标记 completed
-5. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（内容为 change 名称）
+5. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（JSON 格式）：
+   ```json
+   {"change":"<change_name>","pid":"<当前进程PID>","started":"<ISO-8601时间戳>","session_cwd":"<项目根目录>"}
+   ```
    - 此文件供 Hook 脚本确定性识别当前活跃 change，避免多 change 并发时的误判
+   - 启动时检查：如果 lock 文件已存在，读取 `pid` 字段，检查该进程是否存活（`kill -0 <pid>`）
+     - 进程存活 → AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
+     - 进程不存在 → 视为崩溃残留，自动清理并覆盖
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
@@ -104,6 +113,30 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 选项: "确认，开始实施 (Recommended)" / "需要补充修改"
 - 选"补充" → 回到 1.3 循环
 
+### 1.6 写入 Phase 1 Checkpoint
+
+需求确认后，调用 Skill(`spec-autopilot:autopilot-checkpoint`) 写入 `phase-1-requirements.json`：
+
+```json
+{
+  "status": "ok",
+  "summary": "需求分析完成，共 N 个功能点，M 个决策已确认",
+  "artifacts": ["openspec/changes/<name>/context/prd.md", "openspec/changes/<name>/context/discussion.md"],
+  "requirements_summary": "功能概要...",
+  "decisions": [{"point": "决策点描述", "choice": "用户选择"}],
+  "change_name": "<推导出的 kebab-case 名称>"
+}
+```
+
+> 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
+
+### 1.7 可配置用户确认点
+
+如果 `config.gates.user_confirmation.after_phase_1 === true`（默认 true）：
+- AskUserQuestion：「需求分析已完成，是否确认进入 OpenSpec 创建阶段？」
+- 选项: "继续 (Recommended)" / "暂停，我需要再想想"
+- 选"暂停" → 结束当前流水线，用户可后续通过崩溃恢复继续
+
 ---
 
 ## Phases 2-6: 统一调度模板
@@ -113,6 +146,8 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 ```
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
         → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
+Step 1.5: 检查可配置用户确认点（仅当 config.gates.user_confirmation.after_phase_{N} === true 时）
+        → AskUserQuestion 确认后继续，选暂停则保存进度退出
 Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
         → 按协议构造 Task prompt
         → 从 config.phases[当前阶段].instruction_files 注入指令文件路径
@@ -127,6 +162,10 @@ Step 4: 解析子 Agent 返回的 JSON 信封
 Step 5: 调用 Skill("spec-autopilot:autopilot-checkpoint")
         → 写入 phase-results checkpoint 文件
 Step 6: TaskUpdate Phase N → completed
+Step 7: 上下文保护 — 自动 Git Commit（当 config.context_management.git_commit_per_phase = true）
+        → git add openspec/changes/<name>/context/phase-results/
+        → git commit -m "autopilot: Phase N complete — <phase_summary>"
+        → 此 commit 是崩溃恢复的额外安全网，确保 checkpoint 持久化到 git 历史
 ```
 
 ### Phase 4 特殊门禁
@@ -166,8 +205,14 @@ Phase 4 **不允许**以 warning 状态通过门禁。要么 ok（测试全部�
 
 **实施流程**：
 1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
-2. **可用** → 通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
-3. **不可用但 config.phases.implementation.ralph_loop.fallback_enabled** → 进入手动循环模式
+2. **检查 worktree 隔离模式**：读取 `config.phases.implementation.worktree.enabled`
+   - **启用** → Phase 5 按 task 粒度派发，每个 task 通过 `Task(isolation: "worktree")` 在独立 worktree 中执行
+     - 每个 task 完成后，worktree 变更自动合并回主分支
+     - 如有合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
+     - 主线程上下文不被实现代码膨胀
+   - **禁用**（默认） → 使用下方 ralph-loop / fallback 策略
+3. **ralph-loop 可用** → 通过 Skill 调用 `ralph-loop:ralph-loop`，读取 config.phases.implementation
+4. **不可用但 config.phases.implementation.ralph_loop.fallback_enabled** → 进入手动循环模式
    - 每次迭代执行 Skill(`openspec-apply-change`) 实施一个任务
    - 每任务后运行 quick_check，每 3 任务运行 full_test
    - 遵循 3 次失败暂停策略
@@ -190,10 +235,66 @@ autopilot-gate 额外验证：
 
 ---
 
+## Phase 6→7 过渡: 并行质量扫描（主线程派发，不阻塞）
+
+Phase 6 完成后、Phase 7 之前，主线程**同时**派发多个后台质量扫描 Agent。这些 Agent 与 Phase 7 的汇总准备并行执行。
+
+### 派发流程
+
+读取 `config.async_quality_scans`，对每个扫描项：
+
+1. **检查工具是否已安装**（通过 `command -v` 或 `npx --version` 验证）
+2. **未安装 → 自动安装**（使用项目包管理器：pnpm add -D / pip install / Gradle plugin）
+3. **安装失败 → 联网搜索安装方式，重试一次**
+4. **仍失败 → 标记该扫描为 "install_failed"，继续其他扫描**
+
+使用 `Task(run_in_background: true)` 并行派发所有扫描：
+
+```
+scan_agents = []
+for scan in config.async_quality_scans:
+  agent = Task(
+    subagent_type: "general-purpose",
+    run_in_background: true,
+    prompt: "<!-- autopilot-quality-scan:{scan.name} -->
+      1. 检查工具: {scan.check_command}
+      2. 未安装则执行: {scan.install_command}
+      3. 运行扫描: {scan.command}
+      4. 阈值: {scan.threshold}
+      返回 JSON: {status, summary, score, details, installed}"
+  )
+  scan_agents.append(agent)
+```
+
+### 结果收集
+
+Phase 7 开始时，逐一检查后台 Agent 状态：
+- **已完成** → 读取结果，纳入质量汇总表
+- **仍在运行** → AskUserQuestion：「{scan_name} 仍在执行，是否等待？」
+  - "等待完成" → 轮询直到完成
+  - "跳过，先看其他结果" → 标记该扫描为 pending
+
+### 质量汇总表（Phase 7 展示）
+
+```
+| 扫描项 | 状态 | 得分 | 阈值 | 结果 |
+|--------|------|------|------|------|
+| 核心测试 | ok | 95% | 90% | PASS |
+| 契约测试 | ok | 3/3 | all | PASS |
+| 性能审计 | warn | 76 | 80 | WARN |
+| 视觉回归 | ok | 0 diff | 0 | PASS |
+| 变异测试 | ok | 68% | 60% | PASS |
+```
+
+> **注意**: 质量扫描的 prompt 不含 `<!-- autopilot-phase:N -->` 标记，因此不受 Hook 门禁校验。这些是信息性扫描，不是阶段门禁。扫描失败不阻断归档，但会在汇总表中标红警告。
+
+---
+
 ## Phase 7: 汇总 + 用户确认归档（主线程）
 
 1. 读取所有 phase-results checkpoint，展示状态汇总表
-2. **必须** AskUserQuestion 询问用户：
+2. **收集并行质量扫描结果**：检查上一步派发的后台 Agent，展示质量汇总表（含得分和阈值对比）
+3. **必须** AskUserQuestion 询问用户：
    ```
    "所有阶段已完成。是否归档此 change？"
    选项:
@@ -227,6 +328,7 @@ autopilot-gate 额外验证：
 | 零跳过 | Phase 6 零跳过门禁 |
 | 任务拆分 | 每次 ≤3 个文件，≤800 行代码 |
 | 归档确认 | Phase 7 必须经用户确认后才能归档 |
+| 上下文保护 | 每 Phase 完成后 git commit checkpoint；子 Agent 回传精简摘要，不传原始输出 |
 
 ## 错误处理
 

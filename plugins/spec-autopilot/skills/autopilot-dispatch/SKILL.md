@@ -1,6 +1,7 @@
 ---
 name: autopilot-dispatch
 description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for autopilot phases. Constructs Task prompts with JSON envelope contract, explicit path injection, and parameterized templates."
+user-invocable: false
 ---
 
 # Autopilot Dispatch — 子 Agent 调度协议
@@ -9,48 +10,10 @@ description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for 
 
 从 `autopilot.config.yaml` 读取项目配置，构造标准化 Task prompt 分派子 Agent。
 
-## JSON 信封契约
+## 共享协议
 
-每个子 Agent 的 prompt 末尾**必须**要求返回此格式：
-
-```json
-{
-  "status": "ok | warning | blocked | failed",
-  "summary": "单行决策级摘要",
-  "artifacts": ["已创建/修改的文件路径"],
-  "risks": ["可选风险列表"],
-  "next_ready": true
-}
-```
-
-### 各阶段额外返回字段
-
-| Phase | 必须字段 | 可选字段 |
-|-------|----------|----------|
-| 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }` | — |
-| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used` (信息性，不参与门禁校验) |
-| 6 | `pass_rate`, `report_path` | `report_url` |
-
-### 状态解析规则
-
-| status | 主线程行为 |
-|--------|-----------|
-| ok | 写入 checkpoint，继续下一阶段 |
-| warning | 写入 checkpoint，展示警告后继续（**Phase 4 例外：见下**） |
-| blocked | 暂停，展示给用户，要求排除阻塞 |
-| failed | 暂停，展示给用户，可能需要重新执行本阶段 |
-
-**Phase 4 特殊规则**：Phase 4（测试设计）**不接受 warning**。如果 Phase 4 返回 warning 且 test_counts 任一项 < 门禁阈值，主线程必须将 status 覆盖为 blocked 并重新 dispatch。
-
-## 结构化标记（Hook 识别依据）
-
-每个子 Agent 的 prompt **开头第一行**必须包含标记：
-
-```
-<!-- autopilot-phase:{phase_number} -->
-```
-
-此标记是 Hook 脚本（`check-predecessor-checkpoint.sh` / `validate-json-envelope.sh`）识别 autopilot Task 的**唯一依据**。无标记的 Task 调用会被 Hook 直接放行（exit 0），不执行任何校验。
+> JSON 信封契约、阶段额外字段、状态解析规则、结构化标记等公共定义详见：`autopilot/references/protocol.md`。
+> 以下仅包含 dispatch 专属的模板和指令。
 
 ## 显式路径注入模板
 
@@ -154,13 +117,43 @@ status 只允许 "ok" 或 "blocked"：
 - 所有测试文件创建成功 + dry-run 通过 → `"status": "ok"`
 - 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
 - **禁止返回 "warning"**：Phase 4 不接受降级通过
+
+### 测试金字塔比例约束
+
+测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值，默认值如下）：
+- **单元测试** ≥ 总用例数的 50%（快速反馈层）
+- **API/集成测试** ≤ 总用例数的 30%（服务契约层）
+- **E2E + UI 测试** ≤ 总用例数的 20%（端到端验证层）
+
+返回信封中必须包含 `test_pyramid` 字段：
+```json
+{
+  "test_pyramid": {
+    "total": 25,
+    "unit_pct": 60,
+    "integration_pct": 24,
+    "e2e_pct": 16
+  }
+}
+```
 ```
 
 **Phase 5（循环实施）**：
 - 通过 ralph-loop 或 fallback 执行（由编排主线程决策）
 - 指令文件从 config.phases.implementation.instruction_files 注入
+- **Worktree 隔离模式**（当 config.phases.implementation.worktree.enabled = true）：
+  - 主线程按 task 粒度逐个派发，每个 task 使用 `Task(isolation: "worktree")`
+  - 子 Agent prompt 中注入当前 task 内容和前序 task 摘要
+  - 子 Agent 完成后返回 worktree 路径和分支名，主线程决定合并策略
 
 **Phase 6（测试报告）**：
 - Agent: qa-expert
 - 指令文件从 config.phases.reporting.instruction_files 注入
 - 报告命令从 config.phases.reporting.report_commands 读取
+- **Allure 统一报告**（当 `config.phases.reporting.format === "allure"` 时）：
+  - 所有测试套件输出到同一 `allure-results/` 目录
+  - pytest: `--alluredir=allure-results`
+  - Playwright: reporter 配置 `allure-playwright`
+  - JUnit: Allure Gradle Plugin 输出到 `allure-results/`
+  - 生成统一报告: `npx allure generate allure-results -o allure-report --clean`
+  - 返回 `report_format: "allure"` 和 `allure_results_dir` 路径

@@ -13,6 +13,10 @@
 
 set -uo pipefail
 
+# --- Source shared utilities ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
 # --- Read stdin JSON ---
 STDIN_DATA=""
 if [ ! -t 0 ]; then
@@ -43,53 +47,9 @@ if [ ! -d "$CHANGES_DIR" ]; then
   exit 0
 fi
 
-# --- Find active change (most recent checkpoint) ---
-find_active_change() {
-  # Priority 0: Read lock file written by autopilot Phase 0
-  local lock_file="$CHANGES_DIR/.autopilot-active"
-  if [ -f "$lock_file" ]; then
-    local active_name
-    active_name=$(cat "$lock_file" | tr -d '[:space:]')
-    if [ -n "$active_name" ] && [ -d "$CHANGES_DIR/$active_name" ]; then
-      echo "$CHANGES_DIR/$active_name"
-      return 0
-    fi
-  fi
+# --- Find active change (uses _common.sh) ---
 
-  # Priority 1: find the change with the most recent checkpoint file
-  local latest_file=""
-  local find_results
-  find_results=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null) || true
-  if [ -n "$find_results" ]; then
-    latest_file=$(echo "$find_results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1) || true
-  fi
-
-  if [ -n "$latest_file" ]; then
-    echo "$latest_file" | sed 's|/context/phase-results/.*||'
-    return 0
-  fi
-
-  # Fallback: most recently modified change directory (sorted by mtime)
-  local latest=""
-  local latest_time=0
-  for dir in "$CHANGES_DIR"/*/; do
-    [ -d "$dir" ] || continue
-    [[ "$(basename "$dir")" == _* ]] && continue
-    local mtime
-    mtime=$(stat -f "%m" "$dir" 2>/dev/null || stat -c "%Y" "$dir" 2>/dev/null || echo 0)
-    if [ "$mtime" -gt "$latest_time" ]; then
-      latest_time=$mtime
-      latest="${dir%/}"
-    fi
-  done
-  if [ -n "$latest" ]; then
-    echo "$latest"
-    return 0
-  fi
-  return 1
-}
-
-ACTIVE_CHANGE=$(find_active_change) || exit 0
+ACTIVE_CHANGE=$(find_active_change "$CHANGES_DIR") || exit 0
 CHANGE_NAME=$(basename "$ACTIVE_CHANGE")
 PHASE_RESULTS_DIR="$ACTIVE_CHANGE/context/phase-results"
 STATE_FILE="$ACTIVE_CHANGE/context/autopilot-state.md"
@@ -111,7 +71,7 @@ state_file = sys.argv[4]
 # Scan all checkpoints
 phases = {}
 last_completed = 0
-for phase_num in [2, 3, 4, 5, 6]:
+for phase_num in [1, 2, 3, 4, 5, 6]:
     pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
     files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
     if files:
@@ -182,8 +142,8 @@ lines.extend([
     f'|-------|--------|---------|',
 ])
 
-phase_names = {2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report'}
-for phase_num in [2, 3, 4, 5, 6]:
+phase_names = {1: 'Requirements', 2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report'}
+for phase_num in [1, 2, 3, 4, 5, 6]:
     name = phase_names.get(phase_num, f'Phase {phase_num}')
     if phase_num in phases:
         p = phases[phase_num]

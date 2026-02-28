@@ -1,6 +1,7 @@
 ---
 name: autopilot-gate
 description: "[ONLY for autopilot orchestrator] Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist and special gates (Phase 4→5 test_counts, Phase 5→6 zero_skip)."
+user-invocable: false
 ---
 
 # Autopilot Gate — 门禁验证协议
@@ -8,6 +9,8 @@ description: "[ONLY for autopilot orchestrator] Gate verification protocol for a
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
 阶段切换时的 AI 侧验证清单。Layer 1（Task blockedBy）和 Layer 2（磁盘 checkpoint）已由 Hooks 确定性执行，本 Skill 负责 Layer 3（AI 执行的补充检查清单）。
+
+> JSON 信封契约、状态规则、特殊门禁阈值等详见：`autopilot/references/protocol.md`
 
 ## 三层门禁架构
 

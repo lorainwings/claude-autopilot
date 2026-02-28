@@ -1,6 +1,7 @@
 ---
 name: autopilot-checkpoint
 description: "[ONLY for autopilot orchestrator] Checkpoint read/write protocol for autopilot phases. Manages phase-results directory and JSON checkpoint files."
+user-invocable: false
 ---
 
 # Autopilot Checkpoint — 状态持久化协议
@@ -9,10 +10,13 @@ description: "[ONLY for autopilot orchestrator] Checkpoint read/write protocol f
 
 管理 `openspec/changes/<name>/context/phase-results/` 目录下的 checkpoint 文件。
 
+> JSON 信封格式、阶段额外字段、Checkpoint 命名等详见：`autopilot/references/protocol.md`
+
 ## Checkpoint 文件命名
 
 ```
 phase-results/
+├── phase-1-requirements.json
 ├── phase-2-openspec.json
 ├── phase-3-ff.json
 ├── phase-4-testing.json
@@ -60,7 +64,7 @@ phase-results/
 用于崩溃恢复，按阶段顺序扫描：
 
 ```
-phase-2 → phase-3 → phase-4 → phase-5 → phase-6
+phase-1 → phase-2 → phase-3 → phase-4 → phase-5 → phase-6
 ```
 
 找到最后一个 `status: "ok"` 或 `"warning"` 的文件 → 返回该阶段编号。

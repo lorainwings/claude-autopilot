@@ -13,6 +13,10 @@
 set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly to avoid pipefail + ls crashes.
 
+# --- Source shared utilities ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
 # --- Read stdin JSON ---
 STDIN_DATA=""
 if [ ! -t 0 ]; then
@@ -103,97 +107,17 @@ print(json.dumps({
   exit 0
 }
 
-# --- Find active change directory ---
-# Uses the most recently modified checkpoint file to determine active change,
-# falling back to directory mtime if no checkpoints exist.
-find_active_change() {
-  if [ ! -d "$CHANGES_DIR" ]; then
-    return 1
-  fi
+# --- Find active change directory (uses _common.sh) ---
+# Note: trailing_slash="yes" for backward compatibility with path concatenation below
 
-  # Priority 0: Read lock file written by autopilot Phase 0
-  local lock_file="$CHANGES_DIR/.autopilot-active"
-  if [ -f "$lock_file" ]; then
-    local active_name
-    active_name=$(cat "$lock_file" | tr -d '[:space:]')
-    if [ -n "$active_name" ] && [ -d "$CHANGES_DIR/$active_name" ]; then
-      echo "$CHANGES_DIR/$active_name/"
-      return 0
-    fi
-  fi
-
-  # Priority 1: find the change with the most recent checkpoint file
-  local latest_file=""
-  local latest_dir=""
-  local find_results
-  find_results=$(find "$CHANGES_DIR" -path "*/context/phase-results/phase-*.json" -type f 2>/dev/null) || true
-  if [ -n "$find_results" ]; then
-    latest_file=$(echo "$find_results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1) || true
-  fi
-
-  if [ -n "$latest_file" ]; then
-    # Extract change dir: .../changes/<name>/context/phase-results/file.json → .../changes/<name>/
-    latest_dir=$(echo "$latest_file" | sed 's|/context/phase-results/.*||')
-    if [ -d "$latest_dir" ]; then
-      echo "${latest_dir}/"
-      return 0
-    fi
-  fi
-
-  # Fallback: most recently modified change directory
-  local latest=""
-  local latest_time=0
-
-  for dir in "$CHANGES_DIR"/*/; do
-    [ -d "$dir" ] || continue
-    [[ "$(basename "$dir")" == _* ]] && continue
-
-    local mtime
-    mtime=$(stat -f "%m" "$dir" 2>/dev/null || stat -c "%Y" "$dir" 2>/dev/null || echo 0)
-    if [ "$mtime" -gt "$latest_time" ]; then
-      latest_time=$mtime
-      latest="$dir"
-    fi
-  done
-
-  if [ -n "$latest" ]; then
-    echo "$latest"
-    return 0
-  fi
-  return 1
-}
-
-# --- Find latest checkpoint file for a phase (by mtime, not alphabetical) ---
-find_checkpoint() {
-  local dir="$1"
-  local phase="$2"
-  local results
-  results=$(find "$dir" -maxdepth 1 -name "phase-${phase}-*.json" -type f 2>/dev/null) || true
-  if [ -n "$results" ]; then
-    echo "$results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1
-  fi
-}
-
-# --- Read checkpoint status ---
-read_checkpoint_status() {
-  local file="$1"
-  python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    print(data.get('status', 'unknown'))
-except Exception:
-    print('error')
-" "$file" 2>/dev/null || echo "error"
-}
+# --- Checkpoint utilities from _common.sh ---
 
 # --- Get the last successful checkpoint phase number ---
 get_last_checkpoint_phase() {
   local phase_results_dir="$1"
   local last_phase=0
 
-  for phase_num in 2 3 4 5 6; do
+  for phase_num in 1 2 3 4 5 6; do
     local checkpoint_file
     checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
 
@@ -216,7 +140,7 @@ get_last_checkpoint_phase() {
 
 # === Main logic ===
 
-change_dir=$(find_active_change) || exit 0  # No active change, allow
+change_dir=$(find_active_change "$CHANGES_DIR" "yes") || exit 0  # No active change, allow
 
 phase_results_dir="${change_dir}context/phase-results"
 
@@ -228,6 +152,11 @@ fi
 last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
 # Check sequential ordering (target > last_phase + 1, and target >= 3)
+# NOTE: Phase 2 is intentionally exempted (TARGET_PHASE >= 3) because:
+#   - Phase 1 checkpoint is written by the main thread (not a Task dispatch)
+#   - This hook only intercepts Task calls, so it cannot validate Phase 1 itself
+#   - Phase 1→2 transition is enforced by Layer 1 (TaskCreate blockedBy) and
+#     Layer 3 (autopilot-gate checklist + sub-agent self-check in dispatch template)
 if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
   deny "Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first."
 fi

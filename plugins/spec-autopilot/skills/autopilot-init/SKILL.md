@@ -90,13 +90,54 @@ phases:
       enabled: true
       max_iterations: 30
       fallback_enabled: true
+    worktree:
+      enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
   reporting:
     instruction_files: []    # 用户按需添加
+    format: "allure"         # allure | custom
     report_commands:
       html: "python tools/report/html_generator.py -i {change_name}"
       markdown: "python tools/report/generator.py -i {change_name}"
+      allure_generate: "npx allure generate allure-results -o allure-report --clean"
     coverage_target: 80
     zero_skip_required: true
+
+test_pyramid:
+  min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
+  max_e2e_pct: 20            # E2E+UI 测试最高占比（金字塔顶层）
+  min_total_cases: 20        # 最少总用例数
+
+gates:
+  user_confirmation:
+    after_phase_1: true      # 需求确认后暂停，让用户审查
+    after_phase_3: false     # 设计生成后自动继续
+    after_phase_4: false     # 测试设计后自动继续
+
+context_management:
+  git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint
+  autocompact_pct: 80        # 建议设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+
+async_quality_scans:
+  contract_testing:
+    check_command: ""            # 工具检测命令（缺失则自动安装）
+    install_command: ""          # 自动安装命令
+    command: ""                  # 执行命令
+    threshold: "all_pass"
+  performance_audit:
+    check_command: "npx lhci --version"
+    install_command: "pnpm add -D @lhci/cli"
+    command: "npx lhci autorun"
+    threshold: 80
+  visual_regression:
+    check_command: ""
+    install_command: ""
+    command: ""
+    threshold: "0_diff"
+  mutation_testing:
+    check_command: ""
+    install_command: ""
+    command: ""
+    threshold: 60
 
 test_suites:
   # 自动检测到的测试套件

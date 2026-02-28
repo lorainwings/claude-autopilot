@@ -38,7 +38,7 @@ process_change_dir() {
   local last_phase=0
   local last_status=""
 
-  for phase_num in 2 3 4 5 6; do
+  for phase_num in 1 2 3 4 5 6; do
     local find_results=""
     find_results=$(find "$phase_results_dir" -maxdepth 1 -name "phase-${phase_num}-*.json" -type f 2>/dev/null) || true
     local checkpoint_file=""

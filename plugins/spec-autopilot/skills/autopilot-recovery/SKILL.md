@@ -1,6 +1,7 @@
 ---
 name: autopilot-recovery
 description: "[ONLY for autopilot orchestrator] Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
+user-invocable: false
 ---
 
 # Autopilot Recovery — 崩溃恢复协议
@@ -40,6 +41,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 | 文件 | 含义 |
 |------|------|
+| phase-1-requirements.json | Phase 1 完成（需求已确认） |
 | phase-2-openspec.json | Phase 2 完成 |
 | phase-3-ff.json | Phase 3 完成 |
 | phase-4-testing.json | Phase 4 完成 |
