@@ -151,9 +151,18 @@ status 只允许 "ok" 或 "blocked"：
 - 指令文件从 config.phases.reporting.instruction_files 注入
 - 报告命令从 config.phases.reporting.report_commands 读取
 - **Allure 统一报告**（当 `config.phases.reporting.format === "allure"` 时）：
-  - 所有测试套件输出到同一 `allure-results/` 目录
-  - pytest: `--alluredir=allure-results`
-  - Playwright: reporter 配置 `allure-playwright`
-  - JUnit: Allure Gradle Plugin 输出到 `allure-results/`
-  - 生成统一报告: `npx allure generate allure-results -o allure-report --clean`
+  - **前置检查**：子 Agent prompt 中注入 Allure 安装检测指令：
+    ```
+    运行 Allure 安装检查: bash <plugin_scripts>/check-allure-install.sh "$(pwd)"
+    如果 all_required_installed === false → 按 install_commands 逐个安装
+    安装后重新运行检查 → 仍失败 → 降级为 report_format: "custom"
+    ```
+  - 所有测试套件使用 `ALLURE_RESULTS_DIR="$(pwd)/allure-results"` 环境变量统一输出
+  - pytest: `--alluredir="$ALLURE_RESULTS_DIR"`
+  - Playwright: `ALLURE_RESULTS_DIR="$ALLURE_RESULTS_DIR" --reporter=list,allure-playwright`
+  - JUnit/Gradle: 手动复制 `backend/build/test-results/test/*.xml` 到 `$ALLURE_RESULTS_DIR/`
+  - 生成统一报告: `npx allure generate "$ALLURE_RESULTS_DIR" -o allure-report --clean`
   - 返回 `report_format: "allure"` 和 `allure_results_dir` 路径
+- **降级模式**（Allure 安装失败时）：
+  - 使用 config.phases.reporting.report_commands 中的 html/markdown 命令
+  - 返回 `report_format: "custom"`

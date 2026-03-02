@@ -562,8 +562,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 14c. save-state scans Phase 1
-if grep -q 'for phase_num in \[1, 2, 3, 4, 5, 6\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+# 14c. save-state scans Phase 1 (included in 1-7 range)
+if grep -q 'for phase_num in \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
   green "  PASS: PreCompact state save includes Phase 1"
   PASS=$((PASS + 1))
 else
@@ -600,6 +600,113 @@ if [ ! -d "$SCRIPT_DIR/../skills/shared" ]; then
   PASS=$((PASS + 1))
 else
   red "  FAIL: skills/shared/ directory still exists (should be migrated)"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 16. check-allure-install.sh ---"
+
+# 16a. Syntax check
+if bash -n "$SCRIPT_DIR/check-allure-install.sh" 2>/dev/null; then
+  green "  PASS: check-allure-install.sh syntax OK"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: check-allure-install.sh syntax error"
+  FAIL=$((FAIL + 1))
+fi
+
+# 16b. Returns valid JSON
+exit_code=0
+output=$(bash "$SCRIPT_DIR/check-allure-install.sh" /tmp/nonexistent-project-allure-test 2>/dev/null) || exit_code=$?
+assert_exit "check-allure-install → exit 0" 0 $exit_code
+
+if echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'all_required_installed' in d; assert 'missing' in d; print('ok')" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: check-allure-install returns valid JSON with required fields"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: check-allure-install JSON missing required fields"
+  FAIL=$((FAIL + 1))
+fi
+
+# 16c. JSON has all 4 component keys
+if echo "$output" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+required = ['allure_cli', 'allure_playwright', 'allure_pytest', 'allure_gradle']
+for key in required:
+    assert key in d, f'Missing key: {key}'
+    assert 'installed' in d[key], f'Missing installed field in {key}'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: check-allure-install has all 4 component keys with installed field"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: check-allure-install missing component keys"
+  FAIL=$((FAIL + 1))
+fi
+
+# 16d. install_commands is an array (even if empty)
+if echo "$output" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert isinstance(d.get('install_commands'), list), 'install_commands is not a list'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: install_commands is a list"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: install_commands is not a list"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 17. Phase 6 envelope validation (Allure fields) ---"
+
+# 17a. Phase 6 with allure report_format → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"allure-report/index.html\"],\"pass_rate\":98.5,\"report_path\":\"openspec/changes/test/testreport/allure-report/index.html\",\"report_format\":\"allure\",\"allure_results_dir\":\"allure-results\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 allure format → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 allure format → no block" "$output" "block"
+
+# 17b. Phase 6 with custom report_format → should also pass (format validation is Layer 3)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/test-report.html\"],\"pass_rate\":95.0,\"report_path\":\"openspec/changes/test/testreport/test-report.html\",\"report_format\":\"custom\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 custom format → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 custom format → no block" "$output" "block"
+
+# 17c. Phase 6 missing report_format → should block (required phase-specific field)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 missing report_format → exit 0" 0 $exit_code
+assert_contains "Phase 6 missing report_format → block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 18. save-state Phase 7 scan ---"
+
+# 18a. save-state-before-compact.sh scans Phase 1-7 (not 1-6)
+if grep -q 'for phase_num in \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+  green "  PASS: PreCompact state save scans Phase 1-7"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: PreCompact state save does not scan Phase 1-7"
+  FAIL=$((FAIL + 1))
+fi
+
+# 18b. phase_names includes Phase 7
+if grep -q "7: 'Archive'" "$SCRIPT_DIR/save-state-before-compact.sh"; then
+  green "  PASS: phase_names includes Phase 7 (Archive)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: phase_names missing Phase 7"
   FAIL=$((FAIL + 1))
 fi
 

@@ -71,7 +71,7 @@ state_file = sys.argv[4]
 # Scan all checkpoints
 phases = {}
 last_completed = 0
-for phase_num in [1, 2, 3, 4, 5, 6]:
+for phase_num in [1, 2, 3, 4, 5, 6, 7]:
     pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
     files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
     if files:
@@ -142,8 +142,8 @@ lines.extend([
     f'|-------|--------|---------|',
 ])
 
-phase_names = {1: 'Requirements', 2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report'}
-for phase_num in [1, 2, 3, 4, 5, 6]:
+phase_names = {1: 'Requirements', 2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report', 7: 'Archive'}
+for phase_num in [1, 2, 3, 4, 5, 6, 7]:
     name = phase_names.get(phase_num, f'Phase {phase_num}')
     if phase_num in phases:
         p = phases[phase_num]

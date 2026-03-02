@@ -116,8 +116,10 @@ gates:
 context_management:
   git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint
   autocompact_pct: 80        # 建议设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+  squash_on_archive: true    # Phase 7 归档时 autosquash fixup commits 为单一 commit
 
 async_quality_scans:
+  timeout_minutes: 10          # 硬超时（分钟），超时后标记 timeout 继续后续步骤
   contract_testing:
     check_command: ""            # 工具检测命令（缺失则自动安装）
     install_command: ""          # 自动安装命令
@@ -194,6 +196,8 @@ phases 内必须的 key:
 每个 test_suite 必须有:
   - command (string, non-empty)
   - type (string, one of: unit, integration, e2e, ui, typecheck)
+  - allure (string, one of: pytest, playwright, junit_xml, none)
+  - allure_post (string, optional, only when allure=junit_xml)
 ```
 
 如果校验失败 → 输出缺失/错误的 key 列表，AskUserQuestion 要求用户修正后重试。
@@ -204,13 +208,13 @@ phases 内必须的 key:
 
 | 检测到 | 生成的 test_suite |
 |--------|-------------------|
-| `build.gradle` + `src/test/` | `backend_unit: { command: "cd backend && ./gradlew test", type: unit }` |
-| `pytest.ini` 或 `conftest.py` | `api_test: { command: "python3 -m pytest tests/api/ -v", type: integration }` |
-| `playwright.config.ts` | `e2e: { command: "npx playwright test", type: e2e }` |
-| `vitest.config.*` | `unit: { command: "npx vitest run", type: unit }` |
-| `jest.config.*` | `unit: { command: "npx jest", type: unit }` |
-| 前端 `package.json` 有 `type-check` | `typecheck: { command: "cd frontend && pnpm type-check", type: typecheck }` |
-| Node `tsconfig.json` | `node_typecheck: { command: "cd node && npx tsc --noEmit", type: typecheck }` |
+| `build.gradle` + `src/test/` | `backend_unit: { command: "cd backend && ./gradlew test", type: unit, allure: junit_xml, allure_post: "cp -r backend/build/test-results/test/*.xml \"$ALLURE_RESULTS_DIR/\" 2>/dev/null \|\| true" }` |
+| `pytest.ini` 或 `conftest.py` | `api_test: { command: "python3 -m pytest tests/api/ -v", type: integration, allure: pytest }` |
+| `playwright.config.ts` | `e2e: { command: "npx playwright test", type: e2e, allure: playwright }` |
+| `vitest.config.*` | `unit: { command: "npx vitest run", type: unit, allure: none }` |
+| `jest.config.*` | `unit: { command: "npx jest", type: unit, allure: none }` |
+| 前端 `package.json` 有 `type-check` | `typecheck: { command: "cd frontend && pnpm type-check", type: typecheck, allure: none }` |
+| Node `tsconfig.json` | `node_typecheck: { command: "cd node && npx tsc --noEmit", type: typecheck, allure: none }` |
 
 ### report_commands 自动推导
 
