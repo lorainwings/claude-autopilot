@@ -98,7 +98,13 @@ find_active_change() {
     [ -d "$dir" ] || continue
     [[ "$(basename "$dir")" == _* ]] && continue
     local mtime
-    mtime=$(stat -f "%m" "$dir" 2>/dev/null || stat -c "%Y" "$dir" 2>/dev/null || echo 0)
+    # macOS: stat -f "%m", Linux: stat -c "%Y"
+    # Cannot use || fallback because Linux stat -f succeeds with wrong output
+    if [[ "$(uname)" == "Darwin" ]]; then
+      mtime=$(stat -f "%m" "$dir" 2>/dev/null || echo 0)
+    else
+      mtime=$(stat -c "%Y" "$dir" 2>/dev/null || echo 0)
+    fi
     if [ "$mtime" -gt "$latest_time" ]; then
       latest_time=$mtime
       latest="${dir%/}"
