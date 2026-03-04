@@ -5,6 +5,23 @@
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   source "$SCRIPT_DIR/_common.sh"
 
+# --- Check if autopilot session is active (lock file exists) ---
+# Usage: has_active_autopilot [project_root]
+# Returns: exit 0 if active, exit 1 if not
+# Performance: Pure bash, no python3 fork (~1ms)
+has_active_autopilot() {
+  local project_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  local changes_dir="$project_root/openspec/changes"
+  [ -d "$changes_dir" ] || return 1
+  # 检查根目录锁文件
+  [ -f "$changes_dir/.autopilot-active" ] && return 0
+  # 检查子目录锁文件（兼容旧版）
+  local found
+  found=$(find "$changes_dir" -maxdepth 2 -name '.autopilot-active' -print -quit 2>/dev/null)
+  [ -n "$found" ] && return 0
+  return 1
+}
+
 # --- Parse lock file (JSON or legacy plain text) ---
 # Usage: parse_lock_file <lock_file_path>
 # Returns: change name on stdout, or empty string on failure

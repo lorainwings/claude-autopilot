@@ -27,10 +27,22 @@ if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
 
-# --- Fast bypass: pure bash marker detection ---
-# If the autopilot marker isn't present anywhere in stdin, skip python3 entirely.
-# This avoids forking python3 for every non-autopilot Task call (~200-500ms savings).
-if ! echo "$STDIN_DATA" | grep -q 'autopilot-phase:[0-9]'; then
+# --- Fast bypass Layer 0: lock file pre-check ---
+# 无活跃 autopilot 会话时，跳过所有检查（纯 bash，零 python3 开销）。
+# 这避免了非 autopilot Task/Agent 调用被误拦截。
+# 尝试从 stdin JSON 中提取 cwd（纯 bash，适配简单路径）
+PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+if [ -z "$PROJECT_ROOT_QUICK" ]; then
+  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
+  exit 0
+fi
+
+# --- Fast bypass Layer 1: prompt 首行标记检测 ---
+# 仅匹配 JSON 中 prompt 字段以标记开头的情况（dispatch 协议规定标记在 prompt 开头）。
+# 排除：prompt 文本内容中引用标记（代码示例、文档等）造成的误判。
+if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
   exit 0
 fi
 

@@ -52,6 +52,28 @@ assert_not_contains() {
 echo "=== spec-autopilot Hook Test Suite ==="
 echo ""
 
+# --- Shared test fixture: autopilot-active environment ---
+# 许多测试需要 autopilot 锁文件才能触发 Hook 校验逻辑。
+# 在仓库根目录创建临时锁文件，测试结束后清理。
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+FIXTURE_LOCK_DIR="$REPO_ROOT/openspec/changes"
+FIXTURE_LOCK_FILE="$FIXTURE_LOCK_DIR/.autopilot-active"
+FIXTURE_LOCK_CREATED=false
+mkdir -p "$FIXTURE_LOCK_DIR"
+if [ ! -f "$FIXTURE_LOCK_FILE" ]; then
+  echo '{"change":"test-fixture","pid":"99999","started":"2026-01-01T00:00:00Z"}' > "$FIXTURE_LOCK_FILE"
+  FIXTURE_LOCK_CREATED=true
+fi
+cleanup_fixture() {
+  if [ "$FIXTURE_LOCK_CREATED" = "true" ] && [ -f "$FIXTURE_LOCK_FILE" ]; then
+    rm -f "$FIXTURE_LOCK_FILE"
+    # 清理空目录（仅当是测试创建的）
+    rmdir "$FIXTURE_LOCK_DIR" 2>/dev/null || true
+    rmdir "$REPO_ROOT/openspec" 2>/dev/null || true
+  fi
+}
+trap cleanup_fixture EXIT
+
 # ============================================================
 echo "--- 1. Syntax checks (bash -n) ---"
 for script in "$SCRIPT_DIR"/*.sh; do
@@ -111,7 +133,7 @@ fi
 TMPDIR_P2=$(mktemp -d)
 mkdir -p "$TMPDIR_P2/openspec/changes/test-feature/context/phase-results"
 # No phase-1 checkpoint file exists → Phase 2 should deny
-echo "{\"change\":\"test-feature\",\"pid\":$$,\"started\":\"2026-01-01T00:00:00Z\",\"session_cwd\":\"$TMPDIR_P2\",\"anchor_sha\":\"abc123\",\"session_id\":\"$(date +%s%3N)\"}" > "$TMPDIR_P2/.autopilot-active"
+echo "{\"change\":\"test-feature\",\"pid\":$$,\"started\":\"2026-01-01T00:00:00Z\",\"session_cwd\":\"$TMPDIR_P2\",\"anchor_sha\":\"abc123\",\"session_id\":\"$(date +%s%3N)\"}" > "$TMPDIR_P2/openspec/changes/.autopilot-active"
 exit_code=0
 output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_P2\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
@@ -1093,6 +1115,79 @@ output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "pyramid: boundary values → exit 0" 0 $exit_code
 assert_not_contains "pyramid: boundary values → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 25. Lock file pre-check (false positive prevention) ---"
+
+# 25a. No lock file + marker in prompt content → allow (should NOT be intercepted)
+LOCK_TEST_DIR=$(mktemp -d)
+mkdir -p "$LOCK_TEST_DIR/openspec/changes/test-change/context/phase-results"
+# 注意：没有创建 .autopilot-active 锁文件
+exit_code=0
+output=$(cd "$LOCK_TEST_DIR" && echo '{"tool_name":"Task","tool_input":{"prompt":"请修改 phase5-implementation.md，示例中包含 <!-- autopilot-phase:5 --> 标记文本"},"tool_response":""}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "no lock file + marker text → allow (exit 0)" 0 $exit_code
+assert_not_contains "no lock file → no deny" "$output" "deny"
+
+# 25b. No lock file + envelope validation → allow
+exit_code=0
+output=$(cd "$LOCK_TEST_DIR" && echo '{"tool_name":"Task","tool_input":{"prompt":"代码示例包含 autopilot-phase:4 文本"},"tool_response":"Results: {\"status\":\"ok\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "no lock file + envelope → allow (exit 0)" 0 $exit_code
+assert_not_contains "no lock file → no block (envelope)" "$output" "block"
+
+# 25c. No lock file + anti-rationalization → allow
+exit_code=0
+output=$(cd "$LOCK_TEST_DIR" && echo '{"tool_name":"Task","tool_input":{"prompt":"代码示例包含 autopilot-phase:5 文本"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"skipped this test\"}"}' \
+  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "no lock file + anti-rational → allow (exit 0)" 0 $exit_code
+assert_not_contains "no lock file → no block (anti-rational)" "$output" "block"
+
+# 25d. Marker in prompt body (not first line) → allow even with lock file
+mkdir -p "$LOCK_TEST_DIR/openspec/changes"
+echo '{"change":"test-change","pid":"99999","started":"2026-01-01T00:00:00Z"}' > "$LOCK_TEST_DIR/openspec/changes/.autopilot-active"
+exit_code=0
+output=$(cd "$LOCK_TEST_DIR" && echo '{"tool_name":"Task","tool_input":{"prompt":"这是普通 Agent 任务\n示例代码中有 <!-- autopilot-phase:5 --> 标记"},"tool_response":""}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "marker in body not first line → allow (exit 0)" 0 $exit_code
+assert_not_contains "marker in body → no deny" "$output" "deny"
+
+# 25e. Real autopilot dispatch (marker at prompt start) + lock file → should proceed to validation
+# (这里因为没有 checkpoint，所以会 deny，证明确实进入了校验逻辑)
+exit_code=0
+output=$(cd "$LOCK_TEST_DIR" && echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nPhase 2 task"},"tool_response":""}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "real autopilot dispatch → enters validation (exit 0)" 0 $exit_code
+assert_contains "real autopilot dispatch → deny (no checkpoint)" "$output" "deny"
+
+rm -rf "$LOCK_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 26. has_active_autopilot unit tests ---"
+
+# 26a. No changes dir → not active
+HAS_TEST_DIR=$(mktemp -d)
+exit_code=0
+(source "$SCRIPT_DIR/_common.sh" && has_active_autopilot "$HAS_TEST_DIR") || exit_code=$?
+assert_exit "no changes dir → not active (exit 1)" 1 $exit_code
+
+# 26b. Changes dir but no lock file → not active
+mkdir -p "$HAS_TEST_DIR/openspec/changes/some-change"
+exit_code=0
+(source "$SCRIPT_DIR/_common.sh" && has_active_autopilot "$HAS_TEST_DIR") || exit_code=$?
+assert_exit "no lock file → not active (exit 1)" 1 $exit_code
+
+# 26c. Lock file exists → active
+echo '{"change":"test"}' > "$HAS_TEST_DIR/openspec/changes/.autopilot-active"
+exit_code=0
+(source "$SCRIPT_DIR/_common.sh" && has_active_autopilot "$HAS_TEST_DIR") || exit_code=$?
+assert_exit "lock file exists → active (exit 0)" 0 $exit_code
+
+rm -rf "$HAS_TEST_DIR"
 
 echo ""
 

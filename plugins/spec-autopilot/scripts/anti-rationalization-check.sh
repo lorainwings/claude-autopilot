@@ -23,8 +23,20 @@ if [ -z "$STDIN_DATA" ]; then
   exit 0
 fi
 
-# --- Fast bypass: pure bash marker detection ---
-if ! echo "$STDIN_DATA" | grep -q 'autopilot-phase:[0-9]'; then
+# --- Fast bypass Layer 0: lock file pre-check ---
+# 无活跃 autopilot 会话时，跳过所有检查。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+if [ -z "$PROJECT_ROOT_QUICK" ]; then
+  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
+  exit 0
+fi
+
+# --- Fast bypass Layer 1: prompt 首行标记检测 ---
+if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
   exit 0
 fi
 
