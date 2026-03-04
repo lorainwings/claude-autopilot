@@ -34,6 +34,19 @@ description: "[ONLY for autopilot orchestrator] Gate verification protocol for a
 
 **任何 Step 失败 → 硬阻断，禁止启动下一阶段。**
 
+## 特殊门禁：Phase 3 → Phase 4（任务粒度检查）
+
+除通用 8 步校验外，额外验证 tasks.md 中每个任务的粒度：
+
+```
+- [ ] 读取 openspec/changes/{change_name}/tasks.md
+- [ ] 每个任务涉及文件 ≤3 个（检查描述中的文件路径引用数量）
+- [ ] 无"所有/全部/entire/all files"等暗示大范围变更的描述
+- [ ] 不满足 → 阻断，要求重新 dispatch Phase 3 附加粒度约束
+```
+
+阻断信息格式: `"Phase 3 tasks.md 粒度检查失败：Task '{task_name}' 涉及 {N} 个文件（上限 3）。请重新 dispatch Phase 3 并要求更细粒度的任务拆分。"`
+
 ## 特殊门禁：Phase 4 → Phase 5
 
 除通用 8 步校验外，额外验证（从 `autopilot.config.yaml` 读取阈值）：
@@ -61,3 +74,12 @@ description: "[ONLY for autopilot orchestrator] Gate verification protocol for a
 ## 阶段强制执行保障
 
 阶段跳过由 Hook（`check-predecessor-checkpoint.sh`）+ TaskCreate blockedBy 依赖链确定性阻断，AI 无需自我审查。8 个阶段是不可分割整体，产出为空时应产出 "N/A with justification" 而非跳过。
+
+## 并行模式门禁说明
+
+当阶段使用并行模式（如 Phase 4 的 4 路并行测试设计）时：
+
+- 门禁验证的是**合并后的统一信封**，不是单个子 Agent 的结果
+- 合并由主线程在收集全部子 Agent 结果后按 autopilot-checkpoint 并行合并协议执行
+- 验证逻辑不变（如 Phase 4→5 的 test_counts 每项 ≥ 阈值），只是数据来源从单一信封变为合并信封
+- 单个子 Agent 失败 → 整体信封 status 为 blocked → 门禁阻断

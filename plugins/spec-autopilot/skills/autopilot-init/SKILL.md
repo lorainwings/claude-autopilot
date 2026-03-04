@@ -90,6 +90,9 @@ phases:
       enabled: true
       max_iterations: 30
       fallback_enabled: true
+    micro_verification:
+      enabled: true
+      commands: []        # 自动检测填充
   reporting:
     instruction_files: []    # 用户按需添加
     report_commands:
@@ -97,6 +100,27 @@ phases:
       markdown: "python tools/report/generator.py -i {change_name}"
     coverage_target: 80
     zero_skip_required: true
+
+model_tier:
+  default: opus
+  phase_2: sonnet        # OpenSpec 创建（机械操作）
+  phase_3: opus          # 规范生成（质量关键）
+  phase_4: opus          # 测试设计（质量关键）
+  phase_5: opus          # 代码实施（质量关键）
+  phase_6: sonnet        # 报告生成（格式化操作）
+
+parallel:
+  enabled: true
+  phase_4:
+    enabled: true          # Phase 4 并行测试设计
+    max_concurrent: 4      # 4 类测试各一个 Agent
+  phase_5:
+    enabled: true          # Phase 5 并行任务组
+    max_concurrent: 3      # 最多 3 路并行
+    use_worktree: true     # 使用 git worktree 隔离
+  phase_6:
+    enabled: true          # Phase 6 并行测试执行
+    max_concurrent: 6      # 6 个测试套件
 
 test_suites:
   # 自动检测到的测试套件
@@ -113,6 +137,9 @@ test_suites:
 - 后端: {tech_stack} (port {port})
 - 前端: {framework} (port {port})
 - 测试: {test_frameworks}
+- 模型分层: Phase 2,6 → Sonnet | Phase 3,4,5 → Opus
+- 并行模式: {enabled/disabled}
+- 微验证: {enabled/disabled}, {N} 条命令
 
 选项:
 - "确认写入 (Recommended)" → 写入 .claude/autopilot.config.yaml
@@ -138,6 +165,17 @@ test_suites:
 | `jest.config.*` | `unit: { command: "npx jest", type: unit }` |
 | 前端 `package.json` 有 `type-check` | `typecheck: { command: "cd frontend && pnpm type-check", type: typecheck }` |
 | Node `tsconfig.json` | `node_typecheck: { command: "cd node && npx tsc --noEmit", type: typecheck }` |
+
+### micro_verification 自动推导
+
+| 检测到 | 生成的验证命令 |
+|--------|---------------|
+| 前端 `package.json` 有 `type-check` | `cd frontend/web-app && pnpm type-check` |
+| Node `tsconfig.json` | `cd node && npx tsc --noEmit` |
+| `build.gradle` + `src/test/` | `cd backend && ./gradlew test --fail-fast` |
+
+检测到任何匹配项 → `micro_verification.enabled: true`，`commands` 填充对应命令列表。
+无匹配项 → `micro_verification.enabled: true`，`commands: []`（Phase 5 降级使用 ralph-loop-config.md 硬编码命令）。
 
 ### report_commands 自动推导
 

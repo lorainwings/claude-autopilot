@@ -221,6 +221,56 @@ if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; the
   deny "Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first."
 fi
 
+# Special gate: Phase 4 requires Phase 3 tasks.md granularity validation
+if [ "$TARGET_PHASE" -eq 4 ]; then
+  tasks_file="${change_dir}tasks.md"
+
+  if [ -f "$tasks_file" ]; then
+    granularity_valid=$(python3 -c "
+import re, sys
+
+try:
+    with open(sys.argv[1]) as f:
+        content = f.read()
+
+    # Find task blocks (lines starting with '- [ ]' or '- [x]')
+    tasks = re.findall(r'- \[[ x]\]\s+(.*)', content)
+    issues = []
+
+    for task_desc in tasks:
+        # Count file path references (patterns like path/to/file.ext or backtick-wrapped paths)
+        file_refs = re.findall(r'[\w\-./]+\.\w{1,10}', task_desc)
+        backtick_refs = re.findall(r'\x60([^\x60]+\.\w{1,10})\x60', task_desc)
+        all_refs = set(file_refs + backtick_refs)
+        # Filter to likely file paths (contain / or common extensions)
+        likely_files = [r for r in all_refs if '/' in r or re.search(r'\.(ts|js|java|py|vue|md|yaml|json|xml|html|css|sh)$', r)]
+
+        if len(likely_files) > 3:
+            issues.append(f'{task_desc[:50]}... ({len(likely_files)} files)')
+
+        # Check for broad-scope keywords
+        broad_keywords = re.findall(r'(所有|全部|entire|all files|every file)', task_desc, re.IGNORECASE)
+        if broad_keywords:
+            issues.append(f'{task_desc[:50]}... (broad keyword: {broad_keywords[0]})')
+
+    if issues:
+        print('false')
+        # Print first issue as detail on stderr
+        print(f'Issues: {issues[0]}', file=sys.stderr)
+    else:
+        print('true')
+except Exception as e:
+    # Cannot validate → pass (fail-open for granularity, unlike test_counts)
+    print('true')
+    print(f'Granularity check error: {e}', file=sys.stderr)
+" "$tasks_file" 2>/dev/null || echo "true")
+
+    if [ "$granularity_valid" = "false" ]; then
+      deny "Phase 3 tasks.md granularity check failed. One or more tasks reference >3 files or contain broad-scope keywords (所有/全部/entire/all files). Re-dispatch Phase 3 with finer-grained task splitting."
+    fi
+  fi
+fi
+
 # Special gate: Phase 5 requires Phase 4 test_counts validation
 # NOTE: min_count=5 is a hardcoded safety floor. The project-level threshold
 # (config.phases.testing.gate.min_test_count_per_type) is enforced by the

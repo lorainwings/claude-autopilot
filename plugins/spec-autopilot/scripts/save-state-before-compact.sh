@@ -99,6 +99,8 @@ for phase_num in [2, 3, 4, 5, 6]:
             phases[phase_num] = {
                 'status': data.get('status', 'unknown'),
                 'summary': data.get('summary', ''),
+                'context_summary': data.get('context_summary', data.get('summary', '')),
+                'model_used': data.get('model_used', ''),
                 'file': os.path.basename(files[0])
             }
             if data.get('status') in ('ok', 'warning'):
@@ -111,6 +113,10 @@ if not phases:
     sys.exit(0)
 
 next_phase = last_completed + 1 if last_completed < 7 else 7
+
+# Calculate progress percentage (5 sub-agent phases: 2-6)
+completed_count = sum(1 for p in phases.values() if p['status'] in ('ok', 'warning'))
+progress_pct = int(completed_count / 5 * 100)
 
 # Read tasks.md if exists
 tasks_summary = ''
@@ -144,6 +150,7 @@ lines = [
     f'- **Active change**: \`{change_name}\`',
     f'- **Last completed phase**: {last_completed}',
     f'- **Next phase to execute**: {next_phase}',
+    f'- **Progress**: {progress_pct}% ({completed_count}/5 phases)',
     f'- **Change directory**: \`openspec/changes/{change_name}/\`',
 ]
 
@@ -156,8 +163,8 @@ lines.extend([
     f'',
     f'## Phase Status',
     f'',
-    f'| Phase | Status | Summary |',
-    f'|-------|--------|---------|',
+    f'| Phase | Status | Model | Summary |',
+    f'|-------|--------|-------|---------|',
 ])
 
 phase_names = {2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report'}
@@ -167,9 +174,25 @@ for phase_num in [2, 3, 4, 5, 6]:
         p = phases[phase_num]
         status_icon = {'ok': 'ok', 'warning': 'warn', 'blocked': 'BLOCKED', 'failed': 'FAILED'}.get(p['status'], p['status'])
         summary = p['summary'][:80] if p['summary'] else '-'
-        lines.append(f'| {phase_num}. {name} | {status_icon} | {summary} |')
+        model = p.get('model_used', '-') or '-'
+        lines.append(f'| {phase_num}. {name} | {status_icon} | {model} | {summary} |')
     else:
-        lines.append(f'| {phase_num}. {name} | pending | - |')
+        lines.append(f'| {phase_num}. {name} | pending | - | - |')
+
+# Latest Context Summary section
+ctx_summaries = [(pn, phases[pn].get('context_summary', '')) for pn in sorted(phases.keys()) if phases[pn].get('context_summary')]
+if ctx_summaries:
+    lines.extend([
+        f'',
+        f'## Latest Context Summary',
+        f'',
+    ])
+    for pn, cs in ctx_summaries:
+        pname = phase_names.get(pn, f'Phase {pn}')
+        lines.append(f'### Phase {pn} — {pname}')
+        lines.append(f'')
+        lines.append(cs[:500])
+        lines.append(f'')
 
 lines.extend([
     f'',

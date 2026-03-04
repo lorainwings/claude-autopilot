@@ -155,6 +155,10 @@ if 'next_ready' not in found_json:
 phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
 phase_num = int(phase_match.group(1)) if phase_match else 0
 
+# Detect parallel sub-task marker (e.g., 'sub:unit', 'sub:api')
+sub_match = re.search(r'sub:(\w+)', prompt)
+sub_type = sub_match.group(1) if sub_match else None
+
 phase_required = {
     4: ['test_counts', 'dry_run_results'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
@@ -162,13 +166,26 @@ phase_required = {
 }
 
 if phase_num in phase_required:
-    missing_phase = [f for f in phase_required[phase_num] if f not in found_json]
-    if missing_phase:
-        print(json.dumps({
-            'decision': 'block',
-            'reason': f'Phase {phase_num} JSON envelope missing required phase-specific fields: {missing_phase}. The sub-agent must include these fields for gate verification.'
-        }))
-        sys.exit(0)
+    if sub_type and phase_num == 4:
+        # Parallel sub-agent: relaxed validation — only check fields for this sub-type
+        # Sub-agent only needs test_counts with its own type key (e.g., sub:unit → test_counts.unit)
+        tc = found_json.get('test_counts', {})
+        if sub_type not in tc:
+            print(json.dumps({
+                'decision': 'block',
+                'reason': f'Phase 4 sub:{sub_type} JSON envelope missing test_counts.{sub_type}. The sub-agent must include test_counts.{sub_type} with the count of created test cases.'
+            }))
+            sys.exit(0)
+        # dry_run_results is optional for sub-agents (checked on merge)
+    else:
+        # Standard (non-parallel) validation
+        missing_phase = [f for f in phase_required[phase_num] if f not in found_json]
+        if missing_phase:
+            print(json.dumps({
+                'decision': 'block',
+                'reason': f'Phase {phase_num} JSON envelope missing required phase-specific fields: {missing_phase}. The sub-agent must include these fields for gate verification.'
+            }))
+            sys.exit(0)
 
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)

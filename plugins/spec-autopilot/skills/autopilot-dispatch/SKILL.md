@@ -27,6 +27,7 @@ description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for 
 
 | Phase | 额外字段 |
 |-------|----------|
+| 2-6 | `context_summary` (3-5 行核心决策与产出摘要) |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }` |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }`, `iterations_used` |
 | 6 | `pass_rate`, `report_url`, `report_path` |
@@ -57,7 +58,8 @@ description: "[ONLY for autopilot orchestrator] Sub-Agent dispatch protocol for 
 dispatch 子 Agent 时**必须**在 prompt 中明确列出所有引用文件路径：
 
 ```markdown
-Task(prompt: "<!-- autopilot-phase:{phase_number} -->
+Task(
+  prompt: "<!-- autopilot-phase:{phase_number} -->
 你是 autopilot 阶段 {phase_number} 的子 Agent。
 先读取以下指令文件：
 {for each file in config.phases[phase].instruction_files}
@@ -67,8 +69,48 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 {for each file in config.phases[phase].reference_files}
 - {file_path}
 {end for}
-执行完毕后返回结构化 JSON 结果。")
+执行完毕后返回结构化 JSON 结果。",
+  model: "{resolved_model}"
+)
 ```
+
+### 模型解析规则
+
+按优先级从高到低解析 `model` 参数：
+
+1. `config.model_tier.phase_{N}` — 阶段级覆盖
+2. `config.model_tier.default` — 全局默认
+3. `"opus"` — 硬编码兜底
+
+缺失 `model_tier` 配置节 → 所有阶段使用 Opus（向后兼容）。
+
+### 契约链注入
+
+dispatch 时主线程从前置 checkpoint 提取字段直接注入子 Agent prompt：
+
+```markdown
+**前置阶段上下文（Phase {N-1} 产出）**：
+- 状态: {predecessor.status}
+- 摘要: {predecessor.context_summary ?? predecessor.summary}
+- 产物: {predecessor.artifacts}
+- 风险: {predecessor.risks ?? "无"}
+```
+
+注入规则:
+- Phase 2: 不注入（首个子 Agent 阶段，无前置 checkpoint）
+- Phase 3-6: 注入前一阶段 checkpoint 的上述字段
+- 字段缺失时降级: `context_summary` 缺失 → 使用 `summary`; `risks` 缺失 → 填入 "无"
+
+### 上下文压缩建议
+
+长流水线执行中建议在以下时机执行 `/compact`：
+
+| 时机 | 原因 |
+|------|------|
+| Phase 3 完成后 | 需求分析 + OpenSpec 创建的上下文已持久化到 checkpoint，可安全释放 |
+| Phase 5 完成后 | 实施阶段产生大量代码上下文，释放后为测试报告腾出空间 |
+
+主线程在上述阶段 checkpoint 写入成功后，**可选**输出提示：`"💡 建议执行 /compact 释放上下文空间（阶段状态已持久化到 checkpoint）"`。
 
 ## 参数化调度模板
 
@@ -81,6 +123,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 | change_name | 活跃 change 的 kebab-case 名称 |
 | instruction_files | config.phases[phase].instruction_files |
 | reference_files | config.phases[phase].reference_files |
+| model | config.model_tier.phase_{N} ?? config.model_tier.default ?? "opus" |
 
 ### 子 Agent 前置校验指令（必须包含在 prompt 开头）
 
@@ -164,3 +207,51 @@ status 只允许 "ok" 或 "blocked"：
 - Agent: qa-expert
 - 指令文件从 config.phases.reporting.instruction_files 注入
 - 报告命令从 config.phases.reporting.report_commands 读取
+
+---
+
+## 并行调度协议
+
+当 `config.parallel.enabled` 且对应阶段的 `parallel.phase_{N}.enabled` 为 true 时，dispatch 可在单条消息中发起多个并行 Task。
+
+### 并行标记扩展
+
+并行子 Agent 的 prompt 使用扩展标记：
+
+```
+<!-- autopilot-phase:{phase_number} sub:{sub_type} -->
+```
+
+例如 `<!-- autopilot-phase:4 sub:unit -->`。`sub:` 后缀让 Hook 脚本仍然通过正则 `autopilot-phase:4` 匹配为 Phase 4 Task，同时允许区分子任务。
+
+### Phase 4 并行调度模板
+
+主线程在单条消息中同时 dispatch 4 个 Task：
+
+```
+Task 4a: <!-- autopilot-phase:4 sub:unit -->
+  → 设计单元测试（≥5 用例），model: {resolved_model}
+  → 返回 JSON: { status, test_counts: { unit: N }, artifacts: [...], context_summary }
+
+Task 4b: <!-- autopilot-phase:4 sub:api -->
+  → 设计 API 集成测试（≥5 用例），model: {resolved_model}
+  → 返回 JSON: { status, test_counts: { api: N }, artifacts: [...], context_summary }
+
+Task 4c: <!-- autopilot-phase:4 sub:e2e -->
+  → 设计 E2E 测试（≥5 用例），model: {resolved_model}
+  → 返回 JSON: { status, test_counts: { e2e: N }, artifacts: [...], context_summary }
+
+Task 4d: <!-- autopilot-phase:4 sub:ui -->
+  → 设计 UI 自动化测试（≥5 用例），model: {resolved_model}
+  → 返回 JSON: { status, test_counts: { ui: N }, artifacts: [...], context_summary }
+```
+
+每个子 Agent 的 prompt 仍须包含:
+- 前置校验指令（读取 Phase 3 checkpoint）
+- 对应测试类型的强制要求（从 Phase 4 完整指令中提取对应部分）
+- 契约链注入（Phase 3 产出）
+- JSON 信封契约（只需返回该子类型负责的 `test_counts` 字段）
+
+### Fallback
+
+如果 `config.parallel` 缺失、`parallel.enabled = false` 或 `parallel.phase_{N}.enabled = false`，退回单 Agent 串行模式（现有行为，向后兼容）。
