@@ -44,6 +44,13 @@ services:
 | `agent` | string | Yes | — | Sub-agent type for requirements analysis |
 | `min_qa_rounds` | number | No | `1` | Minimum Q&A rounds before confirmation |
 | `mode` | string | No | `"structured"` | `"structured"` or `"socratic"` — socratic mode uses 6-step challenging questions |
+| `auto_scan.enabled` | boolean | No | `true` | Enable auto-scan of project structure to generate Steering Documents |
+| `auto_scan.max_depth` | number | No | `2` | Directory tree scan depth for module layout |
+| `research.enabled` | boolean | No | `true` | Enable research agent for technical feasibility analysis before discussion |
+| `research.agent` | string | No | `"Explore"` | Sub-agent type for research (Explore is fast and read-only) |
+| `complexity_routing.enabled` | boolean | No | `true` | Enable automatic complexity assessment and discussion depth routing |
+| `complexity_routing.thresholds.small` | number | No | `2` | Max files for "small" complexity (quick-confirm mode) |
+| `complexity_routing.thresholds.medium` | number | No | `5` | Max files for "medium" complexity (standard discussion) |
 
 ### `phases.testing`
 
@@ -211,6 +218,13 @@ Output:
 | 字段路径 | 期望类型 |
 |----------|---------|
 | `version` | string |
+| `phases.requirements.auto_scan.enabled` | boolean |
+| `phases.requirements.auto_scan.max_depth` | number |
+| `phases.requirements.research.enabled` | boolean |
+| `phases.requirements.research.agent` | string |
+| `phases.requirements.complexity_routing.enabled` | boolean |
+| `phases.requirements.complexity_routing.thresholds.small` | number |
+| `phases.requirements.complexity_routing.thresholds.medium` | number |
 | `phases.implementation.ralph_loop.enabled` | boolean |
 | `phases.implementation.ralph_loop.max_iterations` | number |
 | `phases.reporting.coverage_target` | number |
@@ -229,6 +243,9 @@ Output:
 | `test_pyramid.max_e2e_pct` | [0, 100] |
 | `phases.implementation.parallel.max_agents` | [1, 10] |
 | `async_quality_scans.timeout_minutes` | [1, 120] |
+| `phases.requirements.auto_scan.max_depth` | [1, 5] |
+| `phases.requirements.complexity_routing.thresholds.small` | [1, 20] |
+| `phases.requirements.complexity_routing.thresholds.medium` | [2, 50] |
 
 ### 交叉引用检查
 
@@ -238,6 +255,7 @@ Output:
 | ralph_loop 一致性 | `enabled=true` 时 `max_iterations` 应 ≥ 1 |
 | parallel 一致性 | `enabled=true` 时 `max_agents` 应 ≥ 2 |
 | coverage 一致性 | `coverage_target=0` 且 `zero_skip_required=true` 可能为误配 |
+| complexity_routing 一致性 | `thresholds.small` 必须 < `thresholds.medium` |
 
 Required keys checked:
 - Top-level: `version`, `services`, `phases`, `test_suites`

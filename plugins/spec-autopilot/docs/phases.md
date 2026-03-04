@@ -42,12 +42,15 @@
 ### Steps
 
 1. Parse `$ARGUMENTS` (file path, text, or empty → ask user)
-2. Dispatch business-analyst sub-agent for analysis
-3. **Multi-round decision LOOP** until all points clarified
-4. Generate structured prompt
-5. User final confirmation
-6. Write checkpoint
-7. Optional user gate (`config.gates.user_confirmation.after_phase_1`)
+2. **Auto-Scan**: Scan project structure → generate Steering Documents (project-context.md, existing-patterns.md, tech-constraints.md)
+3. **Research Agent**: Dispatch Explore agent → analyze related code, dependency compatibility, technical feasibility → research-findings.md
+4. **Complexity Routing**: Evaluate complexity based on research (small ≤2 files / medium 3-5 files / large 6+ files)
+5. Dispatch business-analyst sub-agent for analysis (injected with Steering + Research context)
+6. **Multi-round decision LOOP** until all points clarified (complexity affects loop depth)
+7. Generate structured prompt
+8. User final confirmation
+9. Write checkpoint
+10. Optional user gate (`config.gates.user_confirmation.after_phase_1`)
 
 ### Modes
 
@@ -56,16 +59,52 @@
 | `structured` (default) | Standard AskUserQuestion flow |
 | `socratic` | Additional challenging questions per the 6-step protocol |
 
+### Complexity Routing
+
+| Complexity | Discussion Depth | Socratic Mode | Min QA Rounds |
+|-----------|-----------------|---------------|---------------|
+| small | Quick confirm — show research conclusions, user confirms | Disabled | 1 |
+| medium | Standard — full decision loop | Follows config | 2-3 |
+| large | Deep — forced socratic mode | Forced on | 3+ |
+
+Auto-upgrade to `large` when: feasibility score is low, high-severity risks exist, or 3+ new dependencies needed.
+
+### Steering Documents (Auto-generated)
+
+| File | Content |
+|------|---------|
+| `context/project-context.md` | Tech stack, directory layout, key dependencies, coding constraints, test infrastructure |
+| `context/existing-patterns.md` | API patterns, data models, component patterns, error handling |
+| `context/tech-constraints.md` | Hard constraints, dependency constraints, infrastructure constraints |
+| `context/research-findings.md` | Impact analysis, dependency check, feasibility assessment, risks |
+
 ### Checkpoint Format
 
 ```json
 {
   "status": "ok",
   "summary": "Requirements complete, N features, M decisions confirmed",
-  "artifacts": ["context/prd.md", "context/discussion.md"],
+  "artifacts": [
+    "context/prd.md", "context/discussion.md",
+    "context/project-context.md", "context/existing-patterns.md",
+    "context/tech-constraints.md", "context/research-findings.md"
+  ],
   "requirements_summary": "...",
   "decisions": [{"point": "...", "choice": "..."}],
   "change_name": "<kebab-case-name>",
+  "complexity": "small | medium | large",
+  "research": {
+    "status": "completed | skipped",
+    "impact_files": 0,
+    "estimated_loc": 0,
+    "feasibility_score": "high | medium | low",
+    "new_deps_count": 0
+  },
+  "steering_artifacts": [
+    "context/project-context.md",
+    "context/existing-patterns.md",
+    "context/tech-constraints.md"
+  ],
   "_metrics": { "start_time": "...", "end_time": "...", "duration_seconds": 0, "retry_count": 0 }
 }
 ```

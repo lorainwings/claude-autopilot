@@ -59,6 +59,21 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 
 ### 各阶段调度内容
 
+**Phase 1（技术调研 — 主线程调度，不含 autopilot-phase 标记）**：
+- Agent: config.phases.requirements.research.agent（默认 Explore）
+- 条件：`config.phases.requirements.research.enabled === true`
+- 任务：分析与需求相关的现有代码、依赖兼容性、技术可行性
+- Prompt 必须注入：RAW_REQUIREMENT + Steering Documents 路径
+- 返回：JSON 格式的 impact_analysis / dependency_check / feasibility / risks
+- 此 Task 不含 `autopilot-phase` 标记 → 不受 Hook 门禁校验（设计预期）
+- 失败两次后标记 `research_status: "skipped"`，不阻断流程
+
+**Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）**：
+- Agent: config.phases.requirements.agent（默认 business-analyst）
+- 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
+- Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents + research-findings.md + complexity 评估结果
+- 返回值校验：非空，且包含功能清单和疑问点
+
 **Phase 2（创建 OpenSpec）**：
 - Agent: general-purpose
 - 任务：从需求推导 kebab-case 名称，执行 `openspec new change "<name>"`

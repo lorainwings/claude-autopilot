@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -279,6 +279,7 @@ Common issues and solutions: [docs/troubleshooting.md](docs/troubleshooting.md)
 
 | Document | Content |
 |----------|---------|
+| [Integration Guide](docs/integration-guide.md) | Step-by-step project onboarding, config examples, checklist |
 | [Architecture](docs/architecture.md) | Layer design, hook execution flow, skill interactions, data flow |
 | [Configuration](docs/configuration.md) | Complete YAML field reference with types and defaults |
 | [Gates](docs/gates.md) | 3-layer gate deep dive, special gates, anti-rationalization |

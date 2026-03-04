@@ -144,6 +144,13 @@ def get_value(data, key_path):
 TYPE_RULES = {
     'version': str,
     'phases.requirements.min_qa_rounds': (int, float),
+    'phases.requirements.auto_scan.enabled': bool,
+    'phases.requirements.auto_scan.max_depth': (int, float),
+    'phases.requirements.research.enabled': bool,
+    'phases.requirements.research.agent': str,
+    'phases.requirements.complexity_routing.enabled': bool,
+    'phases.requirements.complexity_routing.thresholds.small': (int, float),
+    'phases.requirements.complexity_routing.thresholds.medium': (int, float),
     'phases.testing.gate.min_test_count_per_type': (int, float),
     'phases.implementation.ralph_loop.enabled': bool,
     'phases.implementation.ralph_loop.max_iterations': (int, float),
@@ -180,6 +187,9 @@ RANGE_RULES = {
     'test_pyramid.min_total_cases': (1, 1000),
     'phases.implementation.parallel.max_agents': (1, 10),
     'async_quality_scans.timeout_minutes': (1, 120),
+    'phases.requirements.auto_scan.max_depth': (1, 5),
+    'phases.requirements.complexity_routing.thresholds.small': (1, 20),
+    'phases.requirements.complexity_routing.thresholds.medium': (2, 50),
 }
 
 range_errors = []
@@ -218,6 +228,14 @@ zero_skip = get_value(yaml_data, 'phases.reporting.zero_skip_required')
 if cov_target is not None and zero_skip is not None:
     if isinstance(cov_target, (int, float)) and cov_target == 0 and zero_skip:
         cross_ref_warnings.append('coverage_target=0 but zero_skip_required=true, may be misconfigured')
+
+# complexity_routing thresholds 一致性
+cr_small = get_value(yaml_data, 'phases.requirements.complexity_routing.thresholds.small')
+cr_medium = get_value(yaml_data, 'phases.requirements.complexity_routing.thresholds.medium')
+if cr_small is not None and cr_medium is not None:
+    if isinstance(cr_small, (int, float)) and isinstance(cr_medium, (int, float)):
+        if cr_small >= cr_medium:
+            cross_ref_warnings.append('complexity_routing: thresholds.small >= thresholds.medium, routing ineffective')
 
 valid = len(missing) == 0 and len(type_errors) == 0
 print(json.dumps({

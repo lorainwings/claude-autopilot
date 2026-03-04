@@ -83,15 +83,18 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 
 **核心原则**: 绝不假设，始终列出选项由用户决策。
 
-**执行前读取**: `references/phase1-requirements.md`（完整的 7 步流程）
+**执行前读取**: `references/phase1-requirements.md`（完整的 10 步流程）
 
 概要流程:
 1. 获取需求来源（$ARGUMENTS 解析）
-2. Task 调度 business-analyst 分析需求，产出功能清单 + 疑问点
-3. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认
-4. 生成结构化提示词 → 用户最终确认
-5. 写入 `phase-1-requirements.json` checkpoint
-6. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`）
+2. **项目上下文扫描**（Auto-Scan）→ 生成 Steering Documents（project-context.md / existing-patterns.md / tech-constraints.md）
+3. **技术调研 Agent** → 派发 Explore Agent 分析相关代码、依赖兼容性、技术可行性 → research-findings.md
+4. **复杂度评估与分路** → 基于调研结果自动分类为 small/medium/large，决定讨论深度
+5. Task 调度 business-analyst 分析需求（注入 Steering + Research 上下文），产出功能清单 + 疑问点
+6. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认（复杂度分路影响循环深度）
+7. 生成结构化提示词 → 用户最终确认
+8. 写入 `phase-1-requirements.json` checkpoint（含 complexity、research 数据）
+9. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`）
 
 ---
 

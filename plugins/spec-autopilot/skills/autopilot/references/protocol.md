@@ -22,7 +22,7 @@
 
 | Phase | 必须字段 | 可选字段 |
 |-------|----------|----------|
-| 1 | `requirements_summary`, `decisions: [{point, choice}]`, `change_name` | `open_questions` |
+| 1 | `requirements_summary`, `decisions: [{point, choice}]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts` |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used` |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |

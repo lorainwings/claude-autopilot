@@ -5,6 +5,26 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-03-04
+
+### Added
+- **Phase 1 Auto-Scan**: Automatic project structure scanning generates Steering Documents (project-context.md, existing-patterns.md, tech-constraints.md) for persistent project context
+- **Phase 1 Research Agent**: Dispatches Explore agent before discussion to analyze related code, dependency compatibility, technical feasibility → research-findings.md
+- **Phase 1 Complexity Routing**: Auto-evaluates complexity (small/medium/large) based on research impact analysis, routes to appropriate discussion depth
+- **Phase 1 enhanced business-analyst dispatch**: Injects Steering + Research context into requirements analysis agent for fact-based discussion
+- **Large complexity forced socratic**: Complexity "large" forces socratic mode regardless of config setting
+- **Integration guide**: New `docs/integration-guide.md` with step-by-step project onboarding, config examples for frontend/backend/monorepo scenarios
+- **Config validation for Phase 1 fields**: `validate-config.sh` now validates `auto_scan`, `research`, `complexity_routing` configuration
+
+### Changed
+- `references/phase1-requirements.md`: Rewritten from 7-step to 10-step flow with auto-scan, research, and complexity routing
+- `autopilot/SKILL.md`: Phase 1 summary updated to reflect 10-step enhanced flow
+- `autopilot-dispatch/SKILL.md`: Added Phase 1 research and business-analyst dispatch templates
+- `references/protocol.md`: Phase 1 checkpoint fields expanded with `complexity`, `research`, `steering_artifacts`
+- `docs/phases.md`: Phase 1 section updated with complexity routing table, steering documents table, enhanced checkpoint format
+- `docs/configuration.md`: Added `phases.requirements.auto_scan`, `research`, `complexity_routing` field references and validation rules
+- `scripts/validate-config.sh`: Added type/range/cross-ref validation for new Phase 1 config fields
+
 ## [2.0.0] - 2026-03-04
 
 ### Added
