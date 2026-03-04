@@ -1,9 +1,22 @@
 {
   "name": "spec-autopilot",
-  "version": "1.9.0",
-  "description": "Spec-driven autopilot orchestration for delivery pipelines",
+  "version": "2.0.0",
+  "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, and crash recovery",
   "author": { "name": "vibeflow-team" },
   "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
-  "keywords": ["autopilot", "orchestration", "spec-driven", "gate-enforcement"]
+  "keywords": [
+    "autopilot",
+    "orchestration",
+    "spec-driven",
+    "gate-enforcement",
+    "test-pyramid",
+    "anti-rationalization",
+    "crash-recovery",
+    "metrics"
+  ],
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

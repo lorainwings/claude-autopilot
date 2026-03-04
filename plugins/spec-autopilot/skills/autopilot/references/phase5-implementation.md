@@ -61,3 +61,55 @@ autopilot-gate 额外验证：
 - `test-results.json` 存在
 - `zero_skip_check.passed === true`
 - `tasks.md` 中所有任务标记为 `[x]`
+
+---
+
+## Task 级 Checkpoint
+
+为支持 Phase 5 长时间运行中的崩溃恢复，每个 task 完成后写入独立 checkpoint。
+
+### Checkpoint 目录
+
+```
+openspec/changes/<name>/context/phase-results/phase5-tasks/
+├── task-1.json
+├── task-2.json
+├── task-3.json
+└── ...
+```
+
+### Checkpoint 格式
+
+```json
+{
+  "task_number": 1,
+  "task_title": "实现用户登录 API",
+  "status": "ok",
+  "summary": "完成登录接口，通过 3 个单元测试",
+  "artifacts": ["backend/src/main/java/.../LoginController.java"],
+  "test_result": "3/3 passed",
+  "_metrics": {
+    "start_time": "2026-01-15T10:30:00Z",
+    "end_time": "2026-01-15T10:45:00Z",
+    "duration_seconds": 900,
+    "retry_count": 0
+  }
+}
+```
+
+### 恢复协议
+
+Phase 5 启动时，扫描 `phase5-tasks/` 目录：
+
+1. 列出所有 `task-N.json` 文件，按 N 排序
+2. 找到最后一个 `status: "ok"` 的 task
+3. 从下一个 task 继续执行
+4. 如果没有 task checkpoint → 从 task 1 开始
+
+### 写入时机
+
+每个 task 完成后（无论 ralph-loop 还是 fallback 模式），主线程/ralph-loop 应：
+
+1. 确保 `phase5-tasks/` 目录存在
+2. 写入 `task-N.json`（N 为 task 编号）
+3. 验证写入成功

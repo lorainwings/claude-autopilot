@@ -77,6 +77,7 @@ phases:
   requirements:
     agent: "business-analyst"
     min_qa_rounds: 1
+    mode: "structured"         # structured | socratic (苏格拉底模式深化需求)
   testing:
     agent: "qa-expert"
     instruction_files: []    # 用户按需添加
@@ -117,6 +118,11 @@ context_management:
   git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint
   autocompact_pct: 80        # 建议设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
   squash_on_archive: true    # Phase 7 归档时 autosquash fixup commits 为单一 commit
+
+brownfield_validation:
+  enabled: false               # 存量项目手动开启漂移检测
+  strict_mode: false           # true: block; false: warning only
+  ignore_patterns: ["*.test.*", "*.spec.*", "__mocks__/**"]
 
 async_quality_scans:
   timeout_minutes: 10          # 硬超时（分钟），超时后标记 timeout 继续后续步骤

@@ -58,7 +58,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 
 1. 检查 `.claude/autopilot.config.yaml` 是否存在
    - **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
-   - **存在** → 直接读取并解析所有配置节
+   - **存在** → 直接读取并解析所有配置节，然后调用 `bash scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
 2. 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查 ralph-loop 插件是否启用
 3. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
 4. 使用 TaskCreate 创建 8 个阶段任务 + blockedBy 依赖链
@@ -185,6 +185,8 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
    {"status": "in_progress", "phase": 7, "description": "Archive and cleanup"}
    ```
 1. 读取所有 phase-results checkpoint，展示状态汇总表
+1.5. **指标汇总**：调用 `bash scripts/collect-metrics.sh` 收集执行指标，展示阶段耗时和重试汇总表
+   > 详见：`references/metrics-collection.md`
 2. **收集并行质量扫描结果**：检查上一步派发的后台 Agent，展示质量汇总表（含得分和阈值对比）
    - **硬超时机制**：等待扫描结果时，最多等待 `config.async_quality_scans.timeout_minutes` 分钟（默认 10 分钟）
    - 超时后自动将该扫描标记为 `"timeout"`，**不询问用户是否继续等待**，直接继续后续步骤
