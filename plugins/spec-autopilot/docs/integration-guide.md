@@ -377,6 +377,104 @@ test_suites:
 
 ---
 
+## 现有项目升级指南（v2.1 → v2.2）
+
+### 背景
+
+v2.2.0 将 `instruction_files` / `reference_files` 从**必需依赖**降级为**可选覆盖**。项目特定上下文（测试凭据、项目结构、Playwright 登录流程）改为写在 `autopilot.config.yaml` 的 `project_context` 字段中，由 dispatch 动态注入子 Agent prompt。
+
+### 升级步骤
+
+#### 1. 更新插件
+
+```bash
+# 在 Claude Code 中执行
+claude plugin update spec-autopilot@lorainwings-plugins
+```
+
+或手动更新缓存：
+
+```bash
+# 从源码更新
+cp -r ~/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/. \
+  ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/2.2.0/
+```
+
+#### 2. 在 config 中添加 `project_context`
+
+在 `autopilot.config.yaml` 的 `context_management` 和 `test_suites` 之间添加：
+
+```yaml
+project_context:
+  project_structure:
+    backend_dir: "backend"                    # 你的后端目录
+    frontend_dir: "frontend/web-app"          # 你的前端目录
+    node_dir: "node"                          # Node 服务目录（无则留空）
+    test_dirs:
+      unit: "backend/src/test/java/..."       # 单元测试目录
+      api: "tests/api"                        # API 测试目录
+      e2e: "tests/e2e"                        # E2E 测试目录
+      ui: "tests/ui"                          # UI 测试目录
+
+  test_credentials:
+    username: "dev"                           # 从旧 reference/test-credentials.md 迁移
+    password: "password"
+    login_endpoint: "POST /api/auth/login"
+
+  playwright_login:
+    steps: |                                  # 从旧 reference/playwright-standards.md 迁移
+      1. goto /#/login
+      2. click [data-testid="switch-password-login"]
+      3. fill [data-testid="username"]
+      4. fill [data-testid="password"]
+      5. click [data-testid="login-btn"]
+      6. waitForURL /#/dashboard
+    known_testids:
+      - switch-password-login
+      - username
+      - password
+      - login-btn
+```
+
+#### 3. 清空 instruction_files 引用（可选）
+
+旧的指令文件引用现在是可选的。如果你已将内容迁移到 `project_context`，可以清空：
+
+```yaml
+phases:
+  testing:
+    instruction_files: []    # 旧: [".claude/skills/autopilot/phases/testing-requirements.md"]
+    reference_files: []      # 旧: ["...test-credentials.md", "...playwright-standards.md"]
+  implementation:
+    instruction_files: []    # 旧: [".claude/skills/autopilot/phases/ralph-loop-config.md"]
+  reporting:
+    instruction_files: []    # 旧: [".claude/skills/autopilot/phases/reporting.md"]
+```
+
+> 如果保留引用，dispatch 会同时注入 config 内容 + 指令文件内容（instruction_files 优先级更高）。
+
+#### 4. 删除项目侧 SKILL.md 包装器（如有）
+
+如果你之前创建了 `.claude/skills/autopilot/SKILL.md`，删除它以避免与插件命令重复：
+
+```bash
+rm .claude/skills/autopilot/SKILL.md
+```
+
+> `phases/` 和 `reference/` 目录可保留（作为 instruction_files 的可选覆盖源），也可删除（如已完全迁移到 config）。
+
+#### 5. 验证
+
+```bash
+# 验证 config
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
+
+# 重启 Claude Code 后测试
+/spec-autopilot:autopilot
+```
+
+---
+
 ## 故障排查
 
 | 问题 | 原因 | 解决方案 |
