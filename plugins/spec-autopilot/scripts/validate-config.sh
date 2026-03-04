@@ -16,7 +16,10 @@ output_result() {
   local valid="$1"
   local missing_json="$2"
   local warnings_json="$3"
-  echo "{\"valid\":${valid},\"missing_keys\":${missing_json},\"warnings\":${warnings_json}}"
+  local type_errors="${4:-[]}"
+  local range_errors="${5:-[]}"
+  local cross_ref="${6:-[]}"
+  echo "{\"valid\":${valid},\"missing_keys\":${missing_json},\"type_errors\":${type_errors},\"range_errors\":${range_errors},\"cross_ref_warnings\":${cross_ref},\"warnings\":${warnings_json}}"
 }
 
 # --- Check file exists ---
@@ -124,8 +127,107 @@ for key in recommended:
     if not check_key(yaml_data, key):
         warnings.append(f'Recommended key \"{key}\" not found')
 
-valid = len(missing) == 0
-print(json.dumps({'valid': valid, 'missing_keys': missing, 'warnings': warnings}))
+# --- 类型验证 ---
+def get_value(data, key_path):
+    \"\"\"从嵌套 dict 中获取值，不存在返回 None。\"\"\"
+    if not isinstance(data, dict):
+        return None
+    parts = key_path.split('.')
+    current = data
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
+
+TYPE_RULES = {
+    'version': str,
+    'phases.requirements.min_qa_rounds': (int, float),
+    'phases.testing.gate.min_test_count_per_type': (int, float),
+    'phases.implementation.ralph_loop.enabled': bool,
+    'phases.implementation.ralph_loop.max_iterations': (int, float),
+    'phases.implementation.ralph_loop.fallback_enabled': bool,
+    'phases.reporting.coverage_target': (int, float),
+    'phases.reporting.zero_skip_required': bool,
+    'test_pyramid.min_unit_pct': (int, float),
+    'test_pyramid.max_e2e_pct': (int, float),
+    'test_pyramid.min_total_cases': (int, float),
+    'phases.code_review.enabled': bool,
+    'phases.implementation.parallel.enabled': bool,
+    'phases.implementation.parallel.max_agents': (int, float),
+}
+
+type_errors = []
+for key_path, expected_type in TYPE_RULES.items():
+    val = get_value(yaml_data, key_path)
+    if val is None:
+        continue  # key 不存在，跳过类型检查（由 missing_keys 处理）
+    if not isinstance(val, expected_type):
+        if isinstance(expected_type, tuple):
+            type_name = '|'.join(t.__name__ for t in expected_type)
+        else:
+            type_name = expected_type.__name__
+        type_errors.append(f'{key_path}: expected {type_name}, got {type(val).__name__}')
+
+# --- 范围验证 ---
+RANGE_RULES = {
+    'phases.testing.gate.min_test_count_per_type': (1, 100),
+    'phases.implementation.ralph_loop.max_iterations': (1, 200),
+    'phases.reporting.coverage_target': (0, 100),
+    'test_pyramid.min_unit_pct': (0, 100),
+    'test_pyramid.max_e2e_pct': (0, 100),
+    'test_pyramid.min_total_cases': (1, 1000),
+    'phases.implementation.parallel.max_agents': (1, 10),
+    'async_quality_scans.timeout_minutes': (1, 120),
+}
+
+range_errors = []
+for key_path, (min_val, max_val) in RANGE_RULES.items():
+    val = get_value(yaml_data, key_path)
+    if val is not None and isinstance(val, (int, float)):
+        if val < min_val or val > max_val:
+            range_errors.append(f'{key_path}: value {val} out of range [{min_val}, {max_val}]')
+
+# --- 交叉引用验证 ---
+cross_ref_warnings = []
+
+# test_pyramid 总和检查
+min_unit = get_value(yaml_data, 'test_pyramid.min_unit_pct')
+max_e2e = get_value(yaml_data, 'test_pyramid.max_e2e_pct')
+if min_unit is not None and max_e2e is not None:
+    if isinstance(min_unit, (int, float)) and isinstance(max_e2e, (int, float)):
+        if min_unit + max_e2e > 100:
+            cross_ref_warnings.append('test_pyramid: min_unit_pct + max_e2e_pct > 100%, impossible distribution')
+
+# ralph_loop enabled 但 max_iterations < 1
+rl_enabled = get_value(yaml_data, 'phases.implementation.ralph_loop.enabled')
+rl_max = get_value(yaml_data, 'phases.implementation.ralph_loop.max_iterations')
+if rl_enabled and rl_max is not None and isinstance(rl_max, (int, float)) and rl_max < 1:
+    cross_ref_warnings.append('ralph_loop.enabled=true but max_iterations<1, effectively disabled')
+
+# parallel 启用但 max_agents < 2
+par_enabled = get_value(yaml_data, 'phases.implementation.parallel.enabled')
+par_max = get_value(yaml_data, 'phases.implementation.parallel.max_agents')
+if par_enabled and par_max is not None and isinstance(par_max, (int, float)) and par_max < 2:
+    cross_ref_warnings.append('parallel.enabled=true but max_agents<2, no parallelism benefit')
+
+# coverage_target 为 0 但 zero_skip_required 为 true（可能是误配置）
+cov_target = get_value(yaml_data, 'phases.reporting.coverage_target')
+zero_skip = get_value(yaml_data, 'phases.reporting.zero_skip_required')
+if cov_target is not None and zero_skip is not None:
+    if isinstance(cov_target, (int, float)) and cov_target == 0 and zero_skip:
+        cross_ref_warnings.append('coverage_target=0 but zero_skip_required=true, may be misconfigured')
+
+valid = len(missing) == 0 and len(type_errors) == 0
+print(json.dumps({
+    'valid': valid,
+    'missing_keys': missing,
+    'type_errors': type_errors,
+    'range_errors': range_errors,
+    'cross_ref_warnings': cross_ref_warnings,
+    'warnings': warnings
+}))
 " "$CONFIG_FILE"
   exit 0
 fi

@@ -61,6 +61,19 @@ user-invocable: false
 
 任何条件不满足 → 阻断 Phase 6。
 
+## Phase 6.5 代码审查门禁（可选）
+
+当 `config.phases.code_review.enabled = true` 时，Phase 6 完成后额外检查：
+
+```
+- [ ] phase-6.5-code-review.json 存在
+- [ ] findings 中 critical 数量为 0（当 block_on_critical = true 时）
+- [ ] status 为 "ok" 或 "warning"（用户已确认）
+```
+
+Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer 2（Hook predecessor check）。
+当 `code_review.enabled = false` 时，Phase 6 直接进入质量扫描和 Phase 7。
+
 ## 可选 Layer 3 补充：语义验证
 
 > 详见：`autopilot/references/semantic-validation.md`

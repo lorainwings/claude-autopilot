@@ -18,5 +18,24 @@
   "engines": {
     "claude-code": ">=1.0.0"
   },
+  "optionalDependencies": {
+    "ralph-loop": {
+      "description": "Autonomous iteration loop for Phase 5 implementation. Without it, fallback mode is used.",
+      "install": "claude plugin install ralph-loop",
+      "phases": ["5"]
+    },
+    "superpowers": {
+      "description": "Code review skills for Phase 6.5 code review. Without it, basic diff review is used.",
+      "install": "claude plugin install superpowers",
+      "phases": ["6.5"]
+    }
+  },
+  "peerDependencies": {
+    "openspec": {
+      "description": "OpenSpec framework for spec-driven development. Required for Phase 2-3 artifact generation.",
+      "install": "claude plugin install openspec",
+      "required": true
+    }
+  },
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }
