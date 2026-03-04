@@ -190,6 +190,31 @@ if phase_num in (4, 6):
         }))
         sys.exit(0)
 
+# 10) Layer 2 test_pyramid floor validation (Phase 4 only)
+#     These are lenient floors — strict thresholds enforced by Layer 3 (autopilot-gate).
+#     Catches severely inverted pyramids that slip through LLM self-checks.
+if phase_num == 4:
+    pyramid = found_json.get('test_pyramid', {})
+    unit_pct = pyramid.get('unit_pct', 0)
+    e2e_pct = pyramid.get('e2e_pct', 0)
+    total = found_json.get('test_counts', {})
+    total_sum = sum(v for v in total.values() if isinstance(v, (int, float)))
+
+    violations = []
+    if isinstance(unit_pct, (int, float)) and unit_pct < 30:
+        violations.append(f'unit_pct={unit_pct}% < 30% floor')
+    if isinstance(e2e_pct, (int, float)) and e2e_pct > 40:
+        violations.append(f'e2e_pct={e2e_pct}% > 40% ceiling')
+    if total_sum < 10:
+        violations.append(f'total_cases={total_sum} < 10 minimum')
+
+    if violations:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 4 test_pyramid floor violation (Layer 2): {\";\".join(violations)}. Adjust test distribution before proceeding.'
+        }))
+        sys.exit(0)
+
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
 sys.exit(0)
