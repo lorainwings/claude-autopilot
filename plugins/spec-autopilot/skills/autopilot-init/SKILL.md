@@ -57,6 +57,53 @@ Node:
   - ecosystem.config.js → env.PORT
 ```
 
+### Step 2.5: 检测项目上下文（新增）
+
+从项目中提取子 Agent 运行所需的项目特定数据：
+
+#### 2.5.1 测试凭据检测
+
+```
+检测顺序（找到即停）:
+  1. application.yml / application.properties → 提取 spring.datasource 配置
+  2. .env / .env.test → 提取 TEST_USERNAME / TEST_PASSWORD
+  3. tests/ 目录下搜索 conftest.py / fixtures 中的 login 函数
+  4. 前端 Login.vue / login.tsx 组件分析登录流程
+
+产出 test_credentials 配置:
+  username: <检测到的测试用户名，未检测到则留空提示用户>
+  password: <检测到的测试密码，未检测到则留空提示用户>
+  login_endpoint: <从 Router/Controller 注解推导，如 "POST /api/auth/login">
+```
+
+#### 2.5.2 项目结构检测
+
+```
+检测规则:
+  backend_dir: 找到 build.gradle/pom.xml 的目录（如 "backend"）
+  frontend_dir: 找到前端 package.json 的目录（如 "frontend/web-app"）
+  node_dir: 找到 Node 服务 package.json 的目录（如 "node"）
+  test_dirs:
+    unit: 找到 src/test/ 的路径
+    api: 找到 tests/api/ 或 test/api/ 的路径
+    e2e: 找到 tests/e2e/ 或 含 playwright.config 的目录
+    ui: 找到 tests/ui/ 的路径
+```
+
+#### 2.5.3 Playwright 登录流程检测（当检测到 Playwright 时）
+
+```
+检测规则:
+  1. Glob 搜索 Login.vue / LoginPage.tsx / login.* 组件
+  2. 提取所有 data-testid 属性值
+  3. 分析登录表单结构（是否有 OAuth 切换、密码/验证码模式切换）
+  4. 生成 playwright_login_flow 描述
+
+产出: config.project_context.playwright_login 字段
+```
+
+**未检测到的字段**：标记为空字符串，Step 4 中通过 AskUserQuestion 提示用户补充。
+
 ### Step 3: 生成配置
 
 根据检测结果生成 YAML 配置，模板如下:
@@ -78,15 +125,26 @@ phases:
     agent: "business-analyst"
     min_qa_rounds: 1
     mode: "structured"         # structured | socratic (苏格拉底模式深化需求)
+    auto_scan:
+      enabled: true
+      max_depth: 2
+    research:
+      enabled: true
+      agent: "Explore"
+    complexity_routing:
+      enabled: true
+      thresholds:
+        small: 2
+        medium: 5
   testing:
     agent: "qa-expert"
-    instruction_files: []    # 用户按需添加
-    reference_files: []      # 用户按需添加
+    instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
+    reference_files: []        # 可选：项目自定义参考文件
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
   implementation:
-    instruction_files: []    # 用户按需添加
+    instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     ralph_loop:
       enabled: true
       max_iterations: 30
@@ -98,7 +156,7 @@ phases:
       max_agents: 3          # 最大并行 Agent 数量（建议 2-4）
       dependency_analysis: true  # 自动分析 task 依赖关系
   reporting:
-    instruction_files: []    # 用户按需添加
+    instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom
     report_commands:
       html: "python tools/report/html_generator.py -i {change_name}"
@@ -161,6 +219,35 @@ async_quality_scans:
 
 test_suites:
   # 自动检测到的测试套件
+
+# === 项目上下文（自动检测，dispatch 动态注入子 Agent prompt） ===
+project_context:
+  project_structure:
+    backend_dir: "{detected}"      # 如 "backend"
+    frontend_dir: "{detected}"     # 如 "frontend/web-app"
+    node_dir: "{detected}"         # 如 "node"，无则为空
+    test_dirs:
+      unit: "{detected}"           # 如 "backend/src/test/java"
+      api: "{detected}"            # 如 "tests/api"
+      e2e: "{detected}"            # 如 "tests/e2e"
+      ui: "{detected}"             # 如 "tests/ui"
+
+  test_credentials:                # 测试凭据（dispatch 自动注入，无需 reference 文件）
+    username: "{detected}"         # 从 .env/conftest.py/fixtures 检测
+    password: "{detected}"         # 未检测到则提示用户填写
+    login_endpoint: "{detected}"   # 如 "POST /api/auth/login"
+
+  playwright_login:                # Playwright 登录流程（检测到 Playwright 时生成）
+    steps: |
+      # 自动检测的登录步骤（从 Login 组件的 data-testid 推导）
+      # 示例:
+      # 1. goto /#/login
+      # 2. click [data-testid="switch-password-login"]
+      # 3. fill [data-testid="username"]
+      # 4. fill [data-testid="password"]
+      # 5. click [data-testid="login-btn"]
+      # 6. waitForURL /#/dashboard
+    known_testids: []              # 从 Login 组件扫描到的 data-testid 列表
 ```
 
 ### Step 4: 用户确认
@@ -174,11 +261,29 @@ test_suites:
 - 后端: {tech_stack} (port {port})
 - 前端: {framework} (port {port})
 - 测试: {test_frameworks}
+- 测试凭据: {username}/{检测状态}
+- 项目结构: {backend_dir}, {frontend_dir}, {node_dir}
 
 选项:
 - "确认写入 (Recommended)" → 写入 .claude/autopilot.config.yaml
 - "需要调整" → 展示完整 YAML 让用户修改后再写入
 ```
+
+#### 4.1 未检测到的字段补充
+
+对 `project_context` 中值为空的字段，逐个通过 AskUserQuestion 提示用户补充：
+
+```
+IF test_credentials.username 为空:
+  AskUserQuestion: "未检测到测试凭据。请提供测试账号用户名（或跳过，后续由 Phase 1 自动发现）："
+  选项: "输入凭据" / "跳过，由 Phase 1 自动发现 (Recommended)"
+
+IF playwright_login.steps 为空 且检测到 Playwright:
+  AskUserQuestion: "未检测到 Playwright 登录流程。请选择处理方式："
+  选项: "由 Phase 1 Auto-Scan 自动发现 (Recommended)" / "手动描述登录流程"
+```
+
+> **降级策略**：所有 `project_context` 字段均为可选。未填写的字段由 Phase 1 的 Auto-Scan + Research Agent 在运行时自动发现，不阻断 init 流程。
 
 ### Step 5: 写入配置
 

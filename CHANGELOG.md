@@ -5,6 +5,22 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-03-04
+
+### Added
+- **Config `project_context`**: New config section for project-specific context (project_structure, test_credentials, playwright_login) auto-detected by init
+- **Dynamic dispatch prompt**: Phase 4/5/6 sub-agent prompts now dynamically constructed from config + Phase 1 Steering Documents
+- **Init Step 2.5**: Auto-detects test credentials, project structure, and Playwright login flow during config generation
+- **Fallback chain**: Empty `project_context` fields supplemented by Phase 1 Auto-Scan at runtime
+
+### Changed
+- **`instruction_files` demoted to optional override**: No longer required for basic operation. Dispatch uses config fields + Phase 1 output as primary context
+- **`autopilot-dispatch/SKILL.md`**: Rewritten dispatch template with 7-level context injection priority chain
+- **`autopilot-init/SKILL.md`**: Added Step 2.5 (project context detection) and Step 4.1 (missing field prompts)
+- **`integration-guide.md`**: Simplified from 8 steps to 7 steps, removed mandatory instruction file creation
+- **`configuration.md`**: Added `project_context` section with project_structure, test_credentials, playwright_login
+- **`validate-config.sh`**: Added type validation for project_context fields
+
 ## [2.1.0] - 2026-03-04
 
 ### Added

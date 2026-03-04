@@ -17,19 +17,83 @@ user-invocable: false
 
 ## 显式路径注入模板
 
-dispatch 子 Agent 时**必须**在 prompt 中明确列出所有引用文件路径：
+dispatch 子 Agent 时按以下优先级构造项目上下文：
+
+### 上下文注入优先级（高 → 低）
+
+| 优先级 | 来源 | 说明 |
+|--------|------|------|
+| 1 | `config.phases[phase].instruction_files` | 可选覆盖：项目自定义指令文件（存在则注入，覆盖内置规则） |
+| 2 | `config.phases[phase].reference_files` | 可选覆盖：项目自定义参考文件 |
+| 3 | `config.project_context` | 自动注入：init 检测的项目结构、测试凭据、Playwright 登录流程 |
+| 4 | `config.test_suites` | 自动注入：测试命令、框架类型 |
+| 5 | `config.services` | 自动注入：服务健康检查 URL |
+| 6 | Phase 1 Steering Documents | 自动注入：Auto-Scan 生成的项目上下文（如存在） |
+| 7 | 插件内置规则 | 兜底：dispatch 模板中的通用要求 |
+
+### Prompt 构造模板
 
 ```markdown
 Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 你是 autopilot 阶段 {phase_number} 的子 Agent。
+
+## 项目上下文（从 config 自动注入）
+
+### 服务列表
+{for each service in config.services}
+- {service.name}: {service.health_url}
+{end for}
+
+### 项目结构
+- 后端目录: {config.project_context.project_structure.backend_dir}
+- 前端目录: {config.project_context.project_structure.frontend_dir}
+- 测试目录: {config.project_context.project_structure.test_dirs}
+
+### 测试套件
+{for each suite in config.test_suites}
+- {suite_name}: `{suite.command}` (type: {suite.type})
+{end for}
+
+### 测试凭据
+{if config.project_context.test_credentials.username 非空}
+- 用户名: {config.project_context.test_credentials.username}
+- 密码: {config.project_context.test_credentials.password}
+- 登录端点: {config.project_context.test_credentials.login_endpoint}
+{else}
+- 未配置测试凭据，请从项目的 application.yml / .env 中读取
+{end if}
+
+### Playwright 登录流程
+{if config.project_context.playwright_login.steps 非空}
+{config.project_context.playwright_login.steps}
+已知 data-testid: {config.project_context.playwright_login.known_testids}
+{else}
+- 未配置登录流程，请从 Login 组件中读取 data-testid 属性推导
+{end if}
+
+## Phase 1 项目分析（如存在）
+读取以下文件获取项目深度上下文（如文件不存在则跳过）：
+- openspec/changes/{change_name}/context/project-context.md
+- openspec/changes/{change_name}/context/existing-patterns.md
+- openspec/changes/{change_name}/context/tech-constraints.md
+- openspec/changes/{change_name}/context/research-findings.md
+
+{if config.phases[phase].instruction_files 非空}
+## 项目自定义指令（覆盖）
 先读取以下指令文件：
 {for each file in config.phases[phase].instruction_files}
 - {file_path}
 {end for}
+{end if}
+
+{if config.phases[phase].reference_files 非空}
+## 项目自定义参考文件
 再读取以下参考文件：
 {for each file in config.phases[phase].reference_files}
 - {file_path}
 {end for}
+{end if}
+
 执行完毕后返回结构化 JSON 结果。")
 ```
 
@@ -86,7 +150,8 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 
 **Phase 4（测试用例设计）**：
 - Agent: config.phases.testing.agent（默认 qa-expert）
-- 指令文件 + 参考文件从 config 注入
+- 项目上下文从 config.project_context + config.test_suites + Phase 1 Steering Documents 自动注入
+- 可选覆盖：config.phases.testing.instruction_files / reference_files（非空时注入）
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
 - **Phase 4 不可跳过，不可降级为 warning**
 
@@ -97,20 +162,21 @@ Phase 4 子 Agent prompt 必须包含以下强制指令：
 
 你**必须**创建实际的测试文件，不允许以"后续补充"或"纯 UI 变更不需要"为由跳过。
 
-### 必须创建的 4 类测试文件
+### 必须创建的测试文件
 
-1. **单元测试**（≥5 个用例）
-   - 后端: `backend/src/test/java/.../*Test.java` (JUnit 5)
-   - 或前端: `frontend/*/src/**/*.spec.ts` (Vitest)
-2. **API 集成测试**（≥5 个用例）
-   - `tests/api/test_*_api.py` (pytest)
-   - 如无新 API，测试现有 API 的联通性和字段校验
-3. **E2E 端到端测试**（≥5 个用例）
-   - `tests/e2e/*.spec.ts` (Playwright)
-   - 覆盖完整用户操作流程
-4. **UI 自动化测试**（≥5 个用例）
-   - `tests/ui/test_*_ui.py` (Playwright + pytest)
-   - 覆盖组件渲染、交互、响应式
+根据 config.test_suites 中定义的测试套件，为每种 type 创建对应的测试文件：
+
+{for each suite in config.test_suites where suite.type in config.phases.testing.gate.required_test_types}
+- **{suite_name}**（≥{config.phases.testing.gate.min_test_count_per_type} 个用例）
+  - 命令: `{suite.command}`
+  - 目录: {从 config.project_context.project_structure.test_dirs 获取}
+{end for}
+
+### 测试凭据（从 config 自动注入，禁止使用假数据）
+{自动从 config.project_context.test_credentials 注入}
+
+### Playwright 登录流程（从 config 自动注入）
+{自动从 config.project_context.playwright_login 注入}
 
 ### 测试计划文档（必须创建）
 
@@ -122,9 +188,9 @@ Phase 4 子 Agent prompt 必须包含以下强制指令：
 ### Dry-run 语法验证（必须执行）
 
 创建测试文件后必须执行语法检查：
-- 后端: `cd backend && ./gradlew test --dry-run` 或 `javac` 编译检查
-- pytest: `python -m py_compile <file>`
-- Playwright: `npx tsc --noEmit <file>`
+{for each suite in config.test_suites}
+- {suite_name}: 对应的 dry-run 命令
+{end for}
 
 ### 返回要求
 
@@ -136,9 +202,9 @@ status 只允许 "ok" 或 "blocked"：
 ### 测试金字塔比例约束
 
 测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值，默认值如下）：
-- **单元测试** ≥ 总用例数的 50%（快速反馈层）
-- **API/集成测试** ≤ 总用例数的 30%（服务契约层）
-- **E2E + UI 测试** ≤ 总用例数的 20%（端到端验证层）
+- **单元测试** ≥ 总用例数的 {config.test_pyramid.min_unit_pct}%
+- **E2E + UI 测试** ≤ 总用例数的 {config.test_pyramid.max_e2e_pct}%
+- **总用例数** ≥ {config.test_pyramid.min_total_cases}
 
 返回信封中必须包含 `test_pyramid` 字段：
 ```json
@@ -155,7 +221,8 @@ status 只允许 "ok" 或 "blocked"：
 
 **Phase 5（循环实施）**：
 - 通过 ralph-loop 或 fallback 执行（由编排主线程决策）
-- 指令文件从 config.phases.implementation.instruction_files 注入
+- 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）
+- 可选覆盖：config.phases.implementation.instruction_files（非空时注入）
 - **并行执行模式**（当 config.phases.implementation.parallel.enabled = true）：
   - 主线程分析 tasks.md 构建依赖图，识别可并行的 task 组
   - 每组内的 task 使用 `Task(isolation: "worktree", run_in_background: true)` 并行派发
@@ -169,8 +236,9 @@ status 只允许 "ok" 或 "blocked"：
 
 **Phase 6（测试报告）**：
 - Agent: qa-expert
-- 指令文件从 config.phases.reporting.instruction_files 注入
+- 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
+- 可选覆盖：config.phases.reporting.instruction_files（非空时注入）
 - **Allure 统一报告**（当 `config.phases.reporting.format === "allure"` 时）：
   - **前置检查**：子 Agent prompt 中注入 Allure 安装检测指令：
     ```

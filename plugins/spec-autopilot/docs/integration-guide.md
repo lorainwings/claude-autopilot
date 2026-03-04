@@ -62,227 +62,77 @@ exit
 claude
 ```
 
-### Step 3: 生成项目配置
+### Step 3: 生成项目配置（一步完成）
 
 在 Claude Code 中执行：
-
-```
-启动autopilot
-```
-
-> 如果 `.claude/autopilot.config.yaml` 不存在，插件会自动调用 `autopilot-init` 扫描项目并生成配置。
-
-或者手动触发配置生成：
 
 ```
 /spec-autopilot:autopilot-init
 ```
 
-插件会自动检测：
+或直接触发 autopilot（配置不存在时自动调用 init）：
+
+```
+启动autopilot
+```
+
+Init 会自动检测并生成 `.claude/autopilot.config.yaml`：
 - 技术栈（Java/Spring Boot、Vue/React、Python、Go 等）
 - 服务端口（从 application.yml / vite.config.ts / .env 提取）
 - 测试框架（JUnit、pytest、Playwright、Vitest 等）
 - 构建工具（Gradle、Maven、pnpm、npm 等）
+- **测试凭据**（从 .env / conftest.py / application.yml 检测）
+- **项目结构**（backend/frontend/node/test 目录路径）
+- **Playwright 登录流程**（从 Login 组件的 data-testid 推导）
 
-生成的配置文件位于 `.claude/autopilot.config.yaml`。
+> **无需手动创建指令文件**。dispatch 从 config 的 `project_context` + `test_suites` + `services` 动态构造子 Agent prompt。Phase 1 的 Auto-Scan 在运行时补充未检测到的项目上下文。
 
-### Step 4: 审查并调整配置
+### Step 4: 审查配置
 
-打开生成的配置文件，确认以下关键项：
+确认生成的 config 中以下关键项正确：
 
 ```yaml
-version: "1.0"
-
-# === 服务健康检查 ===
+# 必须确认的核心字段
 services:
   backend:
-    health_url: "http://localhost:8080/actuator/health"  # 根据实际端口调整
-  frontend:
-    health_url: "http://localhost:5173/"                  # 根据实际端口调整
+    health_url: "http://localhost:8080/actuator/health"  # 端口是否正确？
 
-# === 各阶段配置 ===
-phases:
-  requirements:
-    agent: "business-analyst"        # 需求分析 Agent 类型
-    min_qa_rounds: 1                 # 最少 QA 轮数
-    mode: "structured"               # structured | socratic
-    # Phase 1 增强功能（v2.1 新增）
-    auto_scan:
-      enabled: true                  # 自动扫描项目结构生成 Steering Documents
-      max_depth: 2                   # 目录扫描深度
-    research:
-      enabled: true                  # 自动技术调研
-      agent: "Explore"               # 调研 Agent 类型（Explore 快速只读）
-    complexity_routing:
-      enabled: true                  # 自动复杂度评估
-      thresholds:
-        small: 2                     # ≤2 文件 → 快速确认模式
-        medium: 5                    # 3-5 文件 → 标准讨论
-
-  testing:
-    agent: "qa-expert"
-    instruction_files: []            # 测试指令文件路径（可选）
-    reference_files: []              # 测试参考文件路径（可选）
-    gate:
-      min_test_count_per_type: 5     # 每类测试最少用例数
-      required_test_types:           # 要求的测试类型
-        - unit
-        - api
-        - e2e
-        - ui
-
-  implementation:
-    instruction_files: []
-    ralph_loop:
-      enabled: true                  # 使用 ralph-loop 自主迭代
-      max_iterations: 30             # 最大迭代次数
-      fallback_enabled: true         # ralph-loop 不可用时降级
-    worktree:
-      enabled: false                 # git worktree 隔离
-    parallel:
-      enabled: false                 # 并行 Agent Team
-      max_agents: 3
-
-  reporting:
-    instruction_files: []
-    format: "allure"                 # allure | custom
-    report_commands:
-      html: ""                       # 自定义 HTML 报告命令
-      markdown: ""                   # 自定义 Markdown 报告命令
-    coverage_target: 80              # 覆盖率目标 (%)
-    zero_skip_required: true         # 零跳过要求
-
-  code_review:
-    enabled: true                    # Phase 6.5 代码审查
-    block_on_critical: true          # critical findings 阻断
-
-# === 测试金字塔 ===
-test_pyramid:
-  min_unit_pct: 50                   # 单元测试 ≥ 50%
-  max_e2e_pct: 20                    # E2E 测试 ≤ 20%
-  min_total_cases: 20                # 总用例数 ≥ 20
-
-# === 用户确认点 ===
-gates:
-  user_confirmation:
-    after_phase_1: true              # 需求分析后确认
-    after_phase_3: false             # 设计生成后确认
-    after_phase_4: false             # 测试设计后确认
-
-# === 上下文管理 ===
-context_management:
-  git_commit_per_phase: true         # 每阶段自动 fixup commit
-  squash_on_archive: true            # 归档时自动 squash
-
-# === 测试套件 ===
-# 根据你的项目实际情况配置
 test_suites:
   backend_unit:
-    command: "cd backend && ./gradlew test"
-    type: unit
-    allure: junit_xml
-    allure_post: 'cp -r backend/build/test-results/test/*.xml "$ALLURE_RESULTS_DIR/"'
-  api_test:
-    command: "python3 -m pytest tests/api/ -v"
-    type: integration
-    allure: pytest
-  e2e:
-    command: "npx playwright test"
-    type: e2e
-    allure: playwright
-  frontend_typecheck:
-    command: "cd frontend && pnpm type-check"
-    type: typecheck
-    allure: none
+    command: "cd backend && ./gradlew test"               # 命令是否正确？
+  # ... 其他套件
+
+project_context:
+  test_credentials:
+    username: "dev"        # 测试账号是否正确？空则由 Phase 1 发现
+    password: "password"
+  project_structure:
+    backend_dir: "backend" # 目录是否正确？
 ```
 
 运行配置验证：
 
 ```bash
-bash ~/.claude/plugins/marketplaces/lorainwings-plugins/plugins/spec-autopilot/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
 ```
 
-确认输出 `"valid": true`。
+### Step 5:（可选）高级自定义
 
-### Step 5: 创建项目侧 Skill 入口
-
-创建 `.claude/skills/autopilot/SKILL.md`：
-
-```markdown
----
-name: autopilot
-description: "Full autopilot orchestrator: requirements → OpenSpec → implementation → testing → reporting → archive. Triggers: '全自动开发流程', '一键从需求到交付', '启动autopilot'."
-argument-hint: "[需求描述或 PRD 文件路径]"
----
-
-调用 Skill("spec-autopilot:autopilot", args="$ARGUMENTS") 启动编排器。
-```
-
-### Step 6:（可选）添加项目特定阶段指令
-
-创建 `.claude/skills/autopilot/phases/` 目录，按需添加项目特定指令：
-
-**测试指令** — `.claude/skills/autopilot/phases/testing-requirements.md`：
-
-```markdown
-# 测试要求
-
-## 登录凭据
-- 测试账号: test / test123
-- API Base URL: http://localhost:8080/api
-
-## 测试框架规范
-- 后端单元测试: JUnit 5 + Mockito
-- API 测试: pytest + requests
-- E2E 测试: Playwright (TypeScript)
-- 必须使用 data-testid 属性定位元素
-```
-
-**实施指令** — `.claude/skills/autopilot/phases/ralph-loop-config.md`：
-
-```markdown
-# 实施约束
-
-## 编码规范
-- 代码风格遵循项目 CLAUDE.md 中的约束
-- 单次修改不超过 3 个文件
-
-## 测试策略
-- 每个 task 完成后必须运行相关测试
-- 测试失败优先修复实现代码，禁止修改测试
-```
-
-**报告指令** — `.claude/skills/autopilot/phases/reporting.md`：
-
-```markdown
-# 报告要求
-
-## 测试套件执行顺序
-1. 后端单元测试
-2. API 集成测试
-3. 前端类型检查
-4. E2E 测试
-
-## 零跳过门禁
-所有测试必须通过或明确标记失败原因，禁止跳过。
-```
-
-然后在 `autopilot.config.yaml` 中引用：
+对于有特殊需求的项目，可以通过 `instruction_files` 覆盖插件内置规则：
 
 ```yaml
+# autopilot.config.yaml — 仅在插件内置规则不满足时使用
 phases:
   testing:
     instruction_files:
-      - ".claude/skills/autopilot/phases/testing-requirements.md"
-  implementation:
-    instruction_files:
-      - ".claude/skills/autopilot/phases/ralph-loop-config.md"
-  reporting:
-    instruction_files:
-      - ".claude/skills/autopilot/phases/reporting.md"
+      - ".claude/autopilot/custom-testing.md"   # 自定义测试要求
+    reference_files:
+      - ".claude/autopilot/custom-reference.md" # 自定义参考文件
 ```
 
-### Step 7: 初始化 OpenSpec 目录
+> 大多数项目**不需要**自定义指令文件。config 中的 `project_context` + `test_suites` 已提供足够的项目上下文。
+
+### Step 6: 初始化 OpenSpec 目录
 
 确保项目根目录存在 `openspec/` 结构：
 
@@ -292,7 +142,7 @@ mkdir -p openspec/changes openspec/archive openspec/specs
 
 如果项目使用 OpenSpec 插件，目录通常已自动创建。
 
-### Step 8: 验证安装
+### Step 7: 验证安装
 
 在 Claude Code 中执行快速验证：
 
@@ -517,14 +367,13 @@ test_suites:
 - [ ] Claude Code CLI 已安装
 - [ ] spec-autopilot 插件已安装
 - [ ] openspec 插件已安装
-- [ ] `.claude/autopilot.config.yaml` 已生成并审查
+- [ ] `.claude/autopilot.config.yaml` 已生成（`/spec-autopilot:autopilot-init`）
 - [ ] 配置验证通过（`valid: true`）
-- [ ] `.claude/skills/autopilot/SKILL.md` 入口已创建
+- [ ] `project_context.test_credentials` 已填写（或由 Phase 1 自动发现）
 - [ ] `openspec/` 目录结构已存在
 - [ ] （可选）ralph-loop 插件已安装
-- [ ] （可选）阶段指令文件已配置
-- [ ] （可选）测试套件命令已验证可运行
-- [ ] 首次 `启动autopilot` 测试通过
+- [ ] （可选）`instruction_files` 自定义覆盖已配置
+- [ ] 首次 `启动autopilot` 或 `/spec-autopilot:autopilot` 测试通过
 
 ---
 

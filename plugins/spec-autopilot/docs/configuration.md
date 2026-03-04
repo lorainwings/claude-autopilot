@@ -15,6 +15,7 @@
 | `context_management` | object | Recommended | See below | Git and context protection settings |
 | `async_quality_scans` | object | Optional | See below | Phase 6→7 quality scan configuration |
 | `brownfield_validation` | object | Optional | See below | Brownfield drift detection (opt-in) |
+| `project_context` | object | Recommended | See below | Project-specific context for sub-agent dispatch (auto-detected by init) |
 
 ## `services`
 
@@ -139,6 +140,41 @@ test_pyramid:
 | `enabled` | boolean | `false` | Enable drift detection (opt-in for existing codebases) |
 | `strict_mode` | boolean | `false` | `true`: block on drift; `false`: warning only |
 | `ignore_patterns` | array | `["*.test.*", "*.spec.*", "__mocks__/**"]` | File patterns to ignore |
+
+## `project_context`
+
+Project-specific context auto-detected by `autopilot-init`. Dispatch dynamically injects these values into sub-agent prompts, **eliminating the need for separate instruction files in most cases**.
+
+### `project_context.project_structure`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `backend_dir` | string | `""` | Backend source directory (e.g., `"backend"`) |
+| `frontend_dir` | string | `""` | Frontend source directory (e.g., `"frontend/web-app"`) |
+| `node_dir` | string | `""` | Node service directory (e.g., `"node"`) |
+| `test_dirs.unit` | string | `""` | Unit test directory path |
+| `test_dirs.api` | string | `""` | API test directory path |
+| `test_dirs.e2e` | string | `""` | E2E test directory path |
+| `test_dirs.ui` | string | `""` | UI test directory path |
+
+### `project_context.test_credentials`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `username` | string | `""` | Test account username. Empty → Phase 1 Auto-Scan discovers |
+| `password` | string | `""` | Test account password. Empty → Phase 1 Auto-Scan discovers |
+| `login_endpoint` | string | `""` | Login API endpoint (e.g., `"POST /api/auth/login"`) |
+
+> **Security note**: These are test/dev credentials only. Do not use production credentials.
+
+### `project_context.playwright_login`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `steps` | string | `""` | Multi-line login flow description (auto-detected from Login component) |
+| `known_testids` | array | `[]` | data-testid attributes found in Login component |
+
+> All `project_context` fields are **optional**. Empty fields are supplemented by Phase 1 Auto-Scan + Research Agent at runtime.
 
 ## `async_quality_scans`
 

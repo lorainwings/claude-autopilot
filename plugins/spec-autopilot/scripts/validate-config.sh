@@ -122,7 +122,7 @@ for key in required_nested:
         missing.append(key)
 
 # --- Warnings for recommended fields ---
-recommended = ['test_pyramid', 'gates', 'context_management']
+recommended = ['test_pyramid', 'gates', 'context_management', 'project_context']
 for key in recommended:
     if not check_key(yaml_data, key):
         warnings.append(f'Recommended key \"{key}\" not found')
@@ -151,6 +151,11 @@ TYPE_RULES = {
     'phases.requirements.complexity_routing.enabled': bool,
     'phases.requirements.complexity_routing.thresholds.small': (int, float),
     'phases.requirements.complexity_routing.thresholds.medium': (int, float),
+    'project_context.test_credentials.username': str,
+    'project_context.test_credentials.password': str,
+    'project_context.test_credentials.login_endpoint': str,
+    'project_context.project_structure.backend_dir': str,
+    'project_context.project_structure.frontend_dir': str,
     'phases.testing.gate.min_test_count_per_type': (int, float),
     'phases.implementation.ralph_loop.enabled': bool,
     'phases.implementation.ralph_loop.max_iterations': (int, float),
