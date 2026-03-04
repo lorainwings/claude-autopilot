@@ -27,6 +27,20 @@
 2. 构建 task 依赖图（基于 task 描述中的文件引用和显式依赖声明）
 3. 识别可并行执行的 task 组（无共享文件修改的 task）
 
+### 依赖图构建算法（v2.4.0 细化）
+
+```
+1. 解析 tasks.md 中每个 task 的描述
+2. 对每个 task 提取 affected_files[]：
+   a. 显式文件路径引用（如 "修改 backend/src/.../Controller.java"）
+   b. 显式 depends_on 标记（如 "依赖 Task 1.1"）
+   c. 目录级推断（如 "实现用户模块" → backend/src/.../user/）
+3. 构建邻接矩阵：task_i → task_j 有边，当且仅当 affected_files 有交集
+4. 使用连通分量算法（Union-Find）将 task 分为独立组
+5. 每组内的 task 可并行执行
+6. 组间按 task 编号最小值排序，顺序执行
+```
+
 ### 并行派发策略
 
 ```
@@ -57,11 +71,37 @@ for each task_group in 独立 task 组:
 - 合并成功后运行 quick_check 验证
 - 每组完成后写入对应 task 的 checkpoint（`phase5-tasks/task-N.json`）
 
-### 降级机制
+### Worktree 生命周期管理（v2.4.0 细化）
 
-- 并行模式失败（如 worktree 创建失败、合并冲突过多） → 自动降级为串行模式
-- 降级时记录原因到 phase-5 checkpoint 的 `_metrics.parallel_fallback_reason`
-- 用户也可在 AskUserQuestion 中选择"切换为串行模式"
+```
+1. 创建: git worktree add .claude/worktrees/task-{N} -b autopilot-task-{N}
+2. 子 Agent 在 worktree 中执行实施
+3. 子 Agent 完成后：
+   a. 主线程切回主分支
+   b. git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
+   c. 如冲突 → AskUserQuestion:
+      - "手动解决冲突后继续"
+      - "放弃此 task 的并行结果，稍后串行执行 (Recommended)"
+      - "中止并行模式，全部切换为串行"
+   d. 合并成功 → git worktree remove .claude/worktrees/task-{N}
+   e. 删除临时分支: git branch -d autopilot-task-{N}
+```
+
+### 并行 Checkpoint 管理（v2.4.0 细化）
+
+- 每个 task 合并成功后，由**主线程**（非子 Agent）写入 `phase5-tasks/task-N.json`
+- 子 Agent 不直接写入 checkpoint（隔离约束）
+- 主线程从子 Agent 返回的 JSON 信封提取 artifacts 和 summary
+
+### 降级决策树（v2.4.0 细化）
+
+```
+IF worktree 创建失败（磁盘空间/权限） → 立即降级为串行
+IF 单组内合并冲突 > 3 个文件 → 回退该组所有 worktree → 串行执行该组
+IF 连续 2 组合并失败 → 全面降级为串行（config.parallel.auto_downgrade_threshold）
+IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
+降级原因记录到 checkpoint: _metrics.parallel_fallback_reason
+```
 
 ---
 

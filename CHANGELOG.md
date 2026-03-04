@@ -5,6 +5,34 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-03-05
+
+### Added
+- **P0-1 并行执行引擎**: Phase 5 支持基于 git worktree 的并行 task 执行，通过 `config.phases.implementation.parallel.enabled` 启用。包含依赖图构建算法、Worktree 生命周期管理、并行 Checkpoint 管理、自动降级决策树
+- **P0-2 结构化决策协议**: 决策点以结构化卡片呈现（选项/优劣/推荐/影响范围），medium/large 复杂度强制执行。DecisionPoint 格式增强支持 options、rationale、affected_components 字段
+- **P1-1 代码约束 Hook**: 新增 PostToolUse hook `code-constraint-check.sh`，Phase 5 后自动检测项目规则违反（禁止文件/模式/目录范围/文件行数），支持从 `code_constraints` 配置或 CLAUDE.md 自动提取规则
+- **P1-2 深度调研增强**: Phase 1 Research Agent 支持三级调研深度（basic/standard/deep），standard 以上包含多轮 Web 搜索，deep 包含同类实现对比和依赖深度分析（安全漏洞/许可证/维护活跃度）
+- **P2-1 跨会话知识累积**: Phase 7 自动提取知识到 `openspec/.autopilot-knowledge.json`（decisions/pitfalls/patterns/optimizations），Phase 1 自动注入相关历史知识。支持 200 条上限和 FIFO 淘汰策略
+- **P2-2 安全审计管道**: 新增 `check-security-tools-install.sh` 检测 npm audit/gitleaks/semgrep/trivy/OWASP DC，作为 Phase 6→7 异步质量扫描自动执行。Init 自动检测并配置安全审计
+
+### New Files
+- `scripts/code-constraint-check.sh` — Phase 5 代码约束 PostToolUse Hook
+- `scripts/check-security-tools-install.sh` — 安全工具检测脚本
+- `skills/autopilot/references/knowledge-accumulation.md` — 跨会话知识累积协议
+
+### Changed
+- `skills/autopilot/SKILL.md` — Phase 5 并行执行分支、Phase 7 知识提取、护栏约束增强
+- `skills/autopilot-dispatch/SKILL.md` — 并行 Task Prompt 模板、决策协议注入
+- `skills/autopilot/references/phase5-implementation.md` — 依赖图算法、Worktree 生命周期、降级决策树
+- `skills/autopilot/references/phase1-requirements.md` — 结构化决策协议、深度调研、历史知识注入
+- `skills/autopilot/references/protocol.md` — DecisionPoint 格式、web_research 格式、code_quality/parallel_metrics 字段
+- `skills/autopilot/references/semantic-validation.md` — Phase 5→6 代码约束合规检查
+- `skills/autopilot/references/quality-scans.md` — 安全审计扫描节
+- `skills/autopilot-init/SKILL.md` — Step 2.6 安全工具检测、code_constraints 配置模板
+- `hooks/hooks.json` — 新增 code-constraint-check.sh PostToolUse hook
+- `scripts/collect-metrics.sh` — 知识库统计
+- `.claude-plugin/plugin.json` — 版本号升级到 2.4.0
+
 ## [2.2.0] - 2026-03-04
 
 ### Added

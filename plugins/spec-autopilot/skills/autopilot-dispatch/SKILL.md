@@ -136,6 +136,15 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - Agent: config.phases.requirements.agent（默认 business-analyst）
 - 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
 - Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents + research-findings.md + complexity 评估结果
+- **决策协议注入**（v2.4.0）：当 complexity 为 "medium" 或 "large" 时，追加以下指令：
+  ```
+  ## 决策输出格式
+  对每个不确定的决策点，你必须输出结构化决策卡片：
+  - 列出 2-4 个备选方案
+  - 每个方案说明优点、缺点和影响范围
+  - 标记推荐方案并说明理由
+  - 引用 research-findings.md 中的调研数据支撑推荐
+  ```
 - 返回值校验：非空，且包含功能清单和疑问点
 
 **Phase 2（创建 OpenSpec）**：
@@ -229,6 +238,30 @@ status 只允许 "ok" 或 "blocked"：
   - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 3）
   - 每组完成后按 task 编号顺序合并 worktree，冲突时 AskUserQuestion 处理
   - 合并后运行测试验证，失败则降级为串行模式
+
+  **Phase 5 并行 Task Prompt 模板**（v2.4.0 新增）：
+  ```
+  <!-- autopilot-phase:5 -->
+  你是 autopilot Phase 5 的并行实施子 Agent。
+
+  ## 你的任务
+  仅实施以下单个 task（禁止实施其他 task）：
+  - Task #{task_number}: {task_title}
+  - Task 内容: {task_description}
+
+  ## 前序 task 摘要（只读参考）
+  {for each completed_task in group_predecessors}
+  - Task #{n}: {summary} — 已合并到主分支
+  {end for}
+
+  ## 并行隔离约束
+  - 你运行在独立 worktree 中，只修改本 task 涉及的文件
+  - 禁止修改 openspec/ 目录下的 checkpoint 文件
+  - 禁止修改其他 task 正在修改的文件（列表: {concurrent_task_files}）
+  - 完成后返回 JSON 信封（artifacts 列出所有修改的文件路径）
+
+  {标准项目上下文注入}
+  ```
 - **Worktree 隔离模式**（当 config.phases.implementation.worktree.enabled = true）：
   - 主线程按 task 粒度逐个派发，每个 task 使用 `Task(isolation: "worktree")`
   - 子 Agent prompt 中注入当前 task 内容和前序 task 摘要
