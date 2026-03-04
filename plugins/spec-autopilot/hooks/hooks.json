@@ -32,6 +32,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "^Task$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/code-constraint-check.sh",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PreCompact": [

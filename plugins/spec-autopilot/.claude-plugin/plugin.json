@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "2.2.0",
-  "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, and crash recovery",
+  "version": "2.4.0",
+  "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, parallel execution, structured decisions, code constraints, knowledge accumulation, security audit, and crash recovery",
   "author": { "name": "vibeflow-team" },
   "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
@@ -13,7 +13,12 @@
     "test-pyramid",
     "anti-rationalization",
     "crash-recovery",
-    "metrics"
+    "metrics",
+    "parallel-execution",
+    "code-constraints",
+    "knowledge-accumulation",
+    "security-audit",
+    "structured-decisions"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

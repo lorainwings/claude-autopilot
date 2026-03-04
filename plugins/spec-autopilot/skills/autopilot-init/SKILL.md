@@ -104,6 +104,20 @@ Node:
 
 **未检测到的字段**：标记为空字符串，Step 4 中通过 AskUserQuestion 提示用户补充。
 
+### Step 2.6: 安全工具检测（v2.4.0 新增）
+
+运行 `bash <plugin_scripts>/check-security-tools-install.sh "$(pwd)"`，检测已安装的安全扫描工具。
+
+```
+检测结果处理:
+  IF recommended_scans 非空:
+    → 生成 async_quality_scans.security_audit 配置节
+    → command 字段根据 recommended_scans 动态拼接
+  IF recommended_scans 为空:
+    → 不生成 security_audit 节（不强制安装安全工具）
+    → 在 Step 4 展示提示："未检测到安全扫描工具，建议安装 gitleaks 和 trivy"
+```
+
 ### Step 3: 生成配置
 
 根据检测结果生成 YAML 配置，模板如下:
@@ -216,6 +230,19 @@ async_quality_scans:
     install_command: ""
     command: ""
     threshold: 60
+  security_audit:                    # v2.4.0 新增：安全审计扫描
+    check_command: "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-security-tools-install.sh"
+    install_command: ""              # 由检测脚本的 install_commands 动态提供
+    command: ""                      # 由检测脚本的 recommended_scans 动态决定
+    threshold: "0_critical"          # 0 个 critical 漏洞
+    block_on_critical: false         # true: critical 发现阻断归档
+
+# === 代码约束（v2.4.0 新增，可选）===
+# code_constraints:
+#   forbidden_files: []              # 禁止创建的文件（如 vite.config.js）
+#   forbidden_patterns: []           # 禁止出现在代码中的模式
+#   max_file_lines: 800              # 单文件最大行数
+#   allowed_dirs: []                 # 允许修改的目录范围
 
 test_suites:
   # 自动检测到的测试套件

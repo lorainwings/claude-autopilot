@@ -143,6 +143,20 @@ result = {
     'markdown_table': '\\n'.join(md),
     'ascii_chart': '\\n'.join(chart),
 }
+
+# === 知识库统计（v2.4.0 新增）===
+knowledge_file = os.path.normpath(os.path.join(phase_dir, '..', '..', '..', '.autopilot-knowledge.json'))
+knowledge_stats = {}
+if os.path.isfile(knowledge_file):
+    try:
+        with open(knowledge_file) as f:
+            kdata = json.load(f)
+        knowledge_stats = kdata.get('stats', {})
+        knowledge_stats['file_path'] = knowledge_file
+    except Exception:
+        pass
+result['knowledge_stats'] = knowledge_stats
+
 print(json.dumps(result, indent=2, ensure_ascii=False))
 " "$phase_results_dir"
 
