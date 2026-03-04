@@ -77,6 +77,7 @@ phases:
   requirements:
     agent: "business-analyst"
     min_qa_rounds: 1
+    mode: "structured"         # structured | socratic (苏格拉底模式深化需求)
   testing:
     agent: "qa-expert"
     instruction_files: []    # 用户按需添加
@@ -92,6 +93,10 @@ phases:
       fallback_enabled: true
     worktree:
       enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
+    parallel:
+      enabled: false         # 设为 true 启用 Phase 5 并行 Agent Team 执行
+      max_agents: 3          # 最大并行 Agent 数量（建议 2-4）
+      dependency_analysis: true  # 自动分析 task 依赖关系
   reporting:
     instruction_files: []    # 用户按需添加
     format: "allure"         # allure | custom
@@ -101,6 +106,14 @@ phases:
       allure_generate: "npx allure generate allure-results -o allure-report --clean"
     coverage_target: 80
     zero_skip_required: true
+  code_review:
+    enabled: true              # Phase 6.5 代码审查（默认启用）
+    auto_fix_minor: false      # 是否自动修复 minor findings
+    block_on_critical: true    # critical findings 是否阻断
+    skip_patterns:             # 跳过审查的文件模式
+      - "*.md"
+      - "*.json"
+      - "openspec/**"
 
 test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
@@ -117,6 +130,11 @@ context_management:
   git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint
   autocompact_pct: 80        # 建议设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
   squash_on_archive: true    # Phase 7 归档时 autosquash fixup commits 为单一 commit
+
+brownfield_validation:
+  enabled: false               # 存量项目手动开启漂移检测
+  strict_mode: false           # true: block; false: warning only
+  ignore_patterns: ["*.test.*", "*.spec.*", "__mocks__/**"]
 
 async_quality_scans:
   timeout_minutes: 10          # 硬超时（分钟），超时后标记 timeout 继续后续步骤
@@ -167,6 +185,79 @@ test_suites:
 将配置写入 `.claude/autopilot.config.yaml`。
 
 如果文件已存在 → AskUserQuestion 确认是否覆盖。
+
+### Step 5.5: LSP 插件推荐
+
+根据检测到的技术栈，推荐安装对应的 Claude Code LSP 插件以提升代码编辑质量。
+
+#### 推荐映射表
+
+| 检测到的技术栈 | 推荐的 LSP 插件 | 安装命令 |
+|---------------|---------------|---------|
+| Java/Gradle 或 Java/Maven | `jdtls-lsp` | `claude plugin install jdtls-lsp@claude-plugins-official` |
+| TypeScript/Vue/React | `typescript-lsp` | `claude plugin install typescript-lsp@claude-plugins-official` |
+| Python | `pyright-lsp` | `claude plugin install pyright-lsp@claude-plugins-official` |
+| Rust | `rust-analyzer-lsp` | `claude plugin install rust-analyzer-lsp@claude-plugins-official` |
+| Go | `gopls-lsp` | `claude plugin install gopls-lsp@claude-plugins-official` |
+| Kotlin | `kotlin-lsp` | `claude plugin install kotlin-lsp@claude-plugins-official` |
+| PHP | `php-lsp` | `claude plugin install php-lsp@claude-plugins-official` |
+| Swift | `swift-lsp` | `claude plugin install swift-lsp@claude-plugins-official` |
+| C/C++ | `clangd-lsp` | `claude plugin install clangd-lsp@claude-plugins-official` |
+
+#### 检测逻辑
+
+```
+detected_stacks = []  # 从 Step 1 的检测结果中获取
+
+LSP_MAP = {
+  "java": {"name": "jdtls-lsp", "desc": "Java 语言服务支持"},
+  "typescript": {"name": "typescript-lsp", "desc": "实时类型检查和自动补全"},
+  "python": {"name": "pyright-lsp", "desc": "Python 类型检查和智能提示"},
+  "rust": {"name": "rust-analyzer-lsp", "desc": "Rust 语言服务"},
+  "go": {"name": "gopls-lsp", "desc": "Go 语言服务"},
+  ...
+}
+
+lsp_recommendations = []
+for stack in detected_stacks:
+  if stack in LSP_MAP:
+    lsp = LSP_MAP[stack]
+    # 检查 .claude/settings.json 中 enabledPlugins 是否已包含该 LSP
+    installed = check_plugin_installed(lsp["name"])
+    if not installed:
+      lsp_recommendations.append(lsp)
+```
+
+#### 用户交互
+
+如果有推荐的 LSP 插件且未安装，通过 AskUserQuestion 展示：
+
+```
+"检测到以下技术栈可以安装 LSP 插件以提升代码编辑质量："
+
+推荐列表:
+- TypeScript LSP — 提供实时类型检查和自动补全
+- Java JDTLS — 提供 Java 语言服务支持
+
+选项:
+- "全部安装 (Recommended)" → 逐个执行安装命令
+- "选择性安装" → 展示多选列表
+- "跳过，稍后手动安装" → 继续后续步骤
+```
+
+#### 写入配置
+
+安装的 LSP 插件信息记录到配置的 `lsp_plugins` 字段（信息性，不影响功能）：
+
+```yaml
+lsp_plugins:                    # 信息性字段，记录已推荐的 LSP 插件
+  - name: typescript-lsp
+    status: installed            # installed | skipped | failed
+  - name: jdtls-lsp
+    status: skipped
+```
+
+> LSP 推荐是可选步骤，跳过不影响配置生成和 autopilot 功能。
 
 ### Step 6: Schema 验证
 

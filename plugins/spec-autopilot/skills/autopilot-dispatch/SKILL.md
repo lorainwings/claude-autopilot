@@ -141,6 +141,12 @@ status 只允许 "ok" 或 "blocked"：
 **Phase 5（循环实施）**：
 - 通过 ralph-loop 或 fallback 执行（由编排主线程决策）
 - 指令文件从 config.phases.implementation.instruction_files 注入
+- **并行执行模式**（当 config.phases.implementation.parallel.enabled = true）：
+  - 主线程分析 tasks.md 构建依赖图，识别可并行的 task 组
+  - 每组内的 task 使用 `Task(isolation: "worktree", run_in_background: true)` 并行派发
+  - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 3）
+  - 每组完成后按 task 编号顺序合并 worktree，冲突时 AskUserQuestion 处理
+  - 合并后运行测试验证，失败则降级为串行模式
 - **Worktree 隔离模式**（当 config.phases.implementation.worktree.enabled = true）：
   - 主线程按 task 粒度逐个派发，每个 task 使用 `Task(isolation: "worktree")`
   - 子 Agent prompt 中注入当前 task 内容和前序 task 摘要

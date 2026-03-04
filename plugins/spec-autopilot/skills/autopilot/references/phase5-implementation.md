@@ -17,7 +17,55 @@
 - 超过 **2 小时** → 强制暂停，AskUserQuestion：「Phase 5 已运行 {elapsed} 分钟，是否继续？」
 - 选项："继续执行" / "保存进度并暂停" / "回退到 Phase 5 起始点"
 
-## 实施流程
+## 并行执行模式
+
+当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 对无依赖关系的 task 使用并行执行，显著提升实施效率。
+
+### 依赖分析
+
+1. 读取 `openspec/changes/<name>/tasks.md`，解析所有 task
+2. 构建 task 依赖图（基于 task 描述中的文件引用和显式依赖声明）
+3. 识别可并行执行的 task 组（无共享文件修改的 task）
+
+### 并行派发策略
+
+```
+独立 task 组 = 分析依赖图，找出无交叉文件的 task 集合
+max_parallel = config.phases.implementation.parallel.max_agents (默认 3)
+
+for each task_group in 独立 task 组:
+  agents = []
+  for each task in task_group[:max_parallel]:
+    agent = Task(
+      subagent_type: "general-purpose",
+      isolation: "worktree",          # 每个 agent 独立 worktree
+      run_in_background: true,
+      prompt: "实施 task: {task.title}, change: {change_name} ..."
+    )
+    agents.append(agent)
+
+  等待所有 agents 完成
+  合并各 worktree 变更到主分支
+  解决冲突（如有）
+  运行测试验证
+```
+
+### 合并策略
+
+- 每组并行 task 完成后，按 task 编号顺序合并 worktree
+- 合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
+- 合并成功后运行 quick_check 验证
+- 每组完成后写入对应 task 的 checkpoint（`phase5-tasks/task-N.json`）
+
+### 降级机制
+
+- 并行模式失败（如 worktree 创建失败、合并冲突过多） → 自动降级为串行模式
+- 降级时记录原因到 phase-5 checkpoint 的 `_metrics.parallel_fallback_reason`
+- 用户也可在 AskUserQuestion 中选择"切换为串行模式"
+
+---
+
+## 实施流程（串行模式 — 默认）
 
 1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
 2. **检查 worktree 隔离模式**：读取 `config.phases.implementation.worktree.enabled`
@@ -61,3 +109,55 @@ autopilot-gate 额外验证：
 - `test-results.json` 存在
 - `zero_skip_check.passed === true`
 - `tasks.md` 中所有任务标记为 `[x]`
+
+---
+
+## Task 级 Checkpoint
+
+为支持 Phase 5 长时间运行中的崩溃恢复，每个 task 完成后写入独立 checkpoint。
+
+### Checkpoint 目录
+
+```
+openspec/changes/<name>/context/phase-results/phase5-tasks/
+├── task-1.json
+├── task-2.json
+├── task-3.json
+└── ...
+```
+
+### Checkpoint 格式
+
+```json
+{
+  "task_number": 1,
+  "task_title": "实现用户登录 API",
+  "status": "ok",
+  "summary": "完成登录接口，通过 3 个单元测试",
+  "artifacts": ["backend/src/main/java/.../LoginController.java"],
+  "test_result": "3/3 passed",
+  "_metrics": {
+    "start_time": "2026-01-15T10:30:00Z",
+    "end_time": "2026-01-15T10:45:00Z",
+    "duration_seconds": 900,
+    "retry_count": 0
+  }
+}
+```
+
+### 恢复协议
+
+Phase 5 启动时，扫描 `phase5-tasks/` 目录：
+
+1. 列出所有 `task-N.json` 文件，按 N 排序
+2. 找到最后一个 `status: "ok"` 的 task
+3. 从下一个 task 继续执行
+4. 如果没有 task checkpoint → 从 task 1 开始
+
+### 写入时机
+
+每个 task 完成后（无论 ralph-loop 还是 fallback 模式），主线程/ralph-loop 应：
+
+1. 确保 `phase5-tasks/` 目录存在
+2. 写入 `task-N.json`（N 为 task 编号）
+3. 验证写入成功

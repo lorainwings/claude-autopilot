@@ -43,9 +43,17 @@ phase-results/
   "risks": ["风险列表"],
   "next_ready": true,
   "timestamp": "ISO-8601",
-  "phase": 2
+  "phase": 2,
+  "_metrics": {
+    "start_time": "ISO-8601",
+    "end_time": "ISO-8601",
+    "duration_seconds": 0,
+    "retry_count": 0
+  }
 }
 ```
+
+`_metrics` 字段为可选，由主线程在写入 checkpoint 时附加。详见 `autopilot/references/metrics-collection.md`。
 
 写入时自动追加 `timestamp` 和 `phase` 字段。
 
@@ -59,6 +67,33 @@ phase-results/
    - `status === "ok" || "warning"` → 校验通过
    - `status === "blocked" || "failed"` → 硬阻断
    - 文件不存在 → 硬阻断（阶段未完成）
+
+## Task 级 Checkpoint（Phase 5 专用）
+
+Phase 5 长时间实施中，每个 task 完成后写入独立 checkpoint，支持细粒度恢复。
+
+### 目录结构
+
+```
+phase-results/phase5-tasks/
+├── task-1.json
+├── task-2.json
+└── ...
+```
+
+### 写入 Task Checkpoint
+
+1. 确保 `context/phase-results/phase5-tasks/` 目录存在
+2. 写入 `task-{N}.json`（格式同主 checkpoint，额外含 `task_number` 和 `task_title`）
+3. 验证写入成功
+
+### 扫描 Task Checkpoint
+
+恢复 Phase 5 时：
+1. 列出 `phase5-tasks/task-*.json` 文件
+2. 按 task number 排序
+3. 找到最后一个 `status: "ok"` 的 task
+4. 返回该 task number，Phase 5 从 task N+1 继续
 
 ## 扫描所有 Checkpoint
 

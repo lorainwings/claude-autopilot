@@ -217,5 +217,39 @@ except Exception:
   fi
 fi
 
+# Wall-clock timeout: Phase 5 time limit (promoted from skill-only to Hook layer)
+# When TARGET_PHASE >= 5, check if Phase 5 has been running too long.
+if [ "$TARGET_PHASE" -ge 5 ]; then
+  phase5_start_file="${change_dir}context/phase-results/phase5-start-time.txt"
+  if [ -f "$phase5_start_file" ]; then
+    start_time_str=$(cat "$phase5_start_file" 2>/dev/null | tr -d '[:space:]')
+    if [ -n "$start_time_str" ]; then
+      # Parse ISO-8601 timestamp to epoch seconds
+      elapsed=0
+      start_epoch=$(python3 -c "
+import sys
+from datetime import datetime, timezone
+ts = sys.argv[1]
+try:
+    # Handle Z suffix
+    ts = ts.replace('Z', '+00:00')
+    dt = datetime.fromisoformat(ts)
+    print(int(dt.timestamp()))
+except Exception:
+    print(0)
+" "$start_time_str" 2>/dev/null || echo "0")
+
+      if [ "$start_epoch" -gt 0 ] 2>/dev/null; then
+        now_epoch=$(date +%s)
+        elapsed=$((now_epoch - start_epoch))
+        # 7200 seconds = 2 hours
+        if [ "$elapsed" -gt 7200 ]; then
+          deny "Phase 5 wall-clock timeout: running for ${elapsed}s (limit: 7200s / 2h). Save progress and investigate."
+        fi
+      fi
+    fi
+  fi
+fi
+
 # All checks passed
 exit 0

@@ -165,7 +165,7 @@ assert_contains "uses tool_response not tool_result" "$output" "block"
 
 # 3g. Nested JSON object (Phase 4 with test_counts + test_pyramid) → should be extracted
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit\":10,\"integration\":8,\"e2e\":5,\"ui\":5}}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"
@@ -709,6 +709,390 @@ else
   red "  FAIL: phase_names missing Phase 7"
   FAIL=$((FAIL + 1))
 fi
+
+echo ""
+
+# ============================================================
+echo "--- 19. _common.sh unit tests ---"
+
+# Need a temp directory for these tests
+COMMON_TEST_DIR=$(mktemp -d)
+trap "rm -rf $COMMON_TEST_DIR" EXIT
+
+# Source _common.sh
+source "$SCRIPT_DIR/_common.sh"
+
+# 19a. parse_lock_file with JSON format
+echo '{"change":"my-feature","pid":"12345","started":"2026-01-01T00:00:00Z"}' > "$COMMON_TEST_DIR/lock.json"
+result=$(parse_lock_file "$COMMON_TEST_DIR/lock.json")
+if [ "$result" = "my-feature" ]; then
+  green "  PASS: parse_lock_file JSON format"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parse_lock_file JSON format (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19b. parse_lock_file with legacy plain text
+echo "legacy-change-name" > "$COMMON_TEST_DIR/lock.txt"
+result=$(parse_lock_file "$COMMON_TEST_DIR/lock.txt")
+if [ "$result" = "legacy-change-name" ]; then
+  green "  PASS: parse_lock_file legacy plain text"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parse_lock_file legacy plain text (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19c. parse_lock_file with invalid/empty file
+echo "" > "$COMMON_TEST_DIR/lock_empty.txt"
+result=$(parse_lock_file "$COMMON_TEST_DIR/lock_empty.txt")
+if [ -z "$result" ]; then
+  green "  PASS: parse_lock_file empty file returns empty"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parse_lock_file empty file (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19d. parse_lock_file with missing file
+result=""
+parse_lock_file "$COMMON_TEST_DIR/nonexistent.json" || true
+result=$(parse_lock_file "$COMMON_TEST_DIR/nonexistent.json" 2>/dev/null || echo "")
+if [ -z "$result" ]; then
+  green "  PASS: parse_lock_file missing file returns empty"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parse_lock_file missing file (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19e. find_active_change with lock file priority
+mkdir -p "$COMMON_TEST_DIR/changes/feature-a"
+mkdir -p "$COMMON_TEST_DIR/changes/feature-b"
+echo '{"change":"feature-a"}' > "$COMMON_TEST_DIR/changes/.autopilot-active"
+result=$(find_active_change "$COMMON_TEST_DIR/changes")
+if echo "$result" | grep -q "feature-a"; then
+  green "  PASS: find_active_change lock file priority"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_active_change lock file priority (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19f. find_active_change with trailing slash
+result=$(find_active_change "$COMMON_TEST_DIR/changes" "yes")
+if [[ "$result" == */ ]]; then
+  green "  PASS: find_active_change trailing slash"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_active_change trailing slash (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19g. find_active_change excludes _prefixed dirs
+mkdir -p "$COMMON_TEST_DIR/changes2/_archived"
+mkdir -p "$COMMON_TEST_DIR/changes2/real-change"
+result=$(find_active_change "$COMMON_TEST_DIR/changes2")
+if echo "$result" | grep -q "real-change"; then
+  green "  PASS: find_active_change excludes _prefix"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_active_change excludes _prefix (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19h. read_checkpoint_status with all statuses
+for status_val in ok warning blocked failed; do
+  echo "{\"status\":\"$status_val\"}" > "$COMMON_TEST_DIR/ckpt_${status_val}.json"
+  result=$(read_checkpoint_status "$COMMON_TEST_DIR/ckpt_${status_val}.json")
+  if [ "$result" = "$status_val" ]; then
+    green "  PASS: read_checkpoint_status '$status_val'"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: read_checkpoint_status '$status_val' (got '$result')"
+    FAIL=$((FAIL + 1))
+  fi
+done
+
+# 19i. read_checkpoint_status with invalid JSON
+echo "not json at all" > "$COMMON_TEST_DIR/ckpt_bad.json"
+result=$(read_checkpoint_status "$COMMON_TEST_DIR/ckpt_bad.json")
+if [ "$result" = "error" ]; then
+  green "  PASS: read_checkpoint_status invalid JSON returns error"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: read_checkpoint_status invalid JSON (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19j. find_checkpoint
+mkdir -p "$COMMON_TEST_DIR/phase-results"
+echo '{"status":"ok"}' > "$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
+result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
+if [ -n "$result" ] && echo "$result" | grep -q "phase-3-ff.json"; then
+  green "  PASS: find_checkpoint finds phase-3"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_checkpoint phase-3 (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19k. find_checkpoint for missing phase
+result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 9)
+if [ -z "$result" ]; then
+  green "  PASS: find_checkpoint missing phase returns empty"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_checkpoint missing phase (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 20. check-allure-install.sh enhanced tests ---"
+
+# 20a. Run in clean temp dir (no project context) → valid JSON
+exit_code=0
+output=$(cd /tmp && bash "$SCRIPT_DIR/check-allure-install.sh" 2>/dev/null) || exit_code=$?
+assert_exit "allure check in clean dir → exit 0" 0 $exit_code
+
+# 20b. Output must be valid JSON
+if echo "$output" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  green "  PASS: allure check output is valid JSON"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: allure check output is not valid JSON"
+  FAIL=$((FAIL + 1))
+fi
+
+# 20c. JSON has all 4 component keys with 'installed' field
+for comp in allure_cli allure_playwright allure_pytest allure_gradle; do
+  has_installed=$(echo "$output" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+c = data.get('$comp', {})
+print('yes' if 'installed' in c else 'no')
+" 2>/dev/null || echo "no")
+  if [ "$has_installed" = "yes" ]; then
+    green "  PASS: allure component '$comp' has 'installed' field"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: allure component '$comp' missing 'installed' field"
+    FAIL=$((FAIL + 1))
+  fi
+done
+
+# 20d. JSON has install_commands list
+has_commands=$(echo "$output" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+cmds = data.get('install_commands', None)
+print('yes' if isinstance(cmds, list) else 'no')
+" 2>/dev/null || echo "no")
+if [ "$has_commands" = "yes" ]; then
+  green "  PASS: allure install_commands is a list"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: allure install_commands not a list"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 21. validate-config.sh tests ---"
+
+CONFIG_TEST_DIR=$(mktemp -d)
+
+# 21a. Valid config → valid=true
+mkdir -p "$CONFIG_TEST_DIR/valid/.claude"
+cat > "$CONFIG_TEST_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    ralph_loop:
+      enabled: true
+      max_iterations: 30
+      fallback_enabled: true
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+gates:
+  user_confirmation:
+    after_phase_1: true
+context_management:
+  git_commit_per_phase: true
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/valid" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "True" ] || [ "$valid" = "true" ]; then
+  green "  PASS: validate-config valid config → valid=true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: validate-config valid config (got valid='$valid', output='$output')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 21b. Missing fields → valid=false with missing_keys
+mkdir -p "$CONFIG_TEST_DIR/partial/.claude"
+cat > "$CONFIG_TEST_DIR/partial/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+phases:
+  requirements:
+    agent: "business-analyst"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/partial" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: validate-config partial config → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: validate-config partial config (got valid='$valid', output='$output')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 21c. Missing_keys contains expected entries
+missing=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('missing_keys',[]))" 2>/dev/null || echo "[]")
+assert_contains "validate-config missing keys include services" "$missing" "services"
+
+# 21d. No config file → valid=false, missing=file_not_found
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/nonexistent" 2>/dev/null)
+assert_contains "validate-config no file → file_not_found" "$output" "file_not_found"
+
+rm -rf "$CONFIG_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 22. anti-rationalization-check.sh tests ---"
+
+# 22a. Non-autopilot task → exit 0, no output
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"Do something"},"tool_response":"Done"}' \
+  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "anti-rational: non-autopilot → allow" 0 $exit_code
+assert_not_contains "anti-rational: non-autopilot → no block" "$output" "block"
+
+# 22b. Phase 4 with rationalization pattern → block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nDesign tests"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Done\",\"test_counts\":{\"unit\":10},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":80},\"artifacts\":[\"test.py\"]} Note: Some tests were skipped because they are out of scope for this phase and not needed at this time."}' \
+  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "anti-rational: pattern detected → exit 0" 0 $exit_code
+assert_contains "anti-rational: pattern detected → block" "$output" "block"
+assert_contains "anti-rational: pattern mentions rationalization" "$output" "rationalization"
+
+# 22c. Phase 4 with blocked status → no check (legitimate stop)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nDesign tests"},"tool_response":"{\"status\":\"blocked\",\"summary\":\"Cannot proceed, out of scope\"}"}' \
+  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "anti-rational: blocked status → allow" 0 $exit_code
+assert_not_contains "anti-rational: blocked status → no block" "$output" "block"
+
+# 22d. Phase 2 (non-critical phase) → skip even with patterns
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nCreate openspec"},"tool_response":"{\"status\":\"ok\",\"summary\":\"Skipped this test because not needed\"}"}' \
+  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "anti-rational: phase 2 → skip" 0 $exit_code
+assert_not_contains "anti-rational: phase 2 → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 23. Wall-clock timeout tests ---"
+
+WALLCLOCK_TEST_DIR=$(mktemp -d)
+mkdir -p "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results"
+echo '{"change":"test-change"}' > "$WALLCLOCK_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"status":"ok"}' > "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results/phase-4-testing.json"
+
+# 23a. Fresh start (just created) → allow
+date -u +"%Y-%m-%dT%H:%M:%SZ" > "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results/phase5-start-time.txt"
+# Need Phase 5 zero_skip_check for Phase 6 gate
+echo '{"status":"ok","zero_skip_check":{"passed":true},"test_results_path":"test.json","tasks_completed":3}' > "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results/phase-5-implement.json"
+# Need all tasks checked
+echo "- [x] Task 1" > "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/tasks.md"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$WALLCLOCK_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "wall-clock: fresh start → allow" 0 $exit_code
+assert_not_contains "wall-clock: fresh start → no deny" "$output" "deny"
+
+# 23b. Expired (3 hours ago) → deny
+expired_time=$(python3 -c "
+from datetime import datetime, timezone, timedelta
+t = datetime.now(timezone.utc) - timedelta(hours=3)
+print(t.strftime('%Y-%m-%dT%H:%M:%SZ'))
+" 2>/dev/null)
+echo "$expired_time" > "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results/phase5-start-time.txt"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$WALLCLOCK_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "wall-clock: expired → exit 0" 0 $exit_code
+assert_contains "wall-clock: expired → deny with timeout" "$output" "wall-clock timeout"
+
+# 23c. No start file → allow (Phase 5 not started yet)
+rm -f "$WALLCLOCK_TEST_DIR/openspec/changes/test-change/context/phase-results/phase5-start-time.txt"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$WALLCLOCK_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "wall-clock: no start file → allow" 0 $exit_code
+assert_not_contains "wall-clock: no start file → no deny" "$output" "wall-clock"
+
+rm -rf "$WALLCLOCK_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 24. test_pyramid threshold tests ---"
+
+# 24a. Valid pyramid → allow
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":15,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":60,\"e2e_pct\":20},\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "pyramid: valid distribution → exit 0" 0 $exit_code
+assert_not_contains "pyramid: valid distribution → no block" "$output" "block"
+
+# 24b. Inverted pyramid (too few unit, too many e2e) → block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":2,\"api\":2,\"e2e\":8,\"ui\":3},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":13,\"e2e_pct\":53},\"artifacts\":[\"tests/e2e.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "pyramid: inverted → exit 0" 0 $exit_code
+assert_contains "pyramid: inverted → block" "$output" "block"
+assert_contains "pyramid: inverted → mentions floor" "$output" "floor"
+
+# 24c. Too few total cases → block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":3,\"api\":2,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":43,\"e2e_pct\":14},\"artifacts\":[\"test.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "pyramid: too few cases → exit 0" 0 $exit_code
+assert_contains "pyramid: too few total → block" "$output" "block"
+assert_contains "pyramid: too few total → mentions minimum" "$output" "minimum"
+
+# 24d. Boundary: exactly at limits → allow
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":5,\"api\":3,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":30,\"e2e_pct\":40},\"artifacts\":[\"test.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "pyramid: boundary values → exit 0" 0 $exit_code
+assert_not_contains "pyramid: boundary values → no block" "$output" "block"
 
 echo ""
 
