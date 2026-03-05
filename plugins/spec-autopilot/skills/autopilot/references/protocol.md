@@ -49,6 +49,18 @@
 
 无标记的 Task 调用被 Hook 直接放行（exit 0）。
 
+## 模型路由（v3.0 新增）
+
+config.model_routing 定义每阶段的推荐模型等级：
+
+| 等级 | 含义 | 适用阶段 |
+|------|------|---------|
+| heavy | 需要深度推理的 Opus 级任务 | Phase 1, 4, 5 |
+| light | 机械性操作的 Sonnet 级任务 | Phase 2, 3, 6, 7 |
+| auto | 继承父进程模型（默认） | 未配置时 |
+
+> 向后兼容: model_routing 为可选配置。未配置时所有阶段等效 auto。
+
 ## Checkpoint 文件命名
 
 ```

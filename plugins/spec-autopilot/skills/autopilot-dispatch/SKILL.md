@@ -25,7 +25,7 @@ dispatch 子 Agent 时按以下优先级构造项目上下文：
 |--------|------|------|
 | 1 | `config.phases[phase].instruction_files` | 可选覆盖：项目自定义指令文件（存在则注入，覆盖内置规则） |
 | 2 | `config.phases[phase].reference_files` | 可选覆盖：项目自定义参考文件 |
-| 2.5 | Project Rules Auto-Scan | Phase 5 自动扫描：运行 `rules-scanner.sh` 提取项目规则约束并注入 |
+| 2.5 | Project Rules Auto-Scan | 全阶段自动扫描：运行 `rules-scanner.sh` 提取项目规则约束并注入 |
 | 3 | `config.project_context` | 自动注入：init 检测的项目结构、测试凭据、Playwright 登录流程 |
 | 4 | `config.test_suites` | 自动注入：测试命令、框架类型 |
 | 5 | `config.services` | 自动注入：服务健康检查 URL |
@@ -95,18 +95,51 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 {end for}
 {end if}
 
+### 模型路由提示注入（v3.0 新增）
+
+dispatch 子 Agent 时，从 `config.model_routing.phase_{N}` 读取模型等级提示，注入到 prompt 中：
+
+{if config.model_routing.phase_{N} == "light"}
+## 执行模式：高效模式
+本阶段为机械性操作，请聚焦效率：
+- 输出简洁，避免过度分析
+- 优先使用模板和既有模式
+- 减少探索性操作
+{end if}
+
+{if config.model_routing.phase_{N} == "heavy"}
+## 执行模式：深度分析模式
+本阶段需要深度推理：
+- 充分考虑边界情况和异常场景
+- 提供详细的决策理由
+- 进行多角度技术评估
+{end if}
+
+> **注意**: 当前 Claude Code 的 Task API 不支持 per-task model 参数。此提示作为行为引导注入。
+> 未来 Claude Code 支持 model 参数时，插件将直接映射为 API 参数。
+
 执行完毕后返回结构化 JSON 结果。")
 ```
 
-### 优先级 2.5: Project Rules Auto-Scan（Phase 5 专属）
+### 优先级 2.5: Project Rules Auto-Scan（全阶段注入，v3.0 增强）
 
-当 dispatch Phase 5 子 Agent 时，自动运行 `rules-scanner.sh` 扫描项目 `.claude/rules/` 目录和 `CLAUDE.md`，提取所有约束并注入到子 Agent prompt 中。
+dispatch 任何阶段的子 Agent 时，自动运行 `rules-scanner.sh` 扫描项目 `.claude/rules/` 目录和 `CLAUDE.md`，提取所有约束并注入到子 Agent prompt 中。
 
-**触发条件**：`phase_number === 5`（仅实施阶段需要代码约束感知）
+**触发条件**：所有通过 Task 派发的阶段（Phase 2-6）
+
+**缓存策略**：Phase 0 首次运行 rules-scanner.sh 后缓存结果，后续阶段复用缓存（同一 autopilot 会话内项目规则不变）。
+
+**阶段差异化注入**：
+| 阶段 | 注入内容 |
+|------|---------|
+| Phase 2-3 | 紧凑摘要（仅 critical_rules，≤5 条） |
+| Phase 4 | 完整规则（测试需验证代码符合约束） |
+| Phase 5 | 完整规则 + 实时 Hook 强制执行 |
+| Phase 6 | 紧凑摘要（报告中引用约束合规状态） |
 
 **执行流程**：
 
-1. 主线程在构造 Phase 5 prompt 前执行：
+1. 主线程在构造子 Agent prompt 前执行（Phase 0 缓存，后续复用）：
    ```bash
    bash <plugin_scripts>/rules-scanner.sh "$(pwd)"
    ```
@@ -141,6 +174,34 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 ```
 
 **注入位置**：在 Prompt 模板中，插入在 `## Phase 1 项目分析` 之前、`### Playwright 登录流程` 之后。
+
+## 内置模板解析（v3.0 新增）
+
+当构造 Phase 4/5/6 prompt 时，检查 `config.phases[phase].instruction_files`：
+
+1. **非空** → 使用项目自定义指令文件（覆盖内置模板）
+2. **为空（默认）** → 使用插件内置模板（`autopilot/templates/phase{N}-*.md`）
+
+内置模板中的 `{variable}` 占位符在 dispatch 时从 config 动态替换。
+
+### 模板路径映射
+
+| Phase | 内置模板 |
+|-------|---------|
+| 4 | `autopilot/templates/phase4-testing.md` + `autopilot/templates/shared-test-standards.md` |
+| 5 | `autopilot/templates/phase5-ralph-loop.md` + `autopilot/templates/shared-test-standards.md` |
+| 6 | `autopilot/templates/phase6-reporting.md` |
+
+### 模板变量替换规则
+
+dispatch 主线程在构造 prompt 时执行变量替换：
+- `{config.services}` → 从 config.services 展开服务列表
+- `{config.test_suites}` → 从 config.test_suites 展开测试套件
+- `{config.project_context.*}` → 从 config.project_context 展开凭据/登录流程
+- `{config.test_pyramid.*}` → 从 config.test_pyramid 展开金字塔约束
+- `{change_name}` → 活跃 change 的 kebab-case 名称
+
+> **向后兼容**: 已有项目的 instruction_files 配置继续生效，优先级高于内置模板。
 
 ## 参数化调度模板
 
@@ -308,11 +369,13 @@ status 只允许 "ok" 或 "blocked"：
   - Task #{n}: {summary} — 已合并到主分支
   {end for}
 
-  ## 并行隔离约束
-  - 你运行在独立 worktree 中，只修改本 task 涉及的文件
+  ## 并行隔离约束（v3.0 增强：文件所有权分区）
+  - 你运行在独立 worktree 中
+  - **文件所有权**：你只能修改以下文件（越权将被 Hook 拦截）：
+    {task.owned_files}
   - 禁止修改 openspec/ 目录下的 checkpoint 文件
   - 禁止修改其他 task 正在修改的文件（列表: {concurrent_task_files}）
-  - 完成后返回 JSON 信封（artifacts 列出所有修改的文件路径）
+  - 完成后返回 JSON 信封（artifacts 必须是 owned_files 的子集）
 
   {标准项目上下文注入}
   ```

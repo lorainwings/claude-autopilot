@@ -27,6 +27,49 @@
 2. 构建 task 依赖图（基于 task 描述中的文件引用和显式依赖声明）
 3. 识别可并行执行的 task 组（无共享文件修改的 task）
 
+### 文件所有权分区（v3.0 新增）
+
+在依赖图基础上增加文件所有权隔离，从根本上消除合并冲突：
+
+#### 分区算法
+
+```
+1. 解析 tasks.md → 提取每个 task 的 affected_files[]
+2. 按顶级目录分组：
+   - backend_tasks: 仅修改 backend/ 下文件的 task
+   - frontend_tasks: 仅修改 frontend/ 下文件的 task
+   - node_tasks: 仅修改 node/ 下文件的 task
+   - cross_cutting_tasks: 修改多个顶级目录的 task
+3. 同组内的 task 可并行执行（文件无重叠保证）
+4. cross_cutting_tasks 串行执行（在所有并行组完成后）
+5. 每个并行 agent 收到明确的文件所有权列表
+```
+
+#### 所有权强制执行
+
+每个并行 agent 的 prompt 中注入：
+
+```
+## 文件所有权约束（ENFORCED）
+你被分配以下文件的独占所有权：
+{task.owned_files}
+
+禁止修改此列表之外的任何文件。
+write-edit-constraint-check Hook 会拦截越权修改。
+```
+
+#### 与 write-edit-constraint-check 的集成
+
+并行执行期间，主线程将每个 agent 的 owned_files 写入临时文件：
+`openspec/changes/<name>/context/phase-results/phase5-ownership/agent-{N}.json`
+
+write-edit-constraint-check.sh 在并行模式下额外检查：
+- 读取当前 agent 的 ownership 文件
+- 验证 Write/Edit 目标文件在 owned_files 范围内
+- 越权 → block
+
+> **降级**：如果 ownership 文件不存在（非并行模式），跳过此检查（向后兼容）。
+
 ### 依赖图构建算法（v2.4.0 细化）
 
 ```

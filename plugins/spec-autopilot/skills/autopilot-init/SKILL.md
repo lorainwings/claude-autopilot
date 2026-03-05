@@ -205,6 +205,15 @@ gates:
     after_phase_3: false     # 设计生成后自动继续
     after_phase_4: false     # 测试设计后自动继续
 
+model_routing:                   # 每阶段模型等级提示（heavy=Opus 级, light=Sonnet 级, auto=继承父进程）
+  phase_1: heavy                 # 需求分析需要深度推理
+  phase_2: light                 # OpenSpec 创建是机械性操作
+  phase_3: light                 # FF 生成是模板化操作
+  phase_4: heavy                 # 测试设计需要创造力
+  phase_5: heavy                 # 代码实施需要完整能力
+  phase_6: light                 # 报告生成是机械性操作
+  phase_7: light                 # 汇总较简单
+
 context_management:
   git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint
   autocompact_pct: 80        # 建议设置 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE

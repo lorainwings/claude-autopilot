@@ -127,3 +127,51 @@ Phase 7 写入时检查：
 - 删除不准确的条目
 - 调整 confidence 等级
 - 添加手动知识条目（遵循相同格式）
+
+---
+
+## 持久化 Steering Documents（v3.0 新增）
+
+### 位置
+
+`openspec/.autopilot-context/`（项目级，所有 change 共享）
+
+> 此目录位于 openspec/ 下但不在 changes/ 子目录内，所有 change 共享。
+> 建议纳入 git 版本管理，团队共享项目上下文。
+
+### 文件
+
+| 文件 | 用途 | 更新策略 |
+|------|------|---------|
+| `project-context.md` | 技术栈、目录布局、关键依赖 | 增量更新（7 天内跳过全量扫描） |
+| `existing-patterns.md` | 跨 change 累积的代码模式 | 追加写入（Phase 7 提取） |
+| `tech-constraints.md` | CLAUDE.md + rules 提取的约束 | 每次 Phase 1 刷新 |
+
+### 更新协议
+
+Phase 1 Auto-Scan 行为变更：
+
+```
+1. 检查 openspec/.autopilot-context/project-context.md 是否存在
+   - 存在 + 新鲜（< 7 天） → 跳过全量扫描，直接读取，仅对本次需求相关代码做增量扫描
+   - 存在 + 过期（> 7 天） → 增量更新（diff 当前项目状态 vs 已有文档）
+   - 不存在 → 全量扫描（当前行为）
+2. 写入/更新 steering documents 到持久化位置
+3. 复制相关章节到 per-change context/ 用于 checkpoint 隔离
+```
+
+### Phase 7 知识回写
+
+Phase 7 汇总完成后，除提取知识条目到 knowledge.json 外：
+
+1. 将新发现的代码模式追加到 `existing-patterns.md`
+2. 如发现新约束则更新 `tech-constraints.md`
+3. 递增 `project-context.md` 中的 version 计数器
+4. 记录本次 change 的统计数据（文件数、行数、测试数）
+
+### 首次迁移
+
+已有项目（openspec/.autopilot-context/ 不存在）首次运行 autopilot 时：
+- Phase 1 Auto-Scan 照常执行全量扫描
+- 扫描结果同时写入 per-change context/ 和新建的 openspec/.autopilot-context/
+- 后续 change 复用持久化文件

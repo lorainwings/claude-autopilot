@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -122,6 +122,15 @@ sequenceDiagram
 ```
 
 ## Installation
+
+### 零配置接入（v3.0）
+
+新项目只需一个配置文件即可运行 autopilot：
+
+1. 安装插件: `claude plugin add lorainwings/claude-autopilot`
+2. 运行 `启动autopilot [需求描述]`
+3. 插件自动检测项目结构，生成 `.claude/autopilot.config.yaml`
+4. 内置模板自动处理所有阶段 — 无需创建额外文件
 
 ### Step 1: Add marketplace
 

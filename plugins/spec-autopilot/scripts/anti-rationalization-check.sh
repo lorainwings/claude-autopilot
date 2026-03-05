@@ -99,34 +99,75 @@ for i, ch in enumerate(output):
 if status not in ('ok', 'warning'):
     sys.exit(0)
 
-# Rationalization patterns (case-insensitive)
-PATTERNS = [
-    r'out\s+of\s+scope',
-    r'pre[- ]existing\s+(issue|bug|problem|defect)',
-    r'skip(ped|ping)?\s+(this|the|these)\s+(test|task|check|step|item)',
-    r'not\s+(needed|necessary|required|relevant|applicable)',
-    r'already\s+(covered|tested|handled|addressed)',
-    r'too\s+(complex|difficult|risky|time[- ]consuming)',
-    r'(will|can|should)\s+(be\s+)?(done|handled|addressed|fixed)\s+(later|separately|in\s+a?\s*future)',
-    r'(deferred?|postponed?|deprioritized?)\s+(to|for|until)',
-    r'(minimal|low)\s+(impact|priority|risk)',
-    r'(works|good)\s+enough',
+# Weighted rationalization patterns (case-insensitive)
+# High confidence (weight=3): strong skip signals
+# Medium confidence (weight=2): scope/deferral signals
+# Low confidence (weight=1): weak signals that are common in legitimate output
+WEIGHTED_PATTERNS = [
+    # High confidence (weight=3)
+    (3, r'skip(ped|ping)?\s+(this|the|these|because)\s'),
+    (3, r'(tests?|tasks?)\s+were\s+skip(ped|ping)'),
+    (3, r'(deferred?|postponed?|deprioritized?)\s+(to|for|until)'),
+    # Medium confidence (weight=2)
+    (2, r'out\s+of\s+scope'),
+    (2, r'(will|can|should)\s+(be\s+)?(done|handled|addressed|fixed)\s+(later|separately|in\s+a?\s*future)'),
+    # Low confidence (weight=1)
+    (1, r'already\s+(covered|tested|handled|addressed)'),
+    (1, r'not\s+(needed|necessary|required|relevant|applicable)'),
+    (1, r'(works|good)\s+enough'),
+    (1, r'too\s+(complex|difficult|risky|time[- ]consuming)'),
+    (1, r'(minimal|low)\s+(impact|priority|risk)'),
+    (1, r'pre[- ]existing\s+(issue|bug|problem|defect)'),
 ]
 
 output_lower = output.lower()
+total_score = 0
 found_patterns = []
-for pattern in PATTERNS:
+for weight, pattern in WEIGHTED_PATTERNS:
     if re.search(pattern, output_lower):
-        found_patterns.append(pattern)
+        total_score += weight
+        found_patterns.append((weight, pattern))
 
-if found_patterns:
+# Extract artifacts from JSON envelope to check for actual output
+has_artifacts = False
+for i, ch in enumerate(output):
+    if ch == '{':
+        try:
+            obj, end = decoder.raw_decode(output, i)
+            if isinstance(obj, dict) and 'artifacts' in obj:
+                arts = obj['artifacts']
+                has_artifacts = isinstance(arts, list) and len(arts) > 0
+                break
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+# Scoring thresholds:
+#   total_score >= 5          → hard block
+#   total_score >= 3 + no artifacts → block (suspicious + no output)
+#   total_score >= 2          → stderr warning only (no block)
+#   total_score < 2           → pass silently
+if total_score >= 5:
     print(json.dumps({
         'decision': 'block',
-        'reason': f'Anti-rationalization check: Phase {phase_num} output contains {len(found_patterns)} potential skip/rationalization pattern(s). Detected patterns suggest the sub-agent may be rationalizing skipping work. Review the output and re-dispatch if needed. Patterns found: {found_patterns[:3]}'
+        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} (threshold 5). Multiple strong skip/rationalization patterns detected. Review and re-dispatch. Patterns: {[p for _, p in found_patterns[:3]]}'
     }))
     sys.exit(0)
 
-# No patterns found → allow
+if total_score >= 3 and not has_artifacts:
+    print(json.dumps({
+        'decision': 'block',
+        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} with no artifacts produced. Suspected rationalization without deliverables. Review and re-dispatch. Patterns: {[p for _, p in found_patterns[:3]]}'
+    }))
+    sys.exit(0)
+
+if total_score >= 2:
+    print(json.dumps({
+        'decision': 'warn',
+        'reason': f'Anti-rationalization advisory: Phase {phase_num} output scored {total_score} but has artifacts. Patterns: {[p for _, p in found_patterns[:3]]}'
+    }), file=sys.stderr)
+    sys.exit(0)
+
+# Score below threshold → allow
 sys.exit(0)
 "
 

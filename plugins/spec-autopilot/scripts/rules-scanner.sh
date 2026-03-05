@@ -133,9 +133,21 @@ for c in constraints:
 
 # === 4. Output ===
 sources = set(c['source'] for c in unique)
+
+# Critical rules: top forbidden items for compact injection (Phase 2/3/6)
+critical = [c for c in unique if c['type'] == 'forbidden'][:10]
+compact_parts = []
+for c in critical:
+    part = 'FORBIDDEN: ' + c['pattern']
+    if c.get('replacement'):
+        part += ' → use ' + c['replacement']
+    compact_parts.append(part)
+
 result = {
     'rules_found': len(unique) > 0,
     'constraints': unique,
+    'critical_rules': critical,
+    'compact_summary': '; '.join(compact_parts) if compact_parts else '',
     'summary': f'Found {len(unique)} constraints from {len(sources)} rule file(s)' if unique else 'No constraints extracted'
 }
 

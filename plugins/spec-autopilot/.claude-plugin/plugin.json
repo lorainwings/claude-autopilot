@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "2.5.0",
-  "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, parallel execution with merge guard, structured decisions with Hook enforcement, code constraints for Write/Edit, web research, rules auto-injection, knowledge accumulation, security audit, and crash recovery",
+  "version": "3.0.0",
+  "description": "Spec-driven autopilot with built-in phase templates (zero project-side files), weighted anti-rationalization, file ownership parallel execution, model routing, persistent knowledge accumulation, deep research with proactive discussion, all-phase rules injection, and crash recovery",
   "author": { "name": "vibeflow-team" },
   "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
@@ -23,7 +23,12 @@
     "decision-enforcement",
     "knowledge-accumulation",
     "security-audit",
-    "structured-decisions"
+    "structured-decisions",
+    "built-in-templates",
+    "model-routing",
+    "file-ownership",
+    "persistent-knowledge",
+    "proactive-discussion"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

@@ -84,14 +84,25 @@ if os.path.isfile(cfg):
             nt = re.search(r'^\S', sec, re.MULTILINE)
             sec = sec[:nt.start()] if nt else sec
             def parse_list(key):
-                m = re.search(rf'{key}:\s*\n((?:\s+-\s+.*\n)*)', sec)
+                m = re.search(rf'^( +){key}:\s*\n', sec, re.MULTILINE)
                 if not m:
                     return []
+                indent = m.group(1)
+                start = m.end()
+                end_m = re.search(rf'^{re.escape(indent)}[a-z_]', sec[start:], re.MULTILINE)
+                block = sec[start:start + end_m.start()] if end_m else sec[start:]
                 items = []
-                for x in re.finditer(r'-\s+(.+)', m.group(1)):
-                    v = x.group(1).strip().strip('\x22\x27')
+                # Format 1: nested objects - extract pattern field value
+                for obj_m in re.finditer(r'-\s+pattern:\s*[\"\x27]?([^\"\x27}\n]+)[\"\x27]?', block):
+                    v = obj_m.group(1).strip()
                     if v:
                         items.append(v)
+                # Format 2: flat strings (fallback only if no nested objects found)
+                if not items:
+                    for x in re.finditer(r'-\s+(.+)', block):
+                        v = x.group(1).strip().strip('\x22\x27')
+                        if v and not v.startswith('pattern:') and not v.startswith('message:'):
+                            items.append(v)
                 return items
             forbidden_files = parse_list('forbidden_files')
             forbidden_patterns = parse_list('forbidden_patterns')

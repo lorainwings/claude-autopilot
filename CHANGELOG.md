@@ -5,6 +5,45 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-03-05
+
+### Breaking Changes
+- **内置 Phase 模板**: 项目侧不再需要 `.claude/skills/autopilot/phases/*.md` 和 `reference/*.md` 文件。插件提供内置模板（`autopilot/templates/`），从 config.yaml 动态参数化。已有项目的 `instruction_files` 配置继续生效（优先级高于内置模板）
+
+### Added
+- **内置 Phase 模板系统**: 新增 `templates/` 目录，包含 phase4-testing.md、phase5-ralph-loop.md、phase6-reporting.md、shared-test-standards.md。新项目只需 `autopilot.config.yaml` 即可运行
+- **模型路由配置**: 新增 `config.model_routing` 配置节，为每个阶段定义模型等级提示（heavy/light/auto），注入到 dispatch prompt 中引导执行行为
+- **文件所有权分区**: Phase 5 并行执行增强，按顶级目录（backend/frontend/node）分区 task，每个 agent 获得明确的 owned_files 列表，write-edit Hook 强制执行所有权边界
+- **持久化 Steering Documents**: 新增 `openspec/.autopilot-context/` 目录，跨 change 共享项目上下文。7 天内有效则跳过全量扫描，仅做增量更新
+- **主动讨论协议**: Phase 1 对每个不确定点主动构造决策卡片（方案/优劣/推荐），分类处理技术决策/范围决策/风险决策
+- **自主方案探索**: Phase 1 Research Agent 增加 Step 0 自主思考，主动搜索和推荐最佳方案
+- **全阶段规则注入**: 项目规则从仅 Phase 5 扩展到所有 dispatch 阶段（Phase 2-6），Phase 0 缓存扫描结果，阶段差异化注入（紧凑/完整）
+- **rules-scanner 增强**: 输出新增 `critical_rules` 和 `compact_summary` 字段，支持紧凑注入
+
+### Fixed
+- **anti-rationalization 误报**: 从二元匹配改为加权评分系统（高/中/低置信度），总分 ≥5 硬阻断，≥3 + 无 artifacts 阻断，≥2 仅警告，消除合法输出的误报
+- **YAML 嵌套格式解析**: `code-constraint-check.sh` 和 `write-edit-constraint-check.sh` 的 `parse_list` 函数支持嵌套对象格式（`pattern: "xxx"`, `message: "yyy"`），修复 vibeFlow 等项目的约束检测失败
+
+### New Files
+- `skills/autopilot/templates/phase4-testing.md` — Phase 4 内置测试模板
+- `skills/autopilot/templates/phase5-ralph-loop.md` — Phase 5 内置实施模板
+- `skills/autopilot/templates/phase6-reporting.md` — Phase 6 内置报告模板
+- `skills/autopilot/templates/shared-test-standards.md` — 共享测试标准模板
+
+### Changed
+- `skills/autopilot-dispatch/SKILL.md` — 内置模板解析、全阶段规则注入、模型路由注入、文件所有权约束
+- `skills/autopilot-init/SKILL.md` — model_routing 配置生成
+- `skills/autopilot/SKILL.md` — 持久化上下文、主动讨论、文件所有权分区
+- `skills/autopilot/references/phase1-requirements.md` — 自主方案探索、主动讨论协议、持久化上下文检查
+- `skills/autopilot/references/phase5-implementation.md` — 文件所有权分区
+- `skills/autopilot/references/knowledge-accumulation.md` — 持久化 Steering Documents
+- `skills/autopilot/references/protocol.md` — 模型路由文档
+- `scripts/anti-rationalization-check.sh` — 加权评分系统
+- `scripts/code-constraint-check.sh` — 嵌套 YAML 支持
+- `scripts/write-edit-constraint-check.sh` — 嵌套 YAML 支持
+- `scripts/rules-scanner.sh` — critical_rules/compact_summary 输出
+- `.claude-plugin/plugin.json` — 版本升级到 3.0.0
+
 ## [2.5.0] - 2026-03-05
 
 ### Added
