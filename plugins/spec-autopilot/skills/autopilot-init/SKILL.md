@@ -145,6 +145,13 @@ phases:
     research:
       enabled: true
       agent: "Explore"
+      web_search:
+        enabled: true            # standard/deep depth 默认 true，basic 自动跳过
+        max_queries: 5           # 最大搜索次数
+        focus_areas:             # 搜索聚焦领域
+          - best_practices
+          - similar_implementations
+          - dependency_evaluation
     complexity_routing:
       enabled: true
       thresholds:

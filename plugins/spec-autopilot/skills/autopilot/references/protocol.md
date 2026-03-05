@@ -22,7 +22,7 @@
 
 | Phase | 必须字段 | 可选字段 |
 |-------|----------|----------|
-| 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations }` |
+| 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach }` |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }` |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |
@@ -87,15 +87,29 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 
 ```json
 {
-  "queries_executed": ["Vue 3 real-time collaboration best practices 2026"],
+  "queries_executed": ["Vue 3 real-time collaboration best practices 2026", "Y.js vs Automerge comparison 2026"],
   "best_practices": [
     {"source": "https://...", "pattern": "使用 WebSocket + CRDT", "relevance": "high"}
   ],
   "similar_implementations": [
     {"repo": "github.com/...", "approach": "Y.js + WebSocket", "pros": ["成熟"], "cons": ["体积大"]}
-  ]
+  ],
+  "dependency_evaluation": [
+    {"package": "yjs", "security_status": "clean", "maintenance_status": "active", "bundle_size": "45KB", "alternatives": ["automerge", "sharedb"]}
+  ],
+  "recommended_approach": "基于调研结果，推荐使用 Y.js + WebSocket 方案，理由：社区成熟、bundle 体积可控、与 Vue 3 集成良好"
 }
 ```
+
+### 字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `queries_executed` | `string[]` | 实际执行的搜索查询列表 |
+| `best_practices` | `{source, pattern, relevance}[]` | 结构化最佳实践，source 为来源 URL，relevance 为 high/medium/low |
+| `similar_implementations` | `{repo, approach, pros, cons}[]` | 同类实现对比，含仓库地址、方案描述、优缺点 |
+| `dependency_evaluation` | `{package, security_status, maintenance_status, bundle_size, alternatives}[]` | 依赖评估，含安全状态、维护状态、体积、替代方案 |
+| `recommended_approach` | `string` | 基于调研的最终推荐方案摘要 |
 
 ## 特殊门禁
 

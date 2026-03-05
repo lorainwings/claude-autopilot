@@ -304,6 +304,9 @@ with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
 for event_name in ['PreToolUse', 'PostToolUse']:
     for group in data['hooks'][event_name]:
         m = group.get('matcher', '')
+        # Only check Task-related matchers (skip Write|Edit etc.)
+        if not m or 'Task' not in m:
+            continue
         # Verify matcher only matches 'Task', not 'TaskCreate' etc.
         assert re.fullmatch(m, 'Task'), f'{event_name} matcher {m!r} does not match Task'
         assert not re.search(m, 'TaskCreate'), f'{event_name} matcher {m!r} also matches TaskCreate!'

@@ -42,6 +42,36 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "^Task$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/parallel-merge-guard.sh",
+            "timeout": 150
+          }
+        ]
+      },
+      {
+        "matcher": "^Task$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-decision-format.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^(Write|Edit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-edit-constraint-check.sh",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PreCompact": [

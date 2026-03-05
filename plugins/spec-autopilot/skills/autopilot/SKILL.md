@@ -290,7 +290,7 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 | 质量扫描超时 | 硬超时（默认 10 分钟），超时自动标记 timeout，不询问用户 |
 | 代码约束 | Phase 5 PostToolUse Hook 自动检测项目规则违反（禁止文件/模式/目录范围） |
 | 知识累积 | Phase 7 自动提取知识到 openspec/.autopilot-knowledge.json，Phase 1 自动注入 |
-| 结构化决策 | 所有决策点以结构化卡片呈现（选项/优劣/推荐），medium/large 强制执行 |
+| 结构化决策 | 所有决策点以结构化卡片呈现（选项/优劣/推荐），medium/large 由 Hook 确定性强制执行（validate-decision-format.sh） |
 
 ## 错误处理
 

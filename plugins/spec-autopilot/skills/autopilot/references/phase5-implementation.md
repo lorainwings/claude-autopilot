@@ -103,6 +103,46 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 降级原因记录到 checkpoint: _metrics.parallel_fallback_reason
 ```
 
+## 并行合并验证 (Hook 级保障)
+
+`parallel-merge-guard.sh` 作为 PostToolUse(Task) hook，在每次 worktree merge 后自动触发，提供确定性的合并质量验证。
+
+### 触发条件
+
+- Phase 5 Task 调用（prompt 包含 `<!-- autopilot-phase:5 -->`）
+- tool_response 中包含 worktree merge 相关内容
+
+### 三层验证
+
+| 检查项 | 方法 | 说明 |
+|--------|------|------|
+| 合并冲突检测 | `git diff --check` + `git diff --cached --check` | 确定性检测，不依赖 AI 判断。检查工作区和暂存区是否残留冲突标记 |
+| Task scope 校验 | 对比 `git diff --name-only HEAD~1 HEAD` 与 envelope artifacts | 确保合并引入的文件变更在预期 task 范围内，防止跨 task 污染 |
+| 快速类型检查 | 读取 `config.test_suites` 中 `type: typecheck` 的命令并执行 | 每次 merge 后立即运行，尽早捕获集成类型错误，避免问题累积到 Phase 6 |
+
+### 合并冲突检测的确定性保障
+
+- `git diff --check` 是 Git 原生命令，输出完全确定性
+- 不依赖 LLM 判断冲突是否存在，消除 AI 幻觉风险
+- 同时检查工作区（unstaged）和暂存区（staged）两个层面
+
+### 快速类型检查的早期拦截
+
+- 从 `autopilot.config.yaml` 的 `test_suites` 中动态读取所有 `type: typecheck` 的套件命令
+- 每次 worktree merge 后立即执行，而非等到所有 task 完成
+- 单次 typecheck 超时限制 120 秒，避免阻塞流水线
+
+### merge guard 阻断时的处理流程
+
+当 hook 输出 `decision: "block"` 时，主线程应：
+
+1. **展示冲突详情**：将 hook reason 中的具体 violation 信息呈现给用户，包括冲突文件列表、scope 外文件、typecheck 错误输出
+2. **提供回滚选项**：
+   - "回退此次 merge，串行重新执行该 task"（推荐）
+   - "手动修复后继续"
+   - "放弃并行模式，全部切换为串行"
+3. **记录阻断事件**：在 `phase5-tasks/` checkpoint 中记录 `_metrics.merge_guard_blocked: true` 及阻断原因
+
 ---
 
 ## 实施流程（串行模式 — 默认）

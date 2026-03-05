@@ -25,6 +25,7 @@ dispatch 子 Agent 时按以下优先级构造项目上下文：
 |--------|------|------|
 | 1 | `config.phases[phase].instruction_files` | 可选覆盖：项目自定义指令文件（存在则注入，覆盖内置规则） |
 | 2 | `config.phases[phase].reference_files` | 可选覆盖：项目自定义参考文件 |
+| 2.5 | Project Rules Auto-Scan | Phase 5 自动扫描：运行 `rules-scanner.sh` 提取项目规则约束并注入 |
 | 3 | `config.project_context` | 自动注入：init 检测的项目结构、测试凭据、Playwright 登录流程 |
 | 4 | `config.test_suites` | 自动注入：测试命令、框架类型 |
 | 5 | `config.services` | 自动注入：服务健康检查 URL |
@@ -97,6 +98,50 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 执行完毕后返回结构化 JSON 结果。")
 ```
 
+### 优先级 2.5: Project Rules Auto-Scan（Phase 5 专属）
+
+当 dispatch Phase 5 子 Agent 时，自动运行 `rules-scanner.sh` 扫描项目 `.claude/rules/` 目录和 `CLAUDE.md`，提取所有约束并注入到子 Agent prompt 中。
+
+**触发条件**：`phase_number === 5`（仅实施阶段需要代码约束感知）
+
+**执行流程**：
+
+1. 主线程在构造 Phase 5 prompt 前执行：
+   ```bash
+   bash <plugin_scripts>/rules-scanner.sh "$(pwd)"
+   ```
+2. 解析返回的 JSON，检查 `rules_found === true`
+3. 如果有约束，将 `constraints` 数组格式化为 prompt 段落注入
+
+**注入模板**：
+
+```markdown
+{if rules_scan.rules_found === true}
+## 项目规则约束（自动扫描）
+
+以下约束从项目 `.claude/rules/` 和 `CLAUDE.md` 自动提取，**必须严格遵守**：
+
+### 禁止项
+{for each c in constraints where c.type === "forbidden"}
+- ❌ `{c.pattern}` → 使用 `{c.replacement}`（来源: {c.source}）
+{end for}
+
+### 必须使用
+{for each c in constraints where c.type === "required"}
+- ✅ `{c.pattern}`（来源: {c.source}）
+{end for}
+
+### 命名约定
+{for each c in constraints where c.type === "naming"}
+- 📝 {c.pattern}（来源: {c.source}）
+{end for}
+
+> 违反以上约束将被 PostToolUse Hook 拦截并 block。
+{end if}
+```
+
+**注入位置**：在 Prompt 模板中，插入在 `## Phase 1 项目分析` 之前、`### Playwright 登录流程` 之后。
+
 ## 参数化调度模板
 
 ### 输入参数
@@ -136,6 +181,15 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - Agent: config.phases.requirements.agent（默认 business-analyst）
 - 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
 - Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents + research-findings.md + complexity 评估结果
+- **联网调研结果注入**（v2.4.0）：当 research-findings.md 中存在 Web Research Findings 章节时，追加以下指令：
+  ```
+  ## 联网调研结果（如存在）
+  读取 research-findings.md 中的 Web Research Findings 章节。
+  基于调研结果，在讨论中：
+  - 引用具体的最佳实践和数据支撑你的建议
+  - 对比不同技术方案的优劣，给出推荐
+  - 提醒用户已知的坑点和风险
+  ```
 - **决策协议注入**（v2.4.0）：当 complexity 为 "medium" 或 "large" 时，追加以下指令：
   ```
   ## 决策输出格式
