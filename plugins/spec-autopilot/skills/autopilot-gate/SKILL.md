@@ -37,13 +37,27 @@ user-invocable: false
 
 **任何 Step 失败 → 硬阻断，禁止启动下一阶段。**
 
-## 特殊门禁：Phase 4 → Phase 5
+## 特殊门禁：Phase 4 → Phase 5（v3.1.0: 复杂度感知）
 
-除通用 8 步校验外，额外验证（从 `autopilot.config.yaml` 读取阈值）：
+除通用 8 步校验外，额外验证（从 `autopilot.config.yaml` 读取阈值，**按 Phase 1 complexity 调整**）：
+
+**从 Phase 1 checkpoint 读取 complexity 字段**（默认 "medium"），动态调整门禁阈值：
 
 ```
-- [ ] phase-4-testing.json 中 test_counts 的每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
-- [ ] artifacts 列表中包含 config.phases.testing.gate.required_test_types 对应的文件
+complexity = read phase-1-requirements.json → complexity (默认 "medium")
+
+IF complexity == "small":
+    adjusted_min = max(2, config.min_test_count_per_type / 2)
+    adjusted_types = config.required_test_types - ["ui"]  # 允许缺少 UI 测试
+ELIF complexity == "medium":
+    adjusted_min = config.min_test_count_per_type
+    adjusted_types = config.required_test_types
+ELIF complexity == "large":
+    adjusted_min = max(config.min_test_count_per_type, 5)
+    adjusted_types = config.required_test_types
+
+- [ ] phase-4-testing.json 中 test_counts 的 adjusted_types 对应字段 ≥ adjusted_min
+- [ ] artifacts 列表中包含 adjusted_types 对应的文件
 - [ ] dry_run_results 的所有字段全部为 0（exit code）
 ```
 

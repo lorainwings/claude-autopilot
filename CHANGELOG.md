@@ -5,6 +5,44 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-03-06
+
+### Added
+- **Subagent-Driven 并行增强**: max_agents 默认值从 3 提升到 5，支持动态并行度调整（根据 task 数量和运行时冲突自动调节），合并冲突阈值从 3 文件放宽到 5 文件
+- **文件级锁机制**: Phase 5 并行执行增加 `file-locks.json` 文件级锁注册表，write-edit-constraint-check Hook 实时验证文件所有权，支持同目录下多 agent 并发修改不同文件
+- **双层代码约束**: 静态约束（config/CLAUDE.md/rules 提取 + prompt 注入）+ 动态约束（typecheck/lint Hook 实时验证），Phase 5 dispatch 自动注入动态约束模板
+- **约束加载缓存**: `_common.sh` 新增 `load_constraints()` 函数，10 分钟文件缓存避免重复解析 config/CLAUDE.md/rules，减少 Hook 链执行开销
+- **多源聚合调研**: Phase 1 Research Agent 从 ≥3 个来源（项目代码/外部搜索/依赖评估）聚合信息，每条建议标注数据来源和置信度
+- **决策优先级排序**: 决策点按 P0（阻断性）→ P1（不可逆）→ P2（高影响）→ P3（低影响）排序，P3 支持"全部接受推荐"快速确认
+- **复杂度感知门禁**: Phase 4 测试门禁按 complexity 动态调整：small 允许缺少 UI 测试且降低数量门槛，large 提高数量门槛
+- **rules-scanner 增强**: 新增列表格式约束提取（`- 禁止/❌ xxx → yyy`）、段落级约束提取（`必须使用 xxx`）、文件大小限制提取
+- **code_constraints 自动检测**: Init Step 2.7 运行 rules-scanner 自动填充 code_constraints 配置，默认启用 `auto_detect: true`
+
+### Fixed
+- **Phase 4 测试门禁过于死板**: 小型功能不再强制要求 4 类全部测试（允许缺少 UI 测试），测试数量门禁按复杂度动态调整
+- **Hook 链性能**: code-constraint-check 和 write-edit-constraint-check 共提取约 200 行重复代码到 `_common.sh` 共享函数，减少 python3 fork 和约束解析开销
+- **parallel-merge-guard 超时不足**: timeout 从 150s 提升到 180s，适应大项目类型检查
+- **Phase 1 token 消耗过高**: small 复杂度下跳过苏格拉底模式和 business-analyst Agent 派发，token 消耗目标 ≤ medium 的 40%
+- **并行降级阈值过保守**: 单组合并冲突阈值从 >3 文件放宽到 >5 文件，连续失败阈值从 2 组提升到 3 组
+- **validate-config max_agents 范围**: 从 (1, 10) 扩展到 (1, 20) 适配更高并行度
+- **parallel 默认关闭**: 改为默认启用（`enabled: true`），运行时动态调整并行度
+
+### Changed
+- `scripts/_common.sh` — 新增 4 个共享函数：load_constraints, check_file_constraints, extract_project_root, should_bypass_hook
+- `scripts/code-constraint-check.sh` — 重构为使用 _common.sh 共享函数（195→97 行）
+- `scripts/write-edit-constraint-check.sh` — 重构为使用 _common.sh 共享函数（180→62 行）
+- `scripts/rules-scanner.sh` — 增加列表格式/段落级/文件大小约束提取
+- `scripts/validate-json-envelope.sh` — Phase 4 验证增加 complexity-aware 阈值调整
+- `scripts/validate-config.sh` — max_agents 范围扩展
+- `hooks/hooks.json` — parallel-merge-guard timeout 150→180
+- `skills/autopilot/SKILL.md` — Phase 4 复杂度感知门禁、文件级锁、护栏约束新增 3 行
+- `skills/autopilot-gate/SKILL.md` — Phase 4→5 门禁复杂度感知
+- `skills/autopilot-dispatch/SKILL.md` — 动态约束注入、max_agents 更新
+- `skills/autopilot-init/SKILL.md` — code_constraints 自动检测、parallel 默认启用、max_agents 更新
+- `skills/autopilot/references/phase1-requirements.md` — 多源聚合、决策排序、Small 快速路径增强
+- `skills/autopilot/references/phase5-implementation.md` — 文件级锁、动态并行度、阈值放宽
+- `.claude-plugin/plugin.json` — 版本升级到 3.1.0
+
 ## [3.0.0] - 2026-03-05
 
 ### Breaking Changes

@@ -93,6 +93,29 @@ if os.path.isdir(rules_dir):
         ):
             add(fname, 'naming', m.group(1))
 
+        # --- 列表格式约束提取 ---
+        for m in re.finditer(
+            r'[-*]\s*(?:禁止|❌)\s*(?:使用\s*)?[\x60]?([^\x60\n]{2,40})[\x60]?\s*(?:→|->|→)\s*[\x60]?([^\x60\n]{2,40})[\x60]?',
+            content
+        ):
+            add(fname, 'forbidden', m.group(1).strip(), replacement=m.group(2).strip())
+
+        # --- 段落约束提取（句子级）---
+        for m in re.finditer(
+            r'(?:必须|强制|务必)\s*(?:使用|采用)\s*[\x60]?([^\x60,。\n]{2,30})[\x60]?',
+            content
+        ):
+            pat = m.group(1).strip()
+            if len(pat) > 2 and not pat.startswith('#'):
+                add(fname, 'required', pat)
+
+        # --- 文件大小限制提取 ---
+        for m in re.finditer(
+            r'(?:单[个文件档]|每个文件)\s*[^。\n]{0,20}?(\d{2,5})\s*行',
+            content
+        ):
+            add(fname, 'size_limit', f'max_lines:{m.group(1)}')
+
 # === 2. Scan CLAUDE.md (supplementary) ===
 if os.path.isfile(claude_md):
     try:
@@ -121,6 +144,29 @@ if os.path.isfile(claude_md):
             key, val = m.group(1).strip(), m.group(2).strip()
             if re.search(r'必须|must|required', val, re.IGNORECASE):
                 add('CLAUDE.md', 'required', val, context=key)
+
+        # 列表格式约束
+        for m in re.finditer(
+            r'[-*]\s*(?:禁止|❌)\s*(?:使用\s*)?[\x60]?([^\x60\n]{2,40})[\x60]?\s*(?:→|->|→)\s*[\x60]?([^\x60\n]{2,40})[\x60]?',
+            md
+        ):
+            add('CLAUDE.md', 'forbidden', m.group(1).strip(), replacement=m.group(2).strip())
+
+        # 段落约束
+        for m in re.finditer(
+            r'(?:必须|强制|务必)\s*(?:使用|采用)\s*[\x60]?([^\x60,。\n]{2,30})[\x60]?',
+            md
+        ):
+            pat = m.group(1).strip()
+            if len(pat) > 2 and not pat.startswith('#'):
+                add('CLAUDE.md', 'required', pat)
+
+        # 文件大小限制
+        for m in re.finditer(
+            r'(?:单[个文件档]|每个文件)\s*[^。\n]{0,20}?(\d{2,5})\s*行',
+            md
+        ):
+            add('CLAUDE.md', 'size_limit', f'max_lines:{m.group(1)}')
 
 # === 3. Deduplicate ===
 seen = set()

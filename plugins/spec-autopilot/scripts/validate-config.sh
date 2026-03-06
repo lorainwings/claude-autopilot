@@ -190,7 +190,7 @@ RANGE_RULES = {
     'test_pyramid.min_unit_pct': (0, 100),
     'test_pyramid.max_e2e_pct': (0, 100),
     'test_pyramid.min_total_cases': (1, 1000),
-    'phases.implementation.parallel.max_agents': (1, 10),
+    'phases.implementation.parallel.max_agents': (1, 20),
     'async_quality_scans.timeout_minutes': (1, 120),
     'phases.requirements.auto_scan.max_depth': (1, 5),
     'phases.requirements.complexity_routing.thresholds.small': (1, 20),

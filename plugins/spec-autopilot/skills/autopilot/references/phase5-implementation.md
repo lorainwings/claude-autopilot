@@ -70,7 +70,24 @@ write-edit-constraint-check.sh 在并行模式下额外检查：
 
 > **降级**：如果 ownership 文件不存在（非并行模式），跳过此检查（向后兼容）。
 
-### 依赖图构建算法（v2.4.0 细化）
+#### 文件级锁机制（v3.1.0 新增）
+
+在文件所有权分区之上增加文件级锁，进一步防止并发冲突：
+
+```
+1. 每个并行 agent 启动时，主线程将其 owned_files 写入锁注册表：
+   openspec/changes/<name>/context/phase-results/phase5-ownership/file-locks.json
+   格式: { "backend/src/Controller.java": "agent-1", "frontend/src/App.vue": "agent-2" }
+2. write-edit-constraint-check Hook 在并行模式下检查：
+   - 目标文件是否被其他 agent 锁定
+   - 锁定 → block（"File locked by agent-{N}"）
+3. agent 完成后，主线程释放对应锁条目
+4. 降级：锁文件不存在 → 回退到目录级所有权检查
+```
+
+> **与目录级所有权的区别**：目录级按顶级目录分组（backend/frontend/node），文件级锁支持同一目录下的细粒度隔离。例如两个 agent 可以同时修改 `backend/` 下的不同文件。
+
+### 依赖图构建算法（v3.1.0 增强）
 
 ```
 1. 解析 tasks.md 中每个 task 的描述
@@ -88,7 +105,7 @@ write-edit-constraint-check.sh 在并行模式下额外检查：
 
 ```
 独立 task 组 = 分析依赖图，找出无交叉文件的 task 集合
-max_parallel = config.phases.implementation.parallel.max_agents (默认 3)
+max_parallel = config.phases.implementation.parallel.max_agents (默认 5)
 
 for each task_group in 独立 task 组:
   agents = []
@@ -136,12 +153,32 @@ for each task_group in 独立 task 组:
 - 子 Agent 不直接写入 checkpoint（隔离约束）
 - 主线程从子 Agent 返回的 JSON 信封提取 artifacts 和 summary
 
+### 动态并行度调整（v3.1.0 新增）
+
+根据运行时条件自动调整并行 agent 数量：
+
+```
+initial_parallel = config.phases.implementation.parallel.max_agents (默认 5)
+
+# 动态调整规则
+IF total_tasks <= 3 → actual_parallel = min(2, total_tasks)  # 少量 task 不需要高并行
+IF total_tasks <= 6 → actual_parallel = min(3, initial_parallel)
+IF total_tasks <= 12 → actual_parallel = min(initial_parallel, total_tasks // 2)
+IF total_tasks > 12 → actual_parallel = initial_parallel
+
+# 资源感知调整
+IF merge_conflict_count_in_session >= 2 → actual_parallel = max(2, actual_parallel - 1)
+IF typecheck_failure_in_session → actual_parallel = max(2, actual_parallel - 1)
+```
+
+> **原则**：自动调高不超过 config 上限，自动调低不低于 2（保持并行优势）。
+
 ### 降级决策树（v2.4.0 细化）
 
 ```
 IF worktree 创建失败（磁盘空间/权限） → 立即降级为串行
-IF 单组内合并冲突 > 3 个文件 → 回退该组所有 worktree → 串行执行该组
-IF 连续 2 组合并失败 → 全面降级为串行（config.parallel.auto_downgrade_threshold）
+IF 单组内合并冲突 > 5 个文件 → 回退该组所有 worktree → 串行执行该组
+IF 连续 3 组合并失败 → 全面降级为串行（config.parallel.auto_downgrade_threshold）
 IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 降级原因记录到 checkpoint: _metrics.parallel_fallback_reason
 ```
