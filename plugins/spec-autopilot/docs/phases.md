@@ -23,6 +23,7 @@
 
 1. Check `autopilot.config.yaml` exists → if not, call `autopilot-init`
 2. Validate config schema via `validate-config.sh`
+   2.7. (v3.1) Auto-detect code_constraints via `rules-scanner.sh` → populate `code_constraints` config
 3. Check `settings.json` for ralph-loop plugin
 4. Call `autopilot-recovery` Skill to scan checkpoints
 5. Create 8 phase tasks with blockedBy chain
@@ -44,9 +45,11 @@
 1. Parse `$ARGUMENTS` (file path, text, or empty → ask user)
 2. **Auto-Scan**: Scan project structure → generate Steering Documents (project-context.md, existing-patterns.md, tech-constraints.md)
 3. **Research Agent**: Dispatch Explore agent → analyze related code, dependency compatibility, technical feasibility → research-findings.md
+   3.1. **Multi-source aggregation** (v3.1): Research Agent consolidates ≥3 sources (project code, external search, dependency evaluation) with confidence scoring per recommendation
 4. **Complexity Routing**: Evaluate complexity based on research (small ≤2 files / medium 3-5 files / large 6+ files)
 5. Dispatch business-analyst sub-agent for analysis (injected with Steering + Research context)
 6. **Multi-round decision LOOP** until all points clarified (complexity affects loop depth)
+   6.1. **Decision priority sorting** (v3.1): Decisions sorted P0 (blocking) → P1 (irreversible) → P2 (high-impact) → P3 (low-impact). P3 supports "accept all recommendations" for quick confirmation
 7. Generate structured prompt
 8. User final confirmation
 9. Write checkpoint
@@ -63,7 +66,7 @@
 
 | Complexity | Discussion Depth | Socratic Mode | Min QA Rounds |
 |-----------|-----------------|---------------|---------------|
-| small | Quick confirm — show research conclusions, user confirms | Disabled | 1 |
+| small | Quick confirm — show research conclusions, user confirms (v3.1: skips Socratic mode and business-analyst Agent dispatch for ≤40% token consumption) | Disabled | 1 |
 | medium | Standard — full decision loop | Follows config | 2-3 |
 | large | Deep — forced socratic mode | Forced on | 3+ |
 
@@ -90,7 +93,7 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
     "context/tech-constraints.md", "context/research-findings.md"
   ],
   "requirements_summary": "...",
-  "decisions": [{"point": "...", "choice": "..."}],
+  "decisions": [{"point": "...", "choice": "...", "priority": "P0|P1|P2|P3"}],
   "change_name": "<kebab-case-name>",
   "complexity": "small | medium | large",
   "research": {
@@ -98,7 +101,11 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
     "impact_files": 0,
     "estimated_loc": 0,
     "feasibility_score": "high | medium | low",
-    "new_deps_count": 0
+    "new_deps_count": 0,
+    "web_research": {
+      "sources_count": 3,
+      "confidence_scores": [{"source": "...", "confidence": "high|medium|low"}]
+    }
   },
   "steering_artifacts": [
     "context/project-context.md",
@@ -166,6 +173,18 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
 - **Test pyramid enforcement**: Layer 2 (Hook) checks floors, Layer 3 (AI) checks config thresholds
 - **Artifacts required**: Must produce actual test files
 
+### Complexity-Aware Thresholds (v3.1)
+
+Phase 4 test gate thresholds dynamically adjust based on Phase 1 complexity assessment:
+
+| Complexity | required_test_types | min_test_count_per_type | Notes |
+|-----------|--------------------|-----------------------|-------|
+| small | config value, allows missing `ui` | max(2, config_value / 2) | UI tests optional |
+| medium | config value (all types) | config value | Standard thresholds |
+| large | config value (all types) | max(config_value, 5) | Raised minimums |
+
+> **v3.1 change**: Small projects no longer fail Phase 4 for missing UI tests. Test count minimums are halved for small complexity.
+
 ### Checkpoint Format
 
 ```json
@@ -199,6 +218,43 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
 | 3 | Manual fallback | `fallback_enabled = true` |
 | 4 | User prompt | None of above |
 
+### Parallel Execution (v3.1 Enhanced)
+
+When `config.phases.implementation.parallel.enabled = true`:
+
+1. Parse `tasks.md`, build task dependency graph
+2. **File ownership partition**: Group tasks by top-level directory (backend/frontend/node)
+3. **File-level lock registry** (v3.1): Write each agent's `owned_files` to `phase5-ownership/file-locks.json`
+4. Dispatch parallel agents (max = `config.parallel.max_agents`, default 5)
+5. `write-edit-constraint-check.sh` Hook enforces file ownership in real-time
+6. After each group completes, merge worktrees in task order
+7. `parallel-merge-guard.sh` Hook validates merge (no conflicts, scope check, typecheck)
+
+#### Dynamic Parallelism Adjustment (v3.1)
+
+```
+initial_parallel = config.parallel.max_agents (default 5)
+
+IF total_tasks <= 3 → actual = min(2, total_tasks)
+IF total_tasks <= 6 → actual = min(3, initial_parallel)
+IF total_tasks <= 12 → actual = min(initial_parallel, total_tasks // 2)
+IF total_tasks > 12 → actual = initial_parallel
+
+# Runtime adjustment
+IF merge_conflict_count_in_session >= 2 → actual -= 1 (min 2)
+IF typecheck_failure_in_session → actual -= 1 (min 2)
+```
+
+#### Downgrade Decision Tree
+
+```
+IF worktree creation fails → immediate serial fallback
+IF merge conflict > 5 files per group → rollback group, run serially
+IF 3+ consecutive group failures → full serial downgrade
+IF user selects "switch to serial" → full serial downgrade
+Downgrade reason recorded in checkpoint: _metrics.parallel_fallback_reason
+```
+
 ### Task-Level Checkpoints
 
 Each completed task writes to `phase-results/phase5-tasks/task-N.json`:
@@ -231,6 +287,17 @@ Each completed task writes to `phase-results/phase5-tasks/task-N.json`:
   "test_results_path": "testreport/test-results.json",
   "tasks_completed": 8,
   "zero_skip_check": { "passed": true },
+  "parallel_metrics": {
+    "mode": "parallel | serial | downgraded",
+    "groups_count": 3,
+    "max_agents_used": 5,
+    "fallback_reason": null,
+    "file_conflicts_count": 0
+  },
+  "code_quality": {
+    "constraint_violations": 0,
+    "violations": []
+  },
   "_metrics": { ... }
 }
 ```

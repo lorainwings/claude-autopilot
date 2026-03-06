@@ -84,6 +84,7 @@ Init 会自动检测并生成 `.claude/autopilot.config.yaml`：
 - **测试凭据**（从 .env / conftest.py / application.yml 检测）
 - **项目结构**（backend/frontend/node/test 目录路径）
 - **Playwright 登录流程**（从 Login 组件的 data-testid 推导）
+- **代码约束** (v3.1)（从 CLAUDE.md / `.claude/rules/*.md` 自动提取 `code_constraints` 配置）
 
 > **无需手动创建指令文件**。dispatch 从 config 的 `project_context` + `test_suites` + `services` 动态构造子 Agent prompt。Phase 1 的 Auto-Scan 在运行时补充未检测到的项目上下文。
 
@@ -131,6 +132,40 @@ phases:
 ```
 
 > 大多数项目**不需要**自定义指令文件。config 中的 `project_context` + `test_suites` 已提供足够的项目上下文。
+
+### 代码约束配置（v3.1 自动检测）
+
+大多数项目**不需要**手动配置 `code_constraints`。v3.1 的 `autopilot-init` Step 2.7 会自动运行 `rules-scanner.sh` 扫描 CLAUDE.md 和 `.claude/rules/*.md`，提取禁止项、必需项和文件大小限制。
+
+如需手动覆盖或补充：
+
+```yaml
+code_constraints:
+  auto_detect: true          # 默认启用自动检测
+  forbidden_files:
+    - "vite.config.js"
+  forbidden_patterns:
+    - pattern: "createWebHistory"
+      message: "Must use createWebHashHistory() for Hash routing"
+  allowed_dirs:
+    - "backend/"
+    - "frontend/"
+  max_file_lines: 800
+```
+
+### 并行执行配置（v3.1 默认启用）
+
+```yaml
+phases:
+  implementation:
+    parallel:
+      enabled: true          # v3.1 默认启用
+      max_agents: 5          # 范围 1-20，运行时动态调整
+      dependency_analysis: true
+    dynamic_constraints:
+      enabled: true          # 启用双层约束
+      typecheck_on_write: true
+```
 
 ### Step 6: 初始化 OpenSpec 目录
 
@@ -335,7 +370,7 @@ phases:
   implementation:
     parallel:
       enabled: true           # 前后端可并行实施
-      max_agents: 3
+      max_agents: 5
 
 test_suites:
   backend_unit:
@@ -374,10 +409,13 @@ test_suites:
 - [ ] （可选）ralph-loop 插件已安装
 - [ ] （可选）`instruction_files` 自定义覆盖已配置
 - [ ] 首次 `启动autopilot` 或 `/spec-autopilot:autopilot` 测试通过
+- [ ] `code_constraints` 已配置或自动检测（`rules-scanner.sh` 验证）
+- [ ] （可选）`dynamic_constraints.enabled: true` 已启用
+- [ ] Hook 测试通过（`bash test-hooks.sh`）
 
 ---
 
-## 现有项目升级指南（v2.1 → v2.2）
+## 现有项目升级指南
 
 ### 背景
 
@@ -472,6 +510,40 @@ bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/valida
 # 重启 Claude Code 后测试
 /spec-autopilot:autopilot
 ```
+
+### v3.0 → v3.1 升级
+
+#### 配置变更
+
+```yaml
+# 旧配置（v3.0）
+parallel:
+  enabled: true
+  max_agents: 3          # v3.0 默认值
+
+# 新配置（v3.1）
+parallel:
+  enabled: true
+  max_agents: 5          # v3.1 推荐值，运行时动态调整
+dynamic_constraints:     # v3.1 新增
+  enabled: true
+  typecheck_on_write: true
+```
+
+#### 自动化迁移
+
+v3.1 完全向后兼容 v3.0 配置，无需强制迁移。建议手动更新以获得最佳体验：
+
+1. **更新 max_agents**: `3` → `5`（动态调整会自动降低并行度）
+2. **添加 dynamic_constraints**: 启用双层约束
+3. **验证 code_constraints**: 运行 `rules-scanner.sh` 确认自动检测覆盖
+
+#### 新增检查清单项
+
+- [ ] `parallel.max_agents` 已更新为 5
+- [ ] `dynamic_constraints.enabled` 已设为 true
+- [ ] `code_constraints` 已由 `rules-scanner.sh` 自动填充或手动配置
+- [ ] Hook 测试全部通过（`bash test-hooks.sh`）
 
 ---
 

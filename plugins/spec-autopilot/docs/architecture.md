@@ -29,6 +29,8 @@ graph TB
         CP[Checkpoint files]
         LK[Lock file]
         ST[State file]
+        FL[File locks registry]
+        CC[Constraint cache]
     end
 
     C --> S
@@ -39,6 +41,8 @@ graph TB
     H --> LK
     S --> LK
     S --> ST
+    H --> FL
+    S --> FL
 
     style S fill:#e3f2fd
     style H fill:#fff3e0
@@ -109,6 +113,36 @@ sequenceDiagram
     end
 ```
 
+### PostToolUse(Write/Edit) — Constraint Check (v3.1)
+
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code
+    participant WE as write-edit-constraint-check.sh
+    participant CM as _common.sh
+
+    CC->>WE: stdin: {tool_name: Write/Edit, tool_input, cwd}
+    WE->>WE: Phase 5 marker check
+    alt No marker or not Phase 5
+        WE-->>CC: exit 0 (allow)
+    else Phase 5 active
+        WE->>CM: load_constraints(project_root)
+        CM->>CM: Check cache (/tmp/autopilot-constraints-*.json)
+        alt Cache fresh (< 10 min)
+            CM-->>WE: cached constraints JSON
+        else Cache stale/missing
+            CM->>CM: Parse config.yaml + CLAUDE.md + rules/*.md
+            CM-->>WE: fresh constraints JSON
+        end
+        WE->>WE: check_file_constraints(file_path)
+        alt No violations
+            WE-->>CC: exit 0 (allow)
+        else Violations found
+            WE-->>CC: stdout JSON {decision: "block", reason: "..."}
+        end
+    end
+```
+
 ## Skill Interaction Map
 
 ```mermaid
@@ -149,6 +183,10 @@ openspec/changes/<name>/
 │   │   ├── phase5-tasks/                # Task-level checkpoints
 │   │   │   ├── task-1.json
 │   │   │   └── task-2.json
+│   │   ├── phase5-ownership/           # File ownership registry (v3.1)
+│   │   │   ├── agent-1.json
+│   │   │   ├── agent-2.json
+│   │   │   └── file-locks.json
 │   │   ├── phase-6-report.json
 │   │   └── phase-7-summary.json
 │   └── autopilot-state.md               # PreCompact state save
@@ -215,3 +253,48 @@ All hooks follow a fail-closed pattern:
 - Missing checkpoint → deny
 
 Exception: `anti-rationalization-check.sh` allows when python3 is missing (it's a secondary check).
+
+## Constraint Loading Cache (v3.1)
+
+The `_common.sh` utility provides a `load_constraints()` function with file-based caching:
+
+1. **Cache key**: MD5 hash of project root path
+2. **Cache location**: `/tmp/autopilot-constraints-<hash>.json`
+3. **TTL**: 10 minutes (600 seconds)
+4. **Content**: Merged constraints from config.yaml `code_constraints` + CLAUDE.md forbidden patterns + `.claude/rules/*.md` extraction
+
+### Extraction priority:
+1. `config.yaml` `code_constraints` section (highest priority)
+2. `CLAUDE.md` forbidden file/pattern extraction
+3. `.claude/rules/*.md` table rows + explicit forbidden markers + list format constraints
+
+### Shared functions in `_common.sh`:
+
+| Function | Purpose |
+|----------|---------|
+| `has_active_autopilot()` | Check if autopilot session is active (pure bash, ~1ms) |
+| `parse_lock_file()` | Parse JSON or legacy lock file |
+| `find_active_change()` | Find active change directory (3-priority fallback) |
+| `load_constraints()` | Load + cache code constraints from config/CLAUDE.md/rules |
+| `check_file_constraints()` | Validate a file against loaded constraints |
+| `extract_project_root()` | Extract project root from stdin JSON or git |
+| `should_bypass_hook()` | Standard Hook bypass checks (lock file + phase marker) |
+
+## File-Level Locking (v3.1)
+
+Phase 5 parallel execution uses a file-level lock registry:
+
+**Location**: `openspec/changes/<name>/context/phase-results/phase5-ownership/file-locks.json`
+
+**Format**:
+```json
+{
+  "backend/src/Controller.java": "agent-1",
+  "frontend/src/App.vue": "agent-2"
+}
+```
+
+**Enforcement**:
+- `write-edit-constraint-check.sh` validates file ownership before allowing Write/Edit
+- Files not in the registry → fall back to directory-level ownership check
+- Agent completion → main thread releases corresponding lock entries

@@ -16,6 +16,8 @@
 | `async_quality_scans` | object | Optional | See below | Phase 6→7 quality scan configuration |
 | `brownfield_validation` | object | Optional | See below | Brownfield drift detection (opt-in) |
 | `project_context` | object | Recommended | See below | Project-specific context for sub-agent dispatch (auto-detected by init) |
+| `code_constraints` | object | Recommended | See below | Code constraint rules for Hook enforcement (auto-detected by init in v3.1) |
+| `model_routing` | object | Recommended | See below | Per-phase model level hints (heavy/light/auto) |
 
 ## `services`
 
@@ -72,9 +74,11 @@ services:
 | `ralph_loop.max_iterations` | number | Yes | — | Maximum implementation iterations |
 | `ralph_loop.fallback_enabled` | boolean | Yes | — | Enable manual fallback when ralph-loop unavailable |
 | `worktree.enabled` | boolean | No | `false` | Enable git worktree isolation per task |
-| `parallel.enabled` | boolean | No | `false` | 启用 Phase 5 并行 Agent Team 执行 |
-| `parallel.max_agents` | number | No | `3` | 最大并行 Agent 数量（建议 2-4） |
+| `parallel.enabled` | boolean | No | `true` | 启用 Phase 5 并行执行（v3.1 默认启用，运行时动态调整并行度） |
+| `parallel.max_agents` | number | No | `5` | 最大并行 Agent 数量（范围 1-20，运行时动态调整） |
 | `parallel.dependency_analysis` | boolean | No | `true` | 是否自动分析 task 依赖关系 |
+| `dynamic_constraints.enabled` | boolean | No | `true` | 启用双层代码约束（静态+动态 Hook 实时验证）(v3.1) |
+| `dynamic_constraints.typecheck_on_write` | boolean | No | `true` | Write/Edit 后自动执行类型检查 (v3.1) |
 
 ### `phases.reporting`
 
@@ -176,6 +180,60 @@ Project-specific context auto-detected by `autopilot-init`. Dispatch dynamically
 
 > All `project_context` fields are **optional**. Empty fields are supplemented by Phase 1 Auto-Scan + Research Agent at runtime.
 
+## `code_constraints`
+
+Code constraint rules enforced by Hook scripts during Phase 5. Auto-detected by `autopilot-init` Step 2.7 (v3.1) via `rules-scanner.sh`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `auto_detect` | boolean | `true` | Enable rules-scanner to auto-populate from CLAUDE.md + rules/*.md (v3.1) |
+| `forbidden_files` | array | `[]` | File names/patterns to reject (e.g., `["vite.config.js"]`) |
+| `forbidden_patterns` | array | `[]` | Code patterns to detect and block. Supports simple string or `{pattern, message}` object format |
+| `allowed_dirs` | array | `[]` | Whitelist of directories allowed for modification |
+| `max_file_lines` | number | `800` | Maximum lines per file (Hook blocks if exceeded) |
+
+```yaml
+# Example: Simple string patterns
+code_constraints:
+  forbidden_patterns:
+    - "createWebHistory"
+    - "npm install"
+
+# Example: Object format with messages
+code_constraints:
+  forbidden_patterns:
+    - pattern: "createWebHistory"
+      message: "Must use createWebHashHistory() for Hash routing"
+    - pattern: "npm install|yarn add"
+      message: "Must use pnpm for package management"
+  forbidden_files:
+    - "vite.config.js"
+    - "gradle.properties"
+  allowed_dirs:
+    - "backend/"
+    - "frontend/"
+    - "node/"
+  max_file_lines: 800
+```
+
+## `model_routing`
+
+Per-phase model level hints injected into dispatch prompts. Guides execution behavior based on task complexity.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `phase_1` | string | `"heavy"` | Requirements analysis — deep reasoning |
+| `phase_2` | string | `"light"` | OpenSpec creation — mechanical operation |
+| `phase_3` | string | `"light"` | FF generation — template-based |
+| `phase_4` | string | `"heavy"` | Test design — requires creativity |
+| `phase_5` | string | `"heavy"` | Implementation — needs full capability |
+| `phase_6` | string | `"light"` | Report generation — mechanical |
+| `phase_7` | string | `"light"` | Summary — simple aggregation |
+
+Values: `"heavy"` (Opus-level), `"light"` (Sonnet-level), `"auto"` (inherit parent).
+
+> **Note**: Claude Code's Task API does not currently support per-task model parameters. These hints are injected as behavioral guidance in the dispatch prompt.
+
 ## `async_quality_scans`
 
 | Field | Type | Default | Description |
@@ -267,6 +325,10 @@ Output:
 | `phases.code_review.enabled` | boolean |
 | `phases.implementation.parallel.enabled` | boolean |
 | `phases.implementation.parallel.max_agents` | number |
+| `phases.implementation.dynamic_constraints.enabled` | boolean |
+| `phases.implementation.dynamic_constraints.typecheck_on_write` | boolean |
+| `code_constraints.max_file_lines` | number |
+| `code_constraints.auto_detect` | boolean |
 
 ### 范围验证规则
 
@@ -277,7 +339,7 @@ Output:
 | `phases.reporting.coverage_target` | [0, 100] |
 | `test_pyramid.min_unit_pct` | [0, 100] |
 | `test_pyramid.max_e2e_pct` | [0, 100] |
-| `phases.implementation.parallel.max_agents` | [1, 10] |
+| `phases.implementation.parallel.max_agents` | [1, 20] |
 | `async_quality_scans.timeout_minutes` | [1, 120] |
 | `phases.requirements.auto_scan.max_depth` | [1, 5] |
 | `phases.requirements.complexity_routing.thresholds.small` | [1, 20] |
@@ -292,6 +354,8 @@ Output:
 | parallel 一致性 | `enabled=true` 时 `max_agents` 应 ≥ 2 |
 | coverage 一致性 | `coverage_target=0` 且 `zero_skip_required=true` 可能为误配 |
 | complexity_routing 一致性 | `thresholds.small` 必须 < `thresholds.medium` |
+| code_constraints 一致性 | `auto_detect=true` 时若 `forbidden_patterns` 为空则警告（可能未检测到规则） |
+| dynamic_constraints 一致性 | `enabled=true` 时 `typecheck_on_write=true` 应同时启用 |
 
 Required keys checked:
 - Top-level: `version`, `services`, `phases`, `test_suites`

@@ -22,9 +22,9 @@
 
 | Phase | 必须字段 | 可选字段 |
 |-------|----------|----------|
-| 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach }` |
+| 1 | `requirements_summary`, `decisions: [DecisionPoint]` (each with `priority: "P0\|P1\|P2\|P3"`), `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach, sources_count: N, confidence_scores: [{source, confidence}] }` |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
-| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }` |
+| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `parallel_metrics: { mode: "parallel\|serial\|downgraded", groups_count: N, max_agents_used: N, fallback_reason: null\|string, file_conflicts_count: N }`, `code_quality: { constraint_violations: N, violations: [{rule, file, detail}] }` |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |
 | 7 | `archive_path`, `change_name` | `cleanup_actions`, `knowledge_extracted: number` |
 
@@ -137,3 +137,52 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 - `test-results.json` 存在
 - `zero_skip_check.passed === true`
 - `tasks.md` 中所有任务标记为 `[x]`
+
+## File-Locks Registry Format (v3.1)
+
+Located at `openspec/changes/<name>/context/phase-results/phase5-ownership/file-locks.json`:
+
+```json
+{
+  "backend/src/Controller.java": "agent-1",
+  "frontend/src/App.vue": "agent-2",
+  "node/src/service.ts": "agent-3"
+}
+```
+
+**Lifecycle**:
+1. Phase 5 orchestrator writes `file-locks.json` before dispatching parallel agents
+2. `write-edit-constraint-check.sh` reads the registry on every Write/Edit
+3. Agent completion → orchestrator removes corresponding entries
+4. All entries cleared after Phase 5 completes
+
+**Fallback**: If `file-locks.json` does not exist → skip file-level lock check, use directory-level ownership only.
+
+## Decision Priority Format (v3.1)
+
+Phase 1 decisions include priority classification:
+
+```json
+{
+  "decisions": [
+    {
+      "point": "Which database engine to use?",
+      "priority": "P0",
+      "options": [
+        {"name": "PostgreSQL", "pros": ["Mature"], "cons": ["Setup complexity"]},
+        {"name": "SQLite", "pros": ["Simple"], "cons": ["Concurrency"]}
+      ],
+      "recommended": "PostgreSQL",
+      "choice": "PostgreSQL",
+      "rationale": "Team expertise and scalability requirements"
+    }
+  ]
+}
+```
+
+| Priority | Criteria | User Action |
+|----------|----------|-------------|
+| P0 | Blocking — cannot proceed without decision | Must decide |
+| P1 | Irreversible — hard to change later | Must decide |
+| P2 | High-impact — affects architecture/UX | Discuss + decide |
+| P3 | Low-impact — naming, style, minor trade-offs | Can auto-accept recommended |

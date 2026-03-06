@@ -48,6 +48,9 @@ Phase 7 汇总完成后，从以下来源提取知识条目：
 | Phase 6 test failures → fix | 测试失败的根因和修复方式 | pitfall | high |
 | Phase 6.5 code review findings | 审查发现的代码质量问题 | pattern | medium |
 | _metrics bottleneck phases | 效率瓶颈和优化机会 | optimization | low |
+| Phase 1 web_research (status=ok) | 多源聚合的调研结论及链接 | research | high |
+| Phase 1 decisions (priority=P0/P1) | 高优先级决策及其背景 | decision | high |
+| Phase 5 code_constraints violations | 代码约束违规的根因和修复 | pitfall | high |
 
 ### 提取算法
 
@@ -57,6 +60,11 @@ Phase 7 汇总完成后，从以下来源提取知识条目：
    a. decisions 数组中的每个 decision → 生成 decision 类条目
    b. retry_count > 0 → 生成 pitfall 类条目（含 summary 描述重试原因）
    c. risks 数组中已缓解的风险 → 生成 pattern 类条目
+   d. decisions 中 priority="P0"/"P1" → 生成 decision 类条目（confidence=high）
+   e. priority="P2" → 生成 decision 类条目（confidence=medium）
+   f. priority="P3" → 跳过（低优先级，不存储）
+   g. web_research 中 recommended_approach → 生成 research 类条目（含推荐链接）
+   h. code_constraints violations (Phase 5) → 生成 pitfall 类条目（含违规规则和修复方式）
 3. 从 _metrics 中识别耗时最长的阶段 → 生成 optimization 建议
 4. 去重：与已有 entries 的 summary 进行模糊匹配（前 50 字符相同视为重复）
 5. 保留 confidence >= low 的所有条目（但 FIFO 淘汰时 low 优先淘汰）

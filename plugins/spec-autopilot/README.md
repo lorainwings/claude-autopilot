@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -19,6 +19,13 @@
 - **Test Pyramid Enforcement**: Hook-level validation of test distribution
 - **Metrics Collection**: Per-phase timing and retry tracking
 - **Socratic Requirements Mode**: Deep requirements analysis through challenging questions
+- **Parallel Implementation**: File-level locking, dynamic parallelism adjustment, worktree-based isolation
+- **Dual-Layer Code Constraints**: Static (config/CLAUDE.md/rules extraction) + Dynamic (typecheck/lint Hook real-time verification)
+- **Complexity-Aware Gates**: Phase 4 test thresholds dynamically adjust by complexity (small/medium/large)
+- **Multi-Source Research**: Phase 1 aggregates ≥3 sources with confidence scoring
+- **Decision Priority Sorting**: P0 (blocking) → P1 (irreversible) → P2 (high-impact) → P3 (low-impact, auto-accept)
+- **Constraint Caching**: Shared `_common.sh` utility with 10-minute file cache for Hook performance
+- **Automated Hook Testing**: `test-hooks.sh` validates all Hook scripts (178+ test cases)
 
 ## Architecture
 
@@ -34,7 +41,7 @@ graph TB
         P2[Phase 2: Create OpenSpec]
         P3[Phase 3: FF Generate]
         P4[Phase 4: Test Design]
-        P5[Phase 5: Implementation<br/>Ralph Loop / Fallback]
+        P5[Phase 5: Implementation<br/>Parallel + File Locks]
         P6[Phase 6: Test Report]
     end
 
@@ -65,6 +72,9 @@ graph LR
         L2A[PreToolUse: check-predecessor-checkpoint.sh<br/>Verify predecessor checkpoint exists]
         L2B[PostToolUse: validate-json-envelope.sh<br/>Validate JSON envelope + test pyramid]
         L2C[PostToolUse: anti-rationalization-check.sh<br/>Detect skip patterns]
+        H5[PostToolUse: Rationalization patterns?]
+        H6[PostToolUse: Write/Edit constraint check]
+        H7[PostToolUse: Parallel merge guard]
     end
 
     subgraph "Layer 3: AI Verification"
@@ -74,12 +84,18 @@ graph LR
     L1 --> L2A
     L2A --> L2B
     L2B --> L2C
-    L2C --> L3
+    L2C --> H5
+    H5 --> H6
+    H6 --> H7
+    H7 --> L3
 
     style L1 fill:#c8e6c9
     style L2A fill:#fff9c4
     style L2B fill:#fff9c4
     style L2C fill:#fff9c4
+    style H5 fill:#fff9c4
+    style H6 fill:#fff9c4
+    style H7 fill:#fff9c4
     style L3 fill:#ffcdd2
 ```
 
@@ -123,7 +139,7 @@ sequenceDiagram
 
 ## Installation
 
-### 零配置接入（v3.0）
+### 零配置接入（v3.1）
 
 新项目只需一个配置文件即可运行 autopilot：
 
@@ -187,6 +203,11 @@ phases:
       fallback_enabled: true
     worktree:
       enabled: false
+    parallel:
+      enabled: true          # v3.1 default on, dynamic adjustment
+      max_agents: 5
+    dynamic_constraints:
+      enabled: true
   reporting:
     format: "allure"
     coverage_target: 80
@@ -235,6 +256,10 @@ test_suites:
 | `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints |
 | `save-state-before-compact.sh` | PreCompact | Persist orchestration state |
 | `reinject-state-after-compact.sh` | SessionStart(compact) | Restore state after compression |
+| `code-constraint-check.sh` | PostToolUse(Task) | Check code constraints after Phase 5 sub-agent return |
+| `write-edit-constraint-check.sh` | PostToolUse(Write/Edit) | Real-time file constraint + ownership verification |
+| `validate-decision-format.sh` | PostToolUse(Task) | Enforce structured decision format in Phase 1 |
+| `parallel-merge-guard.sh` | PostToolUse(Task) | Verify worktree merge: conflicts, scope, typecheck |
 
 ### Utility Scripts
 
@@ -245,6 +270,9 @@ test_suites:
 | `detect-ralph-loop.sh` | Check ralph-loop plugin availability |
 | `check-allure-install.sh` | Detect Allure toolchain installation |
 | `_common.sh` | Shared utility functions |
+| `rules-scanner.sh` | Scan project rules, extract constraints for Phase 5 injection |
+| `check-security-tools-install.sh` | Detect security scanning tools (gitleaks, trivy, etc.) |
+| `test-hooks.sh` | Automated test harness for all Hook scripts (178+ tests) |
 
 ## Requirements
 
@@ -276,9 +304,9 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 调用 Skill("spec-autopilot:autopilot", args="$ARGUMENTS") 启动编排器。
 ```
 
-### 3. Add phase instruction files
+### 3. (Optional) Add phase instruction files
 
-Place project-specific instructions in `.claude/skills/autopilot/phases/` and reference them from config's `instruction_files` arrays.
+Most projects **do not need** custom instruction files — the built-in templates (since v3.0) and auto-detected `code_constraints` (since v3.1) handle all phases automatically. Only use `instruction_files` when you need project-specific overrides.
 
 ## Troubleshooting
 

@@ -9,7 +9,7 @@ spec-autopilot enforces quality through three independent, complementary gate la
 | Layer | Mechanism | Executor | Catches |
 |-------|-----------|----------|---------|
 | **Layer 1** | TaskCreate + blockedBy | Task system (automatic) | Out-of-order phase dispatch |
-| **Layer 2** | Hook scripts (disk checkpoint) | Shell scripts (deterministic) | Missing/invalid checkpoints, pyramid violations, timeouts |
+| **Layer 2** | Hook scripts (disk checkpoint) | Shell scripts (deterministic) | Missing/invalid checkpoints, pyramid violations, timeouts, code constraints, file ownership |
 | **Layer 3** | 8-step checklist + semantic | autopilot-gate Skill (AI) | Threshold violations, content quality, drift |
 
 ```mermaid
@@ -26,6 +26,8 @@ graph TD
         H3[PostToolUse: Valid JSON envelope?]
         H4[PostToolUse: Test pyramid floors?]
         H5[PostToolUse: Rationalization patterns?]
+        H6[PostToolUse: Write/Edit constraints + file locks]
+        H7[PostToolUse: Parallel merge guard]
     end
 
     subgraph "Layer 3: AI Verification"
@@ -40,7 +42,9 @@ graph TD
     H2 --> H3
     H3 --> H4
     H4 --> H5
-    H5 --> G1
+    H5 --> H6
+    H6 --> H7
+    H7 --> G1
     G1 --> G2
     G2 --> G3
     G3 --> G4
@@ -110,6 +114,45 @@ Runs after envelope validation. Detects patterns suggesting the sub-agent is rat
 | 8 | `deferred/postponed` | "Deferred to next sprint" |
 | 9 | `minimal/low impact/priority` | "Low priority item" |
 | 10 | `works/good enough` | "Works enough for now" |
+
+### PostToolUse Write/Edit Constraints (`write-edit-constraint-check.sh`) — v3.1
+
+Runs after every `Write` or `Edit` tool call during Phase 5:
+
+**Trigger conditions** (all must be true):
+1. Tool is `Write` or `Edit`
+2. Autopilot Phase 5 is active (`autopilot-phase:5` marker)
+3. Lock file exists (autopilot session active)
+
+**Checks**:
+1. **File-level lock**: Is target file locked by another parallel agent? → block
+2. **Forbidden file**: Does filename match `code_constraints.forbidden_files`? → block
+3. **Forbidden pattern**: Does file content contain `code_constraints.forbidden_patterns`? → block
+4. **Directory scope**: Is file within `code_constraints.allowed_dirs`? → block if outside
+5. **File size**: Does file exceed `code_constraints.max_file_lines`? → block
+
+**Performance**: Uses `_common.sh` shared `load_constraints()` with 10-minute file cache. Timeout: 15s. 3-layer fast bypass: lock file check → phase check → file_path extraction.
+
+### PostToolUse Parallel Merge Guard (`parallel-merge-guard.sh`) — v3.1
+
+Runs after Phase 5 sub-agent `Task` completion when parallel execution is enabled:
+
+**Checks**:
+1. **Merge conflict residuals**: `git diff --check` → block if conflicts remain
+2. **Scope validation**: Merged files within expected task scope (file-locks.json)
+3. **Fast typecheck**: Run `config.test_suites[type=typecheck].command` → block if fails
+
+**Timeout**: 180s. Auto-fail if merge conflicts remain.
+
+### PostToolUse Decision Format (`validate-decision-format.sh`) — v3.1
+
+Runs after Phase 1 sub-agent `Task` return:
+
+**Checks** (medium/large complexity only):
+- DecisionPoint format includes: `options` (≥2), `pros`, `cons`, `recommended`, `choice`, `rationale`
+- Small complexity: simplified format allowed
+
+**Timeout**: 30s.
 
 ## Layer 3: AI Gate (`autopilot-gate` Skill)
 
