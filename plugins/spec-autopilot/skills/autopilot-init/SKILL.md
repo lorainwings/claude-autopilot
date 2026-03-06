@@ -188,12 +188,18 @@ phases:
       max_iterations: 30
       fallback_enabled: true
     worktree:
-      enabled: true         # v3.1.0 默认启用，配合 parallel 实现并行执行
+      enabled: auto            # auto: 由 parallel.enabled 自动决定（并行=true，串行=false）
     parallel:
-      enabled: true          # v3.1.0 默认启用，运行时动态调整并行度
-      max_agents: 5          # 最大并行 Agent 数量（建议 3-8，运行时动态调整）
-      dependency_analysis: true  # 自动分析 task 依赖关系
-      conflict_threshold: 5  # 冲突文件超过此数量时降级为串行
+      enabled: true            # v3.1.0 默认启用
+      max_agents: 5            # 最大并行 Domain Runner 数量
+      conflict_threshold: 5    # 合并冲突文件超过此数量时降级为串行
+      agent_mapping:           # v3.2.0: 各角色使用的 agent 类型
+        default: "general-purpose"
+        backend: "general-purpose"          # 项目可覆盖为专业 agent（如 "backend-developer"）
+        frontend: "general-purpose"         # 项目可覆盖为专业 agent（如 "frontend-developer"）
+        node: "general-purpose"             # 项目可覆盖为专业 agent（如 "fullstack-developer"）
+        review_spec: "general-purpose"      # Spec Compliance Reviewer
+        review_quality: "pr-review-toolkit:code-reviewer"  # Code Quality Reviewer（官方插件）
   reporting:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom

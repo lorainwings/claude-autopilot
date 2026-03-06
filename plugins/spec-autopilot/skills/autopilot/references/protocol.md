@@ -23,8 +23,8 @@
 | Phase | 必须字段 | 可选字段 |
 |-------|----------|----------|
 | 1 | `requirements_summary`, `decisions: [DecisionPoint]` (each with `priority: "P0\|P1\|P2\|P3"`), `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach, sources_count: N, confidence_scores: [{source, confidence}] }` |
-| 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
-| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `parallel_metrics: { mode: "parallel\|serial\|downgraded", groups_count: N, max_agents_used: N, fallback_reason: null\|string, file_conflicts_count: N }`, `code_quality: { constraint_violations: N, violations: [{rule, file, detail}] }` |
+| 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }`, `traceability_matrix: [{ req_id, requirement, test_cases[], test_types[] }]`, `coverage: { total_requirements, covered_requirements, coverage_pct }` | — |
+| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `parallel_metrics: { mode: "parallel\|serial\|downgraded", domains_used: string[], max_agents_used: N, fallback_reason: null\|string, file_conflicts_count: N }`, `review_results: { spec_review: { status, rounds }, quality_review: { status, rounds, critical_issues: N, important_issues: N, issues_fixed: N } }`, `code_quality: { constraint_violations: N, violations: [{rule, file, detail}] }` |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |
 | 7 | `archive_path`, `change_name` | `cleanup_actions`, `knowledge_extracted: number` |
 
