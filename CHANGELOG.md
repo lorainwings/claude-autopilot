@@ -5,6 +5,16 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-03-06
+
+### Added
+- **doc-sync Skill**: 新增 `/spec-autopilot:doc-sync` 命令，自动检测代码变更并更新相关技术文档
+- **Git pre-commit Hook**: 强制版本号一致性检查，确保插件代码修改时文档同步更新
+- **check-doc-sync.sh**: SessionStart Hook 脚本，启动时警告文档版本不一致
+
+### Changed
+- Git pre-commit Hook 扩展：新增文档同步检查（Part 2）
+
 ## [3.1.0] - 2026-03-06
 
 ### Added
