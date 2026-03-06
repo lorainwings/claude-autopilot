@@ -188,11 +188,12 @@ phases:
       max_iterations: 30
       fallback_enabled: true
     worktree:
-      enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
+      enabled: true         # v3.1.0 默认启用，配合 parallel 实现并行执行
     parallel:
       enabled: true          # v3.1.0 默认启用，运行时动态调整并行度
       max_agents: 5          # 最大并行 Agent 数量（建议 3-8，运行时动态调整）
       dependency_analysis: true  # 自动分析 task 依赖关系
+      conflict_threshold: 5  # 冲突文件超过此数量时降级为串行
   reporting:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom
