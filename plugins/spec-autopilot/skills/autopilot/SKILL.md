@@ -73,7 +73,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
      - PID 存活 + `session_id` 匹配 → 确认为同一进程，AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
      - PID 存活 + `session_id` 不匹配 → PID 已被操作系统回收给其他进程，视为崩溃残留，自动清理并覆盖
      - PID 不存在 → 视为崩溃残留，自动清理并覆盖
-6. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
+6. **创建锚定 Commit**：为后续 soft-reset 压缩策略创建空锚定 commit：
    ```
    git commit --allow-empty -m "autopilot: start <change_name>"
    ANCHOR_SHA=$(git rev-parse HEAD)
@@ -123,12 +123,12 @@ Step 4: 解析子 Agent 返回的 JSON 信封
 Step 5: 调用 Skill("spec-autopilot:autopilot-checkpoint")
         → 写入 phase-results checkpoint 文件
 Step 6: TaskUpdate Phase N → completed
-Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_management.git_commit_per_phase = true）
-        → 读取 `openspec/changes/.autopilot-active` 中的 `anchor_sha` 字段
-        → git add openspec/changes/<name>/context/phase-results/
-        → git commit --fixup=$ANCHOR_SHA
-        → 此 fixup commit 将在 Phase 7 归档时通过 autosquash 合并为一个 commit
-        → 同时也是崩溃恢复的额外安全网，确保 checkpoint 持久化到 git 历史
+Step 7: Context protection — Auto Git Commit (when config.context_management.git_commit_per_phase = true)
+        → Read `anchor_sha` from `openspec/changes/.autopilot-active`
+        → git add -A
+        → git commit -m "autopilot(phase-{N}): <phase_description>"
+        → Regular commit (NOT fixup) — will be squashed via soft-reset at Phase 7 archive
+        → Also serves as crash recovery safety net, persisting checkpoints to git history
 ```
 
 ### Phase 4 特殊门禁（v3.1.0: 复杂度感知）
@@ -269,11 +269,12 @@ Phase 6 子 Agent **必须读取并执行 `templates/phase6-parallel.md`**：
    - "需要修改后再归档"
    ```
 4. 用户选择"立即归档"：
-   a. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 true，默认 true）：
-      - 读取 `openspec/changes/.autopilot-active` 中的 `anchor_sha`
-      - 执行 `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash $ANCHOR_SHA~1`
-      - 成功 → 修改最终 commit message 为 `feat(autopilot): <change_name> — <summary>`
-      - 失败（冲突等） → 执行 `git rebase --abort`，保留原始 fixup commits，警告用户需手动处理压缩
+   a. **Git Squash via Soft Reset** (when `config.context_management.squash_on_archive` is true, default true):
+      - Read `anchor_sha` from `openspec/changes/.autopilot-active`
+      - Execute `git reset --soft $ANCHOR_SHA`
+      - Execute `git commit -m "feat(autopilot): <change_name> — <summary>"`
+      - This is conflict-free: soft reset preserves working tree, re-commits all changes as one
+      - No rebase needed, no autosquash, no conflict resolution
    b. 执行 Skill(`openspec-archive-change`)
    c. **更新 Phase 7 Checkpoint（完成）**：调用 Skill(`spec-autopilot:autopilot-checkpoint`) 更新 `phase-7-summary.json`：
       ```json
@@ -306,7 +307,7 @@ Phase 6 子 Agent **必须读取并执行 `templates/phase6-parallel.md`**：
 | 零跳过 | Phase 6 零跳过门禁 |
 | 任务拆分 | 每次 ≤3 个文件，≤800 行代码 |
 | 归档确认 | Phase 7 必须经用户确认后才能归档 |
-| 上下文保护 | 每 Phase 完成后 git fixup commit checkpoint；子 Agent 回传精简摘要，不传原始输出；Phase 7 归档时 autosquash 合并 |
+| Context Protection | Regular git commit per phase; sub-agents return concise summaries only; Phase 7 archive uses `git reset --soft` for conflict-free squash |
 | PID 回收防护 | 锁文件同时检查 PID 存活 + session_id 匹配，防止 PID 被系统回收导致误判 |
 | 质量扫描超时 | 硬超时（默认 10 分钟），超时自动标记 timeout，不询问用户 |
 | 代码约束 | Phase 5 PostToolUse Hook 自动检测项目规则违反（禁止文件/模式/目录范围） |
