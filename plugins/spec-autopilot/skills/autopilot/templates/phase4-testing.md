@@ -17,9 +17,31 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 - 任一不可达 → 返回 `status: "blocked"`，`risks` 中列出不可达的服务
 - 子 Agent 禁止自行启动服务
 
+## 需求追溯（第一步，硬阻断）
+
+在设计任何测试用例之前，**必须**先完成需求追溯分析：
+
+1. 读取 `openspec/changes/{change_name}/proposal.md`，提取所有功能点和验收标准
+2. 读取 `openspec/changes/{change_name}/specs/` 目录下所有 spec 文件，提取接口契约和业务规则
+3. 读取 `openspec/changes/{change_name}/design.md`（如存在），提取架构约束和边界条件
+4. 将每个功能点/验收标准编号为 REQ-001、REQ-002 ...
+
+**输出**：在 `openspec/changes/{change_name}/context/test-plan.md` 中生成需求追溯矩阵：
+
+```markdown
+## 需求追溯矩阵
+
+| 需求编号 | 需求描述 | 测试用例 | 测试类型 |
+|----------|----------|----------|----------|
+| REQ-001 | 用户可通过密码登录 | test_login_success, test_login_invalid_password | api, e2e |
+| REQ-002 | 登录失败超过5次锁定 | test_login_lockout_after_5_failures | api, unit |
+```
+
+**门禁规则**：每个 REQ 必须至少有 1 个测试用例映射，否则返回 `status: "blocked"`。
+
 ## 测试矩阵
 
-基于 proposal/specs/design 逐一分析，生成测试矩阵：
+基于需求追溯矩阵，按以下维度补充测试用例（确保每个 REQ 都被覆盖）：
 
 | 维度 | 必须覆盖内容 | 最低用例数 |
 |------|------------|-----------|
@@ -73,4 +95,25 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 ## 返回要求
 
 status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
-必须包含 test_counts、artifacts、dry_run_results、test_pyramid 字段。
+必须包含 test_counts、artifacts、dry_run_results、test_pyramid、traceability_matrix 字段。
+
+traceability_matrix 格式：
+```json
+{
+  "traceability_matrix": [
+    {
+      "req_id": "REQ-001",
+      "requirement": "用户可通过密码登录",
+      "test_cases": ["test_login_success", "test_login_invalid_password"],
+      "test_types": ["api", "e2e"]
+    }
+  ],
+  "coverage": {
+    "total_requirements": 10,
+    "covered_requirements": 10,
+    "coverage_pct": 100
+  }
+}
+```
+
+门禁规则：`coverage.coverage_pct` 必须为 100，否则返回 `status: "blocked"`。
