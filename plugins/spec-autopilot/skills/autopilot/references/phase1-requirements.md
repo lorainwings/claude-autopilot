@@ -285,6 +285,27 @@ Based on research, the recommended technical approach is: ...
 - 次轮：基于首轮发现深化，如 `"{依赖名} + security advisory + CVE"`
 - 深度轮：`"{方案A} vs {方案B} + benchmark + production experience"`
 
+### 多源聚合策略（v3.1.0 新增）
+
+Research Agent 应从多个来源聚合信息，按置信度排序：
+
+| 来源 | 方法 | 置信度权重 |
+|------|------|-----------|
+| 项目代码 | Grep/Glob 搜索相关实现 | 最高 (1.0) |
+| 项目依赖 | 读取 package.json/build.gradle 分析版本兼容性 | 高 (0.9) |
+| GitHub API | 搜索同类仓库的 star/维护状态 | 中 (0.7) |
+| WebSearch | 搜索最佳实践、安全公告 | 中 (0.6) |
+| npm/Maven registry | 下载量、最近更新、license | 中 (0.6) |
+
+在 Research Agent 的 prompt 中追加多源指令：
+## 多源聚合（v3.1.0）
+你必须从至少 3 个不同来源收集信息：
+1. **项目内部分析**（必选）：Grep/Read 搜索相关代码和依赖
+2. **外部搜索**（必选，standard/deep）：WebSearch 搜索最佳实践
+3. **依赖评估**（可选，有新依赖时）：搜索安全状态和维护活跃度
+
+对每条建议标注数据来源和置信度。推荐方案必须有 ≥2 个来源支撑。
+
 ## 返回格式（JSON）
 {
   "impact_analysis": {
@@ -420,6 +441,32 @@ ELSE:
 **如果不决策**: {不做决策的默认行为和风险}
 ```
 
+### 决策优先级排序（v3.1.0 新增）
+
+决策卡片按以下维度排序呈现，高优先级先决策：
+
+| 优先级 | 维度 | 排序逻辑 |
+|--------|------|---------|
+| P0 | 阻断性决策 | 不决策则后续阶段无法执行（如技术栈选择） |
+| P1 | 不可逆决策 | 选择后难以更改（如数据库 schema、API 契约） |
+| P2 | 高影响决策 | 影响 ≥3 个文件/模块 |
+| P3 | 低影响决策 | 影响 ≤2 个文件，提供推荐默认值快速确认 |
+
+**P3 快速确认模式**：低影响决策合并为一组，展示推荐默认值，用户可一键"全部接受推荐"或逐个修改。
+
+```
+排序算法:
+for each decision_point:
+    IF blocks_subsequent_phases → priority = P0
+    ELIF is_irreversible (schema/API/architecture) → priority = P1
+    ELIF affected_components >= 3 → priority = P2
+    ELSE → priority = P3
+
+present decisions sorted by priority (P0 first)
+IF P3 decisions exist:
+    batch present with "Accept all recommended (快速确认)" option
+```
+
 ### 应用场景
 
 | 场景 | 决策协议行为 |
@@ -470,12 +517,18 @@ ELSE:
 4. 检查是否产生新的决策点
 5. 重复直到**所有点全部澄清**
 
-### Small 复杂度快速路径
+### Small 复杂度快速路径（v3.1.0 增强）
 
-当 complexity == "small" 时：
-1. 将所有决策点合并为一次 AskUserQuestion（多选模式或逐一快速确认）
-2. 展示调研结论 + 推荐方案，让用户一次性确认
-3. 最多 1 轮循环，用户确认即退出
+当 complexity == "small" 时，执行极简流程以减少 token 消耗：
+
+1. **跳过苏格拉底模式**（即使 config 启用）
+2. 将所有决策点合并为一次 AskUserQuestion（多选模式）
+3. 展示调研结论 + 推荐方案，让用户一次性确认
+4. **最多 1 轮循环**，用户确认即退出
+5. **跳过 Step 7 的完整提示词生成**，直接使用调研结论作为需求摘要
+6. Phase 1 总 token 消耗目标：≤ medium 复杂度的 40%
+
+> **v3.1.0 优化**：small 复杂度下 Research Agent 仅执行 basic 深度（任务 1-4），不联网搜索，不派发 business-analyst Agent（直接在主线程处理），大幅减少 token 消耗。
 
 ### Large 复杂度强化路径
 

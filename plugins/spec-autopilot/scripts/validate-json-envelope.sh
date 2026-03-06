@@ -201,28 +201,72 @@ if phase_num in (4, 6):
         }))
         sys.exit(0)
 
-# 10) Layer 2 test_pyramid floor validation (Phase 4 only)
-#     These are lenient floors — strict thresholds enforced by Layer 3 (autopilot-gate).
-#     Catches severely inverted pyramids that slip through LLM self-checks.
+# 10) Layer 2 test_pyramid floor validation (Phase 4 only, v3.1.0: complexity-aware)
+#     Reads complexity from Phase 1 checkpoint to adjust thresholds.
 if phase_num == 4:
+    # Read complexity from Phase 1 checkpoint
+    complexity = 'medium'  # default
+    import os, glob as g
+    cwd = data.get('tool_input', {}).get('cwd', '') or os.getcwd()
+    root = cwd
+    for _ in range(10):
+        if os.path.isdir(os.path.join(root, '.claude')):
+            break
+        p = os.path.dirname(root)
+        if p == root:
+            break
+        root = p
+    # Find active change and read Phase 1 checkpoint
+    changes_dir = os.path.join(root, 'openspec', 'changes')
+    lock_file = os.path.join(changes_dir, '.autopilot-active')
+    if os.path.isfile(lock_file):
+        try:
+            with open(lock_file) as lf:
+                lock_data = json.load(lf)
+            change_name = lock_data.get('change', '')
+            if change_name:
+                phase1_pattern = os.path.join(changes_dir, change_name, 'context', 'phase-results', 'phase-1-*.json')
+                phase1_files = sorted(g.glob(phase1_pattern))
+                if phase1_files:
+                    with open(phase1_files[-1]) as pf:
+                        p1_data = json.load(pf)
+                    complexity = p1_data.get('complexity', 'medium')
+        except Exception:
+            pass
+
     pyramid = found_json.get('test_pyramid', {})
     unit_pct = pyramid.get('unit_pct', 0)
     e2e_pct = pyramid.get('e2e_pct', 0)
     total = found_json.get('test_counts', {})
     total_sum = sum(v for v in total.values() if isinstance(v, (int, float)))
 
+    # Complexity-aware thresholds (v3.1.0)
+    if complexity == 'small':
+        min_unit_pct = 20       # relaxed for small changes
+        max_e2e_pct = 50        # relaxed
+        min_total = 6           # fewer tests needed
+    elif complexity == 'large':
+        min_unit_pct = 40       # stricter
+        max_e2e_pct = 30        # stricter
+        min_total = 15          # more tests needed
+    else:  # medium (default)
+        min_unit_pct = 30
+        max_e2e_pct = 40
+        min_total = 10
+
     violations = []
-    if isinstance(unit_pct, (int, float)) and unit_pct < 30:
-        violations.append(f'unit_pct={unit_pct}% < 30% floor')
-    if isinstance(e2e_pct, (int, float)) and e2e_pct > 40:
-        violations.append(f'e2e_pct={e2e_pct}% > 40% ceiling')
-    if total_sum < 10:
-        violations.append(f'total_cases={total_sum} < 10 minimum')
+    if isinstance(unit_pct, (int, float)) and unit_pct < min_unit_pct:
+        violations.append(f'unit_pct={unit_pct}% < {min_unit_pct}% floor ({complexity})')
+    if isinstance(e2e_pct, (int, float)) and e2e_pct > max_e2e_pct:
+        violations.append(f'e2e_pct={e2e_pct}% > {max_e2e_pct}% ceiling ({complexity})')
+    if total_sum < min_total:
+        violations.append(f'total_cases={total_sum} < {min_total} minimum ({complexity})')
 
     if violations:
+        sep = '; '
         print(json.dumps({
             'decision': 'block',
-            'reason': f'Phase 4 test_pyramid floor violation (Layer 2): {\";\".join(violations)}. Adjust test distribution before proceeding.'
+            'reason': f'Phase 4 test_pyramid floor violation (Layer 2, complexity={complexity}): {sep.join(violations)}. Adjust test distribution before proceeding.'
         }))
         sys.exit(0)
 

@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "3.0.0",
-  "description": "Spec-driven autopilot with built-in phase templates (zero project-side files), weighted anti-rationalization, file ownership parallel execution, model routing, persistent knowledge accumulation, deep research with proactive discussion, all-phase rules injection, and crash recovery",
+  "version": "3.1.0",
+  "description": "Spec-driven autopilot with subagent-driven parallel execution (dynamic scaling), dual-layer code constraints (static+dynamic), multi-source requirement aggregation, complexity-aware gates, decision priority sorting, file-level locks, constraint caching, and crash recovery",
   "author": { "name": "vibeflow-team" },
   "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
@@ -28,7 +28,15 @@
     "model-routing",
     "file-ownership",
     "persistent-knowledge",
-    "proactive-discussion"
+    "proactive-discussion",
+    "subagent-driven",
+    "dynamic-parallelism",
+    "file-level-locks",
+    "constraint-caching",
+    "multi-source-aggregation",
+    "complexity-aware-gates",
+    "decision-priority-sorting",
+    "dual-layer-constraints"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

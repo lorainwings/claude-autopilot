@@ -118,6 +118,29 @@ dispatch 子 Agent 时，从 `config.model_routing.phase_{N}` 读取模型等级
 > **注意**: 当前 Claude Code 的 Task API 不支持 per-task model 参数。此提示作为行为引导注入。
 > 未来 Claude Code 支持 model 参数时，插件将直接映射为 API 参数。
 
+### 动态约束注入（v3.1.0 新增）
+
+Phase 5 dispatch 时，除静态规则注入外，增加动态约束检查注入：
+
+```markdown
+{if phase == 5 AND config.phases.implementation.dynamic_constraints.enabled}
+## 动态代码约束（自动执行，Hook 级强制）
+
+以下约束由 PostToolUse Hook 实时验证，违反将被拦截：
+
+### 静态约束（从 config/CLAUDE.md/rules 提取）
+{rules_scan 结果注入}
+
+### 动态约束（v3.1.0）
+- **类型检查**: 每次 Write/Edit 后自动执行 `{typecheck_command}`
+- **Import 路径**: 禁止相对路径超过 3 级（`../../../`）
+- **文件大小**: 单文件不超过 {max_lines} 行（Hook 实时拦截）
+- **ESLint/Checkstyle**: 当项目配置存在时，每个 task 完成后执行 lint 检查
+
+> Hook 拦截时的 block 消息包含具体违规信息和修复建议。
+{end if}
+```
+
 执行完毕后返回结构化 JSON 结果。")
 ```
 
@@ -350,7 +373,7 @@ status 只允许 "ok" 或 "blocked"：
 - **并行执行模式**（当 config.phases.implementation.parallel.enabled = true）：
   - 主线程分析 tasks.md 构建依赖图，识别可并行的 task 组
   - 每组内的 task 使用 `Task(isolation: "worktree", run_in_background: true)` 并行派发
-  - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 3）
+  - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 5，动态调整见 phase5-implementation.md）
   - 每组完成后按 task 编号顺序合并 worktree，冲突时 AskUserQuestion 处理
   - 合并后运行测试验证，失败则降级为串行模式
 

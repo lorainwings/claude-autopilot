@@ -118,6 +118,23 @@ Node:
     → 在 Step 4 展示提示："未检测到安全扫描工具，建议安装 gitleaks 和 trivy"
 ```
 
+### Step 2.7: 代码约束自动检测（v3.1.0 新增）
+
+运行 `bash <plugin_scripts>/rules-scanner.sh "$(pwd)"` 扫描项目规则，自动填充 `code_constraints`：
+
+```
+检测结果处理:
+  forbidden_files ← rules_scan.constraints.filter(type="forbidden" AND pattern contains ".")
+  forbidden_patterns ← rules_scan.constraints.filter(type="forbidden" AND pattern not contains ".")
+  max_file_lines ← rules_scan.constraints.find(type="size_limit")?.pattern 或 800
+
+  IF rules_scan.rules_found:
+    → 填充 code_constraints 配置节
+    → 展示检测到的约束数量
+  ELSE:
+    → 保持默认空值，在 Step 4 提示用户配置
+```
+
 ### Step 3: 生成配置
 
 根据检测结果生成 YAML 配置，模板如下:
@@ -173,8 +190,8 @@ phases:
     worktree:
       enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
     parallel:
-      enabled: false         # 设为 true 启用 Phase 5 并行 Agent Team 执行
-      max_agents: 3          # 最大并行 Agent 数量（建议 2-4）
+      enabled: true          # v3.1.0 默认启用，运行时动态调整并行度
+      max_agents: 5          # 最大并行 Agent 数量（建议 3-8，运行时动态调整）
       dependency_analysis: true  # 自动分析 task 依赖关系
   reporting:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
@@ -253,12 +270,17 @@ async_quality_scans:
     threshold: "0_critical"          # 0 个 critical 漏洞
     block_on_critical: false         # true: critical 发现阻断归档
 
-# === 代码约束（v2.4.0 新增，可选）===
-# code_constraints:
-#   forbidden_files: []              # 禁止创建的文件（如 vite.config.js）
-#   forbidden_patterns: []           # 禁止出现在代码中的模式
-#   max_file_lines: 800              # 单文件最大行数
-#   allowed_dirs: []                 # 允许修改的目录范围
+# === 代码约束（v3.1.0 增强：自动从 CLAUDE.md + rules 提取）===
+code_constraints:
+  forbidden_files: []              # 自动从 CLAUDE.md/rules 提取，也可手动追加
+  forbidden_patterns: []           # 自动从 CLAUDE.md/rules 提取，也可手动追加
+  max_file_lines: 800              # 单文件最大行数（自动从规则提取）
+  allowed_dirs: []                 # 允许修改的目录范围（空=不限制）
+  auto_detect: true                # v3.1.0: 自动从 CLAUDE.md 和 .claude/rules/ 提取约束
+  dynamic_constraints:             # v3.1.0: 动态约束
+    enabled: true
+    typecheck_on_edit: true        # Write/Edit 后自动类型检查
+    lint_on_task_complete: true    # 每个 task 完成后执行 lint
 
 test_suites:
   # 自动检测到的测试套件

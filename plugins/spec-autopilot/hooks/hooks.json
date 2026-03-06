@@ -49,7 +49,7 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/parallel-merge-guard.sh",
-            "timeout": 150
+            "timeout": 180
           }
         ]
       },

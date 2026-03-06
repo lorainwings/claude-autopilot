@@ -1195,6 +1195,122 @@ rm -rf "$HAS_TEST_DIR"
 echo ""
 
 # ============================================================
+echo "--- 27. Shared constraint loading (v3.1.0) ---"
+
+# 27a. load_constraints with no config/CLAUDE.md → found=false
+CONSTRAINT_TEST_DIR=$(mktemp -d)
+exit_code=0
+output=$(source "$SCRIPT_DIR/_common.sh" && load_constraints "$CONSTRAINT_TEST_DIR" 2>/dev/null) || exit_code=$?
+assert_exit "load_constraints: no config → exit 0" 0 $exit_code
+assert_contains "load_constraints: no config → found false" "$output" '"found"'
+
+# 27b. load_constraints with CLAUDE.md forbidden items → found=true
+mkdir -p "$CONSTRAINT_TEST_DIR"
+cat > "$CONSTRAINT_TEST_DIR/CLAUDE.md" <<'CLEOF'
+## 禁止事项
+| `vite.config.js` | `vite.config.ts` | 禁止 |
+| `npm` | `pnpm` | 禁止 |
+CLEOF
+exit_code=0
+# Clear cache
+rm -f /tmp/autopilot-constraints-*.json 2>/dev/null
+output=$(source "$SCRIPT_DIR/_common.sh" && load_constraints "$CONSTRAINT_TEST_DIR" 2>/dev/null) || exit_code=$?
+assert_exit "load_constraints: CLAUDE.md → exit 0" 0 $exit_code
+assert_contains "load_constraints: CLAUDE.md → found true" "$output" '"found": true'
+
+# 27c. load_constraints cache hit
+output2=$(source "$SCRIPT_DIR/_common.sh" && load_constraints "$CONSTRAINT_TEST_DIR" 2>/dev/null) || true
+assert_contains "load_constraints: cache hit → same result" "$output2" '"found": true'
+
+# 27d. extract_project_root from JSON cwd
+output=$(source "$SCRIPT_DIR/_common.sh" && extract_project_root '{"cwd":"/test/path"}' 2>/dev/null) || true
+assert_contains "extract_project_root: from JSON" "$output" "/test/path"
+
+# 27e. check_file_constraints with violations
+CONSTRAINT_JSON='{"found":true,"forbidden_files":["bad.js"],"forbidden_patterns":["eval("],"allowed_dirs":[],"max_lines":800}'
+output=$(echo "$CONSTRAINT_JSON" | source "$SCRIPT_DIR/_common.sh" && echo "$CONSTRAINT_JSON" | check_file_constraints "bad.js" "$CONSTRAINT_TEST_DIR" 2>/dev/null) || true
+assert_contains "check_file_constraints: forbidden file" "$output" "Forbidden"
+
+# 27f. should_bypass_hook - no lock file → bypass (exit 0)
+exit_code=0
+(source "$SCRIPT_DIR/_common.sh" && should_bypass_hook '{"prompt":"test"}' "$CONSTRAINT_TEST_DIR" "5") || exit_code=$?
+assert_exit "should_bypass_hook: no lock → bypass (exit 0)" 0 $exit_code
+
+rm -rf "$CONSTRAINT_TEST_DIR"
+rm -f /tmp/autopilot-constraints-*.json 2>/dev/null
+
+echo ""
+
+# ============================================================
+echo "--- 28. rules-scanner enhanced patterns (v3.1.0) ---"
+
+# 28a. List format constraint extraction
+RULES_TEST_DIR=$(mktemp -d)
+mkdir -p "$RULES_TEST_DIR/.claude/rules"
+cat > "$RULES_TEST_DIR/.claude/rules/test.md" <<'REOF'
+# Rules
+- 禁止使用 `Selenium`
+- ❌ `npm` → `pnpm`
+- 必须使用 `pnpm`
+单个文档最多 800 行
+REOF
+exit_code=0
+output=$(bash "$SCRIPT_DIR/rules-scanner.sh" "$RULES_TEST_DIR" 2>/dev/null) || exit_code=$?
+assert_exit "rules-scanner: enhanced → exit 0" 0 $exit_code
+assert_contains "rules-scanner: found rules" "$output" '"rules_found": true'
+assert_contains "rules-scanner: detects required" "$output" '"required"'
+
+rm -rf "$RULES_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 29. Complexity-aware pyramid validation (v3.1.0) ---"
+
+# 29a. Phase 4 with medium complexity (default) — same as original thresholds
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":15,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":60,\"e2e_pct\":12},\"artifacts\":[\"tests/unit.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "complexity-aware: valid medium → exit 0" 0 $exit_code
+assert_not_contains "complexity-aware: valid medium → no block" "$output" "block"
+
+# 29b. Phase 4 inverted pyramid still blocks at medium defaults
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":2,\"api\":2,\"e2e\":8,\"ui\":3},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":13,\"e2e_pct\":53},\"artifacts\":[\"tests/e2e.py\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "complexity-aware: inverted medium → exit 0" 0 $exit_code
+assert_contains "complexity-aware: inverted medium → block" "$output" "block"
+assert_contains "complexity-aware: mentions complexity" "$output" "complexity"
+
+echo ""
+
+# ============================================================
+echo "--- 30. Refactored constraint scripts (v3.1.0) ---"
+
+# 30a. code-constraint-check: no lock file → bypass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Results: {\"status\":\"ok\",\"artifacts\":[\"bad.js\"]}"}' \
+  | bash "$SCRIPT_DIR/code-constraint-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "code-constraint: no lock → exit 0" 0 $exit_code
+assert_not_contains "code-constraint: no lock → no block" "$output" "block"
+
+# 30b. write-edit-constraint-check: no lock file → bypass
+exit_code=0
+output=$(echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/test.js"},"tool_response":"OK"}' \
+  | bash "$SCRIPT_DIR/write-edit-constraint-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "write-edit: no lock → exit 0" 0 $exit_code
+assert_not_contains "write-edit: no lock → no block" "$output" "block"
+
+# 30c. code-constraint-check: non-phase-5 → bypass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Results: {\"status\":\"ok\"}"}' \
+  | bash "$SCRIPT_DIR/code-constraint-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "code-constraint: phase 3 → exit 0" 0 $exit_code
+assert_not_contains "code-constraint: phase 3 → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
 echo "==================================="
 echo "Results: $PASS passed, $FAIL failed"
 echo "==================================="
