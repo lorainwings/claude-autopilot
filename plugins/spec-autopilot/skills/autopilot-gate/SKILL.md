@@ -102,6 +102,27 @@ Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer
 
 `strict_mode: true` 时不一致直接阻断；`false` 时仅 warning。
 
+## 执行模式感知
+
+本 Skill 在执行门禁检查时，需感知当前执行模式（从锁文件 `openspec/changes/.autopilot-active` 的 `mode` 字段读取）。
+
+### 模式对门禁的影响
+
+| 切换点 | full 模式 | lite 模式 | minimal 模式 |
+|--------|----------|----------|-------------|
+| Phase 1 → Phase 2 | 正常检查 | **跳过**（Phase 2 不执行） | **跳过** |
+| Phase 2 → Phase 3 | 正常检查 | **跳过** | **跳过** |
+| Phase 3 → Phase 4 | 正常检查 | **跳过** | **跳过** |
+| Phase 4 → Phase 5 | 正常检查 + 特殊门禁 | **跳过**（Phase 1 → Phase 5） | **跳过**（Phase 1 → Phase 5） |
+| Phase 5 → Phase 6 | 正常检查 + 特殊门禁 | 正常检查 + 特殊门禁 | **跳过**（Phase 5 → Phase 7） |
+| Phase 6 → Phase 7 | 正常检查 | 正常检查 | **跳过** |
+
+### lite/minimal 的 Phase 1 → Phase 5 门禁
+
+当 mode 为 lite 或 minimal 时，Phase 5 的前置检查为：
+- Phase 1 checkpoint（`phase-1-requirements.json`）存在且 status 为 ok
+- Phase 2/3/4 checkpoint **不需要存在**（已被跳过）
+
 ## 阶段强制执行保障
 
-阶段跳过由 Hook（`check-predecessor-checkpoint.sh`）+ TaskCreate blockedBy 依赖链确定性阻断，AI 无需自我审查。8 个阶段是不可分割整体，产出为空时应产出 "N/A with justification" 而非跳过。
+阶段跳过由 Hook（`check-predecessor-checkpoint.sh`）+ TaskCreate blockedBy 依赖链确定性阻断，AI 无需自我审查。在 full 模式下 8 个阶段是不可分割整体；在 lite/minimal 模式下，跳过的阶段由 Phase 0 的 TaskCreate 链控制，不需要产出 checkpoint。非跳过的阶段产出为空时应产出 "N/A with justification" 而非跳过。

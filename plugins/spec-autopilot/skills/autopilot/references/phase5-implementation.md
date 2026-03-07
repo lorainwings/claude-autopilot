@@ -17,6 +17,56 @@
 - 超过 **2 小时** → 强制暂停，AskUserQuestion：「Phase 5 已运行 {elapsed} 分钟，是否继续？」
 - 选项："继续执行" / "保存进度并暂停" / "回退到 Phase 5 起始点"
 
+## 无 tasks.md 场景（lite/minimal 模式）
+
+当 Phase 2/3 被跳过（lite/minimal 模式）时，不存在 `tasks.md`。Phase 5 需要从 Phase 1 的需求分析结果自动生成任务分组。
+
+### 任务自动生成流程
+
+```
+1. 读取 openspec/changes/<name>/context/phase-results/phase-1-requirements.json
+2. 提取 requirements_summary 和 decisions[]
+3. 读取 openspec/changes/<name>/context/ 下的 Steering Documents：
+   - project-context.md（项目结构和技术栈）
+   - existing-patterns.md（现有代码模式）
+   - research-findings.md（技术调研结论）
+4. 基于需求功能清单 + 项目结构，按域拆分任务：
+   - backend 域：API 接口、数据库变更、业务逻辑
+   - frontend 域：页面组件、路由、状态管理
+   - node 域：Node 服务变更（如有）
+   - cross-cutting：跨域集成任务
+5. 生成临时任务清单，写入 openspec/changes/<name>/context/phase5-task-breakdown.md
+6. 格式与 tasks.md 完全一致（## Group + - [ ] task 编号格式）
+```
+
+### 任务清单格式
+
+```markdown
+# Tasks: <change-name> (auto-generated from Phase 1 requirements)
+
+## 1. Backend Changes
+- [ ] 1.1 [从需求功能点推导的后端任务]
+- [ ] 1.2 [...]
+
+## 2. Frontend Changes
+- [ ] 2.1 [从需求功能点推导的前端任务]
+- [ ] 2.2 [...]
+
+## 3. Integration & Testing
+- [ ] 3.1 [集成验证任务]
+```
+
+### 质量要求
+
+- 自动生成的任务必须**引用 Phase 1 决策结论**，不得凭空假设
+- 每个任务必须明确涉及的文件路径（基于 existing-patterns.md 和 research-findings.md）
+- 任务粒度遵循项目规则：每个任务 ≤3 个文件，≤800 行代码
+- 生成完成后，通过 AskUserQuestion 展示任务清单让用户确认
+
+> **注意**：自动生成的任务清单不写入 `tasks.md`（那是 OpenSpec 制品），而是写入 `context/phase5-task-breakdown.md`，避免与 OpenSpec 流程产生歧义。
+
+---
+
 ## 并行执行模式
 
 当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 对无依赖关系的 task 使用并行执行，显著提升实施效率。

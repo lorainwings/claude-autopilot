@@ -42,11 +42,11 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 | 文件 | 含义 |
 |------|------|
 | phase-1-requirements.json | Phase 1 完成（需求已确认） |
-| phase-2-openspec.json | Phase 2 完成 |
-| phase-3-ff.json | Phase 3 完成 |
-| phase-4-testing.json | Phase 4 完成 |
+| phase-2-openspec.json | Phase 2 完成（仅 full 模式） |
+| phase-3-ff.json | Phase 3 完成（仅 full 模式） |
+| phase-4-testing.json | Phase 4 完成（仅 full 模式） |
 | phase-5-implement.json | Phase 5 完成 |
-| phase-6-report.json | Phase 6 完成 |
+| phase-6-report.json | Phase 6 完成（仅 full/lite 模式） |
 | phase-7-summary.json | Phase 7 完成（归档完毕） |
 
 对每个文件：读取 JSON → 验证 `status` 为 `ok` 或 `warning`。
@@ -81,9 +81,24 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 - 删除 `phase-results/` 目录
 - 返回起始阶段号 1
 
+### 5. Mode 恢复
+
+从锁文件 `openspec/changes/.autopilot-active` 读取 `mode` 字段（full/lite/minimal）。
+
+- **mode 字段存在** → 使用锁文件中的 mode
+- **mode 字段不存在**（旧版兼容） → 默认 "full"
+
+恢复后的 mode 传递给主线程，用于 Task 系统重建时的阶段选择。
+
 ## Task 系统重建
 
-崩溃恢复时仍需创建完整的 8 个阶段任务链（TaskCreate × 8），但已完成的阶段直接标记为 `completed`，确保 blockedBy 依赖链正确。
+崩溃恢复时需创建对应模式的阶段任务链，已完成的阶段直接标记为 `completed`，确保 blockedBy 依赖链正确。
+
+| 模式 | 创建的任务 |
+|------|-----------|
+| full | Phase 1-7（7 个任务） |
+| lite | Phase 1, 5, 6, 7（4 个任务） |
+| minimal | Phase 1, 5, 7（3 个任务） |
 
 ## SessionStart Hook 集成
 
