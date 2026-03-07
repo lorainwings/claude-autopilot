@@ -35,16 +35,38 @@ CHANGE_NAME=$(parse_lock_file "$LOCK_FILE")
 PHASE_RESULTS="$CHANGES_DIR/$CHANGE_NAME/context/phase-results"
 [ -d "$PHASE_RESULTS" ] || exit 0
 
-# 必须有 phase-4 checkpoint（Phase 5 前置条件）
+# 快速判断当前是否在 Phase 5 执行中
+# full 模式: phase-4 存在 + phase-5 不存在或非 ok → 正在 Phase 5
+# lite/minimal: phase-1 存在且 ok + phase-4 不存在 + phase-5 不存在或非 ok → 正在 Phase 5
 PHASE4_CP=$(find_checkpoint "$PHASE_RESULTS" 4)
-[ -z "$PHASE4_CP" ] && exit 0
+PHASE1_CP=$(find_checkpoint "$PHASE_RESULTS" 1)
 
-# 如果 phase-5 已完成（ok），说明已过 Phase 5，放行
-PHASE5_CP=$(find_checkpoint "$PHASE_RESULTS" 5)
-if [ -n "$PHASE5_CP" ]; then
-  STATUS=$(read_checkpoint_status "$PHASE5_CP")
-  [ "$STATUS" = "ok" ] && exit 0
+# Determine if we're in Phase 5
+IN_PHASE5="no"
+if [ -n "$PHASE4_CP" ]; then
+  # full mode: Phase 4 exists, check Phase 5
+  PHASE5_CP=$(find_checkpoint "$PHASE_RESULTS" 5)
+  if [ -z "$PHASE5_CP" ]; then
+    IN_PHASE5="yes"
+  else
+    STATUS=$(read_checkpoint_status "$PHASE5_CP")
+    [ "$STATUS" != "ok" ] && IN_PHASE5="yes"
+  fi
+elif [ -n "$PHASE1_CP" ]; then
+  # lite/minimal mode: Phase 1 exists but no Phase 4
+  PHASE1_STATUS=$(read_checkpoint_status "$PHASE1_CP")
+  if [ "$PHASE1_STATUS" = "ok" ] || [ "$PHASE1_STATUS" = "warning" ]; then
+    PHASE5_CP=$(find_checkpoint "$PHASE_RESULTS" 5)
+    if [ -z "$PHASE5_CP" ]; then
+      IN_PHASE5="yes"
+    else
+      STATUS=$(read_checkpoint_status "$PHASE5_CP")
+      [ "$STATUS" != "ok" ] && IN_PHASE5="yes"
+    fi
+  fi
 fi
+
+[ "$IN_PHASE5" != "yes" ] && exit 0
 
 # --- Fast bypass Layer 2: 提取 file_path ---
 FILE_PATH=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')

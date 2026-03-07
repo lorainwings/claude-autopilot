@@ -61,18 +61,20 @@ user-invocable: false
 
 任何条件不满足 → 阻断 Phase 6。
 
-## Phase 6.5 代码审查门禁（可选）
+## Phase 6.5 代码审查门禁（可选，v3.2.2 三路并行）
 
-当 `config.phases.code_review.enabled = true` 时，Phase 6 完成后额外检查：
+当 `config.phases.code_review.enabled = true` 时，Phase 7 步骤 2.a 收集代码审查结果后检查：
 
 ```
-- [ ] phase-6.5-code-review.json 存在
+- [ ] phase-6.5-code-review.json 存在（由 Phase 7 步骤 2.a 写入）
 - [ ] findings 中 critical 数量为 0（当 block_on_critical = true 时）
 - [ ] status 为 "ok" 或 "warning"（用户已确认）
 ```
 
+当 `code_review.enabled = false` 时，**跳过此门禁**，不要求 checkpoint 存在。
+
 Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer 2（Hook predecessor check）。
-当 `code_review.enabled = false` 时，Phase 6 直接进入质量扫描和 Phase 7。
+Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 Phase 7 汇合点收集。
 
 ## 可选 Layer 3 补充：语义验证
 

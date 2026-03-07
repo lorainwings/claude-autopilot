@@ -1205,13 +1205,12 @@ echo ""
 # ============================================================
 echo "--- 28. Phase 6 suite_results validation (v3.2.0) ---"
 
-# 28a. Phase 6 missing suite_results → should block (required field)
+# 28a. Phase 6 missing suite_results → should NOT block (recommended field since v3.2.1)
 exit_code=0
 output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\",\"report_format\":\"html\"}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Phase 6 missing suite_results → exit 0" 0 $exit_code
-assert_contains "Phase 6 missing suite_results → block" "$output" "block"
-assert_contains "Phase 6 missing suite_results → mentions field" "$output" "suite_results"
+assert_not_contains "Phase 6 missing suite_results → no block (recommended)" "$output" "block"
 
 # 28b. Phase 6 with empty suite_results array → should still pass (non-empty artifacts is sufficient)
 exit_code=0
@@ -1444,6 +1443,140 @@ exit_code=0
 assert_exit "lock file exists → active (exit 0)" 0 $exit_code
 
 rm -rf "$HAS_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 33. v3.2.2 Phase 6.5 code review bypass (no autopilot-phase marker) ---"
+
+# 33a. Phase 6.5 prompt without autopilot-phase marker → validate-json-envelope skips
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- 代码审查 -->\nReview code changes"},"tool_response":"Review complete: no critical issues found."}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6.5 no autopilot-phase marker → exit 0 (skip)" 0 $exit_code
+assert_not_contains "Phase 6.5 no marker → no block" "$output" "block"
+
+# 33b. Phase 6.5 prompt with code review marker → check-predecessor-checkpoint skips
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- 代码审查 -->\nReview"},"cwd":"/tmp/test"}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6.5 no phase marker → predecessor check skips (exit 0)" 0 $exit_code
+assert_not_contains "Phase 6.5 → no deny" "$output" "deny"
+
+echo ""
+
+# ============================================================
+echo "--- 34. v3.2.2 Phase 7 predecessor check independent of Phase 6.5 ---"
+
+P7_TEST_DIR=$(mktemp -d)
+mkdir -p "$P7_TEST_DIR/openspec/changes/test-feat/context/phase-results"
+echo '{"change":"test-feat","mode":"full"}' > "$P7_TEST_DIR/openspec/changes/.autopilot-active"
+
+# 34a. Phase 6 ok, Phase 6.5 absent → Phase 7 allowed
+echo '{"status":"ok","summary":"Tests passed","pass_rate":100,"report_path":"r.html","report_format":"html"}' \
+  > "$P7_TEST_DIR/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:7 -->\\nPhase 7\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$P7_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 7: Phase 6 ok, no Phase 6.5 → allow (exit 0)" 0 $exit_code
+assert_not_contains "Phase 7: no deny without Phase 6.5" "$output" "deny"
+
+# 34b. Phase 6 ok, Phase 6.5 exists with blocked → Phase 7 still allowed (6.5 not checked by Hook)
+echo '{"status":"blocked","summary":"Critical findings"}' \
+  > "$P7_TEST_DIR/openspec/changes/test-feat/context/phase-results/phase-6.5-code-review.json"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:7 -->\\nPhase 7\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$P7_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 7: Phase 6 ok, Phase 6.5 blocked → still allow (exit 0)" 0 $exit_code
+assert_not_contains "Phase 7: 6.5 blocked does not deny 7" "$output" "deny"
+
+rm -rf "$P7_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 35. v3.2.2 Phase 6 checkpoint independent of Phase 6.5 fields ---"
+
+# 35a. Phase 6 envelope with pass_rate/report_path/report_format → valid (no findings/metrics needed)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"report.html\"],\"pass_rate\":100,\"report_path\":\"report.html\",\"report_format\":\"html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 without findings/metrics → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 independent of 6.5 fields → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 36. v3.2.2 Quality scan prompt bypass (no autopilot-phase marker) ---"
+
+# 36a. Quality scan prompt → validate-json-envelope skips
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:security -->\nRun security scan"},"tool_response":"Scan complete."}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Quality scan no autopilot-phase marker → exit 0 (skip)" 0 $exit_code
+assert_not_contains "Quality scan → no block" "$output" "block"
+
+# 36b. Quality scan prompt → check-predecessor-checkpoint skips
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:perf -->\nPerf audit"},"cwd":"/tmp"}' \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Quality scan → predecessor check skips (exit 0)" 0 $exit_code
+
+echo ""
+
+# ============================================================
+echo "--- 37. v3.2.2 Minimal mode: Phase 7 without Phase 6 ---"
+
+MIN_TEST_DIR=$(mktemp -d)
+mkdir -p "$MIN_TEST_DIR/openspec/changes/test-min/context/phase-results"
+echo '{"change":"test-min","mode":"minimal"}' > "$MIN_TEST_DIR/openspec/changes/.autopilot-active"
+
+# 37a. Minimal mode: Phase 5 ok → Phase 7 allowed (skips Phase 6)
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"test-results.json"}' \
+  > "$MIN_TEST_DIR/openspec/changes/test-min/context/phase-results/phase-5-implement.json"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:7 -->\\nPhase 7\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$MIN_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Minimal: Phase 5 ok → Phase 7 allow (exit 0)" 0 $exit_code
+assert_not_contains "Minimal: Phase 7 no deny" "$output" "deny"
+
+# 37b. Minimal mode: Phase 6 dispatch → should be denied
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$MIN_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Minimal: Phase 6 dispatch → exit 0" 0 $exit_code
+assert_contains "Minimal: Phase 6 dispatch → deny" "$output" "deny"
+
+rm -rf "$MIN_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 38. v3.2.2 Lite mode: Phase 6 tri-path parallel compatibility ---"
+
+LITE_TEST_DIR=$(mktemp -d)
+mkdir -p "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results"
+echo '{"change":"test-lite","mode":"lite"}' > "$LITE_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"test-results.json"}' \
+  > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results/phase-5-implement.json"
+
+# 38a. Lite mode: Phase 5 → Phase 6 allowed
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$LITE_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Lite: Phase 5 ok → Phase 6 allow (exit 0)" 0 $exit_code
+assert_not_contains "Lite: Phase 6 no deny" "$output" "deny"
+
+# 38b. Lite mode: Phase 6 ok → Phase 7 allowed
+echo '{"status":"ok","summary":"Tests passed","pass_rate":95,"report_path":"r.html","report_format":"html"}' \
+  > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results/phase-6-report.json"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:7 -->\\nPhase 7\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$LITE_TEST_DIR\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Lite: Phase 6 ok → Phase 7 allow (exit 0)" 0 $exit_code
+assert_not_contains "Lite: Phase 7 no deny" "$output" "deny"
+
+rm -rf "$LITE_TEST_DIR"
 
 echo ""
 

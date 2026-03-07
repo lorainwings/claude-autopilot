@@ -78,6 +78,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - openspec/changes/{change_name}/context/existing-patterns.md
 - openspec/changes/{change_name}/context/tech-constraints.md
 - openspec/changes/{change_name}/context/research-findings.md
+- openspec/changes/{change_name}/context/web-research-findings.md（如存在）
 
 {if config.phases[phase].instruction_files 非空}
 ## 项目自定义指令（覆盖）
@@ -241,11 +242,11 @@ dispatch 主线程在构造 prompt 时执行变量替换：
 **Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）**：
 - Agent: config.phases.requirements.agent（默认 business-analyst）
 - 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
-- Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents + research-findings.md + complexity 评估结果
-- **联网调研结果注入**（v2.4.0）：当 research-findings.md 中存在 Web Research Findings 章节时，追加以下指令：
+- Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents + research-findings.md + web-research-findings.md（如存在）+ complexity 评估结果
+- **联网调研结果注入**（v2.4.0 → v3.2.1 独立文件）：当 `web-research-findings.md` 存在时，追加以下指令：
   ```
   ## 联网调研结果（如存在）
-  读取 research-findings.md 中的 Web Research Findings 章节。
+  读取 web-research-findings.md（独立文件，由并行联网搜索 Agent 生成）。
   基于调研结果，在讨论中：
   - 引用具体的最佳实践和数据支撑你的建议
   - 对比不同技术方案的优劣，给出推荐
@@ -389,6 +390,11 @@ status 只允许 "ok" 或 "blocked"：
 - 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
 - 可选覆盖：config.phases.reporting.instruction_files（非空时注入）
+- **三路并行**（v3.2.2）：Phase 6 测试执行与 Phase 6.5 代码审查、质量扫描在同一消息中同时派发
+  - 路径 A：Phase 6 测试（前台 Task）
+  - 路径 B：Phase 6.5 代码审查（`run_in_background: true`，不含 autopilot-phase 标记）
+  - 路径 C：质量扫描（多个 `run_in_background: true`，不含 autopilot-phase 标记）
+  - Phase 7 统一收集三路结果
 - **Allure 统一报告**（当 `config.phases.reporting.format === "allure"` 时）：
   - **前置检查**：子 Agent prompt 中注入 Allure 安装检测指令：
     ```

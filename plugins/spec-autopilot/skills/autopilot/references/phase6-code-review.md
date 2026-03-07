@@ -4,7 +4,7 @@
 
 ## 触发条件
 
-当 `config.phases.code_review.enabled = true`（默认 true）时，在 Phase 6 完成后自动触发代码审查。
+当 `config.phases.code_review.enabled = true`（默认 true）时，**与 Phase 6 测试执行并行触发**（v3.2.2 三路并行）。代码审查仅需 `git diff`，不依赖测试结果。
 
 ## 审查流程
 

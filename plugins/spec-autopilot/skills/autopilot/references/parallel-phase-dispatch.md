@@ -44,12 +44,13 @@ Task(subagent_type: "general-purpose", run_in_background: true,
   prompt: "联网搜索与需求相关的最佳实践:
   需求: {RAW_REQUIREMENT}
   搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
-  输出结构化结果到: research-findings.md 的 Web Research Findings 章节"
+  输出结构化结果到: openspec/changes/{change_name}/context/web-research-findings.md
+  注意: 输出到独立文件 web-research-findings.md，不要修改 research-findings.md"
 )
 {end if}
 ```
 
-等待全部完成 → 合并结果 → 传递给 business-analyst 分析。
+等待全部完成 → 主线程合并 research-findings.md 和 web-research-findings.md（如存在）的内容 → 传递给 business-analyst 分析。
 
 ### Phase 4 并行调度
 

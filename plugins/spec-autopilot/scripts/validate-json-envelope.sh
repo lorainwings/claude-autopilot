@@ -175,10 +175,17 @@ if 'next_ready' not in found_json:
 phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
 phase_num = int(phase_match.group(1)) if phase_match else 0
 
+# Required fields: block if missing (core gate dependencies)
 phase_required = {
     4: ['test_counts', 'dry_run_results', 'test_pyramid'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
-    6: ['pass_rate', 'report_path', 'report_format', 'suite_results'],
+    6: ['pass_rate', 'report_path', 'report_format'],
+}
+
+# Recommended fields: warn on stderr if missing (v3.2.0 enhancements, not gate-critical)
+phase_recommended = {
+    4: ['test_traceability'],
+    6: ['suite_results', 'anomaly_alerts'],
 }
 
 if phase_num in phase_required:
@@ -189,6 +196,11 @@ if phase_num in phase_required:
             'reason': f'Phase {phase_num} JSON envelope missing required phase-specific fields: {missing_phase}. The sub-agent must include these fields for gate verification.'
         }))
         sys.exit(0)
+
+if phase_num in phase_recommended:
+    missing_rec = [f for f in phase_recommended[phase_num] if f not in found_json]
+    if missing_rec:
+        print(f'INFO: Phase {phase_num} envelope missing recommended fields (non-blocking): {missing_rec}', file=sys.stderr)
 
 # 8) Phase 4 special: warning status not acceptable — Phase 4 protocol only allows ok/blocked
 #    Layer 2 deterministic check — prevents LLM orchestrator from accidentally

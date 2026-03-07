@@ -150,6 +150,25 @@ get_last_checkpoint_phase() {
   echo $last_phase
 }
 
+# === Read execution mode from lock file ===
+get_autopilot_mode() {
+  local changes_dir="$1"
+  local lock_file="$changes_dir/.autopilot-active"
+  if [ -f "$lock_file" ] && command -v python3 &>/dev/null; then
+    python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    print(data.get('mode', 'full'))
+except Exception:
+    print('full')
+" "$lock_file" 2>/dev/null || echo "full"
+  else
+    echo "full"
+  fi
+}
+
 # === Main logic ===
 
 change_dir=$(find_active_change "$CHANGES_DIR" "yes") || exit 0  # No active change, allow
@@ -163,9 +182,46 @@ fi
 
 last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 
-# Phase 2 independent check: verify Phase 1 checkpoint exists with ok/warning status
-# Phase 2 is checked separately because Phase 1 checkpoint is written by the main thread.
+# --- Read execution mode (full/lite/minimal) ---
+EXEC_MODE=$(get_autopilot_mode "$CHANGES_DIR")
+
+# --- Define expected phase sequences per mode ---
+# full:    1 → 2 → 3 → 4 → 5 → 6 → 7
+# lite:    1 → 5 → 6 → 7
+# minimal: 1 → 5 → 7
+get_predecessor_phase() {
+  local mode="$1"
+  local target="$2"
+  case "$mode" in
+    lite)
+      case "$target" in
+        5) echo 1 ;;
+        6) echo 5 ;;
+        7) echo 6 ;;
+        *) echo $((target - 1)) ;;
+      esac
+      ;;
+    minimal)
+      case "$target" in
+        5) echo 1 ;;
+        7) echo 5 ;;
+        *) echo $((target - 1)) ;;
+      esac
+      ;;
+    *)  # full
+      echo $((target - 1))
+      ;;
+  esac
+}
+
+PRED_PHASE=$(get_predecessor_phase "$EXEC_MODE" "$TARGET_PHASE")
+
+# Phase 2 independent check (full mode only): verify Phase 1 checkpoint
 if [ "$TARGET_PHASE" -eq 2 ]; then
+  if [ "$EXEC_MODE" != "full" ]; then
+    # lite/minimal skip Phase 2 entirely; Hook should never see Phase 2 dispatch
+    deny "Phase 2 is skipped in $EXEC_MODE mode. This dispatch should not occur."
+  fi
   phase1_file=$(find_checkpoint "$phase_results_dir" 1)
   if [ -z "$phase1_file" ] || [ ! -f "$phase1_file" ]; then
     deny "Phase 1 checkpoint not found. Phase 1 must complete before Phase 2."
@@ -176,30 +232,59 @@ if [ "$TARGET_PHASE" -eq 2 ]; then
   fi
 fi
 
-# Check sequential ordering (target > last_phase + 1, and target >= 3)
-if [ "$TARGET_PHASE" -ge 3 ] && [ "$TARGET_PHASE" -gt $((last_phase + 1)) ]; then
-  deny "Cannot start Phase $TARGET_PHASE. Last completed phase is $last_phase. Phase $((last_phase + 1)) must complete first."
+# Phases 3/4 are full-mode only
+if [ "$TARGET_PHASE" -eq 3 ] || [ "$TARGET_PHASE" -eq 4 ]; then
+  if [ "$EXEC_MODE" != "full" ]; then
+    deny "Phase $TARGET_PHASE is skipped in $EXEC_MODE mode. This dispatch should not occur."
+  fi
 fi
 
-# Special gate: Phase 5 requires Phase 4 checkpoint with status "ok"
-# Phase 4 protocol only allows "ok" or "blocked" — no "warning" state.
-# Test count thresholds are validated by Phase 4 sub-agent and Layer 3 (autopilot-gate).
-if [ "$TARGET_PHASE" -eq 5 ]; then
-  phase4_file=$(find_checkpoint "$phase_results_dir" 4)
-
-  if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
-    deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
+# Check sequential ordering based on mode-aware predecessor
+if [ "$TARGET_PHASE" -ge 3 ]; then
+  pred_file=$(find_checkpoint "$phase_results_dir" "$PRED_PHASE")
+  if [ -z "$pred_file" ] || [ ! -f "$pred_file" ]; then
+    deny "Cannot start Phase $TARGET_PHASE. Predecessor Phase $PRED_PHASE checkpoint not found (mode: $EXEC_MODE)."
   fi
+  pred_status=$(read_checkpoint_status "$pred_file")
+  if [ "$pred_status" != "ok" ] && [ "$pred_status" != "warning" ]; then
+    deny "Predecessor Phase $PRED_PHASE status is '$pred_status'. Must be ok/warning before Phase $TARGET_PHASE (mode: $EXEC_MODE)."
+  fi
+fi
 
-  phase4_status=$(read_checkpoint_status "$phase4_file")
+# Special gate: Phase 5 requires Phase 4 checkpoint ONLY in full mode
+if [ "$TARGET_PHASE" -eq 5 ]; then
+  if [ "$EXEC_MODE" = "full" ]; then
+    phase4_file=$(find_checkpoint "$phase_results_dir" 4)
 
-  if [ "$phase4_status" != "ok" ]; then
-    deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
+    if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
+      deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
+    fi
+
+    phase4_status=$(read_checkpoint_status "$phase4_file")
+
+    if [ "$phase4_status" != "ok" ]; then
+      deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
+    fi
+  else
+    # lite/minimal: Phase 5 predecessor is Phase 1
+    phase1_file=$(find_checkpoint "$phase_results_dir" 1)
+    if [ -z "$phase1_file" ] || [ ! -f "$phase1_file" ]; then
+      deny "Phase 1 checkpoint not found. Phase 1 must complete before Phase 5 (mode: $EXEC_MODE)."
+    fi
+    phase1_status=$(read_checkpoint_status "$phase1_file")
+    if [ "$phase1_status" != "ok" ] && [ "$phase1_status" != "warning" ]; then
+      deny "Phase 1 checkpoint status is '$phase1_status'. Must be ok/warning before Phase 5 (mode: $EXEC_MODE)."
+    fi
   fi
 fi
 
 # Special gate: Phase 6 requires Phase 5 zero_skip_check
 if [ "$TARGET_PHASE" -eq 6 ]; then
+  # minimal mode skips Phase 6 entirely
+  if [ "$EXEC_MODE" = "minimal" ]; then
+    deny "Phase 6 is skipped in minimal mode. This dispatch should not occur."
+  fi
+
   phase5_file=$(find_checkpoint "$phase_results_dir" 5)
 
   if [ -n "$phase5_file" ] && [ -f "$phase5_file" ]; then
@@ -219,12 +304,20 @@ except Exception:
     fi
   fi
 
-  # Also check tasks.md completion
+  # Check tasks.md completion (full/lite mode — tasks.md exists in full, phase5-task-breakdown.md in lite)
   tasks_file="${change_dir}tasks.md"
+  breakdown_file="${change_dir}context/phase5-task-breakdown.md"
+  actual_tasks_file=""
   if [ -f "$tasks_file" ]; then
-    unchecked=$(grep -c '\- \[ \]' "$tasks_file" 2>/dev/null || echo "0")
+    actual_tasks_file="$tasks_file"
+  elif [ -f "$breakdown_file" ]; then
+    actual_tasks_file="$breakdown_file"
+  fi
+
+  if [ -n "$actual_tasks_file" ]; then
+    unchecked=$(grep -c '\- \[ \]' "$actual_tasks_file" 2>/dev/null || echo "0")
     if [ "$unchecked" -gt 0 ]; then
-      deny "tasks.md has $unchecked incomplete tasks. All must be [x] before Phase 6."
+      deny "$(basename "$actual_tasks_file") has $unchecked incomplete tasks. All must be [x] before Phase 6."
     fi
   fi
 fi

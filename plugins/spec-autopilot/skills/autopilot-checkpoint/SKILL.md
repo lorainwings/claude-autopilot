@@ -92,8 +92,12 @@ phase-results/phase5-tasks/
 恢复 Phase 5 时：
 1. 列出 `phase5-tasks/task-*.json` 文件
 2. 按 task number 排序
-3. 找到最后一个 `status: "ok"` 的 task
-4. 返回该 task number，Phase 5 从 task N+1 继续
+3. 找到**第一个** `status` 不是 `"ok"` 的 task（blocked/failed/warning）
+   - 如果存在 → Phase 5 从该 task 重新开始（修复后继续）
+   - 如果不存在（全部 ok） → Phase 5 所有 task 已完成
+4. 如果没有 task checkpoint 文件 → 从 task 1 开始
+
+> **非连续恢复约束**：不跳过失败的 task。即使后续 task 有 ok 状态（并行模式残留），仍从第一个非 ok task 重新开始，确保实现完整性。
 
 ## 扫描所有 Checkpoint
 

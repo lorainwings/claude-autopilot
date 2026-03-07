@@ -112,12 +112,13 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
      - PID 存活 + `session_id` 匹配 → 确认为同一进程，AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
      - PID 存活 + `session_id` 不匹配 → PID 已被操作系统回收给其他进程，视为崩溃残留，自动清理并覆盖
      - PID 不存在 → 视为崩溃残留，自动清理并覆盖
-6. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
+7. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
    ```
    git commit --allow-empty -m "autopilot: start <change_name>"
    ANCHOR_SHA=$(git rev-parse HEAD)
    ```
    将 `ANCHOR_SHA` 写入锁定文件的 `anchor_sha` 字段（更新已写入的 `.autopilot-active` 文件）
+   > **原子性保障**：步骤 6 初次写入锁文件时 `anchor_sha` 设为空字符串。步骤 7 创建 commit 后立即更新。如果步骤 7 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
@@ -133,9 +134,17 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    ├─ 技术调研 (Explore agent) → research-findings.md        ← 三者并行
    └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 条件: web_search.enabled
    ```
-   派发后等待 Claude Code **自动完成通知**（禁止 TaskOutput 轮询）
+   **强制并行约束**（v3.2.1）：主线程**必须在同一条消息中**同时发起所有调研 Task（全部设置 `run_in_background: true`），然后等待 Claude Code 自动完成通知。
+   - ❌ **禁止**：逐个发起 Task，等前一个完成再发下一个
+   - ❌ **禁止**：使用前台 Explore agent 逐个扫描
+   - ❌ **禁止**：使用 TaskOutput 检查后台 Agent 进度（TaskOutput 仅适用于 Bash 后台命令）
+   - ✅ **正确**：在一条消息中包含 2-3 个 `Task(run_in_background: true)` 调用
    优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 Auto-Scan 仅做增量
-3. **汇合调研结果** → 合并 3 个 Agent 的结果到 context/ 目录
+3. **汇合调研结果** → 三个 Agent 写入独立文件（无需文件级合并），主线程读取验证每个文件存在且非空：
+   - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（Auto-Scan 产出）
+   - `context/research-findings.md`（技术调研产出）
+   - `context/web-research-findings.md`（联网搜索产出，可选）
+   后续 dispatch 模板自动注入全部文件路径给子 Agent
 4. **复杂度评估与分路** → 基于调研结果自动分类为 small/medium/large，决定讨论深度
 5. Task 调度 business-analyst 分析需求（注入 Steering + Research + WebResearch 全部上下文），产出功能清单 + 疑问点
 5.5. **主动讨论协议** — 对识别到的每个不确定点，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
@@ -187,7 +196,7 @@ Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_managem
 ├─ e2e 测试 subagent (qa-expert)
 └─ ui 测试 subagent (frontend-developer)
 ↓ 汇合
-主线程合并 test_counts + 验证 test_pyramid + 运行 dry-run
+主线程合并 test_counts + 验证 test_pyramid + 验证 dry_run_results（从子 Agent 信封提取，不重复执行）
 ```
 
 每个子 Agent 的 prompt 必须注入：
@@ -206,7 +215,8 @@ Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_managem
 Phase 4 返回 `status: "warning"` 时，主线程**必须**执行以下检查：
 1. 检查 `test_counts` 是否所有字段 ≥ min_test_count_per_type
 2. 检查 `artifacts` 是否非空
-3. **如果 test_counts 任一字段 < min_test_count_per_type 或 artifacts 为空**：
+3. 检查 `dry_run_results` 是否所有字段为 0（exit code）
+4. **如果 test_counts 任一字段 < min_test_count_per_type 或 artifacts 为空 或 dry_run_results 任一字段 ≠ 0**：
    - 将 status 强制覆盖为 `"blocked"`
    - 不写入 checkpoint
    - 展示给用户：「Phase 4 返回 warning 但未创建足够测试用例，视为 blocked」
@@ -265,8 +275,8 @@ allure generate allure-results/ -o allure-report/ --clean
 
 **Allure 统一报告**（当 `config.phases.reporting.format === "allure"`）：
 1. 检测 Allure 安装: `bash scripts/check-allure-install.sh`
-2. 所有套件统一输出到 `ALLURE_RESULTS_DIR="$(pwd)/allure-results"`
-3. 生成统一报告: `npx allure generate`
+2. 所有套件输出到各自子目录 `allure-results/{suite_name}/`（并行模式避免冲突）
+3. 生成统一报告: `npx allure generate allure-results/ -o allure-report/ --clean`（Allure 自动合并子目录）
 4. 降级: Allure 不可用 → 使用 config.phases.reporting.report_commands
 
 **Phase 7 汇总展示增强**（v3.2.0）：
@@ -289,36 +299,51 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 
 ---
 
-## Phase 6.5: AI 代码审查（主线程派发，可选）
+## Phase 6 三路并行（v3.2.2 增强）
 
-当 `config.phases.code_review.enabled`（默认 true）时，在 Phase 6 完成后自动触发。
+Phase 5→6 Gate 通过后，主线程**在同一条消息中**同时派发三路并行任务：
+
+```
+┌─ 路径 A: Phase 6 测试执行（前台 Task，按统一调度模板 Step 1-7）
+├─ 路径 B: Phase 6.5 代码审查（后台 Task, run_in_background: true）  ← 三路并行
+└─ 路径 C: 质量扫描（多个后台 Task, run_in_background: true）
+↓ Phase 7 汇合收集所有结果
+```
+
+### 路径 A: 测试执行（前台，主流程）
+
+按 Phases 2-6 统一调度模板的 Step 1-7 正常执行。Phase 6 是前台 Task，等待完成后写入 checkpoint。测试执行的并行细节见上方「Phase 6 特殊处理」。
+
+### 路径 B: Phase 6.5 代码审查（后台并行，可选）
+
+当 `config.phases.code_review.enabled`（默认 true）时，**与路径 A 在同一消息中**派发后台 Agent。
 
 **执行前读取**: `references/phase6-code-review.md`（完整审查流程）
 
-概要:
-1. 收集 `$ANCHOR_SHA..HEAD` 的变更范围（git diff），过滤 skip_patterns
-2. 派发代码审查子 Agent，执行安全性/代码质量/架构一致性/测试覆盖 4 维审查
-3. 解析审查结果：
-   - ok → 继续质量扫描和 Phase 7
-   - warning → 展示 findings 给用户确认
-   - blocked → 要求修复 critical findings 后重新审查
-4. 写入 `phase-6.5-code-review.json` checkpoint
+```
+Task(
+  subagent_type: "general-purpose",
+  run_in_background: true,
+  prompt: "<!-- 代码审查，不含 autopilot-phase 标记 -->
+    收集 $ANCHOR_SHA..HEAD 变更 → 执行 4 维审查 → 返回 JSON 信封"
+)
+```
 
-> Phase 6.5 不是整数阶段，不受 Layer 2 Hook 门禁校验，但主线程仍执行 JSON 信封解析和状态检查。
+- 代码审查仅需 `git diff`，**不依赖 Phase 6 测试结果**，可安全并行
+- 审查结果在 Phase 7 步骤 2 收集，写入 `phase-6.5-code-review.json` checkpoint
+- Phase 6.5 不是整数阶段，不受 Layer 2 Hook 门禁校验
 
----
+### 路径 C: 质量扫描（后台并行，不阻塞）
 
-## Phase 6→7 过渡: 并行质量扫描（主线程派发，不阻塞）
+**与路径 A、B 在同一消息中**派发所有质量扫描 Agent。
 
 **执行前读取**: `references/quality-scans.md`（完整的派发流程、安装重试、结果收集、硬超时机制）
 
-概要:
-1. 读取 `config.async_quality_scans`，对每个扫描项检查工具安装 → 未安装自动安装 → 仍失败标记 "install_failed"
-2. 使用 `Task(run_in_background: true)` 并行派发所有扫描（prompt 不含 autopilot-phase 标记，不受 Hook 门禁）
-3. Phase 7 开始时收集结果，硬超时（默认 10 分钟，`config.async_quality_scans.timeout_minutes`）自动标记 "timeout"
-4. 生成质量汇总表（扫描项 / 状态 / 得分 / 阈值 / PASS|WARN|TIMEOUT）
+1. 读取 `config.async_quality_scans`，对每个扫描项 `Task(run_in_background: true)` 派发
+2. prompt 不含 `autopilot-phase` 标记，不受 Hook 门禁
+3. Phase 7 步骤 2 收集结果，硬超时自动标记 "timeout"
 
-> 扫描失败不阻断归档，但会在汇总表中标红警告。
+> 路径 B 和 C 失败均不阻断路径 A 的 checkpoint 写入。Phase 7 统一收集后展示。
 
 ---
 
@@ -333,16 +358,28 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
    - 解析返回的 JSON，提取 `markdown_table` 和 `ascii_chart` 字段
    - 直接向用户展示格式化的阶段耗时表格和耗时分布图
    > 详见：`references/metrics-collection.md`
-1.6. **知识提取**：从所有 phase checkpoint 中提取可复用知识
-   - 读取 `references/knowledge-accumulation.md` 的 Phase 7 提取规则
-   - 遍历 phase-results 目录，提取 decisions / pitfalls / patterns / optimizations
-   - 追加到 `openspec/.autopilot-knowledge.json`（如不存在则创建）
-   - 在汇总表中展示：「已提取 N 条知识（M 条 pitfall，K 条 decision）」
+1.6. **知识提取**（后台子 Agent，v3.2.2 优化）：
+   - 派发后台 Agent：`Task(subagent_type: "general-purpose", run_in_background: true)`
+   - Agent 任务：读取 `references/knowledge-accumulation.md` → 遍历 phase-results → 提取知识 → 写入 `openspec/.autopilot-knowledge.json`
+   - 主线程同时继续执行步骤 1.5 和步骤 2，不阻塞
+   - 在步骤 3 AskUserQuestion 前等待完成，展示：「已提取 N 条知识（M 条 pitfall，K 条 decision）」
    > 详见：`references/knowledge-accumulation.md`
-2. **收集并行质量扫描结果**：检查上一步派发的后台 Agent，展示质量汇总表（含得分和阈值对比）
-   - **硬超时机制**：等待扫描结果时，最多等待 `config.async_quality_scans.timeout_minutes` 分钟（默认 10 分钟）
-   - 超时后自动将该扫描标记为 `"timeout"`，**不询问用户是否继续等待**，直接继续后续步骤
-   - 超时的扫描在质量汇总表中显示 `TIMEOUT` 状态
+2. **收集三路并行结果**（Phase 6 三路并行的汇合点，**仅 full/lite 模式**）：
+   > **minimal 模式**：跳过此步骤（minimal 模式无 Phase 6，三路并行不存在，直接进入步骤 3）
+
+   **等待机制**：阻塞等待路径 B 和路径 C 的后台 Agent 完成或超时，Claude Code 会自动发送完成通知。
+
+   a. **Phase 6.5 代码审查**（路径 B，仅当 `config.phases.code_review.enabled = true`）：
+      - 检查后台 Agent 完成通知
+      - ok → 写入 `phase-6.5-code-review.json` checkpoint，展示审查通过
+      - warning → 展示 findings 给用户，不阻断归档
+      - blocked → 展示 critical findings，标记需修复（不阻断 Phase 7 汇总展示，但阻断步骤 4 归档操作）
+      - **code_review 未启用** → 跳过此项，不创建 checkpoint
+      - **JSON 解析失败** → 展示原始返回文本，标记为 warning
+   b. **质量扫描**（路径 C）：展示质量汇总表（含得分和阈值对比）
+      - **硬超时机制**：最多等待 `config.async_quality_scans.timeout_minutes` 分钟（默认 10 分钟），超时自动标记 `"timeout"`，不询问用户
+      - **JSON 解析失败** → 展示原始返回文本，标记为 warning
+   c. **知识提取**（步骤 1.6 后台 Agent）：等待完成，展示提取结果
 3. **必须** AskUserQuestion 询问用户：
    ```
    "所有阶段已完成。是否归档此 change？"
@@ -354,6 +391,7 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 4. 用户选择"立即归档"：
    a. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 true，默认 true）：
       - 读取 `openspec/changes/.autopilot-active` 中的 `anchor_sha`
+      - **验证 anchor_sha 有效**：执行 `git rev-parse $ANCHOR_SHA` → 无效则跳过 autosquash，警告用户
       - 执行 `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash $ANCHOR_SHA~1`
       - 成功 → 修改最终 commit message 为 `feat(autopilot): <change_name> — <summary>`
       - 失败（冲突等） → 执行 `git rebase --abort`，保留原始 fixup commits，警告用户需手动处理压缩
@@ -398,7 +436,7 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 | 知识累积 | Phase 7 自动提取知识到 openspec/.autopilot-knowledge.json，Phase 1 自动注入 |
 | 结构化决策 | 所有决策点以结构化卡片呈现（选项/优劣/推荐），所有复杂度级别均展示决策卡片（small 仅关键点） |
 | 执行模式 | 支持 full/lite/minimal 三种模式；模式仅控制跳过哪些阶段，Phase 1 和 Phase 5 在所有模式下执行质量完全一致 |
-| 并行编排 | Phase 1/4/5/6 支持并行执行，基于 `references/parallel-dispatch.md` 通用协议 |
+| 并行编排 | Phase 1/4/5/6 支持阶段内并行执行；Phase 6+6.5+质量扫描三路并行；Phase 7 知识提取后台化 |
 | **后台 Agent 轮询禁令** | **禁止使用 TaskOutput 检查后台 Agent 进度**。TaskOutput 仅适用于 Bash 后台命令。后台 Agent 完成时 Claude Code 自动通知，直接等待通知即可。如需提前查看进度，使用 Read 读取 output_file |
 | 测试追溯 | Phase 4 测试用例必须追溯到 Phase 1 需求点（traceability matrix） |
 | Allure 报告 | Phase 6 优先使用 Allure 生成统一测试报告，降级为自定义格式 |

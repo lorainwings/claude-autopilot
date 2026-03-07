@@ -314,18 +314,39 @@ parallel_config:
     node: "fullstack-developer"
 ```
 
-### Phase 6: 测试执行并行
+### Phase 6: 三路并行（v3.2.2 增强）
+
+Phase 6 采用**跨维度三路并行**，不同于 Phase 1/4/5 的阶段内并行：
 
 ```yaml
-parallel_tasks:
-  # 从 config.test_suites 动态生成
-  - name: "{suite_name}"
-    command: "{suite.command}"
-    allure_args: "{suite.allure_args}"
-    merge_strategy: "none"
+tri_path_parallel:
+  # 路径 A: 测试执行（前台 Task，按统一调度模板）
+  path_a:
+    type: "foreground"
+    parallel_tasks:  # 路径 A 内部可进一步并行（按 test_suites 分组）
+      - name: "{suite_name}"
+        command: "{suite.command}"
+        allure_args: "{suite.allure_args}"
+        merge_strategy: "none"
+
+  # 路径 B: 代码审查（后台 Task）
+  path_b:
+    type: "background"
+    condition: "config.phases.code_review.enabled"
+    agent: "general-purpose"
+    prompt_source: "references/phase6-code-review.md"
+    no_phase_marker: true  # 不含 autopilot-phase 标记，Hook 直接放行
+
+  # 路径 C: 质量扫描（多个后台 Task）
+  path_c:
+    type: "background"
+    source: "config.async_quality_scans"
+    prompt_source: "references/quality-scans.md"
+    no_phase_marker: true
+    timeout: "config.async_quality_scans.timeout_minutes"
 ```
 
-汇合后: `allure generate` 合并报告
+汇合点: Phase 7 步骤 2（收集 A/B/C 全部结果）
 
 ## 与 Superpowers 的关键差异
 

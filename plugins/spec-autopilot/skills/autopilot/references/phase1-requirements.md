@@ -405,6 +405,7 @@ ELSE:
 ## 技术调研结论
 读取以下文件了解技术可行性：
 - openspec/changes/<name>/context/research-findings.md
+- openspec/changes/<name>/context/web-research-findings.md（如存在）
 
 ## 复杂度评估
 当前评估复杂度：{complexity}（基于预估影响 {total_files} 个文件）
@@ -540,7 +541,8 @@ ELSE:
     "openspec/changes/<name>/context/project-context.md",
     "openspec/changes/<name>/context/existing-patterns.md",
     "openspec/changes/<name>/context/tech-constraints.md",
-    "openspec/changes/<name>/context/research-findings.md"
+    "openspec/changes/<name>/context/research-findings.md",
+    "openspec/changes/<name>/context/web-research-findings.md"
   ],
   "requirements_summary": "功能概要...",
   "decisions": [{"point": "决策点描述", "choice": "用户选择"}],
