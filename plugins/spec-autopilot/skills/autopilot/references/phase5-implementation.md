@@ -67,9 +67,45 @@
 
 ---
 
-## 并行执行模式
+## 并行执行模式（v3.2.0 混合模式增强）
 
-当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 对无依赖关系的 task 使用并行执行，显著提升实施效率。
+当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 使用**混合模式**：
+按独立域分组并行 + 每组完成后批量 review，兼顾速度和质量。
+
+> **参考协议**: `references/parallel-dispatch.md`（通用并行编排）
+
+### 混合模式核心流程
+
+```
+1. 解析任务清单 → 构建文件依赖图（Union-Find 或域级快速分区）
+2. 主线程一次性提取所有任务的完整文本和上下文
+   （关键：子 Agent 不自己读取计划文件，避免上下文重复膨胀）
+3. 对每个并行组:
+   a. Task(isolation: "worktree", run_in_background: true) × N 并行派发
+   b. 每个 subagent 收到: 任务全文 + 文件所有权 + 项目规则
+   c. subagent 可通过 AskUserQuestion 提问，主线程回答
+   d. 等待全部完成 → 收集 JSON envelope
+   e. 按 task 编号顺序合并 worktree
+   f. 运行 typecheck 快速验证
+   g. 【新增】派发 review subagent 批量审查本组所有变更
+      - 规范符合性审查（实现是否符合需求描述）
+      - 代码质量审查（是否符合项目规则约束）
+      - 跨 task 一致性检查
+   h. review 发现问题 → resume 对应 implementer agent 修复
+4. 跨域任务串行执行（在所有并行组完成后）
+5. 全组完成后运行 full_test
+```
+
+### 与 Superpowers subagent-driven 的关键差异
+
+| 维度 | Superpowers | Autopilot v3.2.0 |
+|------|-------------|-------------------|
+| 实施模式 | 严格串行（每次一个 subagent） | 组内并行 + 组间串行 |
+| Review | 每任务双阶段（spec + quality） | 每组批量 review |
+| 隔离方式 | 无 worktree | worktree + 文件所有权分区 |
+| 冲突处理 | 不涉及 | 3 层检测 + 自动降级 |
+| 上下文管理 | 控制器提取全文（借鉴） | 控制器提取全文 |
+| 修复策略 | resume 同一 agent（借鉴） | resume 同一 agent |
 
 ### 依赖分析
 

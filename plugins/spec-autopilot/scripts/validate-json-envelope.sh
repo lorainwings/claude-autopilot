@@ -96,18 +96,27 @@ if not output.strip():
 # 3) Extract JSON envelope from output using raw_decode (handles nested objects)
 found_json = None
 
-# Strategy A: Try json.JSONDecoder().raw_decode to find first valid JSON object
+# Strategy A: Two-pass search — prefer JSON with both 'status' AND 'summary'
+# (avoids matching tool output JSON that happens to have 'status' but no 'summary')
 decoder = json.JSONDecoder()
-# Search for '{' positions and try to decode from each
+candidates = []
 for i, ch in enumerate(output):
     if ch == '{':
         try:
             obj, end = decoder.raw_decode(output, i)
             if isinstance(obj, dict) and 'status' in obj:
-                found_json = obj
-                break
+                candidates.append(obj)
         except (json.JSONDecodeError, ValueError):
             continue
+
+# Pass 1: Find first candidate with both required fields (full envelope)
+for c in candidates:
+    if 'summary' in c:
+        found_json = c
+        break
+# Pass 2: Fall back to first candidate with 'status' only
+if not found_json and candidates:
+    found_json = candidates[0]
 
 # Strategy B: Try fenced code block extraction
 if not found_json:
@@ -169,7 +178,7 @@ phase_num = int(phase_match.group(1)) if phase_match else 0
 phase_required = {
     4: ['test_counts', 'dry_run_results', 'test_pyramid'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
-    6: ['pass_rate', 'report_path', 'report_format'],
+    6: ['pass_rate', 'report_path', 'report_format', 'suite_results'],
 }
 
 if phase_num in phase_required:

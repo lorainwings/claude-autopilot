@@ -1,8 +1,10 @@
 {
   "name": "spec-autopilot",
-  "version": "3.0.0",
-  "description": "Spec-driven autopilot with built-in phase templates (zero project-side files), weighted anti-rationalization, file ownership parallel execution, model routing, persistent knowledge accumulation, deep research with proactive discussion, all-phase rules injection, and crash recovery",
-  "author": { "name": "vibeflow-team" },
+  "version": "3.2.0",
+  "description": "Spec-driven autopilot with cross-phase parallel dispatch (Phase 1/4/5/6), mixed-mode parallel implementation (worktree + domain partition + batch review), Allure unified test reporting with anomaly alerts, requirement-driven test traceability matrix, enhanced decision cards with research evidence for all complexity levels, code constraint enforcement (forbidden + required patterns + style guide), built-in phase templates, weighted anti-rationalization, persistent knowledge accumulation, crash recovery, and model routing",
+  "author": {
+    "name": "vibeflow-team"
+  },
   "repository": "https://github.com/lorainwings/claude-autopilot",
   "license": "MIT",
   "keywords": [
@@ -28,7 +30,13 @@
     "model-routing",
     "file-ownership",
     "persistent-knowledge",
-    "proactive-discussion"
+    "proactive-discussion",
+    "parallel-dispatch",
+    "allure-reporting",
+    "test-traceability",
+    "batch-review",
+    "research-evidence",
+    "required-patterns"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

@@ -405,3 +405,16 @@ status 只允许 "ok" 或 "blocked"：
 - **降级模式**（Allure 安装失败时）：
   - 使用 config.phases.reporting.report_commands 中的 html/markdown 命令
   - 返回 `report_format: "custom"`
+
+## 并行调度协议（v3.2.0 新增）
+
+**执行前读取**: `autopilot/references/parallel-phase-dispatch.md`（完整的 Phase 1/4/5/6 并行 Task prompt 模板）
+
+概要：当阶段支持并行执行时，dispatch 按 `references/parallel-dispatch.md` 通用协议 + `references/parallel-phase-dispatch.md` 阶段模板构造并行 Task prompt。
+
+| Phase | 并行条件 | 配置项 |
+|-------|---------|--------|
+| 1 | 始终并行（Auto-Scan + 调研 + 搜索） | `config.phases.requirements.research.enabled` |
+| 4 | `config.phases.testing.parallel.enabled = true` | 按测试类型分组 |
+| 5 | `config.phases.implementation.parallel.enabled = true` | 按文件域分组 |
+| 6 | `config.phases.reporting.parallel.enabled = true`（默认 true） | 按测试套件分组 |

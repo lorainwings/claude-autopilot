@@ -23,9 +23,9 @@
 | Phase | 必须字段 | 可选字段 |
 |-------|----------|----------|
 | 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach }` |
-| 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | — |
+| 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }` | `test_traceability: [{ test, requirement }]` |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }` |
-| 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir` |
+| 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir`, `suite_results: [{ suite, total, passed, failed, skipped }]`, `anomaly_alerts: [string]` |
 | 7 | `archive_path`, `change_name` | `cleanup_actions`, `knowledge_extracted: number` |
 
 ## 状态解析规则
@@ -137,3 +137,74 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 - `test-results.json` 存在
 - `zero_skip_check.passed === true`
 - `tasks.md` 中所有任务标记为 `[x]`
+
+
+## 并行调度协议字段（v3.2.0 新增）
+
+当阶段使用并行执行时，JSON 信封增加以下可选字段：
+
+### 并行子 Agent 返回格式（单个 agent）
+
+```json
+{
+  "status": "ok",
+  "summary": "完成 unit 测试设计，共 8 个用例",
+  "artifacts": ["tests/unit/test_user.py"],
+  "parallel_group": "unit-tests",
+  "parallel_index": 1,
+  "_metrics": {
+    "start_time": "...",
+    "end_time": "...",
+    "duration_seconds": 120,
+    "retry_count": 0
+  }
+}
+```
+
+### 主线程合并后的聚合格式
+
+```json
+{
+  "status": "ok",
+  "summary": "Phase 4 全部测试用例设计完成，共 25 个用例",
+  "artifacts": ["...all merged..."],
+  "parallel_metrics": {
+    "mode": "parallel",
+    "total_agents": 4,
+    "successful_agents": 4,
+    "failed_agents": 0,
+    "total_duration_seconds": 180,
+    "max_agent_duration_seconds": 120,
+    "fallback_reason": null
+  },
+  "test_counts": { "unit": 8, "api": 6, "e2e": 6, "ui": 5 },
+  "test_traceability": [
+    { "test": "test_user_login", "requirement": "REQ-1.1 用户登录" },
+    { "test": "test_create_space", "requirement": "REQ-2.1 创建工作空间" }
+  ]
+}
+```
+
+### Phase 6 Allure 增强返回格式
+
+```json
+{
+  "status": "ok",
+  "summary": "全部测试通过，Allure 报告已生成",
+  "pass_rate": 96.5,
+  "report_path": "allure-report/index.html",
+  "report_format": "allure",
+  "allure_results_dir": "allure-results/",
+  "suite_results": [
+    { "suite": "backend_unit", "total": 25, "passed": 25, "failed": 0, "skipped": 0 },
+    { "suite": "api_test", "total": 12, "passed": 11, "failed": 1, "skipped": 0 },
+    { "suite": "e2e_test", "total": 8, "passed": 8, "failed": 0, "skipped": 0 },
+    { "suite": "ui_test", "total": 6, "passed": 5, "failed": 0, "skipped": 1 }
+  ],
+  "anomaly_alerts": [
+    "API 测试: test_create_user_duplicate 失败 — 预期 409 但返回 500",
+    "UI 测试: test_login_page_layout 跳过 — 缺少 Playwright 浏览器"
+  ],
+  "report_url": "file:///path/to/allure-report/index.html"
+}
+```

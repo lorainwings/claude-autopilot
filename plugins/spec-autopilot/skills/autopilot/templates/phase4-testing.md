@@ -28,6 +28,37 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 | 完整业务流程 | 主流程 + 分支流程 + 异常中断 | ≥5 个完整流程 |
 | 边界条件和异常 | 空值、超长、并发、权限、网络异常 | ≥8 个边界用例 |
 
+## 需求追溯矩阵（v3.2.0 新增）
+
+每个测试用例**必须**追溯到 Phase 1 确认的具体需求点：
+
+1. 读取 `phase-1-requirements.json` 中的 `requirements_summary` 和 `decisions[]`
+2. 为每个需求点分配唯一标识（REQ-N.M 格式）
+3. 每个测试用例必须包含追溯注释：
+
+```python
+# pytest 格式
+@allure.link("REQ-1.1", name="用户登录功能")
+def test_user_login():
+    ...
+
+# Playwright 格式
+test('用户登录', async ({ page }) => {
+  // Traces: REQ-1.1 用户登录功能
+  ...
+});
+```
+
+4. 追溯覆盖率要求：≥ 80%（每个需求点至少有 1 个测试用例）
+
+## 并行执行模式（v3.2.0 新增）
+
+当以并行模式执行时，你仅负责**一种测试类型**：
+- 你的测试类型：`{test_type}`（由控制器分配）
+- 你只需创建该类型的测试文件
+- 其他类型由其他并行子 Agent 负责
+- 仍需遵守追溯矩阵要求
+
 ## 测试文件创建
 
 必须为 config.test_suites 中定义的每种 type 创建测试文件：
@@ -74,3 +105,13 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 
 status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
 必须包含 test_counts、artifacts、dry_run_results、test_pyramid 字段。
+**v3.2.0 新增**: 必须包含 `test_traceability` 字段（需求追溯映射）。
+
+```json
+{
+  "test_traceability": [
+    { "test": "test_user_login", "requirement": "REQ-1.1 用户登录" },
+    { "test": "test_create_space", "requirement": "REQ-2.1 创建工作空间" }
+  ]
+}
+```
