@@ -50,6 +50,15 @@ Task(
     - [ ] 新增代码有对应测试
     - [ ] 测试覆盖关键路径
 
+    ### 5. 项目规则合规（从 rules-scanner 注入）
+    {rules_scan_result}
+    {if config.code_constraints.semantic_rules}
+    额外语义规则检查：
+    {for each rule in config.code_constraints.semantic_rules}
+    - [ ] {rule.rule}（scope: {rule.scope}）
+    {end for}
+    {end if}
+
     返回 JSON 信封。"
 )
 ```

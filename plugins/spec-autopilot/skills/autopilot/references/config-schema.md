@@ -106,6 +106,8 @@ brownfield_validation:
   strict_mode: false           # true: block; false: warning only
   ignore_patterns: ["*.test.*", "*.spec.*", "__mocks__/**"]
 
+background_agent_timeout_minutes: 30  # 后台 Agent 通用硬超时（分钟），覆盖 Phase 2/3/6.5/7 知识提取等
+
 async_quality_scans:
   timeout_minutes: 10          # 硬超时（分钟），超时后标记 timeout 继续后续步骤
   contract_testing:
@@ -141,6 +143,10 @@ async_quality_scans:
 #   forbidden_patterns: []           # 禁止出现在代码中的模式
 #   max_file_lines: 800              # 单文件最大行数
 #   allowed_dirs: []                 # 允许修改的目录范围
+#   semantic_rules:                  # v3.3.0 新增：语义规则（dispatch 注入子 Agent prompt）
+#     - rule: "描述规则内容"
+#       scope: "backend/"            # 适用目录范围
+#       severity: "must"             # must | should | prefer
 
 test_suites:
   # 自动检测到的测试套件

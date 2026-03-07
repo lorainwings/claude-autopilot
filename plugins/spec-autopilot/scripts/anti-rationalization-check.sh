@@ -118,6 +118,21 @@ WEIGHTED_PATTERNS = [
     (1, r'too\s+(complex|difficult|risky|time[- ]consuming)'),
     (1, r'(minimal|low)\s+(impact|priority|risk)'),
     (1, r'pre[- ]existing\s+(issue|bug|problem|defect)'),
+    # Chinese rationalization patterns (中文合理化模式)
+    # High confidence (weight=3)
+    (3, r'(?:测试|任务|功能|用例)\s*(?:被|已)?(?:跳过|省略|忽略)'),
+    (3, r'跳过了?|已跳过|被跳过'),
+    (3, r'(?:延后|推迟|暂缓)(?:处理|实现|开发)?'),
+    (3, r'后续(?:再|补充|处理|实现|完善)'),
+    # Medium confidence (weight=2)
+    (2, r'(?:超出|不在)(?:范围|scope)'),
+    (2, r'(?:以后|后面|后续|下[一个]?(?:阶段|版本|迭代))(?:再|来|处理|实现)'),
+    (2, r'(?:暂时|先)?不(?:做|处理|实现|考虑)'),
+    # Low confidence (weight=1)
+    (1, r'已[经被]?(?:覆盖|测试|处理|实现|验证)'),
+    (1, r'(?:不|无)(?:需要|必要|需|必须)'),
+    (1, r'(?:太|过于)(?:复杂|困难|耗时)'),
+    (1, r'(?:影响|优先级|风险)\s*(?:较?低|不大|很小)'),
 ]
 
 output_lower = output.lower()

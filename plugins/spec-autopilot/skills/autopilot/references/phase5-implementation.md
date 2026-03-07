@@ -274,7 +274,11 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 
 ---
 
-## 实施流程（串行模式 — 默认）
+## 实施流程（串行模式 — 仅当 parallel.enabled = false）
+
+> **条件检查**：仅当 `config.phases.implementation.parallel.enabled = false`（默认值）且未从路径 A 降级时才执行本节。
+> 如果 `parallel.enabled = true`，必须执行上方「并行执行模式」章节，**禁止进入本节**。
+> 如果从路径 A 降级到串行模式，本节作为降级后的执行路径。
 
 1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
 2. **检查 worktree 隔离模式**：读取 `config.phases.implementation.worktree.enabled`

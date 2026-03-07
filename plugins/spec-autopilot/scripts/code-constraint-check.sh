@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # code-constraint-check.sh
-# Hook: PostToolUse(Task) — Phase 5 代码约束检查
+# Hook: PostToolUse(Task) — Phase 4/5/6 代码约束检查
 # 检查生成的 artifacts 是否违反项目约束（禁止文件/模式/行数/目录范围）。
 # 约束来源: autopilot.config.yaml code_constraints > CLAUDE.md 禁止项 > 无约束放行
 # Output: PostToolUse decision: "block" on violation.
@@ -21,8 +21,8 @@ PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]
 [ -z "$PROJECT_ROOT_QUICK" ] && PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
 
-# --- Fast bypass Layer 1: 仅 Phase 5 ---
-echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:5' || exit 0
+# --- Fast bypass Layer 1: Phase 4/5/6 代码约束检查 ---
+echo "$STDIN_DATA" | grep -qE '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[456]' || exit 0
 
 # --- Dependency check ---
 command -v python3 &>/dev/null || exit 0
@@ -38,7 +38,7 @@ except (json.JSONDecodeError, ValueError):
 
 prompt = data.get('tool_input', {}).get('prompt', '')
 pm = re.search(r'autopilot-phase:(\d+)', prompt)
-if not pm or int(pm.group(1)) != 5:
+if not pm or int(pm.group(1)) not in (4, 5, 6):
     sys.exit(0)
 
 # 提取 tool_response

@@ -197,6 +197,16 @@ if phase_num in phase_required:
         }))
         sys.exit(0)
 
+# Phase 5 special: zero_skip_check.passed must be true when status is ok
+if phase_num == 5 and found_json.get('status') == 'ok':
+    zsc = found_json.get('zero_skip_check', {})
+    if isinstance(zsc, dict) and zsc.get('passed') is not True:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 5 status is "ok" but zero_skip_check.passed is not true (got: {zsc.get("passed", "missing")}). All tests must pass with zero skips before proceeding.'
+        }))
+        sys.exit(0)
+
 if phase_num in phase_recommended:
     missing_rec = [f for f in phase_recommended[phase_num] if f not in found_json]
     if missing_rec:

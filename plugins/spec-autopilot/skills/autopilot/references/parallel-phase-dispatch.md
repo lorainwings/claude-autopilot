@@ -121,13 +121,151 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 
 ### Phase 5 并行调度
 
-详见 `references/parallel-dispatch.md` 的 Worktree 隔离模板和 `references/phase5-implementation.md` 的并行执行模式章节。
+> **触发条件**: `config.phases.implementation.parallel.enabled = true`
+> **强制约束**: 进入并行模式后，禁止检测 ralph-loop 可用性，禁止调用 Skill("ralph-loop:ralph-loop")
 
 核心增强（v3.2.0）：
 1. **混合模式** — 按独立域分组并行 + 每组完成后批量 review
 2. **控制器提取全文** — 主线程一次性读取所有任务文本，subagent 不自己读计划文件
 3. **subagent 提问机制** — subagent 可通过 AskUserQuestion 向用户提问
 4. **同一 agent 修复** — 发现问题后 resume 同一 agent 修复，不切换上下文
+
+#### Step 1: 任务清单解析
+
+```
+主线程读取任务清单:
+- full 模式: openspec/changes/{change_name}/tasks.md
+- lite/minimal 模式: openspec/changes/{change_name}/context/phase5-task-breakdown.md
+
+解析每个 task 的 affected_files 和 depends_on
+主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
+```
+
+#### Step 2: 文件所有权分区
+
+```
+backend_tasks  = tasks where all files start with "backend/"
+frontend_tasks = tasks where all files start with "frontend/"
+node_tasks     = tasks where all files start with "node/"
+cross_cutting  = remaining tasks
+
+为每个 task 生成 owned_files 列表
+写入: phase5-ownership/agent-{N}.json
+```
+
+#### Step 3: 并行 Task 派发（完整模板）
+
+对每个并行组（backend_tasks / frontend_tasks / node_tasks），主线程**在同一条消息中**同时派发：
+
+```markdown
+{for each task in task_group, up to max_agents}
+Task(
+  subagent_type: "general-purpose",
+  isolation: "worktree",
+  run_in_background: true,
+  prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 的并行实施子 Agent（{group_id}/{task_id}）。
+
+## 你的任务
+仅实施以下单个 task（禁止实施其他 task）：
+- Task #{task_number}: {task_title}
+- Task 内容: {task_full_text}
+
+## 前序 task 摘要（只读参考）
+{for each completed_task in group_predecessors}
+- Task #{n}: {summary} — 已合并到主分支
+{end for}
+
+## 上下文（由控制器提取，禁止自行读取计划文件）
+{context_injection}
+
+## 文件所有权约束（ENFORCED）
+你被分配以下文件的独占所有权：
+{owned_files}
+禁止修改此列表之外的任何文件。
+write-edit-constraint-check Hook 会拦截越权修改。
+
+## 并发隔离
+- 你运行在独立 worktree 中
+- 禁止修改 openspec/ 目录下的 checkpoint 文件
+- 禁止修改其他 task 正在修改的文件: {concurrent_task_files}
+- 完成后 artifacts 必须是 owned_files 的子集
+
+## 项目规则约束
+{rules_scan_result}
+
+## 执行模式
+{model_routing_hint}
+
+## 返回要求
+执行完毕后返回 JSON 信封：
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+"
+)
+{end for}
+```
+
+等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。
+
+#### Step 4: 合并 + 验证
+
+```
+按 task 编号顺序合并:
+for each agent in sorted(agents, key=task_number):
+  git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
+  if conflict and conflict_files > 3: rollback group worktree, degrade to serial
+  if conflict and conflict_files <= 3: AskUserQuestion show conflicts
+  else: git worktree remove + git branch -d
+
+快速验证: 运行 config.test_suites 中 type=typecheck 的命令
+主线程写入 checkpoint: phase5-tasks/task-N.json
+```
+
+#### Step 5: 批量 Review（每组完成后）
+
+```markdown
+Task(
+  subagent_type: "general-purpose",
+  prompt: "审查以下变更的规范符合性和代码质量:
+  
+  {for each agent in group}
+  ## Task #{N}: {title}
+  变更文件: {artifacts}
+  摘要: {summary}
+  {end for}
+  
+  请检查:
+  1. 实现是否符合原始需求描述
+  2. 代码风格是否符合项目规则约束
+  3. 各 task 之间是否有冲突或不一致
+  4. 是否有遗漏的边界情况
+  
+  返回: {\"status\": \"ok|warning\", \"summary\": \"...\", \"findings\": [...]}
+  "
+)
+```
+
+review 发现问题 -> resume 对应 implementer agent 修复
+
+#### Step 6: 跨域串行 + 全量测试
+
+```
+cross_cutting_tasks 在所有并行组完成后串行执行
+全部完成后运行 full_test（config.test_suites 全量）
+```
+
+#### 降级到串行模式
+
+```
+触发条件:
+- worktree 创建失败: 立即降级
+- 单组合并冲突 > 3 文件: 回退该组, 串行执行
+- 连续 2 组合并失败: 全面降级
+- 用户选择 "切换串行": 全面降级
+
+降级后进入 phase5-implementation.md 的串行模式章节
+记录: _metrics.parallel_fallback_reason
+```
 
 ## 代码生成约束增强（v3.2.0 新增）
 

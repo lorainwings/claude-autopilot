@@ -176,8 +176,13 @@ change_dir=$(find_active_change "$CHANGES_DIR" "yes") || exit 0  # No active cha
 phase_results_dir="${change_dir}context/phase-results"
 
 if [ ! -d "$phase_results_dir" ]; then
-  # No phase results yet → Phase 2 starting fresh
-  exit 0
+  if [ "$TARGET_PHASE" -le 1 ]; then
+    # Phase 1 starting fresh — no predecessor checkpoint needed
+    exit 0
+  else
+    # Phase 2+ requires at least Phase 1 checkpoint to exist
+    deny "Phase results directory not found. Phase 1 must complete before Phase $TARGET_PHASE can start."
+  fi
 fi
 
 last_phase=$(get_last_checkpoint_phase "$phase_results_dir")

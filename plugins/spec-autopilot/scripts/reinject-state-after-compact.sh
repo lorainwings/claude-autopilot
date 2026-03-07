@@ -20,18 +20,36 @@ if [ ! -d "$CHANGES_DIR" ]; then
   exit 0
 fi
 
-# --- Find the most recent autopilot-state.md ---
-STATE_FILE=""
-LATEST_MTIME=0
+# --- Source shared utilities ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
 
-for state in "$CHANGES_DIR"/*/context/autopilot-state.md; do
-  [ -f "$state" ] || continue
-  mtime=$(stat -f "%m" "$state" 2>/dev/null || stat -c "%Y" "$state" 2>/dev/null || echo 0)
-  if [ "$mtime" -gt "$LATEST_MTIME" ]; then
-    LATEST_MTIME=$mtime
-    STATE_FILE="$state"
+# --- Find active change state file ---
+# Priority 1: Use lock file to identify the active change (reliable)
+STATE_FILE=""
+LOCK_FILE="$CHANGES_DIR/.autopilot-active"
+if [ -f "$LOCK_FILE" ]; then
+  ACTIVE_NAME=$(parse_lock_file "$LOCK_FILE")
+  if [ -n "$ACTIVE_NAME" ] && [ -d "$CHANGES_DIR/$ACTIVE_NAME" ]; then
+    candidate="$CHANGES_DIR/$ACTIVE_NAME/context/autopilot-state.md"
+    if [ -f "$candidate" ]; then
+      STATE_FILE="$candidate"
+    fi
   fi
-done
+fi
+
+# Priority 2: Fallback to mtime-based search (when lock file missing)
+if [ -z "$STATE_FILE" ]; then
+  LATEST_MTIME=0
+  for state in "$CHANGES_DIR"/*/context/autopilot-state.md; do
+    [ -f "$state" ] || continue
+    mtime=$(stat -f "%m" "$state" 2>/dev/null || stat -c "%Y" "$state" 2>/dev/null || echo 0)
+    if [ "$mtime" -gt "$LATEST_MTIME" ]; then
+      LATEST_MTIME=$mtime
+      STATE_FILE="$state"
+    fi
+  done
+fi
 
 if [ -z "$STATE_FILE" ] || [ ! -f "$STATE_FILE" ]; then
   exit 0

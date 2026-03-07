@@ -54,6 +54,31 @@ CHANGE_NAME=$(basename "$ACTIVE_CHANGE")
 PHASE_RESULTS_DIR="$ACTIVE_CHANGE/context/phase-results"
 STATE_FILE="$ACTIVE_CHANGE/context/autopilot-state.md"
 
+# --- Read execution mode and anchor_sha from lock file ---
+LOCK_FILE="$CHANGES_DIR/.autopilot-active"
+EXEC_MODE="full"
+ANCHOR_SHA=""
+if [ -f "$LOCK_FILE" ] && command -v python3 &>/dev/null; then
+  EXEC_MODE=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    print(data.get('mode', 'full'))
+except Exception:
+    print('full')
+" "$LOCK_FILE" 2>/dev/null || echo "full")
+  ANCHOR_SHA=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    print(data.get('anchor_sha', ''))
+except Exception:
+    pass
+" "$LOCK_FILE" 2>/dev/null || echo "")
+fi
+
 # --- Build state summary ---
 if ! command -v python3 &>/dev/null; then
   exit 0
@@ -67,6 +92,8 @@ change_dir = sys.argv[1]
 change_name = sys.argv[2]
 phase_results_dir = sys.argv[3]
 state_file = sys.argv[4]
+exec_mode = sys.argv[5] if len(sys.argv) > 5 else 'full'
+anchor_sha = sys.argv[6] if len(sys.argv) > 6 else ''
 
 # Scan all checkpoints
 phases = {}
@@ -94,9 +121,13 @@ if not phases:
 
 next_phase = last_completed + 1 if last_completed < 7 else 7
 
-# Read tasks.md if exists
+# Read tasks file (phase5-task-breakdown.md for lite/minimal, tasks.md for full)
 tasks_summary = ''
+breakdown_file = os.path.join(change_dir, 'context', 'phase5-task-breakdown.md')
 tasks_file = os.path.join(change_dir, 'tasks.md')
+# Prefer phase5-task-breakdown.md (used in lite/minimal modes)
+if os.path.isfile(breakdown_file):
+    tasks_file = breakdown_file
 if os.path.isfile(tasks_file):
     try:
         with open(tasks_file) as f:
@@ -127,7 +158,11 @@ lines = [
     f'- **Last completed phase**: {last_completed}',
     f'- **Next phase to execute**: {next_phase}',
     f'- **Change directory**: \`openspec/changes/{change_name}/\`',
+    f'- **Execution mode**: \`{exec_mode}\`',
 ]
+
+if anchor_sha:
+    lines.append(f'- **Anchor SHA**: \`{anchor_sha}\`')
 
 if tasks_summary:
     lines.append(f'- **Tasks progress**: {tasks_summary}')
@@ -171,6 +206,6 @@ with open(state_file, 'w') as f:
     f.write('\n'.join(lines))
 
 print(f'Autopilot state saved: {state_file}', file=sys.stderr)
-" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" 2>/dev/null
+" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" "$EXEC_MODE" "$ANCHOR_SHA" 2>/dev/null
 
 exit 0
