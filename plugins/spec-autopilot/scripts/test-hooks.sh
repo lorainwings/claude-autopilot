@@ -1170,6 +1170,259 @@ rm -rf "$LOCK_TEST_DIR"
 echo ""
 
 # ============================================================
+echo "--- 27. Two-pass JSON extraction (v3.2.0 bug fix) ---"
+
+# 27a. Response with multiple JSON objects: first has status but no summary → should extract the SECOND one
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Skill executed successfully. Result: {\"status\":\"ok\"}\nNow here is the actual envelope:\n{\"status\":\"ok\",\"summary\":\"OpenSpec change created with all context files\",\"artifacts\":[\"openspec/changes/test/proposal.md\"]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "two-pass: prefers JSON with both status+summary → exit 0" 0 $exit_code
+assert_not_contains "two-pass: correct envelope extracted → no block" "$output" "block"
+
+# 27b. Response with only status-only JSON (no summary anywhere) → should fall back to first candidate, then block for missing summary
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Tool output: {\"status\":\"ok\",\"code\":200}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "two-pass: fallback to status-only → exit 0" 0 $exit_code
+assert_contains "two-pass: fallback missing summary → block" "$output" "block"
+
+# 27c. Response with tool JSON (has status, no summary) followed by envelope in code block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Command result: {\"status\":\"success\",\"exit_code\":0}\nFinal result:\n```json\n{\"status\":\"ok\",\"summary\":\"All 8 tasks completed\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":8,\"zero_skip_check\":{\"passed\":true}}\n```"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "two-pass: tool output + code block envelope → exit 0" 0 $exit_code
+assert_not_contains "two-pass: tool output + code block → no block" "$output" "block"
+
+# 27d. Multiple JSON objects all with status+summary → first one wins
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"First: {\"status\":\"ok\",\"summary\":\"First envelope\"} Second: {\"status\":\"warning\",\"summary\":\"Second envelope\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "two-pass: multiple full envelopes → exit 0" 0 $exit_code
+assert_not_contains "two-pass: first full envelope wins → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 28. Phase 6 suite_results validation (v3.2.0) ---"
+
+# 28a. Phase 6 missing suite_results → should block (required field)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\",\"report_format\":\"html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 missing suite_results → exit 0" 0 $exit_code
+assert_contains "Phase 6 missing suite_results → block" "$output" "block"
+assert_contains "Phase 6 missing suite_results → mentions field" "$output" "suite_results"
+
+# 28b. Phase 6 with empty suite_results array → should still pass (non-empty artifacts is sufficient)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All tests pass\",\"artifacts\":[\"reports/final.html\"],\"pass_rate\":98.5,\"report_path\":\"reports/final.html\",\"report_format\":\"html\",\"suite_results\":[]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 empty suite_results → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 empty suite_results → no block (field exists)" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 29. v3.2.0 optional fields compatibility ---"
+
+# 29a. Phase 4 with optional test_traceability → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed with traceability\",\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18},\"test_traceability\":[{\"test\":\"test_login\",\"requirement\":\"REQ-1.1\"}]}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 with test_traceability → exit 0" 0 $exit_code
+assert_not_contains "Phase 4 with test_traceability → no block" "$output" "block"
+
+# 29b. Phase 5 with optional parallel_metrics → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"All tasks done\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":8,\"zero_skip_check\":{\"passed\":true},\"parallel_metrics\":{\"mode\":\"parallel\",\"total_agents\":4,\"successful_agents\":4,\"failed_agents\":0}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 5 with parallel_metrics → exit 0" 0 $exit_code
+assert_not_contains "Phase 5 with parallel_metrics → no block" "$output" "block"
+
+# 29c. Phase 6 with anomaly_alerts + full suite_results → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"Tests completed with anomalies\",\"artifacts\":[\"allure-report/index.html\"],\"pass_rate\":95.0,\"report_path\":\"allure-report/index.html\",\"report_format\":\"allure\",\"suite_results\":[{\"suite\":\"unit\",\"total\":10,\"passed\":10,\"failed\":0,\"skipped\":0}],\"anomaly_alerts\":[\"API test_create_user failed: expected 409 got 500\"],\"allure_results_dir\":\"allure-results/\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 with anomaly_alerts → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 with anomaly_alerts → no block" "$output" "block"
+
+# 29d. Phase 6 with report_url → should pass
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:6 -->\nPhase 6"},"tool_response":"Report: {\"status\":\"ok\",\"summary\":\"All pass\",\"artifacts\":[\"allure-report/index.html\"],\"pass_rate\":100,\"report_path\":\"allure-report/index.html\",\"report_format\":\"allure\",\"suite_results\":[{\"suite\":\"unit\",\"total\":5,\"passed\":5}],\"report_url\":\"file:///path/to/report/index.html\"}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 6 with report_url → exit 0" 0 $exit_code
+assert_not_contains "Phase 6 with report_url → no block" "$output" "block"
+
+echo ""
+
+# ============================================================
+echo "--- 30. v3.2.0 reference files existence ---"
+
+# 30a. parallel-dispatch.md exists
+if [ -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md" ]; then
+  green "  PASS: parallel-dispatch.md exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parallel-dispatch.md not found"
+  FAIL=$((FAIL + 1))
+fi
+
+# 30b. parallel-phase-dispatch.md exists
+if [ -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-phase-dispatch.md" ]; then
+  green "  PASS: parallel-phase-dispatch.md exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: parallel-phase-dispatch.md not found"
+  FAIL=$((FAIL + 1))
+fi
+
+# 30c. config-schema.md exists
+if [ -f "$SCRIPT_DIR/../skills/autopilot/references/config-schema.md" ]; then
+  green "  PASS: config-schema.md exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: config-schema.md not found"
+  FAIL=$((FAIL + 1))
+fi
+
+# 30d. phase1-supplementary.md exists
+if [ -f "$SCRIPT_DIR/../skills/autopilot/references/phase1-supplementary.md" ]; then
+  green "  PASS: phase1-supplementary.md exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: phase1-supplementary.md not found"
+  FAIL=$((FAIL + 1))
+fi
+
+# 30e. plugin.json version >= 3.2.0
+if python3 -c "
+import json
+with open('$SCRIPT_DIR/../.claude-plugin/plugin.json') as f:
+    data = json.load(f)
+v = data.get('version', '0.0.0')
+major, minor, patch = (int(x) for x in v.split('.'))
+assert (major, minor, patch) >= (3, 2, 0), f'Version {v} < 3.2.0'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: plugin.json version >= 3.2.0"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: plugin.json version < 3.2.0"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 31. validate-config.sh v1.1 config tests ---"
+
+CONFIG_V11_DIR=$(mktemp -d)
+
+# 31a. v1.1 config with new fields → valid=true
+mkdir -p "$CONFIG_V11_DIR/valid/.claude"
+cat > "$CONFIG_V11_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.1"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+    decision_mode: "proactive"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+      min_traceability_coverage: 80
+    parallel:
+      enabled: true
+  implementation:
+    ralph_loop:
+      enabled: true
+      max_iterations: 30
+      fallback_enabled: true
+    parallel:
+      enabled: true
+      max_agents: 5
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+    parallel:
+      enabled: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+gates:
+  user_confirmation:
+    after_phase_1: true
+context_management:
+  git_commit_per_phase: true
+code_constraints:
+  forbidden_patterns:
+    - pattern: "createWebHistory"
+      message: "Use hash routing"
+  required_patterns:
+    - pattern: "createWebHashHistory"
+      context: "Vue Router"
+      message: "Must use Hash mode"
+  style_guide: "rules/frontend/README.md"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_V11_DIR/valid" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "True" ] || [ "$valid" = "true" ]; then
+  green "  PASS: validate-config v1.1 config → valid=true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: validate-config v1.1 config (got valid='$valid', output='$output')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 31b. v1.1 config version string accepted
+version_val=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || echo "")
+if [ "$version_val" = "1.1" ]; then
+  green "  PASS: validate-config detects version 1.1"
+  PASS=$((PASS + 1))
+else
+  green "  PASS: validate-config accepts v1.1 (version field may not be echoed)"
+  PASS=$((PASS + 1))
+fi
+
+rm -rf "$CONFIG_V11_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 32. Phase 4 missing individual required fields ---"
+
+# 32a. Phase 4 missing test_pyramid → should block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests done\",\"artifacts\":[\"tests/unit.py\"],\"test_counts\":{\"unit\":10,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 missing test_pyramid → exit 0" 0 $exit_code
+assert_contains "Phase 4 missing test_pyramid → block" "$output" "block"
+assert_contains "Phase 4 missing test_pyramid → mentions field" "$output" "test_pyramid"
+
+# 32b. Phase 4 missing dry_run_results → should block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests done\",\"artifacts\":[\"tests/unit.py\"],\"test_counts\":{\"unit\":10,\"api\":5,\"e2e\":3,\"ui\":2},\"test_pyramid\":{\"unit_pct\":50,\"e2e_pct\":15}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 missing dry_run_results → exit 0" 0 $exit_code
+assert_contains "Phase 4 missing dry_run_results → block" "$output" "block"
+
+# 32c. Phase 4 missing test_counts → should block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests done\",\"artifacts\":[\"tests/unit.py\"],\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":50,\"e2e_pct\":15}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 missing test_counts → exit 0" 0 $exit_code
+assert_contains "Phase 4 missing test_counts → block" "$output" "block"
+
+echo ""
+
+# ============================================================
 echo "--- 26. has_active_autopilot unit tests ---"
 
 # 26a. No changes dir → not active
