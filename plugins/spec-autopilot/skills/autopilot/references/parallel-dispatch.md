@@ -170,9 +170,14 @@ write-edit-constraint-check Hook 会拦截越权修改。
 
 ### Step 1: 等待所有后台 Agent 完成
 
+> **重要工具约束**：后台 Agent（`run_in_background: true`）完成时，Claude Code 会**自动发送通知**。
+> - **禁止**使用 `TaskOutput` 检查后台 Agent 进度 — `TaskOutput` 仅适用于 `Bash(run_in_background)` 命令，对 Agent/Task 后台任务无效。
+> - **正确做法**：派发所有后台 Agent 后，直接等待 Claude Code 的自动完成通知，收到通知后处理结果。
+> - 如确需提前查看进度，使用 `Read` 工具读取 Agent 返回的 `output_file` 路径。
+
 ```
 for each agent in running_agents:
-  等待 agent 完成（Claude Code 自动通知）
+  等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）
   envelope = 解析 agent 返回的 JSON 信封
   envelopes.append(envelope)
 ```

@@ -31,9 +31,11 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 │    → research-findings.md
 └─ 联网搜索 (general-purpose, run_in_background: true, 条件触发)
      → web-research-findings.md
-↓ 全部完成后汇合
+↓ 全部完成后汇合（等待 Claude Code 自动通知，禁止 TaskOutput 轮询）
 复杂度评估 → 需求分析 (business-analyst)
 ```
+
+> **工具约束**：派发后台 Agent 后，等待 Claude Code 自动完成通知。**禁止使用 TaskOutput 检查 Agent 进度**（TaskOutput 仅适用于 Bash 后台命令）。如需查看进度，使用 Read 读取 Agent 返回的 output_file。
 
 > **持久化上下文有效时**: Auto-Scan 直接跳过全量扫描，但技术调研和联网搜索仍并行执行（它们依赖 RAW_REQUIREMENT，非项目上下文）。
 

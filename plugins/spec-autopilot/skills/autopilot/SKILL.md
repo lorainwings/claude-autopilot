@@ -133,6 +133,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    ├─ 技术调研 (Explore agent) → research-findings.md        ← 三者并行
    └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 条件: web_search.enabled
    ```
+   派发后等待 Claude Code **自动完成通知**（禁止 TaskOutput 轮询）
    优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 Auto-Scan 仅做增量
 3. **汇合调研结果** → 合并 3 个 Agent 的结果到 context/ 目录
 4. **复杂度评估与分路** → 基于调研结果自动分类为 small/medium/large，决定讨论深度
@@ -398,6 +399,7 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 | 结构化决策 | 所有决策点以结构化卡片呈现（选项/优劣/推荐），所有复杂度级别均展示决策卡片（small 仅关键点） |
 | 执行模式 | 支持 full/lite/minimal 三种模式；模式仅控制跳过哪些阶段，Phase 1 和 Phase 5 在所有模式下执行质量完全一致 |
 | 并行编排 | Phase 1/4/5/6 支持并行执行，基于 `references/parallel-dispatch.md` 通用协议 |
+| **后台 Agent 轮询禁令** | **禁止使用 TaskOutput 检查后台 Agent 进度**。TaskOutput 仅适用于 Bash 后台命令。后台 Agent 完成时 Claude Code 自动通知，直接等待通知即可。如需提前查看进度，使用 Read 读取 output_file |
 | 测试追溯 | Phase 4 测试用例必须追溯到 Phase 1 需求点（traceability matrix） |
 | Allure 报告 | Phase 6 优先使用 Allure 生成统一测试报告，降级为自定义格式 |
 | 需求调研并行 | Phase 1 Auto-Scan + 技术调研 + 联网搜索三者并行执行 |
