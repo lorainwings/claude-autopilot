@@ -285,10 +285,8 @@ phases:
       required_test_types: [unit, api, e2e]
       min_test_count_per_type: 5
   implementation:
-    ralph_loop:
-      enabled: true
-      max_iterations: 20
-      fallback_enabled: true
+    serial_task:
+      max_retries_per_task: 3
   reporting:
     format: "custom"
     report_commands:
@@ -370,7 +368,7 @@ test_suites:
 - [ ] 配置验证通过（`valid: true`）
 - [ ] `project_context.test_credentials` 已填写（或由 Phase 1 自动发现）
 - [ ] `openspec/` 目录结构已存在
-- [ ] （可选）ralph-loop 插件已安装
+- [ ] （可选）并行模式已配置（`parallel.enabled: true`）
 - [ ] （可选）`instruction_files` 自定义覆盖已配置
 - [ ] 首次 `启动autopilot` 或 `/spec-autopilot:autopilot` 测试通过
 
@@ -445,7 +443,7 @@ phases:
     instruction_files: []    # 旧: [".claude/skills/autopilot/phases/testing-requirements.md"]
     reference_files: []      # 旧: ["...test-credentials.md", "...playwright-standards.md"]
   implementation:
-    instruction_files: []    # 旧: [".claude/skills/autopilot/phases/ralph-loop-config.md"]
+    instruction_files: []    # 旧: [".claude/skills/autopilot/phases/implementation-config.md"]
   reporting:
     instruction_files: []    # 旧: [".claude/skills/autopilot/phases/reporting.md"]
 ```
@@ -481,7 +479,7 @@ bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/valida
 | "Config file not found" | 配置未生成 | 运行 `autopilot-init` 或手动创建 |
 | "python3 not found" | Hook 脚本需要 python3 | `brew install python3` 或 `apt install python3` |
 | "Phase N checkpoint not found" | 阶段被跳过或崩溃 | 触发 autopilot 重新运行，崩溃恢复会自动处理 |
-| "ralph-loop not available" | 插件未安装 | 安装 ralph-loop 或设置 `fallback_enabled: true` |
+| "Phase 5 task 连续失败" | 实施遇到阻塞 | 检查错误日志，调整 `serial_task.max_retries_per_task` |
 | Hook 脚本超时 | 项目过大导致扫描慢 | 增加 Hook timeout 或减少扫描范围 |
 | 测试金字塔不通过 | 测试分布不达标 | 调整测试用例数量或放宽 `test_pyramid` 阈值 |
 
