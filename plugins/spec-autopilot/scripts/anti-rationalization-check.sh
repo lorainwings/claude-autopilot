@@ -143,6 +143,8 @@ for weight, pattern in WEIGHTED_PATTERNS:
         total_score += weight
         found_patterns.append((weight, pattern))
 
+_sep = chr(44) + chr(32)
+
 # Extract artifacts from JSON envelope to check for actual output
 has_artifacts = False
 for i, ch in enumerate(output):
@@ -164,21 +166,21 @@ for i, ch in enumerate(output):
 if total_score >= 5:
     print(json.dumps({
         'decision': 'block',
-        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} (threshold 5). Multiple strong skip/rationalization patterns detected. Review and re-dispatch. Patterns: {[p for _, p in found_patterns[:3]]}'
+        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} (threshold 5). Multiple strong skip/rationalization patterns detected. Review and re-dispatch. Patterns: {_sep.join(p for _, p in found_patterns[:3])}'
     }))
     sys.exit(0)
 
 if total_score >= 3 and not has_artifacts:
     print(json.dumps({
         'decision': 'block',
-        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} with no artifacts produced. Suspected rationalization without deliverables. Review and re-dispatch. Patterns: {[p for _, p in found_patterns[:3]]}'
+        'reason': f'Anti-rationalization check: Phase {phase_num} output scored {total_score} with no artifacts produced. Suspected rationalization without deliverables. Review and re-dispatch. Patterns: {_sep.join(p for _, p in found_patterns[:3])}'
     }))
     sys.exit(0)
 
 if total_score >= 2:
     print(json.dumps({
         'decision': 'warn',
-        'reason': f'Anti-rationalization advisory: Phase {phase_num} output scored {total_score} but has artifacts. Patterns: {[p for _, p in found_patterns[:3]]}'
+        'reason': f'Anti-rationalization advisory: Phase {phase_num} output scored {total_score} but has artifacts. Patterns: {_sep.join(p for _, p in found_patterns[:3])}'
     }), file=sys.stderr)
     sys.exit(0)
 

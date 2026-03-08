@@ -116,39 +116,50 @@ if envelope and isinstance(envelope.get('artifacts'), list):
 
 # 获取本次 merge 实际变更的文件
 if expected_artifacts:
+    has_parent = False
     try:
-        result = subprocess.run(
-            ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
-            cwd=root, capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            changed_files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
-            # 将 artifacts 转为相对路径集合用于匹配
-            expected_rel = set()
-            for art in expected_artifacts:
-                rel = os.path.relpath(art, root) if os.path.isabs(art) else art
-                expected_rel.add(rel)
-                # 也添加目录前缀用于宽松匹配
-                parts = rel.split('/')
-                for j in range(1, len(parts)):
-                    expected_rel.add('/'.join(parts[:j]))
-            out_of_scope = []
-            for cf in changed_files:
-                # 检查文件是否在任何 artifact 路径或其父目录下
-                in_scope = False
-                for art_rel in expected_rel:
-                    if cf == art_rel or cf.startswith(art_rel + '/') or art_rel.startswith(cf.split('/')[0]):
-                        in_scope = True
-                        break
-                if not in_scope:
-                    out_of_scope.append(cf)
-            if out_of_scope:
-                shown = out_of_scope[:5]
-                extra = f' (+{len(out_of_scope)-5} more)' if len(out_of_scope) > 5 else ''
-                detail = ', '.join(shown)
-                violations.append('Files outside task scope: ' + detail + extra)
+        # Check if HEAD~1 exists (fails on initial commit or shallow clone)
+        has_parent = subprocess.run(
+            ['git', 'rev-parse', '--verify', 'HEAD~1'],
+            cwd=root, capture_output=True, text=True, timeout=5
+        ).returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         pass
+
+    if has_parent:
+        try:
+            result = subprocess.run(
+                ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
+                cwd=root, capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                changed_files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
+                # 将 artifacts 转为相对路径集合用于匹配
+                expected_rel = set()
+                for art in expected_artifacts:
+                    rel = os.path.relpath(art, root) if os.path.isabs(art) else art
+                    expected_rel.add(rel)
+                    # 也添加目录前缀用于宽松匹配
+                    parts = rel.split('/')
+                    for j in range(1, len(parts)):
+                        expected_rel.add('/'.join(parts[:j]))
+                out_of_scope = []
+                for cf in changed_files:
+                    # 检查文件是否在任何 artifact 路径或其父/子目录下
+                    in_scope = False
+                    for art_rel in expected_rel:
+                        if cf == art_rel or cf.startswith(art_rel + '/') or art_rel.startswith(cf + '/'):
+                            in_scope = True
+                            break
+                    if not in_scope:
+                        out_of_scope.append(cf)
+                if out_of_scope:
+                    shown = out_of_scope[:5]
+                    extra = f' (+{len(out_of_scope)-5} more)' if len(out_of_scope) > 5 else ''
+                    detail = ', '.join(shown)
+                    violations.append('Files outside task scope: ' + detail + extra)
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
 
 # === 检查 3: 快速编译/类型检查 ===
 # 从 config.yaml 读取 test_suites 中 type=typecheck 的命令

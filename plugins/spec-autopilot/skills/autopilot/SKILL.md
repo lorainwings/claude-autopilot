@@ -195,162 +195,57 @@ Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_managem
 
 ### Phase 4 特殊处理（v3.2.0 并行增强）
 
-**并行测试用例生成**（当 config.phases.testing.parallel.enabled = true）：
-读取 `references/parallel-dispatch.md` Phase 4 并行配置，按测试类型并行派发：
-```
-┌─ unit 测试 subagent (backend-developer)
-├─ api 测试 subagent (qa-expert)          ← 按测试类型并行
-├─ e2e 测试 subagent (qa-expert)
-└─ ui 测试 subagent (frontend-developer)
-↓ 汇合
-主线程合并 test_counts + 验证 test_pyramid + 验证 dry_run_results（从子 Agent 信封提取，不重复执行）
-```
+**执行前读取**: `references/parallel-dispatch.md` Phase 4 并行配置 + `references/protocol.md` 特殊门禁
 
-每个子 Agent 的 prompt 必须注入：
-- Phase 1 的 `requirements_summary` 和 `decisions[]`（需求追溯）
-- 对应测试类型的 `config.test_suites` 配置
-- `test_traceability` 要求：每个用例必须关联到具体需求点
+**并行模式**（当 `config.phases.testing.parallel.enabled = true`）：按测试类型（unit/api/e2e/ui）并行派发子 Agent，每个注入 Phase 1 需求追溯 + 对应 test_suites 配置。详见 `references/parallel-phase-dispatch.md` Phase 4 模板。
 
-**Phase 4 门禁**（阈值从 config.phases.testing.gate 读取）：
-- `test_counts` 每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
-- `artifacts` 包含 config.phases.testing.gate.required_test_types 对应文件
-- `dry_run_results` 全部为 0（exit code）
-- **新增** `test_traceability` 覆盖率 ≥ 80%（每个需求点至少有 1 个测试用例）
-
-**Phase 4 warning 降级阻断规则**：
-
-Phase 4 返回 `status: "warning"` 时，主线程**必须**执行以下检查：
-1. 检查 `test_counts` 是否所有字段 ≥ min_test_count_per_type
-2. 检查 `artifacts` 是否非空
-3. 检查 `dry_run_results` 是否所有字段为 0（exit code）
-4. **如果 test_counts 任一字段 < min_test_count_per_type 或 artifacts 为空 或 dry_run_results 任一字段 ≠ 0**：
-   - 将 status 强制覆盖为 `"blocked"`
-   - 不写入 checkpoint
-   - 展示给用户：「Phase 4 返回 warning 但未创建足够测试用例，视为 blocked」
-   - 重新 dispatch Phase 4
-
-Phase 4 **不允许**以 warning 状态通过门禁。要么 ok（测试全部创建），要么 blocked（需要排除障碍）。
+**Phase 4 门禁与阻断规则**（详见 `references/protocol.md`）：
+- Phase 4 **只接受 ok 或 blocked**，warning 由 Hook 确定性阻断
+- `test_counts` 每字段 ≥ `min_test_count_per_type`、`artifacts` 非空、`dry_run_results` 全 0
+- `test_traceability` 覆盖率 ≥ 80%
+- warning 且未满足门禁 → 强制覆盖为 blocked → 重新 dispatch
 
 ### Phase 5 特殊处理
 
-**执行前读取**: `references/phase5-implementation.md`（安全准备、超时机制）+ `references/parallel-dispatch.md`（并行编排协议）
+**执行前读取**: `references/phase5-implementation.md`（安全准备、超时机制、无 tasks.md 场景）+ `references/parallel-dispatch.md`（并行编排协议）
 
 #### 任务来源（模式感知）
 
-| 模式 | 任务来源 | 说明 |
-|------|---------|------|
-| **full** | `openspec/changes/<name>/tasks.md` | 由 Phase 3 生成的完整任务清单 |
-| **lite/minimal** | Phase 1 需求自动生成 | 从 `phase-1-requirements.json` 的功能清单自动拆分任务（见 `references/phase5-implementation.md` 的"无 tasks.md 场景"章节） |
+| 模式 | 任务来源 |
+|------|---------|
+| **full** | `openspec/changes/<name>/tasks.md`（Phase 3 生成） |
+| **lite/minimal** | Phase 5 启动时从 `phase-1-requirements.json` 自动拆分 → `context/phase5-task-breakdown.md` |
 
-> **关键约束**：无论任务来源如何，Phase 5 的执行流程（安全检查点、超时机制、并行/串行策略、ralph-loop 调用）完全一致。
+#### 执行模式决策（互斥分支）
 
-概要:
-1. Git 安全检查点 → `git tag -f autopilot-phase5-start HEAD`
-2. 记录启动时间戳 → wall-clock 超时机制（2 小时硬限）
-3. **执行模式决策（互斥分支 — 必须且仅走一条路径）**：
-   读取 `config.phases.implementation.parallel.enabled`，进入以下**互斥**的两条路径之一：
+读取 `config.phases.implementation.parallel.enabled`，进入**互斥**的两条路径：
 
-   **【路径 A — 并行模式】** 当 `parallel.enabled = true` 时**立即进入此路径**，执行完毕后**直接跳到步骤 4 构造 JSON 信封**。**禁止执行路径 B 的任何步骤（B1-B4），禁止检测 ralph-loop 可用性，禁止调用 Skill("ralph-loop:ralph-loop")**：
+**【路径 A — 并行模式】**（`parallel.enabled = true`）：
+读取 `references/phase5-implementation.md` 并行模式章节 + `references/parallel-phase-dispatch.md` Phase 5 模板。
+解析任务清单 → 按顶级目录分区 → 生成 owned_files → 并行派发 `Task(isolation: "worktree", run_in_background: true)` → 按编号合并 worktree → 批量 review → 全量测试。
+**禁止**检测 ralph-loop 或调用 `Skill("ralph-loop:ralph-loop")`。降级条件：合并失败 > 3 文件 → 切换路径 B。
 
-     > **强制指令**：读取 `references/phase5-implementation.md` 并行执行模式章节 + `references/parallel-dispatch.md` Worktree 隔离模板。
+**【路径 B — 串行模式】**（`parallel.enabled = false` 或从路径 A 降级）：
+检测 ralph-loop → 可用则 `Skill("ralph-loop:ralph-loop")` → 不可用则 fallback 手动循环 → 不可用且 fallback 禁用 → AskUserQuestion。
+详见 `references/phase5-implementation.md` 串行模式章节。
 
-     **A1. 解析任务清单**：
-        - full 模式 → 读取 `openspec/changes/<name>/tasks.md`
-        - lite/minimal 模式 → 读取 `context/phase5-task-breakdown.md`（Phase 5 启动时自动生成）
-        - 主线程一次性提取所有任务的完整文本和上下文（子 Agent 不自己读取计划文件）
-
-     **A2. 构建依赖图 + 文件所有权分区**：
-        - 按顶级目录（backend/frontend/node）分组 task
-        - 跨目录 task 归入 cross_cutting 组，在所有并行组完成后串行执行
-        - 为每个并行 agent 生成 owned_files 列表，写入 `phase5-ownership/agent-{N}.json`
-
-     **A3. 并行派发**（对每个 task 组，最多 max_agents 个 agent 同时运行）：
-        主线程**在同一条消息中**同时发起所有 Task（全部设置 `run_in_background: true`）：
-        ```
-        Task(
-          subagent_type: "general-purpose",
-          isolation: "worktree",
-          run_in_background: true,
-          prompt: "<!-- autopilot-phase:5 -->
-          你是 autopilot Phase 5 的并行实施子 Agent。
-          ## 你的任务
-          仅实施以下单个 task（禁止实施其他 task）：
-          - Task #{task_number}: {task_title}
-          - Task 内容: {task_full_text}
-          ## 文件所有权约束（ENFORCED）
-          你被分配以下文件的独占所有权：{owned_files}
-          禁止修改此列表之外的任何文件。
-          ## 并发隔离
-          - 你运行在独立 worktree 中
-          - 禁止修改 openspec/ 目录下的 checkpoint 文件
-          - 禁止修改其他 task 正在修改的文件: {concurrent_task_files}
-          ## 项目规则约束
-          {rules_scan_result}
-          ## 返回要求
-          执行完毕后返回 JSON 信封：
-          {\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}"
-        )
-        ```
-        等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。
-
-     **A4. 合并 + 验证**（按 task 编号顺序合并 worktree）：
-        - `git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"`
-        - 合并冲突 → AskUserQuestion 展示冲突文件，选择处理方式
-        - 每次合并后运行 quick_check（typecheck）验证
-        - 由主线程写入每个 task 的 checkpoint（`phase5-tasks/task-N.json`）
-        - 清理 worktree: `git worktree remove` + `git branch -d`
-
-     **A5. 批量 Review**（每组完成后）：
-        派发 review subagent 批量审查本组所有变更（规范符合性 + 代码质量 + 跨 task 一致性）
-        review 发现问题 → resume 对应 implementer agent 修复
-
-     **A6. 全量测试**：全部 group 完成后，运行 full_test
-
-     **A7. 降级决策**：任何 group 合并失败超过 3 个文件 → 回退 worktree → 切换到路径 B 串行模式（仅此一种情况允许进入路径 B）
-
-     → 跳到步骤 4
-
-   **【路径 B — 串行模式】** 当 `parallel.enabled = false`（默认）或从路径 A 降级时执行：
-     B1. 检测 ralph-loop 可用性 + worktree 隔离配置
-     B2. **ralph-loop 可用** → 构造参数调用 `Skill("ralph-loop:ralph-loop")`，完成后从 test-results.json 构造 JSON 信封 → 跳到步骤 4
-     B3. **不可用 + fallback 启用** → 手动循环模式（每任务 apply + 测试）→ 跳到步骤 4
-     B4. **不可用 + fallback 禁用** → AskUserQuestion 让用户选择处理方式
-
-   > **强制约束**：路径 A 和路径 B **互斥执行**。进入路径 A 后，除非降级（步骤 A7），否则**绝对禁止**执行路径 B 的任何步骤（B1-B4）。
-
-4. **构造 Phase 5 JSON 信封**（路径 A 和路径 B 共同汇合点）
+> **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造详见 `references/protocol.md`。
 
 ### Phase 6 特殊处理（v3.2.0 Allure + 并行增强）
 
-**并行测试执行**（读取 `references/parallel-dispatch.md` Phase 6 并行配置）：
-```
-┌─ backend_unit (Gradle test → allure-results/)
-├─ api_test (pytest --alluredir → allure-results/)     ← 按套件并行
-├─ e2e_test (Playwright → allure-results/)
-└─ frontend_typecheck (pnpm type-check)
-↓ 汇合
-allure generate allure-results/ -o allure-report/ --clean
-```
+**执行前读取**: `references/parallel-dispatch.md` Phase 6 配置 + `references/phase6-code-review.md` + `references/quality-scans.md`
+
+**并行测试执行**：按 `config.test_suites` 分套件并行派发（详见 `references/parallel-phase-dispatch.md` Phase 6 模板）。
 
 **Allure 统一报告**（当 `config.phases.reporting.format === "allure"`）：
 1. 检测 Allure 安装: `bash scripts/check-allure-install.sh`
-2. 所有套件输出到各自子目录 `allure-results/{suite_name}/`（并行模式避免冲突）
-3. 生成统一报告: `npx allure generate allure-results/ -o allure-report/ --clean`（Allure 自动合并子目录）
-4. 降级: Allure 不可用 → 使用 config.phases.reporting.report_commands
-
-**Phase 7 汇总展示增强**（v3.2.0）：
-```markdown
-## 测试报告汇总
-| 套件 | 总数 | 通过 | 失败 | 跳过 | 通过率 |
-|------|------|------|------|------|--------|
-| ... |
-⚠️ 异常提醒: [失败用例详情]
-📊 Allure 报告: file:///path/to/allure-report/index.html
-```
+2. 所有套件输出到 `allure-results/{suite_name}/`（并行避免冲突）
+3. 生成统一报告: `npx allure generate allure-results/ -o allure-report/ --clean`
+4. 降级: Allure 不可用 → 使用 `config.phases.reporting.report_commands`
 
 ### Phase 5→6 特殊门禁
 
-> **仅 full 和 lite 模式执行**。minimal 模式跳过 Phase 6，此门禁不触发。
+> **仅 full 和 lite 模式执行**。minimal 模式跳过 Phase 6。
 
 autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.passed === true`、任务清单中所有任务标记为 `[x]`
 
@@ -360,49 +255,16 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 
 ## Phase 6 三路并行（v3.2.2 增强）
 
-Phase 5→6 Gate 通过后，主线程**在同一条消息中**同时派发三路并行任务：
+Phase 5→6 Gate 通过后，主线程**在同一条消息中**同时派发三路后台任务：
 
-```
-┌─ 路径 A: Phase 6 测试执行（后台 Task, run_in_background: true）
-├─ 路径 B: Phase 6.5 代码审查（后台 Task, run_in_background: true）  ← 三路全后台并行
-└─ 路径 C: 质量扫描（多个后台 Task, run_in_background: true）
-↓ Phase 7 汇合收集所有结果
-```
+| 路径 | 内容 | 参考文档 |
+|------|------|---------|
+| A | Phase 6 测试执行 | `references/parallel-phase-dispatch.md` Phase 6 模板 |
+| B | Phase 6.5 代码审查（可选） | `references/phase6-code-review.md` |
+| C | 质量扫描（多个后台 Task） | `references/quality-scans.md` |
 
-### 路径 A: 测试执行（后台，主流程）
-
-按 Phases 2-6 统一调度模板的 Step 1-7 执行，但使用 `run_in_background: true` 避免输出回流消耗主窗口上下文。Phase 7 步骤 2 统一收集路径 A/B/C 结果后写入 checkpoint。测试执行的并行细节见上方「Phase 6 特殊处理」。
-
-### 路径 B: Phase 6.5 代码审查（后台并行，可选）
-
-当 `config.phases.code_review.enabled`（默认 true）时，**与路径 A 在同一消息中**派发后台 Agent。
-
-**执行前读取**: `references/phase6-code-review.md`（完整审查流程）
-
-```
-Task(
-  subagent_type: "general-purpose",
-  run_in_background: true,
-  prompt: "<!-- 代码审查，不含 autopilot-phase 标记 -->
-    收集 $ANCHOR_SHA..HEAD 变更 → 执行 4 维审查 → 返回 JSON 信封"
-)
-```
-
-- 代码审查仅需 `git diff`，**不依赖 Phase 6 测试结果**，可安全并行
-- 审查结果在 Phase 7 步骤 2 收集，写入 `phase-6.5-code-review.json` checkpoint
-- Phase 6.5 不是整数阶段，不受 Layer 2 Hook 门禁校验
-
-### 路径 C: 质量扫描（后台并行，不阻塞）
-
-**与路径 A、B 在同一消息中**派发所有质量扫描 Agent。
-
-**执行前读取**: `references/quality-scans.md`（完整的派发流程、安装重试、结果收集、硬超时机制）
-
-1. 读取 `config.async_quality_scans`，对每个扫描项 `Task(run_in_background: true)` 派发
-2. prompt 不含 `autopilot-phase` 标记，不受 Hook 门禁
-3. Phase 7 步骤 2 收集结果，硬超时自动标记 "timeout"
-
-> 路径 B 和 C 失败均不阻断路径 A 的 checkpoint 写入。Phase 7 统一收集后展示。
+全部使用 `run_in_background: true`。路径 B/C 不含 `autopilot-phase` 标记，不受 Hook 门禁。
+路径 B/C 失败不阻断路径 A。**Phase 7 步骤 2 统一收集所有结果。**
 
 ---
 
@@ -413,6 +275,20 @@ Task(
    {"status": "in_progress", "phase": 7, "description": "Archive and cleanup"}
    ```
 1. 读取所有 phase-results checkpoint，展示状态汇总表
+1.1. **测试报告链接展示**（仅 full/lite 模式，**必须展示**）：
+   从 Phase 6 checkpoint（`phase-6-report.json`）提取 `report_format` 和 `report_path` 字段：
+   - `report_format === "allure"` → 展示：`📊 Allure 报告: file:///<project_root>/allure-report/index.html`
+   - `report_format === "custom"` → 展示：`📊 测试报告: file:///<report_path>`
+   - 同时展示测试汇总表（从 `suite_results` 提取）：
+     ```markdown
+     ## 测试报告汇总
+     | 套件 | 总数 | 通过 | 失败 | 跳过 | 通过率 |
+     |------|------|------|------|------|--------|
+     | {suite} | {total} | {passed} | {failed} | {skipped} | {pass_rate}% |
+     ⚠️ 异常提醒: {anomaly_alerts}
+     📊 Allure 报告: file:///<absolute_path>/allure-report/index.html
+     ```
+   > **Phase 6 checkpoint 不存在时**（minimal 模式）：跳过此步骤
 1.5. **指标汇总**：调用 `bash scripts/collect-metrics.sh` 收集执行指标
    - 解析返回的 JSON，提取 `markdown_table` 和 `ascii_chart` 字段
    - 直接向用户展示格式化的阶段耗时表格和耗时分布图
@@ -523,38 +399,17 @@ Task(
 
 ## 上下文压缩恢复协议
 
-长流水线执行中 Claude Code 可能触发上下文压缩（compaction），导致对话历史被摘要化，丢失精确的阶段状态。
+### 自动机制（Hook 驱动）
 
-### 自动机制（Hook 驱动，无需主线程干预）
-
-1. **PreCompact Hook**：压缩前自动将当前编排状态写入 `openspec/changes/<name>/context/autopilot-state.md`
-2. **SessionStart(compact) Hook**：压缩后自动将状态文件内容注入回 Claude 上下文
+1. **PreCompact Hook**：压缩前自动将编排状态写入 `context/autopilot-state.md`
+2. **SessionStart(compact) Hook**：压缩后自动注入状态回 Claude 上下文
 
 ### 主线程恢复行为
 
-如果检测到上下文被压缩（收到 `=== AUTOPILOT STATE RESTORED ===` 标记），主线程应：
+收到 `=== AUTOPILOT STATE RESTORED ===` 标记后：
+1. 读取 `autopilot-state.md` 获取进度（last completed phase、next phase、execution mode、anchor SHA）
+2. 重新加载 `autopilot.config.yaml` 配置
+3. 读取 `context/phase-results/` 确认 checkpoint 一致性
+4. 从下一个未完成阶段继续执行，调用 `autopilot-gate` 验证后 dispatch
 
-1. 读取 `autopilot-state.md` 获取当前进度（last completed phase、next phase、execution mode、anchor SHA）
-2. 读取 `autopilot.config.yaml` 重新加载配置
-3. 读取 `context/phase-results/` 目录下所有 checkpoint 确认状态
-4. **确认执行模式**：从 state 文件的 `Execution mode` 字段恢复（full/lite/minimal），决定后续阶段是否需要跳过
-5. **确认 Anchor SHA**：从 state 文件的 `Anchor SHA` 字段恢复，用于后续 fixup commit 的 base
-6. 从下一个未完成阶段继续执行，无需重建 TaskCreate 链（已有的 Task 仍然有效）
-7. 调用 Skill(`spec-autopilot:autopilot-gate`) 验证前置条件后继续 dispatch
-
-### 恢复后检查清单（必须逐项确认）
-
-| # | 检查项 | 来源 |
-|---|--------|------|
-| 1 | 当前执行模式是什么（full/lite/minimal）？ | `autopilot-state.md` → Execution mode |
-| 2 | Anchor SHA 是什么？ | `autopilot-state.md` → Anchor SHA |
-| 3 | 最后完成的阶段编号？ | `autopilot-state.md` → Last completed phase |
-| 4 | 下一个待执行阶段？该阶段在当前模式下是否应跳过？ | `autopilot-state.md` → Next phase + 模式跳过规则 |
-| 5 | tasks/breakdown 进度？ | `autopilot-state.md` → Tasks progress |
-| 6 | 所有 checkpoint 文件是否与 state 一致？ | `context/phase-results/phase-*.json` |
-
-> **禁止行为**：恢复后禁止重复执行已标记为 `ok` 或 `warning` 的阶段。如果 state 显示 Phase N 已完成，直接从 Phase N+1 继续。
-
-### 阶段间上下文保护
-
-每个阶段完成后自动执行 git fixup commit 保存 checkpoint，子 Agent 仅回传精简摘要（不传原始输出），减少上下文膨胀。如果上下文接近压缩阈值，可手动执行 `/compact` 触发压缩，Hook 会自动保存和恢复状态。
+> **禁止**：恢复后重复执行已标记 `ok`/`warning` 的阶段。每 Phase 完成后 git fixup commit 保存 checkpoint，减少上下文膨胀。
