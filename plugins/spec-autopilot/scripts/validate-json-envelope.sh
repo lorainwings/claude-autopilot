@@ -43,6 +43,13 @@ if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopi
   exit 0
 fi
 
+# --- Fast bypass Layer 1.5: background agent skip ---
+# Agent tool with run_in_background=true fires PostToolUse at launch time,
+# before the agent completes. tool_response won't contain the JSON envelope yet.
+if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
+  exit 0
+fi
+
 # --- Dependency check (only needed for autopilot Tasks) ---
 if ! command -v python3 &>/dev/null; then
   # Fail-closed: block autopilot tasks when python3 unavailable

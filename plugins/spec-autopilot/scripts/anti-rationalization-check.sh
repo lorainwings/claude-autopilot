@@ -40,6 +40,13 @@ if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopi
   exit 0
 fi
 
+# --- Fast bypass Layer 1.5: background agent skip ---
+# Agent/Task with run_in_background=true fires hook at launch time,
+# before the agent completes. Skip validation for background dispatch.
+if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
+  exit 0
+fi
+
 # --- Dependency check ---
 if ! command -v python3 &>/dev/null; then
   # Cannot validate without python3 → allow (this is a secondary check)

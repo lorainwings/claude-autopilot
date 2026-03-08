@@ -51,6 +51,11 @@ BLOCK_JSON
   exit 0
 fi
 
+# --- Fast bypass Layer 1.5: background agent skip ---
+if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
+  exit 0
+fi
+
 # --- Decision format validation via python3 ---
 echo "$STDIN_DATA" | python3 -c "
 import json

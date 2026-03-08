@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.2.6] - 2026-03-08
 
 ### Fixed
-- **pre-commit hook 未生效**: `.githooks/pre-commit` 与 `.git/hooks/pre-commit` 内容不同步，`core.hooksPath=.githooks` 导致 auto-bump、CHANGELOG 检查、doc sync 检查均未生效。同步为完整版（含 Part 1 测试套件 + Part 1.5 专项覆盖 + Part 2 文档同步 + 自动版本号 bump）
+- **pre-commit hook 未生效**: `.githooks/pre-commit` 与 `.git/hooks/pre-commit` 内容不同步，`core.hooksPath=.githooks` 导致 auto-bump、CHANGELOG 检查、doc sync 检查均未生效。同步为完整版
+- **background Agent hook 误触发**: `Agent` 工具（`run_in_background: true`）被 `^Task$` matcher 匹配，导致 PostToolUse 在 agent 启动时就验证 JSON envelope（此时无输出）。所有 6 个 hook 脚本添加 Layer 1.5 bypass：检测 `run_in_background:true` 时跳过验证
 
 ### Changed
 - `.githooks/pre-commit` — 从 30 行基础版升级为 150 行完整版，与 `.git/hooks/pre-commit` 对齐
+- 6 个 hook 脚本添加 `run_in_background` bypass（validate-json-envelope, check-predecessor-checkpoint, anti-rationalization-check, code-constraint-check, parallel-merge-guard, validate-decision-format）
+- `test-hooks.sh` — 新增 13 个测试（261 → 274）
 
 ## [3.2.5] - 2026-03-08
 

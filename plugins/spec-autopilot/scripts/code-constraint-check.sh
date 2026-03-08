@@ -21,6 +21,9 @@ PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]
 [ -z "$PROJECT_ROOT_QUICK" ] && PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
 
+# --- Fast bypass Layer 1.5: background agent skip ---
+echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true' && exit 0
+
 # --- Fast bypass Layer 1: Phase 4/5/6 代码约束检查 ---
 echo "$STDIN_DATA" | grep -qE '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[456]' || exit 0
 
