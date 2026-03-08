@@ -5,6 +5,14 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.7] - 2026-03-08
+
+### Fixed
+- **autosquash 后工作区残留代码**: per-phase fixup commit (Step 7) 仅 `git add openspec/changes/<name>/context/phase-results/`，导致实际代码变更（backend/frontend/node/tests）从未被 fixup commit 包含。Phase 7 autosquash 后代码仍在工作区
+  - Step 7: `git add phase-results/` → `git add -A`（包含所有代码+checkpoint+测试）
+  - Phase 7 squash 前: 新增 `git add -A && git commit --fixup` 兜底，确保最后残留变更也被提交
+  - Phase 5 serial mode: 同步修复 `git add` 范围
+
 ## [3.2.6] - 2026-03-08
 
 ### Fixed

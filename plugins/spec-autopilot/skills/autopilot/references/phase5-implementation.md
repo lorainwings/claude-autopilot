@@ -297,7 +297,7 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
       → 主线程同步阻塞等待子 Agent 完成
    c. 解析 result 中的 JSON 信封
    d. 写入 phase5-tasks/task-N.json checkpoint
-   e. git add + git commit --fixup=$ANCHOR_SHA
+   e. git add -A && git commit --fixup=$ANCHOR_SHA -m "fixup! autopilot: start <change_name> — task #{N}"
    f. 如果 status == "failed" 且连续失败 3 次 → AskUserQuestion 决策
    g. 继续下一个 task
 4. 全部完成后运行 full_test（config.test_suites 全量）
