@@ -69,15 +69,21 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   echo "📚 Checking documentation sync..."
   echo ""
 
-  # 0. Auto-bump patch version (plugin.json + README.md)
+  # 0. Version management (plugin.json + README.md + marketplace.json)
+  #    - Manual bump: propagate plugin.json version to other files
+  #    - No bump: auto-increment patch version across all files
   PLUGIN_JSON="plugins/spec-autopilot/.claude-plugin/plugin.json"
   README_MD="plugins/spec-autopilot/README.md"
+  MARKETPLACE_JSON=".claude-plugin/marketplace.json"
   CURRENT_VERSION=$(grep '"version"' "$PLUGIN_JSON" 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
 
   if [ -n "$CURRENT_VERSION" ]; then
-    # Check if plugin.json is already staged with a version change (manual bump)
     if git diff --cached -- "$PLUGIN_JSON" | grep -q '"version"'; then
-      echo "✅ Version already bumped manually: $CURRENT_VERSION"
+      # Manual bump detected — propagate to README.md + marketplace.json
+      sed -i '' "s/version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue/version-${CURRENT_VERSION}-blue/" "$README_MD"
+      sed -i '' "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CURRENT_VERSION}\"/" "$MARKETPLACE_JSON"
+      git add "$README_MD" "$MARKETPLACE_JSON"
+      echo "🔖 Manual bump detected — synced all files to ${CURRENT_VERSION}"
     else
       # Auto-bump patch: X.Y.Z → X.Y.(Z+1)
       MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
@@ -86,12 +92,11 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       NEW_PATCH=$((PATCH + 1))
       NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
 
-      # Update plugin.json
       sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
-      # Update README.md badge
       sed -i '' "s/version-${CURRENT_VERSION}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
+      sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
 
-      git add "$PLUGIN_JSON" "$README_MD"
+      git add "$PLUGIN_JSON" "$README_MD" "$MARKETPLACE_JSON"
       echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"
     fi
   fi
@@ -108,17 +113,24 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
     exit 1
   fi
 
-  # 2. Check version consistency
+  # 2. Check version consistency (plugin.json vs README.md vs marketplace.json)
   PLUGIN_VERSION=$(grep '"version"' plugins/spec-autopilot/.claude-plugin/plugin.json 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
   README_VERSION=$(grep 'version-' plugins/spec-autopilot/README.md 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+  MARKETPLACE_VERSION=$(grep '"version"' .claude-plugin/marketplace.json 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
 
-  if [ -n "$PLUGIN_VERSION" ] && [ -n "$README_VERSION" ]; then
-    if [ "$PLUGIN_VERSION" != "$README_VERSION" ]; then
+  if [ -n "$PLUGIN_VERSION" ]; then
+    VERSION_MISMATCH=""
+    if [ -n "$README_VERSION" ] && [ "$PLUGIN_VERSION" != "$README_VERSION" ]; then
+      VERSION_MISMATCH="${VERSION_MISMATCH}  README.md:        $README_VERSION\n"
+    fi
+    if [ -n "$MARKETPLACE_VERSION" ] && [ "$PLUGIN_VERSION" != "$MARKETPLACE_VERSION" ]; then
+      VERSION_MISMATCH="${VERSION_MISMATCH}  marketplace.json: $MARKETPLACE_VERSION\n"
+    fi
+
+    if [ -n "$VERSION_MISMATCH" ]; then
       echo "❌ Error: Version mismatch"
-      echo "  plugin.json: $PLUGIN_VERSION"
-      echo "  README.md:   $README_VERSION"
-      echo ""
-      echo "Run: /spec-autopilot:doc-sync $PLUGIN_VERSION"
+      echo "  plugin.json:    $PLUGIN_VERSION"
+      printf "$VERSION_MISMATCH"
       echo ""
       exit 1
     fi

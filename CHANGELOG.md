@@ -5,6 +5,15 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.8] - 2026-03-09
+
+### Fixed
+- **marketplace.json 版本号未同步**: `marketplace.json` 停留在 `3.2.2`，与 `plugin.json`（`3.2.8`）不一致。手动修正为当前版本
+
+### Changed
+- **pre-commit auto-bump 覆盖 marketplace.json**: 自动版本号递增现在同时更新 `plugin.json`、`README.md` badge 和 `.claude-plugin/marketplace.json` 三个文件
+- **版本一致性检查增强**: 版本校验从 2 文件（plugin.json vs README.md）扩展到 3 文件（+ marketplace.json），不一致时阻断提交
+
 ## [3.2.7] - 2026-03-08
 
 ### Fixed
