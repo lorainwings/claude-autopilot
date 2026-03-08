@@ -58,7 +58,8 @@ if not merge_pattern.search(output):
     sys.exit(0)
 
 # --- 定位项目根 ---
-cwd = data.get('tool_input', {}).get('cwd', '') or os.getcwd()
+# Hook stdin 的 cwd 在顶层，不在 tool_input 内
+cwd = data.get('cwd', '') or data.get('tool_input', {}).get('cwd', '') or os.getcwd()
 root = cwd
 for _ in range(10):
     if os.path.isdir(os.path.join(root, '.claude')):
@@ -114,22 +115,46 @@ expected_artifacts = []
 if envelope and isinstance(envelope.get('artifacts'), list):
     expected_artifacts = [a for a in envelope['artifacts'] if isinstance(a, str)]
 
-# 获取本次 merge 实际变更的文件
-if expected_artifacts:
-    has_parent = False
+# 获取本次 merge 实际变更的文件（基于 anchor_sha）
+# anchor_sha 是 Phase 0 创建的锚定 commit，比 HEAD~1 更精确
+anchor_sha = None
+lock_path = os.path.join(root, 'openspec', 'changes', '.autopilot-active')
+if os.path.isfile(lock_path):
     try:
-        # Check if HEAD~1 exists (fails on initial commit or shallow clone)
-        has_parent = subprocess.run(
-            ['git', 'rev-parse', '--verify', 'HEAD~1'],
-            cwd=root, capture_output=True, text=True, timeout=5
-        ).returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        with open(lock_path) as lf:
+            lock_data = json.loads(lf.read())
+            anchor_sha = lock_data.get('anchor_sha', '') or None
+    except (json.JSONDecodeError, ValueError, OSError):
         pass
 
-    if has_parent:
+if expected_artifacts:
+    # 确定 diff 基准：优先 anchor_sha（须为 HEAD 祖先），降级 HEAD~1
+    diff_base = None
+    if anchor_sha:
+        try:
+            # merge-base --is-ancestor 同时验证：对象存在 + 是 HEAD 的祖先
+            is_ancestor = subprocess.run(
+                ['git', 'merge-base', '--is-ancestor', anchor_sha, 'HEAD'],
+                cwd=root, capture_output=True, text=True, timeout=5
+            ).returncode == 0
+            if is_ancestor:
+                diff_base = anchor_sha
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+    if not diff_base:
+        try:
+            if subprocess.run(
+                ['git', 'rev-parse', '--verify', 'HEAD~1'],
+                cwd=root, capture_output=True, text=True, timeout=5
+            ).returncode == 0:
+                diff_base = 'HEAD~1'
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+
+    if diff_base:
         try:
             result = subprocess.run(
-                ['git', 'diff', '--name-only', 'HEAD~1', 'HEAD'],
+                ['git', 'diff', '--name-only', diff_base, 'HEAD'],
                 cwd=root, capture_output=True, text=True, timeout=15
             )
             if result.returncode == 0 and result.stdout.strip():
