@@ -194,10 +194,8 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
 
 | Priority | Mode | Condition |
 |----------|------|-----------|
-| 1 | Worktree isolation | `config.phases.implementation.worktree.enabled = true` |
-| 2 | Ralph-loop | Plugin available |
-| 3 | Manual fallback | `fallback_enabled = true` |
-| 4 | User prompt | None of above |
+| 1 | Parallel (worktree) | `config.phases.implementation.parallel.enabled = true` |
+| 2 | Serial (foreground Task) | `config.phases.implementation.parallel.enabled = false`（默认） |
 
 ### Task-Level Checkpoints
 

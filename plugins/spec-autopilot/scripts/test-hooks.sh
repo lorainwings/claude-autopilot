@@ -1705,6 +1705,393 @@ assert_contains "Phase 4 empty change_coverage → mentions malformed" "$output"
 echo ""
 
 # ============================================================
+echo "--- 41. Ralph-loop removal: no residual references ---"
+
+# 41a. No detect-ralph-loop.sh script exists
+if [ ! -f "$SCRIPT_DIR/detect-ralph-loop.sh" ]; then
+  green "  PASS: detect-ralph-loop.sh removed"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: detect-ralph-loop.sh still exists (should be deleted)"
+  FAIL=$((FAIL + 1))
+fi
+
+# 41b. No phase5-ralph-loop.md template (renamed to phase5-serial-task.md)
+if [ ! -f "$SCRIPT_DIR/../skills/autopilot/templates/phase5-ralph-loop.md" ]; then
+  green "  PASS: phase5-ralph-loop.md removed (renamed to phase5-serial-task.md)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: phase5-ralph-loop.md still exists"
+  FAIL=$((FAIL + 1))
+fi
+
+# 41c. phase5-serial-task.md exists as replacement
+if [ -f "$SCRIPT_DIR/../skills/autopilot/templates/phase5-serial-task.md" ]; then
+  green "  PASS: phase5-serial-task.md exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: phase5-serial-task.md missing (replacement for phase5-ralph-loop.md)"
+  FAIL=$((FAIL + 1))
+fi
+
+# 41d. validate-config.sh requires serial_task.max_retries_per_task (not ralph_loop keys)
+if grep -q 'serial_task.max_retries_per_task' "$SCRIPT_DIR/validate-config.sh"; then
+  green "  PASS: validate-config uses serial_task.max_retries_per_task"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: validate-config missing serial_task.max_retries_per_task"
+  FAIL=$((FAIL + 1))
+fi
+
+# 41e. validate-config.sh does NOT require old ralph_loop keys
+for old_key in "ralph_loop.enabled" "ralph_loop.max_iterations" "ralph_loop.fallback_enabled"; do
+  if ! grep -q "$old_key" "$SCRIPT_DIR/validate-config.sh"; then
+    green "  PASS: validate-config has no '$old_key'"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: validate-config still references '$old_key'"
+    FAIL=$((FAIL + 1))
+  fi
+done
+
+# 41f. config-schema.md uses max_retries_per_task (not max_iterations/fallback_enabled under serial_task)
+SCHEMA_FILE="$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
+if grep -q 'max_retries_per_task' "$SCHEMA_FILE"; then
+  green "  PASS: config-schema has max_retries_per_task"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: config-schema missing max_retries_per_task"
+  FAIL=$((FAIL + 1))
+fi
+
+# Check serial_task section doesn't have old fields
+serial_section=$(sed -n '/serial_task:/,/^    [a-z]/p' "$SCHEMA_FILE" | head -5)
+if ! echo "$serial_section" | grep -q 'max_iterations'; then
+  green "  PASS: config-schema serial_task has no max_iterations"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: config-schema serial_task still has max_iterations"
+  FAIL=$((FAIL + 1))
+fi
+
+if ! echo "$serial_section" | grep -q 'fallback_enabled'; then
+  green "  PASS: config-schema serial_task has no fallback_enabled"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: config-schema serial_task still has fallback_enabled"
+  FAIL=$((FAIL + 1))
+fi
+
+# 41g. No ralph_loop references in core SKILL files
+CORE_FILES=(
+  "$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+  "$SCRIPT_DIR/../skills/autopilot-dispatch/SKILL.md"
+  "$SCRIPT_DIR/../skills/autopilot/references/phase5-implementation.md"
+  "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md"
+  "$SCRIPT_DIR/../skills/autopilot/references/parallel-phase-dispatch.md"
+  "$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
+)
+ralph_found=false
+for f in "${CORE_FILES[@]}"; do
+  if [ -f "$f" ] && grep -qi "ralph.loop\|ralph_loop" "$f"; then
+    red "  FAIL: ralph-loop reference in $(basename "$f")"
+    FAIL=$((FAIL + 1))
+    ralph_found=true
+  fi
+done
+if [ "$ralph_found" = "false" ]; then
+  green "  PASS: no ralph-loop references in core SKILL files"
+  PASS=$((PASS + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 42. Serial task config validation ---"
+
+SERIAL_TEST_DIR=$(mktemp -d)
+
+# 42a. Config with serial_task.max_retries_per_task → valid=true
+mkdir -p "$SERIAL_TEST_DIR/valid/.claude"
+cat > "$SERIAL_TEST_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.2"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/valid" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "True" ] || [ "$valid" = "true" ]; then
+  green "  PASS: config with serial_task.max_retries_per_task → valid"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: config with serial_task.max_retries_per_task rejected (valid='$valid', output='$output')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 42b. Config missing serial_task.max_retries_per_task → missing_keys
+mkdir -p "$SERIAL_TEST_DIR/missing/.claude"
+cat > "$SERIAL_TEST_DIR/missing/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.2"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    parallel:
+      enabled: false
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/missing" 2>/dev/null)
+missing=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('missing_keys',[]))" 2>/dev/null || echo "[]")
+assert_contains "missing serial_task → reported in missing_keys" "$missing" "serial_task.max_retries_per_task"
+
+# 42c. max_retries_per_task out of range (too high) → range_errors (requires PyYAML)
+HAS_PYYAML=$(python3 -c "import yaml; print('yes')" 2>/dev/null || echo "no")
+if [ "$HAS_PYYAML" = "yes" ]; then
+  mkdir -p "$SERIAL_TEST_DIR/range/.claude"
+  cat > "$SERIAL_TEST_DIR/range/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.2"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    serial_task:
+      max_retries_per_task: 50
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+YAML
+
+  output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/range" 2>/dev/null)
+  range_err=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('range_errors',[]))" 2>/dev/null || echo "[]")
+  assert_contains "max_retries_per_task=50 → range error" "$range_err" "max_retries_per_task"
+
+  # 42d. max_retries_per_task=0 (below min) → range_errors
+  mkdir -p "$SERIAL_TEST_DIR/range_low/.claude"
+  cat > "$SERIAL_TEST_DIR/range_low/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.2"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    serial_task:
+      max_retries_per_task: 0
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+YAML
+
+  output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/range_low" 2>/dev/null)
+  range_err=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('range_errors',[]))" 2>/dev/null || echo "[]")
+  assert_contains "max_retries_per_task=0 → range error" "$range_err" "max_retries_per_task"
+else
+  green "  SKIP: range validation requires PyYAML (not installed)"
+  PASS=$((PASS + 2))
+fi
+
+# 42e. max_retries_per_task=3 (valid) → no range error
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/valid" 2>/dev/null)
+range_err=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('range_errors',[]))" 2>/dev/null || echo "[]")
+assert_not_contains "max_retries_per_task=3 → no range error" "$range_err" "max_retries_per_task"
+
+# 42f. Config with old ralph_loop keys → should report missing serial_task
+mkdir -p "$SERIAL_TEST_DIR/old_config/.claude"
+cat > "$SERIAL_TEST_DIR/old_config/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    ralph_loop:
+      enabled: true
+      max_iterations: 20
+      fallback_enabled: true
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 50
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$SERIAL_TEST_DIR/old_config" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: old ralph_loop config → valid=false (migration needed)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: old ralph_loop config accepted as valid (should require serial_task)"
+  FAIL=$((FAIL + 1))
+fi
+missing=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('missing_keys',[]))" 2>/dev/null || echo "[]")
+assert_contains "old config → missing serial_task key" "$missing" "serial_task"
+
+rm -rf "$SERIAL_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 43. Phase 5 serial task checkpoint compatibility ---"
+
+# 43a. Phase 5 envelope with tasks_completed field → no block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"All tasks implemented\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":8,\"zero_skip_check\":{\"passed\":true}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 5 serial task complete → exit 0" 0 $exit_code
+assert_not_contains "Phase 5 serial complete → no block" "$output" "block"
+
+# 43b. Phase 5 envelope without iterations_used (removed field) → still valid
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"8/8 tasks complete\",\"test_results_path\":\"test.json\",\"tasks_completed\":8,\"zero_skip_check\":{\"passed\":true}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 5 no iterations_used → exit 0" 0 $exit_code
+assert_not_contains "Phase 5 no iterations_used → no block" "$output" "block"
+
+# 43c. PreCompact hook scans phase5-tasks/ directory
+if grep -q 'phase5-tasks' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+  green "  PASS: PreCompact hook scans phase5-tasks/"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: PreCompact hook missing phase5-tasks/ scan"
+  FAIL=$((FAIL + 1))
+fi
+
+# 43d. PreCompact creates task progress in state
+if grep -q 'task_number' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+  green "  PASS: PreCompact generates task progress in state"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: PreCompact missing task progress generation"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
+echo "--- 44. Template file mapping consistency ---"
+
+# 44a. dispatch SKILL.md references phase5-serial-task.md (not phase5-ralph-loop.md)
+DISPATCH_FILE="$SCRIPT_DIR/../skills/autopilot-dispatch/SKILL.md"
+if grep -q 'phase5-serial-task.md' "$DISPATCH_FILE"; then
+  green "  PASS: dispatch references phase5-serial-task.md"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: dispatch missing phase5-serial-task.md reference"
+  FAIL=$((FAIL + 1))
+fi
+
+if ! grep -qi 'phase5-ralph-loop' "$DISPATCH_FILE"; then
+  green "  PASS: dispatch has no phase5-ralph-loop reference"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: dispatch still references phase5-ralph-loop"
+  FAIL=$((FAIL + 1))
+fi
+
+# 44b. SKILL.md Phase 5 describes foreground Task (not ralph-loop)
+MAIN_SKILL="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+if grep -q '前台 Task' "$MAIN_SKILL"; then
+  green "  PASS: SKILL.md Phase 5 describes foreground Task dispatch"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: SKILL.md Phase 5 missing foreground Task description"
+  FAIL=$((FAIL + 1))
+fi
+
+# 44c. phase5-implementation.md has serial mode section
+IMPL_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase5-implementation.md"
+if grep -q '串行模式' "$IMPL_FILE" && grep -q '前台 Task' "$IMPL_FILE"; then
+  green "  PASS: phase5-implementation.md has serial mode with foreground Task"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: phase5-implementation.md missing serial mode description"
+  FAIL=$((FAIL + 1))
+fi
+
+# 44d. SKILL.md recovery protocol mentions phase5-tasks/ scanning
+if grep -q 'phase5-tasks' "$MAIN_SKILL"; then
+  green "  PASS: SKILL.md recovery protocol references phase5-tasks/"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: SKILL.md recovery missing phase5-tasks/ reference"
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
+
+# ============================================================
 echo "==================================="
 echo "Results: $PASS passed, $FAIL failed"
 echo "==================================="

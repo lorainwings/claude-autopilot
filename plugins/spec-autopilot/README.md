@@ -34,7 +34,7 @@ graph TB
         P2[Phase 2: Create OpenSpec]
         P3[Phase 3: FF Generate]
         P4[Phase 4: Test Design]
-        P5[Phase 5: Implementation<br/>Ralph Loop / Fallback]
+        P5[Phase 5: Implementation<br/>Serial Task / Parallel]
         P6[Phase 6: Test Report]
     end
 

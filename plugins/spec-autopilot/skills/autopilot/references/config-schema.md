@@ -49,9 +49,7 @@ phases:
   implementation:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     serial_task:
-      enabled: true
-      max_iterations: 30
-      fallback_enabled: true
+      max_retries_per_task: 3  # 单个 task 最大重试次数（1-10）
     worktree:
       enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
     parallel:

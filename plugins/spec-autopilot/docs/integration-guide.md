@@ -206,7 +206,7 @@ Phase 2-6: 子 Agent 自动执行
 ├── Phase 2: 创建 OpenSpec change
 ├── Phase 3: FF 生成所有制品
 ├── Phase 4: 测试用例设计（TDD 先行）
-├── Phase 5: Ralph-loop 循环实施
+├── Phase 5: 前台 Task 串行实施
 ├── Phase 6: 测试报告生成
 └── Phase 6.5: AI 代码审查（可选）
 
