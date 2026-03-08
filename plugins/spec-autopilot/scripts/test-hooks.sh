@@ -187,7 +187,7 @@ assert_contains "uses tool_response not tool_result" "$output" "block"
 
 # 3g. Nested JSON object (Phase 4 with test_counts + test_pyramid) → should be extracted
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18}}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"artifacts\":[\"tests/unit.test.ts\",\"tests/api.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18},\"change_coverage\":{\"change_points\":[\"A\"],\"tested_points\":[\"A\"],\"coverage_pct\":100,\"untested_points\":[]}}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "nested JSON → exit 0" 0 $exit_code
 assert_not_contains "nested JSON → no block" "$output" "block"
@@ -1091,14 +1091,14 @@ echo "--- 24. test_pyramid threshold tests ---"
 
 # 24a. Valid pyramid → allow
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":15,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":60,\"e2e_pct\":20},\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"]}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":15,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":60,\"e2e_pct\":20},\"change_coverage\":{\"change_points\":[\"X\"],\"tested_points\":[\"X\"],\"coverage_pct\":100,\"untested_points\":[]},\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"]}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "pyramid: valid distribution → exit 0" 0 $exit_code
 assert_not_contains "pyramid: valid distribution → no block" "$output" "block"
 
 # 24b. Inverted pyramid (too few unit, too many e2e) → block
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":2,\"api\":2,\"e2e\":8,\"ui\":3},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":13,\"e2e_pct\":53},\"artifacts\":[\"tests/e2e.py\"]}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed\",\"test_counts\":{\"unit\":2,\"api\":2,\"e2e\":8,\"ui\":3},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":13,\"e2e_pct\":53},\"change_coverage\":{\"change_points\":[\"X\"],\"tested_points\":[\"X\"],\"coverage_pct\":100,\"untested_points\":[]},\"artifacts\":[\"tests/e2e.py\"]}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "pyramid: inverted → exit 0" 0 $exit_code
 assert_contains "pyramid: inverted → block" "$output" "block"
@@ -1106,7 +1106,7 @@ assert_contains "pyramid: inverted → mentions floor" "$output" "floor"
 
 # 24c. Too few total cases → block
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":3,\"api\":2,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":43,\"e2e_pct\":14},\"artifacts\":[\"test.py\"]}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":3,\"api\":2,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":43,\"e2e_pct\":14},\"change_coverage\":{\"change_points\":[\"X\"],\"tested_points\":[\"X\"],\"coverage_pct\":100,\"untested_points\":[]},\"artifacts\":[\"test.py\"]}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "pyramid: too few cases → exit 0" 0 $exit_code
 assert_contains "pyramid: too few total → block" "$output" "block"
@@ -1114,7 +1114,7 @@ assert_contains "pyramid: too few total → mentions minimum" "$output" "minimum
 
 # 24d. Boundary: exactly at limits → allow
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":5,\"api\":3,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":30,\"e2e_pct\":40},\"artifacts\":[\"test.py\"]}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests\",\"test_counts\":{\"unit\":5,\"api\":3,\"e2e\":1,\"ui\":1},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":30,\"e2e_pct\":40},\"change_coverage\":{\"change_points\":[\"X\"],\"tested_points\":[\"X\"],\"coverage_pct\":100,\"untested_points\":[]},\"artifacts\":[\"test.py\"]}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "pyramid: boundary values → exit 0" 0 $exit_code
 assert_not_contains "pyramid: boundary values → no block" "$output" "block"
@@ -1226,7 +1226,7 @@ echo "--- 29. v3.2.0 optional fields compatibility ---"
 
 # 29a. Phase 4 with optional test_traceability → should pass
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed with traceability\",\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18},\"test_traceability\":[{\"test\":\"test_login\",\"requirement\":\"REQ-1.1\"}]}"}' \
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Tests designed with traceability\",\"artifacts\":[\"tests/unit.py\",\"tests/e2e.py\"],\"test_counts\":{\"unit\":10,\"api\":8,\"e2e\":5,\"ui\":5},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"unit_pct\":36,\"e2e_pct\":18},\"change_coverage\":{\"change_points\":[\"X\"],\"tested_points\":[\"X\"],\"coverage_pct\":100,\"untested_points\":[]},\"test_traceability\":[{\"test\":\"test_login\",\"requirement\":\"REQ-1.1\"}]}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Phase 4 with test_traceability → exit 0" 0 $exit_code
 assert_not_contains "Phase 4 with test_traceability → no block" "$output" "block"
@@ -1681,6 +1681,41 @@ assert_exit "anchor_sha valid + all in scope → exit 0" 0 $exit_code
 assert_not_contains "anchor_sha valid + all in scope → no block" "$output" "block"
 
 rm -rf "$ANCHOR_TEST_DIR" "$SCOPE_TEST_DIR"
+
+echo ""
+
+# ============================================================
+echo "--- 40. Phase 4 change_coverage validation ---"
+
+# 40a. Phase 4 with valid change_coverage → no block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests created\",\"artifacts\":[\"tests/test_foo.py\"],\"test_counts\":{\"unit\":8,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"total\":18,\"unit_pct\":44,\"integration_pct\":28,\"e2e_pct\":28},\"change_coverage\":{\"change_points\":[\"POST /api/foo\",\"FooService.bar\"],\"tested_points\":[\"POST /api/foo\",\"FooService.bar\"],\"coverage_pct\":100,\"untested_points\":[]}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 change_coverage 100% → exit 0" 0 $exit_code
+assert_not_contains "Phase 4 change_coverage 100% → no block" "$output" "block"
+
+# 40b. Phase 4 with low change_coverage → block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests created\",\"artifacts\":[\"tests/test_foo.py\"],\"test_counts\":{\"unit\":8,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"total\":18,\"unit_pct\":44,\"integration_pct\":28,\"e2e_pct\":28},\"change_coverage\":{\"change_points\":[\"POST /api/foo\",\"FooService.bar\",\"ChatPanel.vue\"],\"tested_points\":[\"POST /api/foo\"],\"coverage_pct\":33,\"untested_points\":[\"FooService.bar\",\"ChatPanel.vue\"]}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 change_coverage 33% → exit 0" 0 $exit_code
+assert_contains "Phase 4 change_coverage 33% → block" "$output" "block"
+assert_contains "Phase 4 change_coverage → mentions coverage" "$output" "change_coverage"
+
+# 40c. Phase 4 missing change_coverage → block (required field)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests created\",\"artifacts\":[\"tests/test_foo.py\"],\"test_counts\":{\"unit\":8,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"total\":18,\"unit_pct\":44,\"integration_pct\":28,\"e2e_pct\":28}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 missing change_coverage → exit 0" 0 $exit_code
+assert_contains "Phase 4 missing change_coverage → block" "$output" "block"
+assert_contains "Phase 4 missing change_coverage → mentions field" "$output" "change_coverage"
+
+# 40d. Phase 4 change_coverage at 80% boundary → no block
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests created\",\"artifacts\":[\"tests/test_foo.py\"],\"test_counts\":{\"unit\":8,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"total\":18,\"unit_pct\":44,\"integration_pct\":28,\"e2e_pct\":28},\"change_coverage\":{\"change_points\":[\"A\",\"B\",\"C\",\"D\",\"E\"],\"tested_points\":[\"A\",\"B\",\"C\",\"D\"],\"coverage_pct\":80,\"untested_points\":[\"E\"]}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 change_coverage 80% boundary → exit 0" 0 $exit_code
+assert_not_contains "Phase 4 change_coverage 80% boundary → no block" "$output" "block"
 
 echo ""
 

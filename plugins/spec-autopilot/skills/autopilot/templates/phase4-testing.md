@@ -28,6 +28,46 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 | 完整业务流程 | 主流程 + 分支流程 + 异常中断 | ≥5 个完整流程 |
 | 边界条件和异常 | 空值、超长、并发、权限、网络异常 | ≥8 个边界用例 |
 
+## 变更聚焦专项测试（v3.2.5 新增）
+
+测试用例**必须聚焦本次变更**，而非泛化生成。流程如下：
+
+### 1. 提取变更清单
+
+从任务来源文件中提取本次变更涉及的**具体代码变更点**：
+- **full 模式**: 读取 `openspec/changes/{change_name}/tasks.md`，提取每个 task 的目标文件和函数/方法
+- **lite/minimal 模式**: 读取 `context/phase5-task-breakdown.md`（Phase 5 启动时生成）或 `phase-1-requirements.json` 中的 `requirements_summary`
+
+### 2. 为每个变更点设计专项测试
+
+**每个被修改/新增的代码单元（函数、方法、端点、组件）必须有至少 1 个专项测试**。
+
+```
+变更点示例                          → 专项测试示例
+─────────────────────────────── → ──────────────────────────────
+POST /api/claude/config (新增)    → test_claude_config_create_success
+                                  → test_claude_config_invalid_params
+ClaudeService.sendMessage (修改)  → test_send_message_with_new_agent_param
+ChatPanel.vue drag (修复 BUG)     → test_chat_panel_drag_persistence
+```
+
+### 3. 变更覆盖率验证
+
+返回信封中**必须**包含 `change_coverage` 字段：
+
+```json
+{
+  "change_coverage": {
+    "change_points": ["POST /api/claude/config", "ClaudeService.sendMessage", "ChatPanel.vue:handleDrag"],
+    "tested_points": ["POST /api/claude/config", "ClaudeService.sendMessage", "ChatPanel.vue:handleDrag"],
+    "coverage_pct": 100,
+    "untested_points": []
+  }
+}
+```
+
+**门禁**: `coverage_pct` ≥ 80%。未覆盖的变更点必须在 `untested_points` 中说明原因。
+
 ## 需求追溯矩阵（v3.2.0 新增）
 
 每个测试用例**必须**追溯到 Phase 1 确认的具体需求点：
@@ -106,12 +146,19 @@ test('用户登录', async ({ page }) => {
 status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
 必须包含 test_counts、artifacts、dry_run_results、test_pyramid 字段。
 **v3.2.0 新增**: 必须包含 `test_traceability` 字段（需求追溯映射）。
+**v3.2.5 新增**: 必须包含 `change_coverage` 字段（变更聚焦覆盖率）。
 
 ```json
 {
   "test_traceability": [
     { "test": "test_user_login", "requirement": "REQ-1.1 用户登录" },
     { "test": "test_create_space", "requirement": "REQ-2.1 创建工作空间" }
-  ]
+  ],
+  "change_coverage": {
+    "change_points": ["POST /api/claude/config", "ChatPanel.vue:handleDrag"],
+    "tested_points": ["POST /api/claude/config", "ChatPanel.vue:handleDrag"],
+    "coverage_pct": 100,
+    "untested_points": []
+  }
 }
 ```

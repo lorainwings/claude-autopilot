@@ -344,6 +344,25 @@ status 只允许 "ok" 或 "blocked"：
 - 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
 - **禁止返回 "warning"**：Phase 4 不接受降级通过
 
+### 变更聚焦专项测试（v3.2.5 新增）
+
+测试用例**必须聚焦本次变更点**，不允许只生成泛化测试。
+
+1. 从 tasks.md 或 phase-1-requirements.json 提取本次变更涉及的具体代码单元（函数、端点、组件）
+2. 每个变更点至少 1 个专项测试用例
+3. 返回信封中必须包含 `change_coverage` 字段：
+```json
+{
+  "change_coverage": {
+    "change_points": ["变更点列表"],
+    "tested_points": ["已覆盖的变更点"],
+    "coverage_pct": 100,
+    "untested_points": []
+  }
+}
+```
+`coverage_pct` ≥ 80%，否则视为 blocked。
+
 ### 测试金字塔比例约束
 
 测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值，默认值如下）：

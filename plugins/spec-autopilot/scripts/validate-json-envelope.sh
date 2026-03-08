@@ -177,7 +177,7 @@ phase_num = int(phase_match.group(1)) if phase_match else 0
 
 # Required fields: block if missing (core gate dependencies)
 phase_required = {
-    4: ['test_counts', 'dry_run_results', 'test_pyramid'],
+    4: ['test_counts', 'dry_run_results', 'test_pyramid', 'change_coverage'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
     6: ['pass_rate', 'report_path', 'report_format'],
 }
@@ -256,6 +256,19 @@ if phase_num == 4:
             'reason': f'Phase 4 test_pyramid floor violation (Layer 2): {\";\".join(violations)}. Adjust test distribution before proceeding.'
         }))
         sys.exit(0)
+
+    # 10.5) Phase 4 change_coverage validation
+    cc = found_json.get('change_coverage', {})
+    if isinstance(cc, dict) and cc:
+        cov_pct = cc.get('coverage_pct', 0)
+        if isinstance(cov_pct, (int, float)) and cov_pct < 80:
+            untested = cc.get('untested_points', [])
+            shown = untested[:3] if isinstance(untested, list) else []
+            print(json.dumps({
+                'decision': 'block',
+                'reason': f'Phase 4 change_coverage insufficient: {cov_pct}% < 80% threshold. Untested: {(chr(44)+chr(32)).join(str(p) for p in shown)}. Add targeted tests for each change point.'
+            }))
+            sys.exit(0)
 
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)
