@@ -1,29 +1,150 @@
 #!/usr/bin/env bash
-# pre-commit hook: run spec-autopilot test suite when hook scripts change.
+# pre-commit hook: run spec-autopilot test suite and doc sync check
 
 set -uo pipefail
+
+# ============================================
+# Part 1: Hook Test Suite
+# ============================================
 
 # Check if any plugin script files are staged
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/.*\.(sh|json)$' || true)
 
-if [ -z "$STAGED" ]; then
-  exit 0
-fi
+if [ -n "$STAGED" ]; then
+  echo "🧪 Plugin files changed — running hook test suite..."
 
-echo "Plugin files changed — running hook test suite..."
+  TEST_SCRIPT="plugins/spec-autopilot/scripts/test-hooks.sh"
 
-TEST_SCRIPT="plugins/spec-autopilot/scripts/test-hooks.sh"
+  if [ ! -f "$TEST_SCRIPT" ]; then
+    echo "WARNING: test-hooks.sh not found, skipping" >&2
+  else
+    if ! bash "$TEST_SCRIPT"; then
+      echo ""
+      echo "❌ Hook tests failed. Fix the issues above before committing."
+      exit 1
+    fi
+    echo "✅ All hook tests passed."
+  fi
 
-if [ ! -f "$TEST_SCRIPT" ]; then
-  echo "WARNING: test-hooks.sh not found, skipping" >&2
-  exit 0
-fi
+  # ============================================
+  # Part 1.5: Targeted Test Coverage Check
+  # ============================================
+  # Verify that modified scripts have corresponding test additions in test-hooks.sh
+  CHANGED_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/scripts/[^/]+\.sh$' | grep -v 'test-hooks\.sh' | grep -v '_common\.sh' || true)
+  TEST_DIFF=$(git diff --cached -- "$TEST_SCRIPT" 2>/dev/null || true)
 
-if ! bash "$TEST_SCRIPT"; then
+  if [ -n "$CHANGED_SCRIPTS" ]; then
+    MISSING_TESTS=""
+    for script in $CHANGED_SCRIPTS; do
+      script_basename=$(basename "$script")
+      # Check if test-hooks.sh diff references this script
+      if [ -n "$TEST_DIFF" ]; then
+        if ! echo "$TEST_DIFF" | grep -q "$script_basename"; then
+          MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}\n"
+        fi
+      else
+        MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}\n"
+      fi
+    done
+
+    if [ -n "$MISSING_TESTS" ]; then
+      echo ""
+      echo "⚠️  Scripts modified without targeted test updates in test-hooks.sh:"
+      printf "$MISSING_TESTS"
+      echo "   Each script change should include targeted test cases."
+      echo ""
+    fi
+  fi
   echo ""
-  echo "Hook tests failed. Fix the issues above before committing."
-  exit 1
 fi
 
-echo "All hook tests passed."
+# ============================================
+# Part 2: Documentation Sync Check
+# ============================================
+
+# Check if any plugin code is staged
+PLUGIN_CHANGED=$(git diff --cached --name-only | grep -q "plugins/spec-autopilot/" && echo "yes" || echo "no")
+
+if [ "$PLUGIN_CHANGED" = "yes" ]; then
+  echo "📚 Checking documentation sync..."
+  echo ""
+
+  # 0. Auto-bump patch version (plugin.json + README.md)
+  PLUGIN_JSON="plugins/spec-autopilot/.claude-plugin/plugin.json"
+  README_MD="plugins/spec-autopilot/README.md"
+  CURRENT_VERSION=$(grep '"version"' "$PLUGIN_JSON" 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+
+  if [ -n "$CURRENT_VERSION" ]; then
+    # Check if plugin.json is already staged with a version change (manual bump)
+    if git diff --cached -- "$PLUGIN_JSON" | grep -q '"version"'; then
+      echo "✅ Version already bumped manually: $CURRENT_VERSION"
+    else
+      # Auto-bump patch: X.Y.Z → X.Y.(Z+1)
+      MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+      MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+      PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+      NEW_PATCH=$((PATCH + 1))
+      NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+
+      # Update plugin.json
+      sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
+      # Update README.md badge
+      sed -i '' "s/version-${CURRENT_VERSION}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
+
+      git add "$PLUGIN_JSON" "$README_MD"
+      echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"
+    fi
+  fi
+
+  # 1. Check CHANGELOG.md is updated
+  if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
+    echo "❌ Error: Plugin code modified but CHANGELOG.md not updated"
+    echo ""
+    echo "Please update CHANGELOG.md with your changes:"
+    echo "  1. Add new version section at the top"
+    echo "  2. Document Added/Changed/Fixed items"
+    echo "  3. git add CHANGELOG.md"
+    echo ""
+    exit 1
+  fi
+
+  # 2. Check version consistency
+  PLUGIN_VERSION=$(grep '"version"' plugins/spec-autopilot/.claude-plugin/plugin.json 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+  README_VERSION=$(grep 'version-' plugins/spec-autopilot/README.md 2>/dev/null | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
+
+  if [ -n "$PLUGIN_VERSION" ] && [ -n "$README_VERSION" ]; then
+    if [ "$PLUGIN_VERSION" != "$README_VERSION" ]; then
+      echo "❌ Error: Version mismatch"
+      echo "  plugin.json: $PLUGIN_VERSION"
+      echo "  README.md:   $README_VERSION"
+      echo ""
+      echo "Run: /spec-autopilot:doc-sync $PLUGIN_VERSION"
+      echo ""
+      exit 1
+    fi
+    echo "✅ Version consistent: $PLUGIN_VERSION"
+  fi
+
+  # 3. Warn if Hook scripts changed but docs not updated
+  if git diff --cached --name-only | grep -q "plugins/spec-autopilot/scripts/.*\.sh"; then
+    if ! git diff --cached --name-only | grep -q "plugins/spec-autopilot/README.md\|plugins/spec-autopilot/docs/"; then
+      echo "⚠️  Warning: Hook scripts modified but docs not updated"
+      echo "   Consider updating: README.md, docs/architecture.md, docs/gates.md"
+      echo ""
+    fi
+  fi
+
+  # 4. Warn if Skills changed but README not updated
+  if git diff --cached --name-only | grep -q "plugins/spec-autopilot/skills/.*/SKILL\.md"; then
+    if ! git diff --cached --name-only | grep -q "plugins/spec-autopilot/README.md"; then
+      echo "⚠️  Warning: Skill files modified but README.md not updated"
+      echo "   Consider updating: README.md (Skills table)"
+      echo ""
+    fi
+  fi
+
+  echo "✅ Documentation sync check passed"
+  echo ""
+fi
+
 exit 0

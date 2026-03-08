@@ -1,6 +1,6 @@
 {
   "name": "spec-autopilot",
-  "version": "3.2.5",
+  "version": "3.2.6",
   "description": "Spec-driven autopilot with cross-phase parallel dispatch (Phase 1/4/5/6), Phase 6 tri-path parallel (test + code review + quality scans), mixed-mode parallel implementation (worktree + domain partition + batch review), Allure unified test reporting with anomaly alerts, requirement-driven test traceability matrix, enhanced decision cards with research evidence for all complexity levels, code constraint enforcement (forbidden + required patterns + style guide), built-in phase templates, weighted anti-rationalization, persistent knowledge accumulation, crash recovery, and model routing",
   "author": {
     "name": "vibeflow-team"

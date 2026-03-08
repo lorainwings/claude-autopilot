@@ -5,6 +5,14 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.6] - 2026-03-08
+
+### Fixed
+- **pre-commit hook 未生效**: `.githooks/pre-commit` 与 `.git/hooks/pre-commit` 内容不同步，`core.hooksPath=.githooks` 导致 auto-bump、CHANGELOG 检查、doc sync 检查均未生效。同步为完整版（含 Part 1 测试套件 + Part 1.5 专项覆盖 + Part 2 文档同步 + 自动版本号 bump）
+
+### Changed
+- `.githooks/pre-commit` — 从 30 行基础版升级为 150 行完整版，与 `.git/hooks/pre-commit` 对齐
+
 ## [3.2.5] - 2026-03-08
 
 ### Added
