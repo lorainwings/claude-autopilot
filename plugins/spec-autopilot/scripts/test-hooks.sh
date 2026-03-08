@@ -248,25 +248,6 @@ assert_exit "SessionStart hook → exit 0" 0 $exit_code
 echo ""
 
 # ============================================================
-echo "--- 5. detect-ralph-loop.sh ---"
-
-# 5a. Non-existent project → exits 0 and outputs one of: available/fallback/blocked
-# Note: Result depends on user-scope ~/.claude/settings.json (ralph-loop may be installed globally)
-exit_code=0
-output=$(bash "$SCRIPT_DIR/detect-ralph-loop.sh" /tmp/nonexistent-project-xyzzy 2>/dev/null) || exit_code=$?
-assert_exit "nonexistent project → exit 0" 0 $exit_code
-# Verify output is one of the three valid values
-if echo "$output" | grep -qE '^(available|fallback|blocked)$'; then
-  green "  PASS: nonexistent project → valid output ($output)"
-  PASS=$((PASS + 1))
-else
-  red "  FAIL: nonexistent project → unexpected output ($output)"
-  FAIL=$((FAIL + 1))
-fi
-
-echo ""
-
-# ============================================================
 echo "--- 6. hooks.json validation ---"
 
 # 6a. Valid JSON
@@ -947,10 +928,8 @@ phases:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
   implementation:
-    ralph_loop:
-      enabled: true
-      max_iterations: 30
-      fallback_enabled: true
+    serial_task:
+      max_retries_per_task: 3
   reporting:
     coverage_target: 80
     zero_skip_required: true
@@ -1337,10 +1316,8 @@ phases:
     parallel:
       enabled: true
   implementation:
-    ralph_loop:
-      enabled: true
-      max_iterations: 30
-      fallback_enabled: true
+    serial_task:
+      max_retries_per_task: 3
     parallel:
       enabled: true
       max_agents: 5

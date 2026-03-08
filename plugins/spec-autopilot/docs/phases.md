@@ -11,7 +11,7 @@
 | 2 | Sub-agent | Create OpenSpec change directory | `phase-2-openspec.json` |
 | 3 | Sub-agent | FF generate all artifacts | `phase-3-ff.json` |
 | 4 | Sub-agent | Test case design (mandatory) | `phase-4-testing.json` |
-| 5 | Sub-agent | Implementation via ralph-loop/fallback | `phase-5-implement.json` |
+| 5 | Sub-agent | Implementation via serial Task dispatch | `phase-5-implement.json` |
 | 6 | Sub-agent | Test report generation (mandatory) | `phase-6-report.json` |
 | 7 | Main thread | Summary + user-confirmed archive | `phase-7-summary.json` |
 
@@ -23,7 +23,7 @@
 
 1. Check `autopilot.config.yaml` exists → if not, call `autopilot-init`
 2. Validate config schema via `validate-config.sh`
-3. Check `settings.json` for ralph-loop plugin
+3. Check settings.json for enabled plugins
 4. Call `autopilot-recovery` Skill to scan checkpoints
 5. Create 8 phase tasks with blockedBy chain
 6. Write `.autopilot-active` lock file

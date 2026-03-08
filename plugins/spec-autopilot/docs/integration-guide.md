@@ -16,7 +16,6 @@
 | 依赖 | 用途 | 安装 |
 |------|------|------|
 | openspec 插件 | Phase 2-3 规范生成（**必需**） | `claude plugin install openspec` |
-| ralph-loop 插件 | Phase 5 自主迭代实现 | `claude plugin install ralph-loop` |
 | PyYAML | 配置验证的精确解析 | `pip3 install pyyaml` |
 | Allure | 统一测试报告 | `npm install -g allure-commandline` |
 
@@ -189,7 +188,7 @@ claude plugin list
 Phase 0: 环境检查
 ├── 读取 / 生成 autopilot.config.yaml
 ├── 验证配置 Schema
-├── 检查 ralph-loop 插件
+├── 检查已启用插件列表
 ├── 扫描已有 checkpoint（崩溃恢复）
 ├── 创建 8 个阶段任务
 └── 创建锚定 commit

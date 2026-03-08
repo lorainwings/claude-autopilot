@@ -91,9 +91,7 @@ required_nested = [
     'phases.testing.agent',
     'phases.testing.gate.min_test_count_per_type',
     'phases.testing.gate.required_test_types',
-    'phases.implementation.ralph_loop.enabled',
-    'phases.implementation.ralph_loop.max_iterations',
-    'phases.implementation.ralph_loop.fallback_enabled',
+    'phases.implementation.serial_task.max_retries_per_task',
     'phases.reporting.coverage_target',
     'phases.reporting.zero_skip_required',
 ]
@@ -157,9 +155,7 @@ TYPE_RULES = {
     'project_context.project_structure.backend_dir': str,
     'project_context.project_structure.frontend_dir': str,
     'phases.testing.gate.min_test_count_per_type': (int, float),
-    'phases.implementation.ralph_loop.enabled': bool,
-    'phases.implementation.ralph_loop.max_iterations': (int, float),
-    'phases.implementation.ralph_loop.fallback_enabled': bool,
+    'phases.implementation.serial_task.max_retries_per_task': (int, float),
     'phases.reporting.coverage_target': (int, float),
     'phases.reporting.zero_skip_required': bool,
     'test_pyramid.min_unit_pct': (int, float),
@@ -185,7 +181,7 @@ for key_path, expected_type in TYPE_RULES.items():
 # --- 范围验证 ---
 RANGE_RULES = {
     'phases.testing.gate.min_test_count_per_type': (1, 100),
-    'phases.implementation.ralph_loop.max_iterations': (1, 200),
+    'phases.implementation.serial_task.max_retries_per_task': (1, 10),
     'phases.reporting.coverage_target': (0, 100),
     'test_pyramid.min_unit_pct': (0, 100),
     'test_pyramid.max_e2e_pct': (0, 100),
@@ -215,11 +211,10 @@ if min_unit is not None and max_e2e is not None:
         if min_unit + max_e2e > 100:
             cross_ref_warnings.append('test_pyramid: min_unit_pct + max_e2e_pct > 100%, impossible distribution')
 
-# ralph_loop enabled 但 max_iterations < 1
-rl_enabled = get_value(yaml_data, 'phases.implementation.ralph_loop.enabled')
-rl_max = get_value(yaml_data, 'phases.implementation.ralph_loop.max_iterations')
-if rl_enabled and rl_max is not None and isinstance(rl_max, (int, float)) and rl_max < 1:
-    cross_ref_warnings.append('ralph_loop.enabled=true but max_iterations<1, effectively disabled')
+# serial_task max_retries_per_task 范围检查
+st_max = get_value(yaml_data, 'phases.implementation.serial_task.max_retries_per_task')
+if isinstance(st_max, (int, float)) and st_max < 1:
+    cross_ref_warnings.append('serial_task.max_retries_per_task<1, will not retry on failure')
 
 # parallel 启用但 max_agents < 2
 par_enabled = get_value(yaml_data, 'phases.implementation.parallel.enabled')
@@ -273,7 +268,7 @@ for key in version services phases test_suites; do
 done
 
 # Check nested keys with indentation-aware grep
-for nested_key in "phases.requirements.agent:agent" "phases.testing.agent:agent" "phases.implementation.ralph_loop.enabled:enabled"; do
+for nested_key in "phases.requirements.agent:agent" "phases.testing.agent:agent" "phases.implementation.serial_task.max_retries_per_task:max_retries_per_task"; do
   leaf="${nested_key#*:}"
   if ! grep -q "^[[:space:]]*${leaf}:" "$CONFIG_FILE" 2>/dev/null; then
     full="${nested_key%:*}"

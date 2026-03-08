@@ -280,7 +280,7 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 > 如果 `parallel.enabled = true`，必须执行上方「并行执行模式」章节，**禁止进入本节**。
 > 如果从路径 A 降级到串行模式，本节作为降级后的执行路径。
 
-### 前台 Task 逐个派发（v3.3.0 替代 ralph-loop）
+### 前台 Task 逐个派发（串行模式）
 
 主线程通过**前台 Task**（同步阻塞）逐个派发每个 task 给子 Agent 执行。子 Agent 的内部工具调用（Read/Write/Edit/Bash 等）不会灌入主线程上下文，实现上下文隔离。
 
@@ -304,13 +304,13 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 5. 写入 test-results.json
 ```
 
-#### 为什么使用前台 Task 而非 ralph-loop
+#### 前台 Task 串行模式的优势
 
-| 维度 | ralph-loop（旧方案） | 前台 Task（新方案） |
-|------|---------------------|-------------------|
-| 上下文影响 | 所有 Read/Write/Bash 输出灌入主线程 | 子 Agent 内部输出隔离，仅 JSON 信封回传 |
-| 确定性 | Skill 调用，同步 | Task 调用，同步阻塞 |
-| 崩溃恢复 | 依赖 ralph-loop 内部机制 | task 级 checkpoint，扫描恢复 |
+| 维度 | 说明 |
+|------|------|
+| 上下文影响 | 子 Agent 内部输出隔离，仅 JSON 信封回传 |
+| 确定性 | Task 调用，同步阻塞 |
+| 崩溃恢复 | task 级 checkpoint，扫描恢复 |
 | 工具可用性 | 完整（主线程） | Read/Write/Edit/Bash/Glob/Grep（子 Agent 无 Task 工具，但单 task 不需要嵌套） |
 | Hook 集成 | 主线程 Hook | 子 Agent 工具调用仍触发 Hook |
 
@@ -422,7 +422,7 @@ Phase 5 启动时，扫描 `phase5-tasks/` 目录：
 
 ### 写入时机
 
-每个 task 完成后（无论 ralph-loop 还是 fallback 模式），主线程/ralph-loop 应：
+每个 task 完成后（无论串行 Task 还是并行模式），主线程应：
 
 1. 确保 `phase5-tasks/` 目录存在
 2. 写入 `task-N.json`（N 为 task 编号）

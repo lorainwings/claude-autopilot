@@ -68,9 +68,7 @@ services:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `instruction_files` | array | No | `[]` | Paths to implementation instruction files |
-| `ralph_loop.enabled` | boolean | Yes | — | Whether ralph-loop plugin is used |
-| `ralph_loop.max_iterations` | number | Yes | — | Maximum implementation iterations |
-| `ralph_loop.fallback_enabled` | boolean | Yes | — | Enable manual fallback when ralph-loop unavailable |
+| `serial_task.max_retries_per_task` | number | Yes | 3 | Max retry attempts per task on failure |
 | `worktree.enabled` | boolean | No | `false` | Enable git worktree isolation per task |
 | `parallel.enabled` | boolean | No | `false` | 启用 Phase 5 并行 Agent Team 执行 |
 | `parallel.max_agents` | number | No | `3` | 最大并行 Agent 数量（建议 2-4） |
@@ -261,8 +259,7 @@ Output:
 | `phases.requirements.complexity_routing.enabled` | boolean |
 | `phases.requirements.complexity_routing.thresholds.small` | number |
 | `phases.requirements.complexity_routing.thresholds.medium` | number |
-| `phases.implementation.ralph_loop.enabled` | boolean |
-| `phases.implementation.ralph_loop.max_iterations` | number |
+| `phases.implementation.serial_task.max_retries_per_task` | number |
 | `phases.reporting.coverage_target` | number |
 | `phases.code_review.enabled` | boolean |
 | `phases.implementation.parallel.enabled` | boolean |
@@ -273,7 +270,7 @@ Output:
 | 字段路径 | 范围 |
 |----------|------|
 | `phases.testing.gate.min_test_count_per_type` | [1, 100] |
-| `phases.implementation.ralph_loop.max_iterations` | [1, 200] |
+| `phases.implementation.serial_task.max_retries_per_task` | [1, 10] |
 | `phases.reporting.coverage_target` | [0, 100] |
 | `test_pyramid.min_unit_pct` | [0, 100] |
 | `test_pyramid.max_e2e_pct` | [0, 100] |
@@ -288,11 +285,11 @@ Output:
 | 检查项 | 描述 |
 |--------|------|
 | test_pyramid 总和 | `min_unit_pct + max_e2e_pct` 不超过 100% |
-| ralph_loop 一致性 | `enabled=true` 时 `max_iterations` 应 ≥ 1 |
+| serial_task 一致性 | max_retries_per_task 应 ≥ 1 |
 | parallel 一致性 | `enabled=true` 时 `max_agents` 应 ≥ 2 |
 | coverage 一致性 | `coverage_target=0` 且 `zero_skip_required=true` 可能为误配 |
 | complexity_routing 一致性 | `thresholds.small` 必须 < `thresholds.medium` |
 
 Required keys checked:
 - Top-level: `version`, `services`, `phases`, `test_suites`
-- Nested: `phases.requirements.agent`, `phases.testing.agent`, `phases.testing.gate.*`, `phases.implementation.ralph_loop.*`, `phases.reporting.coverage_target`, `phases.reporting.zero_skip_required`
+- Nested: `phases.requirements.agent`, `phases.testing.agent`, `phases.testing.gate.*`, `phases.implementation.serial_task.*`, `phases.reporting.coverage_target`, `phases.reporting.zero_skip_required`

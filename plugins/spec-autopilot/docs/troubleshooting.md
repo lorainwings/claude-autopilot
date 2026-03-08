@@ -195,8 +195,8 @@ for f in sorted(glob.glob('openspec/changes/<name>/context/phase-results/phase-*
 **Q: Can I run autopilot on an existing project with code?**
 A: Yes. Enable `brownfield_validation` in your config for drift detection. The pipeline works with both greenfield and brownfield projects.
 
-**Q: What if ralph-loop plugin is not available?**
-A: Set `phases.implementation.ralph_loop.fallback_enabled: true` to use the manual fallback loop. Or install ralph-loop for the best experience.
+**Q: How does Phase 5 serial mode work?**
+A: Phase 5 serial mode uses foreground Task dispatch — each task is sent to a sub-agent synchronously. No external plugins required.
 
 **Q: Can I skip phases?**
 A: No. All 8 phases are mandatory. If a phase is not applicable, the sub-agent should return `status: "ok"` with a justification in the summary, not skip the phase.

@@ -304,7 +304,7 @@ parallel_tasks:
 ### Phase 5: 实施并行（混合模式）
 
 > **强制约束**: 当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 **必须**走并行模式。
-> **禁止**: 在并行模式下检测 ralph-loop 可用性或调用 Skill("ralph-loop:ralph-loop")。
+> **禁止**: 在并行模式下进入串行模式或调用串行 Task 派发流程。
 > **完整 dispatch 模板**: 见 `references/parallel-phase-dispatch.md` Phase 5 并行调度章节。
 
 ```yaml

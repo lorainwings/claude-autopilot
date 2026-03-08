@@ -122,7 +122,7 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 ### Phase 5 并行调度
 
 > **触发条件**: `config.phases.implementation.parallel.enabled = true`
-> **强制约束**: 进入并行模式后，禁止检测 ralph-loop 可用性，禁止调用 Skill("ralph-loop:ralph-loop")
+> **强制约束**: 进入并行模式后，禁止进入串行模式或调用串行 Task 派发流程
 
 核心增强（v3.2.0）：
 1. **混合模式** — 按独立域分组并行 + 每组完成后批量 review

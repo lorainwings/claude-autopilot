@@ -48,7 +48,7 @@ phases:
       required_test_types: [unit, api, e2e, ui]
   implementation:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
-    ralph_loop:
+    serial_task:
       enabled: true
       max_iterations: 30
       fallback_enabled: true
@@ -197,9 +197,7 @@ phases 内必须的 key:
   - phases.testing.agent (string)
   - phases.testing.gate.min_test_count_per_type (number, >= 1)
   - phases.testing.gate.required_test_types (array, non-empty)
-  - phases.implementation.ralph_loop.enabled (boolean)
-  - phases.implementation.ralph_loop.max_iterations (number, >= 1)
-  - phases.implementation.ralph_loop.fallback_enabled (boolean)
+  - phases.implementation.serial_task.max_retries_per_task (number, >= 1)
   - phases.reporting.coverage_target (number, 0-100)
   - phases.reporting.zero_skip_required (boolean)
 

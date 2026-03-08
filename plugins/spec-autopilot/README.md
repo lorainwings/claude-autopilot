@@ -181,10 +181,8 @@ phases:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
   implementation:
-    ralph_loop:
-      enabled: true
-      max_iterations: 30
-      fallback_enabled: true
+    serial_task:
+      max_retries_per_task: 3
     worktree:
       enabled: false
   reporting:
@@ -242,7 +240,6 @@ test_suites:
 |--------|---------|
 | `validate-config.sh` | Validate autopilot.config.yaml schema |
 | `collect-metrics.sh` | Aggregate per-phase execution metrics |
-| `detect-ralph-loop.sh` | Check ralph-loop plugin availability |
 | `check-allure-install.sh` | Detect Allure toolchain installation |
 | `_common.sh` | Shared utility functions |
 
