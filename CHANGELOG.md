@@ -5,6 +5,30 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.5] - 2026-03-08
+
+### Added
+- **变更聚焦专项测试**: Phase 4 新增 `change_coverage` 必须字段，强制每个变更点至少 1 个专项测试用例，覆盖率 ≥ 80%
+- **pre-commit 专项测试检查**: 修改脚本时检测 test-hooks.sh 是否有对应测试更新
+- **Phase 7 Allure 报告链接**: 汇总展示必须提供 Allure 测试报告链接和测试汇总表
+- **anchor_sha diff 基准**: parallel-merge-guard 使用 Phase 0 锚定 commit 替代 HEAD~1，精确覆盖任务变更范围
+- **pre-commit 自动版本号 bump**: 插件代码变更时自动递增 patch 版本号
+
+### Fixed
+- **parallel-merge-guard cwd 定位**: Python 段从顶层 `cwd` 读取（Hook stdin 标准格式），修复原来只从 `tool_input.cwd` 取值的 Bug
+- **parallel-merge-guard scope 匹配**: 严格目录边界匹配，修复 `startswith` 宽松匹配导致的误报
+- **parallel-merge-guard HEAD~1 崩溃**: 添加 `rev-parse --verify` 前置检查，防止初始 commit 时 git diff 失败
+- **anti-rationalization bash 引号冲突**: Python f-string 中 `", "` 改用 `chr(44)+chr(32)` 避免 bash 双引号内解析冲突
+- **空 change_coverage 绕过校验**: 检查 `change_points` 字段存在性，防止空对象 `{}` 绕过校验
+
+### Changed
+- **SKILL.md 精简**: 560 → 415 行（-26%），Phase 4/5/6 细节提取到参考文档
+- `validate-json-envelope.sh` — Phase 4 新增 change_coverage required field + 覆盖率校验
+- `phase4-testing.md` — 新增变更聚焦专项测试章节
+- `autopilot-dispatch/SKILL.md` — Phase 4 prompt 注入变更聚焦要求
+- `protocol.md` — Phase 4 必须字段新增 change_coverage
+- `test-hooks.sh` — 新增 24 个测试（211 → 235）
+
 ## [3.0.0] - 2026-03-05
 
 ### Breaking Changes
