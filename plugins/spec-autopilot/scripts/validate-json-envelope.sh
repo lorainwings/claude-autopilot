@@ -259,16 +259,21 @@ if phase_num == 4:
 
     # 10.5) Phase 4 change_coverage validation
     cc = found_json.get('change_coverage', {})
-    if isinstance(cc, dict) and cc:
-        cov_pct = cc.get('coverage_pct', 0)
-        if isinstance(cov_pct, (int, float)) and cov_pct < 80:
-            untested = cc.get('untested_points', [])
-            shown = untested[:3] if isinstance(untested, list) else []
-            print(json.dumps({
-                'decision': 'block',
-                'reason': f'Phase 4 change_coverage insufficient: {cov_pct}% < 80% threshold. Untested: {(chr(44)+chr(32)).join(str(p) for p in shown)}. Add targeted tests for each change point.'
-            }))
-            sys.exit(0)
+    if not isinstance(cc, dict) or not cc or 'change_points' not in cc:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': 'Phase 4 change_coverage is empty or malformed. Must include change_points, tested_points, coverage_pct, untested_points.'
+        }))
+        sys.exit(0)
+    cov_pct = cc.get('coverage_pct', 0)
+    if isinstance(cov_pct, (int, float)) and cov_pct < 80:
+        untested = cc.get('untested_points', [])
+        shown = untested[:3] if isinstance(untested, list) else []
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 4 change_coverage insufficient: {cov_pct}% < 80% threshold. Untested: {(chr(44)+chr(32)).join(str(p) for p in shown)}. Add targeted tests for each change point.'
+        }))
+        sys.exit(0)
 
 # All valid → no output, let PostToolUse proceed normally
 print(f'OK: Valid autopilot JSON envelope with status=\"{found_json[\"status\"]}\"', file=sys.stderr)

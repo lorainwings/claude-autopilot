@@ -1717,6 +1717,14 @@ output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:
 assert_exit "Phase 4 change_coverage 80% boundary → exit 0" 0 $exit_code
 assert_not_contains "Phase 4 change_coverage 80% boundary → no block" "$output" "block"
 
+# 40e. Phase 4 empty change_coverage object → block (malformed)
+exit_code=0
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nPhase 4"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Tests\",\"artifacts\":[\"t.py\"],\"test_counts\":{\"unit\":10,\"api\":5,\"e2e\":3,\"ui\":2},\"dry_run_results\":{\"unit\":0,\"api\":0,\"e2e\":0,\"ui\":0},\"test_pyramid\":{\"total\":20,\"unit_pct\":50,\"integration_pct\":25,\"e2e_pct\":25},\"change_coverage\":{}}"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+assert_exit "Phase 4 empty change_coverage → exit 0" 0 $exit_code
+assert_contains "Phase 4 empty change_coverage → block" "$output" "block"
+assert_contains "Phase 4 empty change_coverage → mentions malformed" "$output" "malformed"
+
 echo ""
 
 # ============================================================
