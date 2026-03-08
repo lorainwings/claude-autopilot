@@ -396,7 +396,11 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
   - 降级: 合并失败超过 3 文件 -> 切换到路径 B
 
 - **路径 B: 串行模式**（当 `parallel.enabled = false` 或从路径 A 降级时执行）：
-  - 通过 ralph-loop 或 fallback 执行（由编排主线程决策）
+  - 主线程逐个派发**前台 Task**（同步阻塞），每个 task 一个子 Agent
+  - 子 Agent 内部工具调用不灌入主线程上下文（上下文隔离）
+  - 每个 task 完成后写入 `phase5-tasks/task-N.json` checkpoint
+  - 连续 3 次失败 → AskUserQuestion 决策
+  - Task prompt 模板详见 `references/phase5-implementation.md` 串行模式章节
 
 - 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）
 - 可选覆盖：config.phases.implementation.instruction_files（非空时注入）

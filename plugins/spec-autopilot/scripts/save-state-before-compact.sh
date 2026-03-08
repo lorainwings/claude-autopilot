@@ -138,6 +138,22 @@ if os.path.isfile(tasks_file):
     except Exception:
         pass
 
+# Scan phase5-tasks/ for task-level progress
+phase5_task_details = []
+phase5_tasks_dir = os.path.join(phase_results_dir, 'phase5-tasks')
+if os.path.isdir(phase5_tasks_dir):
+    for task_file in sorted(glob.glob(os.path.join(phase5_tasks_dir, 'task-*.json'))):
+        try:
+            with open(task_file) as f:
+                tdata = json.load(f)
+            phase5_task_details.append({
+                'number': tdata.get('task_number', '?'),
+                'status': tdata.get('status', 'unknown'),
+                'summary': (tdata.get('summary', '') or '')[:60]
+            })
+        except Exception:
+            pass
+
 # Read config if exists
 config_summary = ''
 config_file = os.path.join(change_dir, '..', '..', '..', '.claude', 'autopilot.config.yaml')
@@ -166,6 +182,18 @@ if anchor_sha:
 
 if tasks_summary:
     lines.append(f'- **Tasks progress**: {tasks_summary}')
+
+if phase5_task_details:
+    lines.extend([
+        f'',
+        f'## Phase 5 Task Progress',
+        f'',
+        f'| Task | Status | Summary |',
+        f'|------|--------|---------|',
+    ])
+    for td in phase5_task_details:
+        lines.append(f'| {td["number"]} | {td["status"]} | {td["summary"]} |')
+
 if config_summary:
     lines.append(f'- **{config_summary}**')
 

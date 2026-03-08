@@ -280,41 +280,94 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 > 如果 `parallel.enabled = true`，必须执行上方「并行执行模式」章节，**禁止进入本节**。
 > 如果从路径 A 降级到串行模式，本节作为降级后的执行路径。
 
-1. 检查 `.claude/settings.json` 中 `enabledPlugins` 是否包含 `ralph-loop`
-2. **检查 worktree 隔离模式**：读取 `config.phases.implementation.worktree.enabled`
-   - **启用** → Phase 5 按 task 粒度派发，每个 task 通过 `Task(isolation: "worktree")` 在独立 worktree 中执行
-     - 每个 task 完成后，worktree 变更自动合并回主分支
-     - 如有合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
-     - 主线程上下文不被实现代码膨胀
-   - **禁用**（默认） → 使用下方 ralph-loop / fallback 策略
-3. **ralph-loop 可用** → 构造 ralph-loop 调用参数并执行：
+### 前台 Task 逐个派发（v3.3.0 替代 ralph-loop）
 
-   **参数构造**：
-   - PROMPT: 从 config.phases.implementation.instruction_files 中读取指令文件内容，
-     拼接为完整实施 prompt（包含 change_name、tasks 路径、测试命令等）
-   - --max-iterations: 从 config.phases.implementation.ralph_loop.max_iterations 读取
-   - --completion-promise: "所有 tasks.md 中的任务标记为完成且所有测试通过"
+主线程通过**前台 Task**（同步阻塞）逐个派发每个 task 给子 Agent 执行。子 Agent 的内部工具调用（Read/Write/Edit/Bash 等）不会灌入主线程上下文，实现上下文隔离。
 
-   **调用**：
-   ```
-   Skill("ralph-loop:ralph-loop", args: "使用 Skill('openspec-apply-change') 逐个实施 openspec/changes/<change_name>/ 中的任务。<instruction_files内容摘要> --max-iterations <max_iterations> --completion-promise 所有 tasks.md 中的任务标记为完成且所有测试通过")
-   ```
+#### 核心流程
 
-   **完成后**：读取 `openspec/changes/<name>/testreport/test-results.json`，
-   从中提取 test_results_path、tasks_completed、zero_skip_check 构造 Phase 5 JSON 信封。
-4. **不可用但 config.phases.implementation.ralph_loop.fallback_enabled** → 进入手动循环模式
-   - 每次迭代执行 Skill(`openspec-apply-change`) 实施一个任务
-   - 每任务后运行 quick_check，每 3 任务运行 full_test
-   - 遵循 3 次失败暂停策略
-   - 最大迭代次数从 config.phases.implementation.ralph_loop.max_iterations 读取
-4. **不可用且 fallback 禁用** → AskUserQuestion：
-   ```
-   "ralph-loop 插件不可用，手动 fallback 也已禁用。请选择处理方式："
-   选项:
-   - "启用 fallback 模式 (Recommended)" → 修改 config 中 fallback_enabled 为 true，进入手动循环
-   - "暂停流水线，手动安装 ralph-loop" → 展示安装命令，暂停等待
-   - "跳过实施阶段（仅测试已有代码）" → 标记 Phase 5 为 warning，继续 Phase 6
-   ```
+```
+主线程编排:
+1. 解析任务清单（tasks.md 或 phase5-task-breakdown.md）
+2. 扫描 phase5-tasks/ 确定恢复点（跳过已完成 task）
+3. for each remaining_task:
+   a. 构造 task prompt（任务描述 + 前序摘要 + 项目规则 + 验证命令）
+   b. result = Task(subagent_type: "general-purpose",
+                    prompt: "<!-- autopilot-phase:5 --> 实施 task #{N}...")
+      → 主线程同步阻塞等待子 Agent 完成
+   c. 解析 result 中的 JSON 信封
+   d. 写入 phase5-tasks/task-N.json checkpoint
+   e. git add + git commit --fixup=$ANCHOR_SHA
+   f. 如果 status == "failed" 且连续失败 3 次 → AskUserQuestion 决策
+   g. 继续下一个 task
+4. 全部完成后运行 full_test（config.test_suites 全量）
+5. 写入 test-results.json
+```
+
+#### 为什么使用前台 Task 而非 ralph-loop
+
+| 维度 | ralph-loop（旧方案） | 前台 Task（新方案） |
+|------|---------------------|-------------------|
+| 上下文影响 | 所有 Read/Write/Bash 输出灌入主线程 | 子 Agent 内部输出隔离，仅 JSON 信封回传 |
+| 确定性 | Skill 调用，同步 | Task 调用，同步阻塞 |
+| 崩溃恢复 | 依赖 ralph-loop 内部机制 | task 级 checkpoint，扫描恢复 |
+| 工具可用性 | 完整（主线程） | Read/Write/Edit/Bash/Glob/Grep（子 Agent 无 Task 工具，但单 task 不需要嵌套） |
+| Hook 集成 | 主线程 Hook | 子 Agent 工具调用仍触发 Hook |
+
+#### Task Prompt 模板
+
+```markdown
+Task(
+  subagent_type: "general-purpose",
+  prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 的串行实施子 Agent。
+
+## 你的任务
+仅实施以下单个 task（禁止实施其他 task）：
+- Task #{task_number}: {task_title}
+- Task 内容: {task_full_text}
+
+## 前序 task 摘要（只读参考）
+{for each completed_task}
+- Task #{n}: {summary} — 已完成
+{end for}
+
+## 上下文（由控制器提取，禁止自行读取计划文件）
+{context_injection}
+
+## 项目规则约束
+{rules_scan_result}
+
+## 验证要求
+每个任务完成后运行快速校验：
+{for each suite in config.test_suites where suite.type in ['typecheck', 'unit']}
+- `{suite.command}`
+{end for}
+
+## 返回要求
+执行完毕后返回 JSON 信封：
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+"
+)
+```
+
+#### 失败处理
+
+- 单个 task 失败：主线程解析 JSON 信封中的错误信息，retry 同一 task（最多 3 次）
+- 连续 3 次失败：AskUserQuestion 展示错误详情，选项：
+  - "查看错误详情并手动修复"
+  - "跳过此 task，继续下一个（标记 warning）"
+  - "中止 Phase 5"
+- 跳过的 task 记录到 checkpoint：`status: "warning"`, `skip_reason: "user_skipped_after_3_failures"`
+
+#### 恢复协议
+
+Phase 5 启动时（含压缩后恢复），扫描 `phase5-tasks/` 目录：
+
+1. 列出所有 `task-N.json` 文件，按 N 排序
+2. 找到最后一个 `status: "ok"` 或 `status: "warning"` 的 task
+3. 从下一个 task 继续执行
+4. 如果没有 task checkpoint → 从 task 1 开始
 
 ## Phase 5→6 特殊门禁
 
