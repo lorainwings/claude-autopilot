@@ -5,6 +5,24 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-03-09
+
+### Added
+- **主线程上下文保护（v3.3.0）**: 主线程仅做编排，所有文件 I/O 由子 Agent 完成
+  - Phase 1 调研 Agent 自行 Write 产出文件，返回结构化 JSON 信封（含 `decision_points`、`tech_constraints`、`complexity`）
+  - Phase 7 汇总改为前台子 Agent 读取 checkpoint 并生成汇总信封，主线程不直接 Read checkpoint 全文
+  - 基础并行派发模板增加 `output_file` 字段和自写入指令
+- **调研 Agent 信封格式**: Auto-Scan、技术调研、联网搜索三类 Agent 各定义结构化返回信封
+  - `decision_points` 供主线程构造决策卡片，无需读取调研全文
+  - 下游子 Agent（business-analyst、Phase 2-6）直接 Read 文件获取详情
+
+### Changed
+- Phase 1 步骤 3 汇合方式: 从"主线程 Read 全文"改为"验证文件存在 + 消费信封摘要"
+- Phase 1 步骤 4 复杂度评估: 从"基于调研全文"改为"基于信封 complexity 字段"
+- Phase 1 步骤 5.5 决策卡片: 从"从全文提取决策点"改为"从信封 decision_points 直接构造"
+- Phase 7 步骤 1: 从"主线程逐个 Read checkpoint"改为"派发汇总子 Agent 返回信封"
+- 主线程 Phase 1 上下文占用从 ~390 行降至 ~70 行（减少约 80%）
+
 ## [3.2.9] - 2026-03-09
 
 ### Fixed

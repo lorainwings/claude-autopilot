@@ -117,12 +117,17 @@ Task(
 ## 项目规则约束
 {rules_scan_result}
 
+## 产出写入（v3.3.0 上下文保护）
+将完整产出 Write 到指定的 output_file 路径。禁止在返回信封中包含产出全文。
+
 ## 返回要求
-执行完毕后返回 JSON 信封：
-{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...]}
+执行完毕后返回 JSON 信封（仅摘要，不含全文）：
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"简明摘要（3-5句）\", \"output_file\": \"写入的文件路径\", \"artifacts\": [...]}
 "
 )
 ```
+
+> **v3.3.0 上下文保护**：Phase 1 调研 Agent 必须自行 Write 产出文件，返回信封仅包含结构化摘要和 `decision_points`。详见各调研 Agent 的信封格式定义。
 
 ### Worktree 隔离模板（Phase 5 实施专用）
 
@@ -275,7 +280,27 @@ parallel_tasks:
     condition: "config.phases.requirements.web_search.enabled"
 ```
 
-汇合后: 合并 3 个 Agent 的结果 → 注入到 business-analyst 分析
+**子 Agent 自写入约束**（v3.3.0）：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。
+
+调研 Agent 返回信封格式：
+```json
+{
+  "status": "ok",
+  "summary": "简明摘要（3-5句）",
+  "decision_points": [
+    {"topic": "决策点标题", "options": ["方案A", "方案B"], "recommendation": "推荐方案", "rationale": "推荐理由"}
+  ],
+  "tech_constraints": ["约束1", "约束2"],
+  "complexity": "small|medium|large",
+  "key_files": ["关键文件路径"],
+  "output_file": "context/research-findings.md"
+}
+```
+
+> **禁止**：在信封的 summary 或其他字段中返回调研全文。全文必须 Write 到 output_file。
+> **主线程仅消费信封**，不 Read 产出文件。产出文件由 business-analyst 和 Phase 2-6 子 Agent 直接 Read。
+
+汇合后: 主线程从信封提取 decision_points + tech_constraints → 注入到 business-analyst 的 dispatch prompt
 
 ### Phase 4: 测试用例并行生成
 
