@@ -5,9 +5,10 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.3.4] - 2026-03-09
+## [3.3.5] - 2026-03-09
 
 ### Fixed
+- **Fixup commit 显式添加被忽略的锁文件**: Step 7 fixup commit 指令从 `git add -A` 被 agent 误解为显式添加文件列表（含 `.autopilot-active`），导致 git 拒绝添加被 .gitignore 忽略的文件。新增 bold 禁止指令明确不得显式 git add 锁文件
 - **锁文件相对路径导致 Write 工具报错**: SKILL.md 中 `.autopilot-active` 引用从相对路径改为 `${session_cwd}/...` 绝对路径模板，修复 Phase 0 写入锁文件时 `Error writing file` 及级联取消并行工具调用的问题（影响 autopilot、autopilot-recovery、autopilot-gate 三个 skill）
 
 ## [3.3.2] - 2026-03-09

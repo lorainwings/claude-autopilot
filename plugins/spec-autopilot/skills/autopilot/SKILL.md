@@ -195,7 +195,8 @@ Step 5: 调用 Skill("spec-autopilot:autopilot-checkpoint")
 Step 6: TaskUpdate Phase N → completed
 Step 7: 上下文保护 — 自动 Git Fixup Commit（当 config.context_management.git_commit_per_phase = true）
         → 读取 `${session_cwd}/openspec/changes/.autopilot-active` 中的 `anchor_sha` 字段
-        → git add -A（添加所有变更：代码文件 + checkpoint + 测试 + openspec 制品）
+        → **必须使用 `git add -A`**（自动尊重 .gitignore，添加所有变更：代码文件 + checkpoint + 测试 + openspec 制品）
+        → **禁止显式 `git add` 锁文件 `.autopilot-active`** — 该文件已被 .gitignore 忽略，显式添加会导致 git 报错
         → git commit --fixup=$ANCHOR_SHA -m "fixup! autopilot: start <change_name> — Phase N"
         → 此 fixup commit 将在 Phase 7 归档时通过 autosquash 合并为一个 commit
         → 同时也是崩溃恢复的额外安全网，确保所有变更（含代码）持久化到 git 历史
