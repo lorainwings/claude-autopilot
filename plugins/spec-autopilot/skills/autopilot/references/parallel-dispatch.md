@@ -277,7 +277,7 @@ parallel_tasks:
     agent: "general-purpose"
     prompt_template: "联网搜索最佳实践和竞品方案..."
     merge_strategy: "none"
-    condition: "config.phases.requirements.web_search.enabled"
+    condition: "search_policy.default: search — 规则判定跳过时不派发此 Agent"
 ```
 
 **子 Agent 自写入约束**（v3.3.0）：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。

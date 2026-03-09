@@ -28,9 +28,31 @@ phases:
       enabled: true
       agent: "Explore"
       web_search:
-        enabled: true            # standard/deep depth 默认 true，basic 自动跳过
+        enabled: true            # v3.3.7: 默认 true（默认搜索），规则引擎判定跳过
         max_queries: 5           # 最大搜索次数
+        search_policy:
+          default: search        # search | skip — 默认搜索，跳过是例外
+          skip_keywords:         # 需求含这些关键词时允许跳过（需全部满足 skip_when_ALL_true）
+            - "修复"
+            - "fix"
+            - "重构"
+            - "refactor"
+            - "样式"
+            - "style"
+          force_search_keywords: # 需求含任一关键词时强制搜索（覆盖 skip 判定）
+            - "竞品"
+            - "产品"
+            - "UX"
+            - "交互"
+            - "体验"
+            - "新功能"
+            - "升级"
+            - "迁移"
+            - "安全"
+            - "auth"
+            - "加密"
         focus_areas:             # 搜索聚焦领域
+          - competitive_analysis
           - best_practices
           - similar_implementations
           - dependency_evaluation

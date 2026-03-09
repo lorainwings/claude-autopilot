@@ -5,6 +5,15 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.7] - 2026-03-09
+
+### Changed
+- **Phase 1 搜索策略重构**: 默认执行搜索（`search_policy.default: search`），仅当规则引擎判定可跳过时才跳过。决策由客观可验证规则驱动（关键词匹配 + codebase 检测），不依赖 AI 自评置信度。新增产品搜索（竞品 UX）为一等搜索类型，搜索结果必须与项目规范交叉验证
+- **config-schema**: `web_search` 新增 `search_policy.default`、`skip_keywords`、`force_search_keywords` 配置项，`focus_areas` 新增 `competitive_analysis`
+
+### Added
+- **搜索策略回归测试 (section 52)**: 25 个测试覆盖 SKILL.md/P1/config/parallel-dispatch 文档断言 + 11 种任务类型的规则引擎模拟（含 3 个 force > skip 边界情况）
+
 ## [3.3.6] - 2026-03-09
 
 ### Added

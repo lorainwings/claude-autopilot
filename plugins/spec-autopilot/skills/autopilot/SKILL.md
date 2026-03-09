@@ -133,12 +133,18 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 概要流程:
 1. 获取需求来源（$ARGUMENTS 解析）
-2. **并行调研**（v3.2.0 增强）→ 读取 `references/parallel-dispatch.md` Phase 1 并行配置，同时派发：
+2. **并行调研**（v3.2.0 增强, v3.3.7 搜索策略重构）→ 读取 `references/parallel-dispatch.md` Phase 1 并行配置，同时派发：
    ```
    ┌─ Auto-Scan (Explore agent) → Steering Documents
    ├─ 技术调研 (Explore agent) → research-findings.md        ← 三者并行
-   └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 条件: web_search.enabled
+   └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 默认搜索，规则判定跳过
    ```
+   **联网搜索决策**（v3.3.7）：默认执行搜索（`search_policy.default: search`），仅当任务**同时满足所有跳过条件**时才跳过：
+   - ✓ 纯内部代码变更（重构、bug 修复、样式微调）
+   - ✓ 不引入新概念、新模式、新交互
+   - ✓ 项目 `rules/` 或 `specs/` 已有明确规范覆盖
+   - ✓ codebase 中已有同类实现可参照
+   判定由规则引擎执行（非 AI 自评），详见 `references/phase1-requirements.md` 1.3.3 节。
    **强制并行约束**（v3.2.1）：主线程**必须在同一条消息中**同时发起所有调研 Task（全部设置 `run_in_background: true`），然后等待 Claude Code 自动完成通知。
    - ❌ **禁止**：逐个发起 Task，等前一个完成再发下一个
    - ❌ **禁止**：使用前台 Explore agent 逐个扫描
@@ -152,7 +158,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    产出文件列表（子 Agent 自行写入）：
    - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（Auto-Scan）
    - `context/research-findings.md`（技术调研）
-   - `context/web-research-findings.md`（联网搜索，可选）
+   - `context/web-research-findings.md`（联网搜索，默认执行，规则判定跳过时无此文件）
 4. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
 5. Task 调度 business-analyst 分析需求（子 Agent 自行 Read context/ 全部文件），产出功能清单 + 疑问点
 5.5. **主动讨论协议** — 基于信封中的 `decision_points` + business-analyst 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
