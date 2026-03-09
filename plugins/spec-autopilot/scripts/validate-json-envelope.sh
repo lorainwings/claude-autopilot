@@ -148,20 +148,21 @@ if not found_json:
 if not found_json:
     print(json.dumps({
         'decision': 'block',
-        'reason': 'No valid JSON envelope found in autopilot sub-agent output. The sub-agent must return a JSON object with at least {\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\"}. Re-dispatch this phase with clearer instructions.'
+        'reason': 'No valid JSON envelope found in autopilot sub-agent output. The sub-agent must return a JSON object with at least {\"status\": \"ok|warning|blocked|failed\"}. Re-dispatch this phase with clearer instructions.'
     }))
     sys.exit(0)
 
-# 4) Validate required fields
-required_fields = ['status', 'summary']
-missing = [f for f in required_fields if f not in found_json]
-
-if missing:
+# 4) Validate required fields (only 'status' is hard-required)
+if 'status' not in found_json:
     print(json.dumps({
         'decision': 'block',
-        'reason': f'Autopilot JSON envelope missing required fields: {missing}. The sub-agent must include both \"status\" and \"summary\" fields.'
+        'reason': 'Autopilot JSON envelope missing required field: status. The sub-agent must return {\"status\": \"ok|warning|blocked|failed\", ...}.'
     }))
     sys.exit(0)
+
+# 4.5) Warn on missing 'summary' (recommended but not blocking)
+if 'summary' not in found_json:
+    print('WARNING: JSON envelope missing recommended field: summary', file=sys.stderr)
 
 # 5) Validate status value
 valid_statuses = ['ok', 'warning', 'blocked', 'failed']

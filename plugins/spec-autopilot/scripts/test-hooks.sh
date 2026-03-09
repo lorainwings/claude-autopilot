@@ -1158,12 +1158,12 @@ output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:
 assert_exit "two-pass: prefers JSON with both status+summary → exit 0" 0 $exit_code
 assert_not_contains "two-pass: correct envelope extracted → no block" "$output" "block"
 
-# 27b. Response with only status-only JSON (no summary anywhere) → should fall back to first candidate, then block for missing summary
+# 27b. Response with only status-only JSON (no summary) → v3.3.0: summary is recommended not required, no block
 exit_code=0
 output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Tool output: {\"status\":\"ok\",\"code\":200}"}' \
   | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "two-pass: fallback to status-only → exit 0" 0 $exit_code
-assert_contains "two-pass: fallback missing summary → block" "$output" "block"
+assert_not_contains "two-pass: status-only no summary → no block (v3.3.0)" "$output" "block"
 
 # 27c. Response with tool JSON (has status, no summary) followed by envelope in code block
 exit_code=0
@@ -2146,6 +2146,160 @@ OUT45g=$(echo "$FG_STDIN" | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/
 assert_contains "foreground task still validates → block" "$OUT45g" "block"
 
 rm -rf "$TMPDIR_BG"
+
+# ============================================================
+echo "--- 46. v3.3.1 summary field downgrade (required → recommended) ---"
+
+TMPDIR_46=$(mktemp -d)
+mkdir -p "$TMPDIR_46/openspec/changes/test-v331/context/phase-results"
+echo '{"change":"test-v331","mode":"full"}' > "$TMPDIR_46/openspec/changes/.autopilot-active"
+
+# 46a. Phase 5 envelope has status but NO summary → no block (new v3.3.1 behavior)
+OUT46a=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"ok\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":\"5/5\",\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$TMPDIR_46"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC46a=$?
+assert_exit "46a: Phase 5 status no summary → exit 0" 0 "$RC46a"
+assert_not_contains "46a: Phase 5 status no summary → no block" "$OUT46a" "block"
+
+# 46b. Phase 3 envelope has status + summary → no block (regression)
+OUT46b=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Done.\n{\"status\":\"ok\",\"summary\":\"Design complete\",\"artifacts\":[]}","cwd":"'"$TMPDIR_46"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC46b=$?
+assert_exit "46b: Phase 3 status+summary → exit 0" 0 "$RC46b"
+assert_not_contains "46b: Phase 3 status+summary → no block" "$OUT46b" "block"
+
+# 46c. Phase 5 envelope has NO status → block
+OUT46c=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"summary\":\"All tasks done\",\"test_results_path\":\"tests/r.json\",\"tasks_completed\":\"5/5\",\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$TMPDIR_46"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC46c=$?
+assert_exit "46c: Phase 5 no status → exit 0" 0 "$RC46c"
+assert_contains "46c: Phase 5 no status → block" "$OUT46c" "block"
+
+# 46d. Phase 5 envelope has invalid status value → block
+OUT46d=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"Done. {\"status\":\"done\",\"summary\":\"All tasks done\",\"test_results_path\":\"tests/r.json\",\"tasks_completed\":\"5/5\",\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$TMPDIR_46"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC46d=$?
+assert_exit "46d: Phase 5 invalid status → exit 0" 0 "$RC46d"
+assert_contains "46d: Phase 5 invalid status → block" "$OUT46d" "block"
+
+# 46e. Phase 5 minimal envelope: only status:"ok" + required phase fields → no block
+OUT46e=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5"},"tool_response":"{\"status\":\"ok\",\"test_results_path\":\"tests/results.json\",\"tasks_completed\":\"3/3\",\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$TMPDIR_46"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC46e=$?
+assert_exit "46e: Phase 5 minimal envelope → exit 0" 0 "$RC46e"
+assert_not_contains "46e: Phase 5 minimal envelope → no block" "$OUT46e" "block"
+
+rm -rf "$TMPDIR_46"
+
+echo ""
+
+# ============================================================
+echo "--- 47. Mode lock file + predecessor checkpoint gate ---"
+
+# 47a. mode="full" + Phase 6 dispatch with Phase 5 checkpoint → allow
+TMPDIR_47a=$(mktemp -d)
+mkdir -p "$TMPDIR_47a/openspec/changes/test-47a/context/phase-results"
+echo '{"change":"test-47a","mode":"full"}' > "$TMPDIR_47a/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"5/5","test_results_path":"r.json"}' \
+  > "$TMPDIR_47a/openspec/changes/test-47a/context/phase-results/phase-5-implement.json"
+exit_code=0
+OUT47a=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47a\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47a: full Phase 6 with Phase 5 ok → exit 0" 0 $exit_code
+assert_not_contains "47a: full Phase 6 → no deny" "$OUT47a" "deny"
+rm -rf "$TMPDIR_47a"
+
+# 47b. mode="lite" + Phase 6 dispatch with Phase 5 checkpoint → allow
+TMPDIR_47b=$(mktemp -d)
+mkdir -p "$TMPDIR_47b/openspec/changes/test-47b/context/phase-results"
+echo '{"change":"test-47b","mode":"lite"}' > "$TMPDIR_47b/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"5/5","test_results_path":"r.json"}' \
+  > "$TMPDIR_47b/openspec/changes/test-47b/context/phase-results/phase-5-implement.json"
+exit_code=0
+OUT47b=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47b\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47b: lite Phase 6 with Phase 5 ok → exit 0" 0 $exit_code
+assert_not_contains "47b: lite Phase 6 → no deny" "$OUT47b" "deny"
+rm -rf "$TMPDIR_47b"
+
+# 47c. mode="minimal" + Phase 6 dispatch → deny (minimal skips Phase 6)
+TMPDIR_47c=$(mktemp -d)
+mkdir -p "$TMPDIR_47c/openspec/changes/test-47c/context/phase-results"
+echo '{"change":"test-47c","mode":"minimal"}' > "$TMPDIR_47c/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"r.json"}' \
+  > "$TMPDIR_47c/openspec/changes/test-47c/context/phase-results/phase-5-implement.json"
+exit_code=0
+OUT47c=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47c\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47c: minimal Phase 6 → exit 0" 0 $exit_code
+assert_contains "47c: minimal Phase 6 → deny" "$OUT47c" "deny"
+rm -rf "$TMPDIR_47c"
+
+# 47d. mode="full" + Phase 2 dispatch with Phase 1 checkpoint → allow
+TMPDIR_47d=$(mktemp -d)
+mkdir -p "$TMPDIR_47d/openspec/changes/test-47d/context/phase-results"
+echo '{"change":"test-47d","mode":"full"}' > "$TMPDIR_47d/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Requirements analyzed"}' \
+  > "$TMPDIR_47d/openspec/changes/test-47d/context/phase-results/phase-1-requirements.json"
+exit_code=0
+OUT47d=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47d\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47d: full Phase 2 with Phase 1 ok → exit 0" 0 $exit_code
+assert_not_contains "47d: full Phase 2 → no deny" "$OUT47d" "deny"
+rm -rf "$TMPDIR_47d"
+
+# 47e. mode="lite" + Phase 2 dispatch → deny (lite skips Phase 2)
+TMPDIR_47e=$(mktemp -d)
+mkdir -p "$TMPDIR_47e/openspec/changes/test-47e/context/phase-results"
+echo '{"change":"test-47e","mode":"lite"}' > "$TMPDIR_47e/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Requirements analyzed"}' \
+  > "$TMPDIR_47e/openspec/changes/test-47e/context/phase-results/phase-1-requirements.json"
+exit_code=0
+OUT47e=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47e\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47e: lite Phase 2 → exit 0" 0 $exit_code
+assert_contains "47e: lite Phase 2 → deny" "$OUT47e" "deny"
+rm -rf "$TMPDIR_47e"
+
+# 47f. mode="minimal" + Phase 7 dispatch with Phase 5 checkpoint → allow
+TMPDIR_47f=$(mktemp -d)
+mkdir -p "$TMPDIR_47f/openspec/changes/test-47f/context/phase-results"
+echo '{"change":"test-47f","mode":"minimal"}' > "$TMPDIR_47f/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"r.json"}' \
+  > "$TMPDIR_47f/openspec/changes/test-47f/context/phase-results/phase-5-implement.json"
+exit_code=0
+OUT47f=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:7 -->\\nPhase 7\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47f\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "47f: minimal Phase 7 with Phase 5 ok → exit 0" 0 $exit_code
+assert_not_contains "47f: minimal Phase 7 → no deny" "$OUT47f" "deny"
+rm -rf "$TMPDIR_47f"
+
+echo ""
+
+# ============================================================
+echo "--- 48. output_file / new fields in envelope compatibility ---"
+
+TMPDIR_48=$(mktemp -d)
+mkdir -p "$TMPDIR_48/openspec/changes/test-v330/context/phase-results"
+echo '{"change":"test-v330","mode":"full"}' > "$TMPDIR_48/openspec/changes/.autopilot-active"
+
+# 48a. Envelope with output_file field → no block (output_file is ignored by validation)
+OUT48a=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"Design complete\",\"output_file\":\"openspec/changes/test/context/design.md\",\"artifacts\":[]}","cwd":"'"$TMPDIR_48"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC48a=$?
+assert_exit "48a: envelope with output_file → exit 0" 0 "$RC48a"
+assert_not_contains "48a: envelope with output_file → no block" "$OUT48a" "block"
+
+# 48b. Envelope with decision_points field → no block (unknown fields are ignored)
+OUT48b=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Done. {\"status\":\"ok\",\"summary\":\"Spec written\",\"decision_points\":[{\"id\":\"dp-1\",\"decision\":\"use REST\"}],\"artifacts\":[]}","cwd":"'"$TMPDIR_48"'"}' \
+  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
+RC48b=$?
+assert_exit "48b: envelope with decision_points → exit 0" 0 "$RC48b"
+assert_not_contains "48b: envelope with decision_points → no block" "$OUT48b" "block"
+
+rm -rf "$TMPDIR_48"
+
+echo ""
 
 # ============================================================
 echo "==================================="
