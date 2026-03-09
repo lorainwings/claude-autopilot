@@ -321,7 +321,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
   - **禁止进入路径 B 或使用串行 Task 派发流程**
   - 执行前读取: `references/parallel-phase-dispatch.md` Phase 5 并行调度（完整 dispatch 模板）
   - 主线程解析任务清单 -> 按 config.domain_agents 路径前缀分域 -> 生成 owned_files -> 并行派发 Task(isolation: "worktree", run_in_background: true)
-  - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 3）
+  - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 8）
   - 每组完成后: 按 task 编号合并 worktree -> 快速验证 -> 批量 review -> checkpoint
   - 降级: 合并失败超过 3 文件 -> 切换到路径 B
 

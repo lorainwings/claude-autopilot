@@ -78,22 +78,26 @@ phases:
       enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
     parallel:
       enabled: false         # 设为 true 启用 Phase 5 并行 Agent Team 执行
-      max_agents: 3          # 最大并行 Agent 数量（建议 2-4）
-      dependency_analysis: true  # 自动分析 task 依赖关系
-      domain_detection: "auto"   # auto: 从 affected_files 自动发现域 | explicit: 仅用 domain_agents 中定义的
-      default_agent: "general-purpose"  # 未匹配域的默认 Agent
-      domain_agents:             # 路径前缀 → Agent 映射（v3.4.0，每域严格 1 Agent）
+      max_agents: 8          # 最大并行域数（建议 3-8，上限 10）
+      dependency_analysis: true
+      domain_detection: "auto"   # auto: 自动发现未配置的顶级目录 | explicit: 仅用 domain_agents
+      default_agent: "general-purpose"  # 未匹配域的 fallback Agent
+      domain_agents:             # 路径前缀 → Agent 映射（最长前缀匹配，每域 1 Agent）
         "backend/":
           agent: "backend-developer"
         "frontend/":
           agent: "frontend-developer"
         "node/":
           agent: "fullstack-developer"
-        # 可自由扩展：
-        # "android/":
-        #   agent: "mobile-developer"
-        # "packages/core/":
-        #   agent: "backend-developer"
+        # ---- 多技术栈项目示例 ----
+        # "services/auth/":           { agent: "java-architect" }
+        # "services/payment/":        { agent: "backend-developer" }
+        # "services/notification/":   { agent: "backend-developer" }
+        # "gateway/":                 { agent: "backend-developer" }
+        # "apps/web/":               { agent: "frontend-developer" }
+        # "apps/android/":           { agent: "mobile-developer" }
+        # "apps/ios/":               { agent: "mobile-developer" }
+        # "packages/":               { agent: "fullstack-developer" }
   reporting:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom

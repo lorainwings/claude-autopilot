@@ -83,7 +83,7 @@
 1. 解析任务清单 → 按域分组（从 config.domain_agents 路径前缀匹配 + auto 自动发现）
 2. 主线程一次性提取所有任务的完整文本和上下文
    （关键：子 Agent 不自己读取计划文件，避免上下文重复膨胀）
-3. 对每个非空域同时并行派发（最多 3 个域）:
+3. 对每个非空域同时并行派发（最多 max_agents 个，默认 8）:
    a. 每域 1 个 Task(isolation: "worktree", run_in_background: true)
    b. 域 Agent 收到: 该域所有 task 全文 + 域级文件所有权 + 项目规则
    c. 域 Agent 按 task 编号逐个实施（域内串行）
@@ -132,8 +132,11 @@
 ```
 
 > **不硬编码目录名**：域由配置的 `domain_agents` 路径前缀决定。
-> 默认配置为 `backend/`、`frontend/`、`node/`，用户可自由添加
-> `"android/"`、`"packages/core/"`、`"services/auth/"` 等。
+> 默认配置为 `backend/`、`frontend/`、`node/`，可自由添加任意路径前缀。
+>
+> **溢出策略**：当域数超过 `max_agents`（默认 8）时，自动将使用相同 Agent 的域
+> 合并为一个逻辑域。例如 3 个 `backend-developer` 域合并为 1 个 Agent 批量处理。
+> 合并后仍超标 → 将 auto 发现的域降级到 cross_cutting 串行执行。
 
 #### 所有权强制执行
 
@@ -177,8 +180,8 @@ write-edit-constraint-check.sh 在并行模式下额外检查：
 ### 并行派发策略（v3.4.0: 域级单 Agent）
 
 ```
-域分区: 从 domain_agents 路径前缀匹配得到 domain_tasks{} + cross_cutting
-max_parallel_domains = 3
+域分区: 三步检测 → 前缀匹配 + auto 发现 + 同 Agent 合并
+max_parallel_domains = config.max_agents (默认 8)
 
 domain_agents = []
 for each domain in [backend, frontend, node] where domain_tasks 非空:
@@ -190,7 +193,7 @@ for each domain in [backend, frontend, node] where domain_tasks 非空:
   )
   domain_agents.append(agent)
 
-等待所有域 agents 完成（最多 3 个并行）
+等待所有域 agents 完成（最多 8 个并行）
 按域顺序合并 worktree（最多 3 次 merge）
 运行测试验证
 cross_cutting 串行执行

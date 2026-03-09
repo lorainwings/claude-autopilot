@@ -226,27 +226,36 @@ Task(subagent_type: "qa-expert", run_in_background: true,
 主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
 ```
 
-#### Step 2: 文件所有权分区（v3.4.0: 通用路径前缀匹配）
+#### Step 2: 文件所有权分区（v3.4.0: 三步域检测）
 
-```
-# 从 config 读取路径前缀列表
-domain_prefixes = config.phases.implementation.parallel.domain_agents.keys()
-# 例如 ["backend/", "frontend/", "node/"]，用户可扩展为
-# ["android/", "ios/", "packages/core/", "services/auth/"] 等任意结构
-
-domain_tasks = {}
-cross_cutting = []
-
+```python
+# Step A: 最长前缀匹配
+domain_prefixes = config...domain_agents.keys()
+domain_tasks, unmatched = {}, []
 for task in all_tasks:
-    domain = longest_prefix_match(task.affected_files, domain_prefixes)
-    if not domain and config...domain_detection == "auto":
-        domain = extract_common_top_dir(task.affected_files)
-    if domain:
-        domain_tasks[domain].append(task)
+    domains = {longest_prefix(f, domain_prefixes) for f in task.affected_files}
+    if len(domains) == 1 and None not in domains:
+        domain_tasks[domains.pop()].append(task)
+    else:
+        unmatched.append(task)
+
+# Step B: auto 发现（祖先冲突检测 — 不创建已配置子前缀的祖先域）
+cross_cutting = []
+for task in unmatched:
+    top = common_top_dir(task.affected_files)
+    if top and no_child_prefix(top, domain_prefixes):
+        domain_tasks[top].append(task)
     else:
         cross_cutting.append(task)
 
-为每个域生成 owned_files 列表（域内所有 task 文件的并集）
+# Step C: 溢出合并（同 Agent 域合并 → 减少并行数）
+if len(domain_tasks) > max_agents:
+    # 相同 Agent 的域合并为 1 个逻辑域
+    # 例: payment/(backend-dev) + notification/(backend-dev)
+    #   → 1 个 backend-developer Agent 处理 2 个域的所有 task
+    domain_tasks = coalesce_same_agent_domains(domain_tasks, max_agents)
+
+# 为每个逻辑域生成 owned_files（域内所有 task 文件的并集）
 写入: phase5-ownership/{domain_name}.json
 ```
 
@@ -255,12 +264,12 @@ for task in all_tasks:
 > **HARD CONSTRAINT**: 每个域严格 1 个 Agent，禁止同一域内派发多个 Agent。
 > 域内多个 tasks 作为批量任务注入到同一 Agent 的 prompt。
 
-对每个非空域（backend / frontend / node），主线程**在同一条消息中**同时派发：
+对每个非空域（从域检测结果中获取，**不限定为 backend/frontend/node**），主线程**在同一条消息中**同时派发（最多 8 个并行）：
 
 ```markdown
 {for each non_empty_domain in domain_tasks.keys()}
 Task(
-  subagent_type: "{config.phases.implementation.parallel.domain_agents[domain].agent}",
+  subagent_type: "{resolve_agent(domain)}",  # 从 domain_agents 查找，合并域取原始域的 Agent
   isolation: "worktree",
   run_in_background: true,
   prompt: "<!-- autopilot-phase:5 -->
