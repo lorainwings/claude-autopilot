@@ -318,7 +318,7 @@ write-edit-constraint-check Hook 会拦截越权修改。
 {end for}
 ```
 
-等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。最多 3 个域并行（backend ‖ frontend ‖ node），域内串行。
+等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。最多 max_agents 个域并行（默认 8），域内串行。
 
 #### Step 4: 合并 + 验证
 

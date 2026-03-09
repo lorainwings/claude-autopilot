@@ -299,8 +299,8 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 2. 扫描 phase5-tasks/ 确定恢复点（跳过已完成 task）
 3. for each remaining_task:
    a. 构造 task prompt（任务描述 + 前序摘要 + 项目规则 + 验证命令）
-   b. domain = detect_domain(task.affected_files)
-      agent = config.phases.implementation.parallel.domain_agents[domain].agent || "general-purpose"
+   b. domain = longest_prefix_match(task.affected_files, domain_prefixes)
+      agent = resolve_agent(domain) || config...default_agent
       result = Task(subagent_type: agent,
                     prompt: "<!-- autopilot-phase:5 --> 实施 task #{N}...")
       → 主线程同步阻塞等待子 Agent 完成
@@ -327,7 +327,7 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 
 ```markdown
 Task(
-  subagent_type: detect_domain_agent(task.affected_files) || "general-purpose",
+  subagent_type: resolve_agent(longest_prefix_match(task.affected_files, domain_prefixes)) || default_agent,
   prompt: "<!-- autopilot-phase:5 -->
 你是 autopilot Phase 5 的串行实施子 Agent。
 

@@ -63,6 +63,8 @@ phases:
         medium: 5
   openspec:
     agent: "Plan"              # Phase 2/3 使用 Plan agent（v3.4.0）
+    instruction_files: []      # 可选：覆盖内置 OpenSpec 创建/FF 指令
+    reference_files: []        # 可选：项目自定义参考文件
   testing:
     agent: "qa-expert"
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则

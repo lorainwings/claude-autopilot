@@ -173,11 +173,14 @@ Task(
 
 > **v3.3.0 上下文保护**：Phase 1 调研 Agent 必须自行 Write 产出文件，返回信封仅包含结构化摘要和 `decision_points`。详见各调研 Agent 的信封格式定义。
 
-### Worktree 隔离模板（Phase 5 实施专用）
+### Worktree 隔离模板（Phase 5 实施专用 — 基础模板）
+
+> **注意**：此为通用基础模板。Phase 5 实际 dispatch 时 `subagent_type` 由域检测动态决定，
+> 详见 `parallel-phase-dispatch.md` Step 3 的 `resolve_agent(domain)`。
 
 ```markdown
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "{resolve_agent(domain) || default_agent}",
   isolation: "worktree",
   run_in_background: true,
   prompt: "<!-- autopilot-phase:5 -->

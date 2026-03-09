@@ -79,6 +79,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 - openspec/changes/{change_name}/context/tech-constraints.md
 - openspec/changes/{change_name}/context/research-findings.md
 - openspec/changes/{change_name}/context/web-research-findings.md（如存在）
+- openspec/changes/{change_name}/context/requirements-analysis.md（v3.4.0, 如存在）
 
 {if config.phases[phase].instruction_files 非空}
 ## 项目自定义指令（覆盖）
@@ -328,10 +329,9 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 - **路径 B: 串行模式**（当 `parallel.enabled = false` 或从路径 A 降级时执行）：
   - 主线程逐个派发**前台 Task**（同步阻塞），按域动态选择 Agent（v3.4.0）：
     ```
-    # 最长前缀匹配 config.domain_agents 确定域，auto 模式自动发现未配置的顶级目录
-    task_domain = longest_prefix_match(task.affected_files, config...domain_agents.keys())
-    agent_type = config...domain_agents[task_domain].agent
-               || config...default_agent  # fallback
+    # 三步域检测（与并行模式相同算法）：前缀匹配 → auto 发现 → fallback
+    domain = longest_prefix_match(task.affected_files, config...domain_agents.keys())
+    agent = resolve_agent(domain) || config...default_agent
     ```
   - 子 Agent 内部工具调用不灌入主线程上下文（上下文隔离）
   - 每个 task 完成后写入 `phase5-tasks/task-N.json` checkpoint
