@@ -90,8 +90,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-skill-size.sh",
-            "timeout": 15
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh",
+            "timeout": 15,
+            "async": true
           }
         ]
       },
@@ -99,9 +100,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh",
-            "timeout": 15,
-            "async": true
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-skill-size.sh",
+            "timeout": 15
           }
         ]
       },

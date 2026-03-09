@@ -5,6 +5,12 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2026-03-10
+
+### Fixed
+- **版本号同步**: README badge + marketplace.json 同步到 3.4.0（因 pre-commit hook 失效漏同步）
+- **pre-commit hook 配置**: 修复 `core.hooksPath` 未配置导致 `.githooks/pre-commit` 不生效的问题
+
 ## [3.4.0] - 2026-03-09
 
 ### Added
