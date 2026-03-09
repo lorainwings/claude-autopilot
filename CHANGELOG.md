@@ -5,6 +5,28 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-03-09
+
+### Added
+- **启动 Banner**: Phase 0 展示格式化 Banner（版本号、模式、change 名称、session ID、启动时间）
+- **SKILL.md 行数约束**: 新增 `scripts/check-skill-size.sh` + SessionStart hook，所有 SKILL.md ≤500 行警告、≤450 行安全
+- **Phase 5 域级单 Agent 模式**: 每个域（backend/frontend/node）严格 1 个 Agent 批量处理域内所有 task，跨域并行、域内串行
+- **质量扫描 Agent 映射**: pr-review-toolkit 系列专用 Agent（silent-failure-hunter、type-design-analyzer、comment-analyzer、code-simplifier）
+
+### Changed
+- **business-analyst 后台化**: Phase 1 需求分析改为 `run_in_background: true`，Agent 自行 Write 完整分析到 `context/requirements-analysis.md`，主线程仅消费 JSON 信封摘要
+- **Phase 2/3 使用 Plan agent**: OpenSpec 创建和 FF 生成制品从 general-purpose 改为 Plan agent（可配置 `config.phases.openspec.agent`）
+- **Phase 5 串行模式域动态选择**: 路径 B 按 task 域自动选择对应 Agent（backend-developer/frontend-developer/fullstack-developer），fallback 到 general-purpose
+- **Phase 6 测试执行 Agent**: 从 general-purpose 改为 qa-expert
+- **Phase 6.5 代码审查 Agent**: 从 general-purpose 改为 pr-review-toolkit:code-reviewer
+- **autopilot-dispatch SKILL.md 重构**: 476 → 388 行（Phase 4 详细指令迁移到 parallel-phase-dispatch.md，Phase 5 内联模板移除）
+- **Phase 5 并行配置**: `split_strategy` 从 "domain-partition" 改为 "domain-single-agent"，`agent_mapping` 改为 `domain_agents`（含 `max_tasks_per_batch`）
+
+### Documentation
+- **上下文保护约束声明**: phase1-requirements.md 各节（1.2/1.3/1.5）添加后台执行约束 box
+- **复杂度评估设计决策**: phase1-requirements.md 1.4 节添加主线程执行的设计理由
+- **config-schema.md**: 新增 `phases.openspec.agent`、`quality_scans_agents` 配置节
+
 ## [3.3.7] - 2026-03-09
 
 ### Changed

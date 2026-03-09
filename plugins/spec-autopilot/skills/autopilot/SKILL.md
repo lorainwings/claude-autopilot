@@ -96,6 +96,20 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    - 从 $ARGUMENTS 首个 token 提取 mode（full/lite/minimal）
    - 未匹配 → 读取 `config.default_mode`（默认 "full"）
    - 展示当前模式：「执行模式: {mode}（阶段: {phase_list}）」
+2.5. **展示启动 Banner**：
+   ```
+   ╭─────────────────────────────────────────╮
+   │  🚀 Autopilot v{version}                │
+   │  Mode:    {full|lite|minimal}           │
+   │  Change:  {change_name}                 │
+   │  Session: {session_id}                  │
+   │  Started: {ISO-8601 时间}                │
+   ╰─────────────────────────────────────────╯
+   ```
+   - version 从 `plugin.json` 读取：`Bash("cat <plugin_dir>/.claude-plugin/plugin.json | grep version")`
+   - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 7 写入锁文件时复用同一值
+   - change_name：此时尚未确定，显示 "pending"（Phase 1 完成后更新锁文件时回填）
+   - 输出方式：直接在主线程中以 markdown 代码块展示
 3. 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查已启用插件列表
 4. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
 5. 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链
@@ -160,7 +174,11 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    - `context/research-findings.md`（技术调研）
    - `context/web-research-findings.md`（联网搜索，默认执行，规则判定跳过时无此文件）
 4. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
-5. Task 调度 business-analyst 分析需求（子 Agent 自行 Read context/ 全部文件），产出功能清单 + 疑问点
+5. Task 调度 business-analyst 分析需求（`run_in_background: true`）：
+   - 子 Agent 自行 Read context/ 全部文件，将完整分析 Write 到 `context/requirements-analysis.md`
+   - 等待 Claude Code 自动完成通知
+   - 从 JSON 信封提取：`decision_points`、`requirements_summary`、`open_questions`
+   - 主线程**不读取** `requirements-analysis.md` 全文
 5.5. **主动讨论协议** — 基于信封中的 `decision_points` + business-analyst 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
 6. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认（复杂度分路影响循环深度）
 7. 生成结构化提示词 → 用户最终确认

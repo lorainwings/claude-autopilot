@@ -61,6 +61,8 @@ phases:
       thresholds:
         small: 2
         medium: 5
+  openspec:
+    agent: "Plan"              # Phase 2/3 使用 Plan agent（v3.4.0）
   testing:
     agent: "qa-expert"
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
@@ -78,6 +80,20 @@ phases:
       enabled: false         # 设为 true 启用 Phase 5 并行 Agent Team 执行
       max_agents: 3          # 最大并行 Agent 数量（建议 2-4）
       dependency_analysis: true  # 自动分析 task 依赖关系
+      domain_detection: "auto"   # auto: 从 affected_files 自动发现域 | explicit: 仅用 domain_agents 中定义的
+      default_agent: "general-purpose"  # 未匹配域的默认 Agent
+      domain_agents:             # 路径前缀 → Agent 映射（v3.4.0，每域严格 1 Agent）
+        "backend/":
+          agent: "backend-developer"
+        "frontend/":
+          agent: "frontend-developer"
+        "node/":
+          agent: "fullstack-developer"
+        # 可自由扩展：
+        # "android/":
+        #   agent: "mobile-developer"
+        # "packages/core/":
+        #   agent: "backend-developer"
   reporting:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom
@@ -156,6 +172,13 @@ async_quality_scans:
     command: ""                      # 由检测脚本的 recommended_scans 动态决定
     threshold: "0_critical"          # 0 个 critical 漏洞
     block_on_critical: false         # true: critical 发现阻断归档
+
+# === 质量扫描 Agent 映射（v3.4.0 新增）===
+# quality_scans_agents:
+#   silent_failure:    "pr-review-toolkit:silent-failure-hunter"
+#   type_design:       "pr-review-toolkit:type-design-analyzer"
+#   comment_accuracy:  "pr-review-toolkit:comment-analyzer"
+#   code_simplicity:   "pr-review-toolkit:code-simplifier"
 
 # === 代码约束（v2.4.0 新增，可选）===
 # code_constraints:

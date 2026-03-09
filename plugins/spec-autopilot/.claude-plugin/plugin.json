@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "3.3.7",
-  "description": "Spec-driven autopilot with cross-phase parallel dispatch (Phase 1/4/5/6), Phase 6 tri-path parallel (test + code review + quality scans), mixed-mode parallel implementation (worktree + domain partition + batch review), Allure unified test reporting with anomaly alerts, requirement-driven test traceability matrix, enhanced decision cards with research evidence for all complexity levels, code constraint enforcement (forbidden + required patterns + style guide), built-in phase templates, weighted anti-rationalization, persistent knowledge accumulation, crash recovery, and model routing",
+  "version": "3.4.0",
+  "description": "Spec-driven autopilot with domain-single-agent parallel implementation (v3.4.0: one agent per domain, cross-domain parallel), startup banner, background business-analyst with context protection, Plan agent for Phase 2/3, optimized agent type mapping (pr-review-toolkit for code review, qa-expert for testing, domain-specific for implementation), SKILL.md size enforcement (500-line limit with SessionStart hook), cross-phase parallel dispatch (Phase 1/4/5/6), Phase 6 tri-path parallel (test + code review + quality scans), Allure unified test reporting, requirement-driven test traceability, code constraint enforcement, crash recovery, and model routing",
   "author": {
     "name": "vibeflow-team"
   },
@@ -36,7 +36,10 @@
     "test-traceability",
     "batch-review",
     "research-evidence",
-    "required-patterns"
+    "required-patterns",
+    "domain-single-agent",
+    "skill-size-guard",
+    "plan-agent"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }

@@ -84,13 +84,98 @@ Task(subagent_type: "{agent_for_type}", run_in_background: true,
 
 主线程汇合后合并所有子 Agent 的 `test_counts`、`artifacts`、`test_traceability`，验证 test_pyramid。
 
+#### Phase 4 Dispatch 强制指令（非并行和并行通用）
+
+以下指令必须注入到 Phase 4 所有子 Agent prompt 中：
+
+```markdown
+## 强制要求（不可违反）
+
+你**必须**创建实际的测试文件，不允许以"后续补充"或"纯 UI 变更不需要"为由跳过。
+
+### 必须创建的测试文件
+
+根据 config.test_suites 中定义的测试套件，为每种 type 创建对应的测试文件：
+
+{for each suite in config.test_suites where suite.type in config.phases.testing.gate.required_test_types}
+- **{suite_name}**（≥{config.phases.testing.gate.min_test_count_per_type} 个用例）
+  - 命令: `{suite.command}`
+  - 目录: {从 config.project_context.project_structure.test_dirs 获取}
+{end for}
+
+### 测试凭据（从 config 自动注入，禁止使用假数据）
+{自动从 config.project_context.test_credentials 注入}
+
+### Playwright 登录流程（从 config 自动注入）
+{自动从 config.project_context.playwright_login 注入}
+
+### 测试计划文档（必须创建）
+
+在 `openspec/changes/{change_name}/context/test-plan.md` 中记录：
+- 测试策略概述
+- 各类型用例数量统计
+- 每个测试文件路径和覆盖范围
+
+### Dry-run 语法验证（必须执行）
+
+创建测试文件后必须执行语法检查：
+{for each suite in config.test_suites}
+- {suite_name}: 对应的 dry-run 命令
+{end for}
+
+### 返回要求
+
+status 只允许 "ok" 或 "blocked"：
+- 所有测试文件创建成功 + dry-run 通过 → `"status": "ok"`
+- 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
+- **禁止返回 "warning"**：Phase 4 不接受降级通过
+
+### 变更聚焦专项测试（v3.2.5 新增）
+
+测试用例**必须聚焦本次变更点**，不允许只生成泛化测试。
+
+1. 从 tasks.md 或 phase-1-requirements.json 提取本次变更涉及的具体代码单元（函数、端点、组件）
+2. 每个变更点至少 1 个专项测试用例
+3. 返回信封中必须包含 `change_coverage` 字段：
+```json
+{
+  "change_coverage": {
+    "change_points": ["变更点列表"],
+    "tested_points": ["已覆盖的变更点"],
+    "coverage_pct": 100,
+    "untested_points": []
+  }
+}
+```
+`coverage_pct` ≥ 80%，否则视为 blocked。
+
+### 测试金字塔比例约束
+
+测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值，默认值如下）：
+- **单元测试** ≥ 总用例数的 {config.test_pyramid.min_unit_pct}%
+- **E2E + UI 测试** ≤ 总用例数的 {config.test_pyramid.max_e2e_pct}%
+- **总用例数** ≥ {config.test_pyramid.min_total_cases}
+
+返回信封中必须包含 `test_pyramid` 字段：
+```json
+{
+  "test_pyramid": {
+    "total": 25,
+    "unit_pct": 60,
+    "integration_pct": 24,
+    "e2e_pct": 16
+  }
+}
+```
+```
+
 ### Phase 6 并行调度
 
 按 `config.test_suites` 中的套件分组，每个套件派发一个子 Agent 并行执行：
 
 ```markdown
 {for each suite in config.test_suites}
-Task(subagent_type: "general-purpose", run_in_background: true,
+Task(subagent_type: "qa-expert", run_in_background: true,
   prompt: "<!-- autopilot-phase:6 -->
   你是 autopilot Phase 6 的并行测试执行子 Agent（{suite_name} 专项）。
 
@@ -141,38 +226,55 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
 ```
 
-#### Step 2: 文件所有权分区
+#### Step 2: 文件所有权分区（v3.4.0: 通用路径前缀匹配）
 
 ```
-backend_tasks  = tasks where all files start with "backend/"
-frontend_tasks = tasks where all files start with "frontend/"
-node_tasks     = tasks where all files start with "node/"
-cross_cutting  = remaining tasks
+# 从 config 读取路径前缀列表
+domain_prefixes = config.phases.implementation.parallel.domain_agents.keys()
+# 例如 ["backend/", "frontend/", "node/"]，用户可扩展为
+# ["android/", "ios/", "packages/core/", "services/auth/"] 等任意结构
 
-为每个 task 生成 owned_files 列表
-写入: phase5-ownership/agent-{N}.json
+domain_tasks = {}
+cross_cutting = []
+
+for task in all_tasks:
+    domain = longest_prefix_match(task.affected_files, domain_prefixes)
+    if not domain and config...domain_detection == "auto":
+        domain = extract_common_top_dir(task.affected_files)
+    if domain:
+        domain_tasks[domain].append(task)
+    else:
+        cross_cutting.append(task)
+
+为每个域生成 owned_files 列表（域内所有 task 文件的并集）
+写入: phase5-ownership/{domain_name}.json
 ```
 
-#### Step 3: 并行 Task 派发（完整模板）
+#### Step 3: 域级并行 Task 派发（v3.4.0 — 单 Agent 模式）
 
-对每个并行组（backend_tasks / frontend_tasks / node_tasks），主线程**在同一条消息中**同时派发：
+> **HARD CONSTRAINT**: 每个域严格 1 个 Agent，禁止同一域内派发多个 Agent。
+> 域内多个 tasks 作为批量任务注入到同一 Agent 的 prompt。
+
+对每个非空域（backend / frontend / node），主线程**在同一条消息中**同时派发：
 
 ```markdown
-{for each task in task_group, up to max_agents}
+{for each non_empty_domain in domain_tasks.keys()}
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "{config.phases.implementation.parallel.domain_agents[domain].agent}",
   isolation: "worktree",
   run_in_background: true,
   prompt: "<!-- autopilot-phase:5 -->
-你是 autopilot Phase 5 的并行实施子 Agent（{group_id}/{task_id}）。
+你是 autopilot Phase 5 的 {domain} 域实施 Agent。
 
-## 你的任务
-仅实施以下单个 task（禁止实施其他 task）：
-- Task #{task_number}: {task_title}
-- Task 内容: {task_full_text}
+## 你的任务（批量执行，按编号顺序）
+{for each task in domain_tasks}
+### Task #{task_number}: {task_title}
+{task_full_text}
+---
+{end for}
 
 ## 前序 task 摘要（只读参考）
-{for each completed_task in group_predecessors}
+{for each completed_task in predecessors}
 - Task #{n}: {summary} — 已合并到主分支
 {end for}
 
@@ -181,31 +283,33 @@ Task(
 
 ## 文件所有权约束（ENFORCED）
 你被分配以下文件的独占所有权：
-{owned_files}
+{domain_all_owned_files}
 禁止修改此列表之外的任何文件。
 write-edit-constraint-check Hook 会拦截越权修改。
 
 ## 并发隔离
-- 你运行在独立 worktree 中
+- 你运行在独立 worktree 中（每域 1 个 worktree）
 - 禁止修改 openspec/ 目录下的 checkpoint 文件
-- 禁止修改其他 task 正在修改的文件: {concurrent_task_files}
-- 完成后 artifacts 必须是 owned_files 的子集
+- 禁止修改其他域正在修改的文件: {other_domain_files}
+- 完成后 artifacts 必须是 domain_all_owned_files 的子集
 
 ## 项目规则约束
 {rules_scan_result}
 
-## 执行模式
-{model_routing_hint}
+## 执行要求
+- 按 task 编号顺序逐个实施
+- 每个 task 完成后返回中间状态（便于断点恢复）
+- 所有 task 完成后返回汇总 JSON 信封
 
 ## 返回要求
 执行完毕后返回 JSON 信封：
-{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"tasks_completed\": [1,2,3], \"test_result\": \"N/M passed\"}
 "
 )
 {end for}
 ```
 
-等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。
+等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。最多 3 个域并行（backend ‖ frontend ‖ node），域内串行。
 
 #### Step 4: 合并 + 验证
 

@@ -21,7 +21,8 @@
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "pr-review-toolkit:code-reviewer",
+  run_in_background: true,
   prompt: "你是代码审查专家。审查以下代码变更：
 
     ## 变更范围

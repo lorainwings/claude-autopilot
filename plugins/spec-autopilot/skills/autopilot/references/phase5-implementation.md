@@ -74,38 +74,39 @@
 
 > **参考协议**: `references/parallel-dispatch.md`（通用并行编排）
 
-### 混合模式核心流程
+### 混合模式核心流程（v3.4.0: 域级单 Agent）
+
+> **v3.4.0 变更**: 每个域（backend/frontend/node）严格只分配 1 个 Agent，
+> 该 Agent 批量处理域内所有 tasks。跨域并行（backend ‖ frontend ‖ node），域内串行。
 
 ```
-1. 解析任务清单 → 构建文件依赖图（Union-Find 或域级快速分区）
+1. 解析任务清单 → 按域分组（从 config.domain_agents 路径前缀匹配 + auto 自动发现）
 2. 主线程一次性提取所有任务的完整文本和上下文
    （关键：子 Agent 不自己读取计划文件，避免上下文重复膨胀）
-3. 对每个并行组:
-   a. Task(isolation: "worktree", run_in_background: true) × N 并行派发
-   b. 每个 subagent 收到: 任务全文 + 文件所有权 + 项目规则
-   c. subagent 可通过 AskUserQuestion 提问，主线程回答
-   d. 等待全部完成 → 收集 JSON envelope
-   e. 按 task 编号顺序合并 worktree
+3. 对每个非空域同时并行派发（最多 3 个域）:
+   a. 每域 1 个 Task(isolation: "worktree", run_in_background: true)
+   b. 域 Agent 收到: 该域所有 task 全文 + 域级文件所有权 + 项目规则
+   c. 域 Agent 按 task 编号逐个实施（域内串行）
+   d. 等待全部域完成 → 收集 JSON envelope
+   e. 按域顺序合并 worktree（最多 3 次 merge）
    f. 运行 typecheck 快速验证
-   g. 【新增】派发 review subagent 批量审查本组所有变更
-      - 规范符合性审查（实现是否符合需求描述）
-      - 代码质量审查（是否符合项目规则约束）
-      - 跨 task 一致性检查
-   h. review 发现问题 → resume 对应 implementer agent 修复
-4. 跨域任务串行执行（在所有并行组完成后）
-5. 全组完成后运行 full_test
+   g. 派发 review subagent 批量审查所有域的变更
+   h. review 发现问题 → resume 对应域 agent 修复
+4. 跨域任务串行执行（在所有并行域完成后）
+5. 全部完成后运行 full_test
 ```
 
 ### 与 Superpowers subagent-driven 的关键差异
 
-| 维度 | Superpowers | Autopilot v3.2.0 |
+| 维度 | Superpowers | Autopilot v3.4.0 |
 |------|-------------|-------------------|
-| 实施模式 | 严格串行（每次一个 subagent） | 组内并行 + 组间串行 |
-| Review | 每任务双阶段（spec + quality） | 每组批量 review |
-| 隔离方式 | 无 worktree | worktree + 文件所有权分区 |
-| 冲突处理 | 不涉及 | 3 层检测 + 自动降级 |
+| 实施模式 | 严格串行（每次一个 subagent） | 域间并行 + 域内串行（每域 1 Agent） |
+| 并行粒度 | 独立问题域 | 域级单 Agent（backend ‖ frontend ‖ node） |
+| Review | 每任务双阶段（spec + quality） | 全域批量 review |
+| 隔离方式 | 无 worktree | 每域 1 个 worktree + 域级文件所有权 |
+| 冲突处理 | 不涉及 | 域间合并冲突检测 + 自动降级 |
 | 上下文管理 | 控制器提取全文（借鉴） | 控制器提取全文 |
-| 修复策略 | resume 同一 agent（借鉴） | resume 同一 agent |
+| 修复策略 | resume 同一 agent（借鉴） | resume 同一域 agent |
 
 ### 依赖分析
 
@@ -117,19 +118,22 @@
 
 在依赖图基础上增加文件所有权隔离，从根本上消除合并冲突：
 
-#### 分区算法
+#### 分区算法（v3.4.0: 通用路径前缀匹配）
 
 ```
 1. 解析 tasks.md → 提取每个 task 的 affected_files[]
-2. 按顶级目录分组：
-   - backend_tasks: 仅修改 backend/ 下文件的 task
-   - frontend_tasks: 仅修改 frontend/ 下文件的 task
-   - node_tasks: 仅修改 node/ 下文件的 task
-   - cross_cutting_tasks: 修改多个顶级目录的 task
-3. 同组内的 task 可并行执行（文件无重叠保证）
-4. cross_cutting_tasks 串行执行（在所有并行组完成后）
-5. 每个并行 agent 收到明确的文件所有权列表
+2. 从 config.phases.implementation.parallel.domain_agents 读取路径前缀列表
+3. 对每个 task，用最长前缀匹配确定所属域：
+   - 匹配到 domain_agents 中的前缀 → 归入该域
+   - domain_detection == "auto" 且未匹配 → 自动以顶级目录为域
+   - 跨多个域 → 归入 cross_cutting
+4. cross_cutting_tasks 串行执行（在所有并行域完成后）
+5. 每个域的 Agent 收到明确的文件所有权列表
 ```
+
+> **不硬编码目录名**：域由配置的 `domain_agents` 路径前缀决定。
+> 默认配置为 `backend/`、`frontend/`、`node/`，用户可自由添加
+> `"android/"`、`"packages/core/"`、`"services/auth/"` 等。
 
 #### 所有权强制执行
 
@@ -170,50 +174,50 @@ write-edit-constraint-check.sh 在并行模式下额外检查：
 6. 组间按 task 编号最小值排序，顺序执行
 ```
 
-### 并行派发策略
+### 并行派发策略（v3.4.0: 域级单 Agent）
 
 ```
-独立 task 组 = 分析依赖图，找出无交叉文件的 task 集合
-max_parallel = config.phases.implementation.parallel.max_agents (默认 3)
+域分区: 从 domain_agents 路径前缀匹配得到 domain_tasks{} + cross_cutting
+max_parallel_domains = 3
 
-for each task_group in 独立 task 组:
-  agents = []
-  for each task in task_group[:max_parallel]:
-    agent = Task(
-      subagent_type: "general-purpose",
-      isolation: "worktree",          # 每个 agent 独立 worktree
-      run_in_background: true,
-      prompt: "实施 task: {task.title}, change: {change_name} ..."
-    )
-    agents.append(agent)
+domain_agents = []
+for each domain in [backend, frontend, node] where domain_tasks 非空:
+  agent = Task(
+    subagent_type: config.phases.implementation.parallel.domain_agents[domain].agent,
+    isolation: "worktree",          # 每域 1 个 worktree
+    run_in_background: true,
+    prompt: "批量实施 {domain} 域所有 tasks: {domain_tasks} ..."
+  )
+  domain_agents.append(agent)
 
-  等待所有 agents 完成
-  合并各 worktree 变更到主分支
-  解决冲突（如有）
-  运行测试验证
+等待所有域 agents 完成（最多 3 个并行）
+按域顺序合并 worktree（最多 3 次 merge）
+运行测试验证
+cross_cutting 串行执行
 ```
 
-### 合并策略
+### 合并策略（v3.4.0: 简化为域级合并）
 
-- 每组并行 task 完成后，按 task 编号顺序合并 worktree
+- 每个域完成后，合并该域 worktree（最多 3 次 merge，而非每 task 1 次）
 - 合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
 - 合并成功后运行 quick_check 验证
-- 每组完成后写入对应 task 的 checkpoint（`phase5-tasks/task-N.json`）
+- 域 Agent 返回的信封中含 `tasks_completed` 数组，主线程为每个 task 写入 checkpoint
 
-### Worktree 生命周期管理（v2.4.0 细化）
+### Worktree 生命周期管理（v3.4.0: 每域 1 个 worktree）
 
 ```
-1. 创建: git worktree add .claude/worktrees/task-{N} -b autopilot-task-{N}
-2. 子 Agent 在 worktree 中执行实施
-3. 子 Agent 完成后：
+1. 创建（每域 1 个）: git worktree add .claude/worktrees/{domain} -b autopilot-{domain}
+   - 最多 3 个 worktree（backend + frontend + node）
+2. 域 Agent 在 worktree 中批量实施域内所有 task
+3. 域 Agent 完成后：
    a. 主线程切回主分支
-   b. git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
+   b. git merge --no-ff autopilot-{domain} -m "autopilot: {domain} domain — tasks #{task_list}"
    c. 如冲突 → AskUserQuestion:
       - "手动解决冲突后继续"
-      - "放弃此 task 的并行结果，稍后串行执行 (Recommended)"
+      - "放弃此域的并行结果，串行执行 (Recommended)"
       - "中止并行模式，全部切换为串行"
-   d. 合并成功 → git worktree remove .claude/worktrees/task-{N}
-   e. 删除临时分支: git branch -d autopilot-task-{N}
+   d. 合并成功 → git worktree remove .claude/worktrees/{domain}
+   e. 删除临时分支: git branch -d autopilot-{domain}
 ```
 
 ### 并行 Checkpoint 管理（v2.4.0 细化）
@@ -222,12 +226,12 @@ for each task_group in 独立 task 组:
 - 子 Agent 不直接写入 checkpoint（隔离约束）
 - 主线程从子 Agent 返回的 JSON 信封提取 artifacts 和 summary
 
-### 降级决策树（v2.4.0 细化）
+### 降级决策树（v3.4.0 更新）
 
 ```
 IF worktree 创建失败（磁盘空间/权限） → 立即降级为串行
-IF 单组内合并冲突 > 3 个文件 → 回退该组所有 worktree → 串行执行该组
-IF 连续 2 组合并失败 → 全面降级为串行（config.parallel.auto_downgrade_threshold）
+IF 域级合并冲突 > 3 个文件 → 回退该域 worktree → 串行执行该域所有 task
+IF 2 个域合并失败 → 全面降级为串行
 IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 降级原因记录到 checkpoint: _metrics.parallel_fallback_reason
 ```
@@ -292,7 +296,9 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 2. 扫描 phase5-tasks/ 确定恢复点（跳过已完成 task）
 3. for each remaining_task:
    a. 构造 task prompt（任务描述 + 前序摘要 + 项目规则 + 验证命令）
-   b. result = Task(subagent_type: "general-purpose",
+   b. domain = detect_domain(task.affected_files)
+      agent = config.phases.implementation.parallel.domain_agents[domain].agent || "general-purpose"
+      result = Task(subagent_type: agent,
                     prompt: "<!-- autopilot-phase:5 --> 实施 task #{N}...")
       → 主线程同步阻塞等待子 Agent 完成
    c. 解析 result 中的 JSON 信封
@@ -318,7 +324,7 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 
 ```markdown
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: detect_domain_agent(task.affected_files) || "general-purpose",
   prompt: "<!-- autopilot-phase:5 -->
 你是 autopilot Phase 5 的串行实施子 Agent。
 

@@ -273,7 +273,7 @@ dispatch 主线程在构造 prompt 时执行变量替换：
 - 返回值校验：非空，且包含功能清单和疑问点
 
 **Phase 2（创建 OpenSpec）**：
-- Agent: general-purpose
+- Agent: config.phases.openspec.agent（默认 Plan，v3.4.0）
 - 运行模式: `run_in_background: true`（不占用主窗口上下文）
 - 任务：从需求推导 kebab-case 名称，执行 `openspec new change "<name>"`
 - 写入 context 文件（prd.md、discussion.md、ai-prompt.md）
@@ -284,7 +284,7 @@ dispatch 主线程在构造 prompt 时执行变量替换：
   > Hook 验证要求 `status` 和 `summary` 两个字段都必须存在，缺少任一将被 block。
 
 **Phase 3（FF 生成制品）**：
-- Agent: general-purpose
+- Agent: config.phases.openspec.agent（默认 Plan，v3.4.0）
 - 运行模式: `run_in_background: true`（不占用主窗口上下文）
 - 任务：按 openspec-ff-change 流程生成 proposal/specs/design/tasks
 - **返回要求（必须严格遵守）**：执行完毕后，在输出的**最后一行**返回 JSON 信封：
@@ -300,88 +300,18 @@ dispatch 主线程在构造 prompt 时执行变量替换：
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
 - **Phase 4 不可跳过，不可降级为 warning**
 
-Phase 4 子 Agent prompt 必须包含以下强制指令：
+Phase 4 子 Agent prompt 构造详见以下参考文件（dispatch 时读取并注入）：
+- 内置模板：`autopilot/templates/phase4-testing.md`（测试标准 + dry-run + 金字塔）
+- 并行 dispatch：`autopilot/references/parallel-phase-dispatch.md` Phase 4 节
 
-```markdown
-## 强制要求（不可违反）
+**关键约束摘要**（完整指令在参考文件中）：
+- 必须创建实际测试文件，禁止以任何理由跳过
+- 每种 test_type ≥ `min_test_count_per_type` 个用例
+- `change_coverage.coverage_pct` ≥ 80%，否则 blocked
+- 测试金字塔: unit ≥ `min_unit_pct`%，e2e ≤ `max_e2e_pct`%
+- 每个测试用例必须追溯到 Phase 1 需求点（traceability matrix）
+- status 只允许 "ok" 或 "blocked"（禁止 "warning"）
 
-你**必须**创建实际的测试文件，不允许以"后续补充"或"纯 UI 变更不需要"为由跳过。
-
-### 必须创建的测试文件
-
-根据 config.test_suites 中定义的测试套件，为每种 type 创建对应的测试文件：
-
-{for each suite in config.test_suites where suite.type in config.phases.testing.gate.required_test_types}
-- **{suite_name}**（≥{config.phases.testing.gate.min_test_count_per_type} 个用例）
-  - 命令: `{suite.command}`
-  - 目录: {从 config.project_context.project_structure.test_dirs 获取}
-{end for}
-
-### 测试凭据（从 config 自动注入，禁止使用假数据）
-{自动从 config.project_context.test_credentials 注入}
-
-### Playwright 登录流程（从 config 自动注入）
-{自动从 config.project_context.playwright_login 注入}
-
-### 测试计划文档（必须创建）
-
-在 `openspec/changes/{change_name}/context/test-plan.md` 中记录：
-- 测试策略概述
-- 各类型用例数量统计
-- 每个测试文件路径和覆盖范围
-
-### Dry-run 语法验证（必须执行）
-
-创建测试文件后必须执行语法检查：
-{for each suite in config.test_suites}
-- {suite_name}: 对应的 dry-run 命令
-{end for}
-
-### 返回要求
-
-status 只允许 "ok" 或 "blocked"：
-- 所有测试文件创建成功 + dry-run 通过 → `"status": "ok"`
-- 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
-- **禁止返回 "warning"**：Phase 4 不接受降级通过
-
-### 变更聚焦专项测试（v3.2.5 新增）
-
-测试用例**必须聚焦本次变更点**，不允许只生成泛化测试。
-
-1. 从 tasks.md 或 phase-1-requirements.json 提取本次变更涉及的具体代码单元（函数、端点、组件）
-2. 每个变更点至少 1 个专项测试用例
-3. 返回信封中必须包含 `change_coverage` 字段：
-```json
-{
-  "change_coverage": {
-    "change_points": ["变更点列表"],
-    "tested_points": ["已覆盖的变更点"],
-    "coverage_pct": 100,
-    "untested_points": []
-  }
-}
-```
-`coverage_pct` ≥ 80%，否则视为 blocked。
-
-### 测试金字塔比例约束
-
-测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值，默认值如下）：
-- **单元测试** ≥ 总用例数的 {config.test_pyramid.min_unit_pct}%
-- **E2E + UI 测试** ≤ 总用例数的 {config.test_pyramid.max_e2e_pct}%
-- **总用例数** ≥ {config.test_pyramid.min_total_cases}
-
-返回信封中必须包含 `test_pyramid` 字段：
-```json
-{
-  "test_pyramid": {
-    "total": 25,
-    "unit_pct": 60,
-    "integration_pct": 24,
-    "e2e_pct": 16
-  }
-}
-```
-```
 
 **Phase 5（循环实施 — 互斥双路径）**：
 
@@ -390,13 +320,19 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 - **路径 A: 并行模式**（当 `parallel.enabled = true` 时，**优先执行**）：
   - **禁止进入路径 B 或使用串行 Task 派发流程**
   - 执行前读取: `references/parallel-phase-dispatch.md` Phase 5 并行调度（完整 dispatch 模板）
-  - 主线程解析任务清单 -> 按顶级目录分区 -> 生成 owned_files -> 并行派发 Task(isolation: "worktree", run_in_background: true)
+  - 主线程解析任务清单 -> 按 config.domain_agents 路径前缀分域 -> 生成 owned_files -> 并行派发 Task(isolation: "worktree", run_in_background: true)
   - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 3）
   - 每组完成后: 按 task 编号合并 worktree -> 快速验证 -> 批量 review -> checkpoint
   - 降级: 合并失败超过 3 文件 -> 切换到路径 B
 
 - **路径 B: 串行模式**（当 `parallel.enabled = false` 或从路径 A 降级时执行）：
-  - 主线程逐个派发**前台 Task**（同步阻塞），每个 task 一个子 Agent
+  - 主线程逐个派发**前台 Task**（同步阻塞），按域动态选择 Agent（v3.4.0）：
+    ```
+    # 最长前缀匹配 config.domain_agents 确定域，auto 模式自动发现未配置的顶级目录
+    task_domain = longest_prefix_match(task.affected_files, config...domain_agents.keys())
+    agent_type = config...domain_agents[task_domain].agent
+               || config...default_agent  # fallback
+    ```
   - 子 Agent 内部工具调用不灌入主线程上下文（上下文隔离）
   - 每个 task 完成后写入 `phase5-tasks/task-N.json` checkpoint
   - 连续 3 次失败 → AskUserQuestion 决策
@@ -405,31 +341,8 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 - 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）
 - 可选覆盖：config.phases.implementation.instruction_files（非空时注入）
 
-  **Phase 5 并行 Task Prompt 模板**（v2.4.0 新增）：
-  ```
-  <!-- autopilot-phase:5 -->
-  你是 autopilot Phase 5 的并行实施子 Agent。
+  Phase 5 并行 Task prompt 完整模板详见 `references/parallel-phase-dispatch.md` Phase 5 并行调度 Step 3。
 
-  ## 你的任务
-  仅实施以下单个 task（禁止实施其他 task）：
-  - Task #{task_number}: {task_title}
-  - Task 内容: {task_description}
-
-  ## 前序 task 摘要（只读参考）
-  {for each completed_task in group_predecessors}
-  - Task #{n}: {summary} — 已合并到主分支
-  {end for}
-
-  ## 并行隔离约束（v3.0 增强：文件所有权分区）
-  - 你运行在独立 worktree 中
-  - **文件所有权**：你只能修改以下文件（越权将被 Hook 拦截）：
-    {task.owned_files}
-  - 禁止修改 openspec/ 目录下的 checkpoint 文件
-  - 禁止修改其他 task 正在修改的文件（列表: {concurrent_task_files}）
-  - 完成后返回 JSON 信封（artifacts 必须是 owned_files 的子集）
-
-  {标准项目上下文注入}
-  ```
 - **Worktree 隔离模式**（当 config.phases.implementation.worktree.enabled = true）：
   - 主线程按 task 粒度逐个派发，每个 task 使用 `Task(isolation: "worktree")`
   - 子 Agent prompt 中注入当前 task 内容和前序 task 摘要

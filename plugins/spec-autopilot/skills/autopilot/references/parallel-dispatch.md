@@ -57,7 +57,7 @@
 for each task in tasks:
   task.affected_files = 提取文件路径引用
   task.depends_on = 提取显式依赖声明
-  task.domain = 推断所属域（backend/frontend/node/cross-cutting）
+  task.domain = 推断所属域（从 affected_files 顶级目录自动发现，或匹配 config.domain_agents 路径前缀）
 ```
 
 ### Step 2: Union-Find 分组
@@ -89,11 +89,32 @@ for each (task_i, task_j) in tasks × tasks:
 当 tasks.md 中的 task 按顶级目录自然分离时，可跳过 Union-Find，直接按域分组：
 
 ```
-backend_tasks  = [t for t in tasks if all(f.startswith("backend/") for f in t.affected_files)]
-frontend_tasks = [t for t in tasks if all(f.startswith("frontend/") for f in t.affected_files)]
-node_tasks     = [t for t in tasks if all(f.startswith("node/") for f in t.affected_files)]
-cross_cutting  = [t for t in tasks if t not in backend ∪ frontend ∪ node]
+# v3.4.0: 通用域检测（不硬编码目录名）
+domain_prefixes = config.phases.implementation.parallel.domain_agents.keys()
+                  # 例如 ["backend/", "frontend/", "node/"]，用户可自由扩展
+
+domain_tasks = {}  # {domain_prefix: [task_list]}
+cross_cutting = []
+
+for t in tasks:
+    # 最长前缀匹配：找到 task 所有文件都匹配的域
+    matched_domain = longest_prefix_match(t.affected_files, domain_prefixes)
+    if matched_domain:
+        domain_tasks.setdefault(matched_domain, []).append(t)
+    else:
+        cross_cutting.append(t)
+
+# domain_detection == "auto" 时：自动发现 config 外的顶级目录
+if config.phases.implementation.parallel.domain_detection == "auto":
+    for t in cross_cutting[:]:  # iterate copy
+        top_dir = extract_common_top_dir(t.affected_files)
+        if top_dir and all files share same top_dir:
+            domain_tasks.setdefault(top_dir + "/", []).append(t)
+            cross_cutting.remove(t)
 ```
+
+> **最长前缀匹配**：当配置了 `"frontend/"` 和 `"frontend/web-app/"` 时，
+> 文件 `frontend/web-app/src/App.vue` 优先匹配 `"frontend/web-app/"`。
 
 ## 并行派发模板
 
@@ -334,22 +355,37 @@ parallel_tasks:
 
 ```yaml
 parallel_config:
-  dependency_analysis: "union-find"  # 或 "domain-partition"（按顶级目录快速分区）
+  split_strategy: "domain-single-agent"   # v3.4.0: 域级单 Agent（废弃旧 "domain-partition" 域内多 Agent）
   merge_strategy: "worktree"
-  review_after: true               # 每组完成后批量 review
-  max_agents: 5                    # 从 config.phases.implementation.parallel.max_agents 读取
-  agent_mapping:
-    backend: "backend-developer"
-    frontend: "frontend-developer"
-    node: "fullstack-developer"
-  cross_cutting_strategy: "serial_after_parallel"  # 跨域任务在所有并行组完成后串行
-  degrade_threshold: 3             # 合并冲突文件数超过此值则降级
+  review_after: true                      # 每组完成后批量 review
+
+  domain_detection: "auto"                 # auto: 自动发现域 | explicit: 仅用配置的前缀
+  default_agent: "general-purpose"          # 未匹配任何前缀的默认 Agent
+  domain_agents:                            # 路径前缀 → Agent 映射（每域严格 1 Agent）
+    "backend/":                             # 匹配 backend/ 下所有文件
+      agent: "backend-developer"
+      max_tasks_per_batch: 10
+    "frontend/":                            # 匹配 frontend/ 下所有文件
+      agent: "frontend-developer"
+      max_tasks_per_batch: 10
+    "node/":                                # 匹配 node/ 下所有文件
+      agent: "fullstack-developer"
+      max_tasks_per_batch: 10
+    # 用户可自由扩展任意路径前缀：
+    # "android/":
+    #   agent: "mobile-developer"
+    # "packages/core/":
+    #   agent: "backend-developer"
+
+  cross_cutting_strategy: "serial_after_parallel"
+  max_parallel_domains: 3                 # 最多 3 个域同时并行
+  degrade_threshold: 3                    # 合并冲突文件数超过此值则降级
 ```
 
 执行流程概要:
 ```
 1. 解析任务清单 -> 提取 affected_files
-2. 按顶级目录分组（backend/frontend/node/cross_cutting）
+2. 按域分组（从 domain_agents 路径前缀匹配 + auto 自动发现）
 3. 生成 owned_files -> 写入 phase5-ownership/agent-{N}.json
 4. 对每个并行组: Task(isolation:"worktree", run_in_background:true) x N
 5. 等待完成 -> 按编号合并 worktree -> quick_check
