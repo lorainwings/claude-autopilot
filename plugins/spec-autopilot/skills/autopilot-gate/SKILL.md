@@ -106,7 +106,7 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 
 ## 执行模式感知
 
-本 Skill 在执行门禁检查时，需感知当前执行模式（从锁文件 `openspec/changes/.autopilot-active` 的 `mode` 字段读取）。
+本 Skill 在执行门禁检查时，需感知当前执行模式（从锁文件 `${session_cwd}/openspec/changes/.autopilot-active` 的 `mode` 字段读取，注意使用绝对路径）。
 
 ### 模式对门禁的影响
 

@@ -83,7 +83,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 ### 5. Mode 恢复
 
-从锁文件 `openspec/changes/.autopilot-active` 读取 `mode` 字段（full/lite/minimal）。
+从锁文件 `${session_cwd}/openspec/changes/.autopilot-active` 读取 `mode` 字段（full/lite/minimal）。注意使用绝对路径。
 
 - **mode 字段存在** → 使用锁文件中的 mode
 - **mode 字段不存在**（旧版兼容） → 默认 "full"
