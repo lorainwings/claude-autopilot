@@ -5,6 +5,11 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.9] - 2026-03-09
+
+### Fixed
+- **多人使用时 .autopilot-active 锁文件冲突**: Phase 0 新增步骤 6「确保锁文件被 gitignore」，在创建锁文件前自动检查并追加 `.gitignore` 规则。锁文件包含 PID/session_id 等本机信息，禁止提交到 git
+
 ## [3.2.8] - 2026-03-09
 
 ### Fixed

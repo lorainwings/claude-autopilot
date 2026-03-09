@@ -103,7 +103,12 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
    - **lite 模式**: 创建 Phase 1, 5, 6, 7（4 个任务），Phase 5 blockedBy Phase 1，Phase 6 blockedBy Phase 5
    - **minimal 模式**: 创建 Phase 1, 5, 7（3 个任务），Phase 5 blockedBy Phase 1
    - 崩溃恢复时：已完成阶段直接标记 completed
-6. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（JSON 格式）：
+6. **确保锁文件被 gitignore**：检查项目根目录 `.gitignore` 是否包含 `.autopilot-active`，若不包含则追加：
+   ```
+   echo '.autopilot-active' >> .gitignore
+   ```
+   > 此文件是会话级运行时锁，包含 PID/session_id 等本机信息，禁止提交到 git，否则多人使用时必然冲突。
+7. **写入活跃 change 锁定文件**：确定 change 名称后，写入 `openspec/changes/.autopilot-active`（JSON 格式）：
    ```json
    {"change":"<change_name>","pid":"<当前进程PID>","started":"<ISO-8601时间戳>","session_cwd":"<项目根目录>","anchor_sha":"<SHA>","session_id":"<毫秒级时间戳>","mode":"<full|lite|minimal>"}
    ```
@@ -112,13 +117,13 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
      - PID 存活 + `session_id` 匹配 → 确认为同一进程，AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
      - PID 存活 + `session_id` 不匹配 → PID 已被操作系统回收给其他进程，视为崩溃残留，自动清理并覆盖
      - PID 不存在 → 视为崩溃残留，自动清理并覆盖
-7. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
+8. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
    ```
    git commit --allow-empty -m "autopilot: start <change_name>"
    ANCHOR_SHA=$(git rev-parse HEAD)
    ```
    将 `ANCHOR_SHA` 写入锁定文件的 `anchor_sha` 字段（更新已写入的 `.autopilot-active` 文件）
-   > **原子性保障**：步骤 6 初次写入锁文件时 `anchor_sha` 设为空字符串。步骤 7 创建 commit 后立即更新。如果步骤 7 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
+   > **原子性保障**：步骤 7 初次写入锁文件时 `anchor_sha` 设为空字符串。步骤 8 创建 commit 后立即更新。如果步骤 8 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
