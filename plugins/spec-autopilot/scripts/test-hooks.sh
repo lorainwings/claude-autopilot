@@ -2506,6 +2506,95 @@ rm -rf "$TMPDIR_49" "$TMPDIR_49B"
 echo ""
 
 # ============================================================
+# --- 50. SKILL.md lockfile path must use absolute path template ---
+echo "--- 50. SKILL.md lockfile path uses absolute path (v3.3.4 regression) ---"
+
+SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+RECOVERY_FILE="$SCRIPT_DIR/../skills/autopilot-recovery/SKILL.md"
+GATE_FILE="$SCRIPT_DIR/../skills/autopilot-gate/SKILL.md"
+
+# 50a: Step 7 lock file write instruction must contain ${session_cwd} absolute path
+step7_line=$(grep '写入活跃 change 锁定文件' "$SKILL_FILE" || true)
+assert_contains "50a: Step 7 lock write uses absolute path" "$step7_line" '\${session_cwd}'
+
+# 50b: Step 7 must contain "禁止使用相对路径" warning
+assert_contains "50b: Step 7 has relative path prohibition" "$step7_line" '禁止使用相对路径'
+
+# 50c: No bare relative path 'openspec/changes/.autopilot-active' without ${session_cwd} prefix
+#      (matches lines that have the path but NOT ${session_cwd} before it)
+bare_relative_count=$(grep -c 'openspec/changes/\.autopilot-active' "$SKILL_FILE" | head -1)
+prefixed_count=$(grep -c '\${session_cwd}/openspec/changes/\.autopilot-active' "$SKILL_FILE" | head -1)
+if [ "$bare_relative_count" -eq "$prefixed_count" ]; then
+  green "  PASS: 50c: all .autopilot-active refs have \${session_cwd} prefix ($prefixed_count/$bare_relative_count)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 50c: bare relative path found ($prefixed_count prefixed of $bare_relative_count total)"
+  FAIL=$((FAIL + 1))
+fi
+
+# 50d: Recovery SKILL.md also uses absolute path
+recovery_line=$(grep 'autopilot-active' "$RECOVERY_FILE" || true)
+assert_contains "50d: Recovery skill uses absolute path" "$recovery_line" '\${session_cwd}'
+
+# 50e: Gate SKILL.md also uses absolute path
+gate_line=$(grep 'autopilot-active' "$GATE_FILE" || true)
+assert_contains "50e: Gate skill uses absolute path" "$gate_line" '\${session_cwd}'
+
+echo ""
+
+# ============================================================
+# --- 51. Fixup commit must use git add -A, never explicit lockfile ---
+echo "--- 51. Fixup commit uses git add -A, forbids explicit lockfile add (v3.3.5 regression) ---"
+
+# 51a: Step 7 fixup commit section contains "必须使用 git add -A"
+step7_git=$(grep -A5 '上下文保护.*Git Fixup Commit' "$SKILL_FILE" || true)
+assert_contains "51a: Step 7 mandates git add -A" "$step7_git" '必须使用.*git add -A'
+
+# 51b: Step 7 contains explicit prohibition of adding .autopilot-active
+assert_contains "51b: Step 7 forbids explicit add of lockfile" "$step7_git" '禁止显式.*git add.*autopilot-active'
+
+# 51c: Real git simulation — .gitignore blocks explicit add of .autopilot-active
+TMPDIR_51=$(mktemp -d)
+(
+  cd "$TMPDIR_51"
+  git init -q
+  git commit --allow-empty -q -m "init"
+  mkdir -p openspec/changes
+  echo '.autopilot-active' >> .gitignore
+  git add .gitignore && git commit -q -m "add gitignore"
+
+  # Create lock file (should be ignored by git)
+  echo '{"change":"test"}' > openspec/changes/.autopilot-active
+
+  # Attempt explicit add — should fail (exit 1)
+  explicit_exit=0
+  git add openspec/changes/.autopilot-active 2>/dev/null || explicit_exit=$?
+  echo "EXPLICIT_ADD_EXIT=$explicit_exit"
+
+  # Attempt git add -A — should succeed and NOT stage the ignored file
+  git add -A 2>/dev/null
+  add_a_exit=$?
+  echo "ADD_A_EXIT=$add_a_exit"
+
+  # Verify .autopilot-active is NOT staged
+  staged=$(git diff --cached --name-only | grep '.autopilot-active' || true)
+  if [ -z "$staged" ]; then
+    echo "LOCKFILE_NOT_STAGED=true"
+  else
+    echo "LOCKFILE_NOT_STAGED=false"
+  fi
+) > "$TMPDIR_51/output.txt" 2>&1
+
+RESULTS_51=$(cat "$TMPDIR_51/output.txt")
+assert_contains "51c: explicit git add of ignored lockfile fails" "$RESULTS_51" "EXPLICIT_ADD_EXIT=1"
+assert_contains "51d: git add -A succeeds" "$RESULTS_51" "ADD_A_EXIT=0"
+assert_contains "51e: git add -A does not stage ignored lockfile" "$RESULTS_51" "LOCKFILE_NOT_STAGED=true"
+
+rm -rf "$TMPDIR_51"
+
+echo ""
+
+# ============================================================
 echo "==================================="
 echo "Results: $PASS passed, $FAIL failed"
 echo "==================================="

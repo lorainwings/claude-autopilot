@@ -5,6 +5,11 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.6] - 2026-03-09
+
+### Added
+- **锁文件路径 + fixup commit 回归测试 (section 50-51)**: 10 个新测试验证 v3.3.4/v3.3.5 修复不回退 — section 50 检查 SKILL.md 中所有 .autopilot-active 引用使用 ${session_cwd} 绝对路径模板; section 51 验证 fixup commit 使用 git add -A 且禁止显式添加锁文件，含真实 git 模拟
+
 ## [3.3.5] - 2026-03-09
 
 ### Fixed
