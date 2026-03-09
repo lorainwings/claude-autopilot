@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **并行 Agent 信封校验误阻断**: `validate-json-envelope.sh` 将 `summary` 从必需字段降级为推荐字段。Phase 5 实施子 Agent（如 `frontend-developer`）返回 `{"status":"ok"}` 不含 `summary` 时不再被 block
 - **bash 双引号上下文转义**: 修复 reason 字符串中 `{...}` 和 `"..."` 未转义导致 Python 代码在 bash `python3 -c "..."` 中解析失败
+- **Phase 7 归档文件遗漏**: 将 `phase-7-summary.json` 更新和 `phase5-start-time.txt` 删除移到 `git add -A` 之前执行，确保最终 squash commit 包含干净状态
 
 ## [3.3.0] - 2026-03-09
 
