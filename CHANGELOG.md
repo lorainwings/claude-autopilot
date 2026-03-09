@@ -5,6 +5,14 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.2] - 2026-03-09
+
+### Fixed
+- **Phase 7 归档文件遗漏**: 将 `phase-7-summary.json` 更新和 `phase5-start-time.txt` 删除移到 `git add -A` 之前执行，确保最终 squash commit 包含干净状态
+
+### Added
+- **Phase 7 归档集成测试**: 新增 9 个 git 模拟集成测试（section 49），用真实 git 操作验证归档时序，同时复现旧流程 bug
+
 ## [3.3.1] - 2026-03-09
 
 ### Fixed
