@@ -5,6 +5,16 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2026-03-10
+
+### Changed
+- **Banner 渲染优化**: 重新设计 Phase 0 启动 Banner，框内宽度固定 50 字符 + 明确渲染规则，确保右侧 `│` 严格垂直对齐
+- **版本信息前置**: 将插件版本读取提升为 Phase 0 第一步，立即输出 `⏳ Autopilot v{version} initializing...`，先于配置检查和模式解析
+- **框内纯 ASCII**: 移除框内 emoji（🚀），彻底消除终端 emoji 宽度不一致导致的右侧边框错位问题
+- **Mode 独立信息行**: 执行模式从标题行拆分为独立的 `Mode` 字段行，与 Change/Session/Started 保持统一信息栏格式
+- **本地时间格式**: Started 字段从 ISO-8601（含时区偏移）改为 `YYYY-MM-DD HH:mm:ss` 本地时间
+- **Phase 0 步骤重编号**: 从 8 步（含 2.5）重构为标准 10 步连续编号，消除非整数步骤号
+
 ## [3.4.1] - 2026-03-10
 
 ### Fixed

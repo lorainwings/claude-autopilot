@@ -1,6 +1,6 @@
 {
   "name": "spec-autopilot",
-  "version": "3.4.1",
+  "version": "3.4.2",
   "description": "Spec-driven autopilot with domain-single-agent parallel implementation (v3.4.0: one agent per domain, cross-domain parallel), startup banner, background business-analyst with context protection, Plan agent for Phase 2/3, optimized agent type mapping (pr-review-toolkit for code review, qa-expert for testing, domain-specific for implementation), SKILL.md size enforcement (500-line limit with SessionStart hook), cross-phase parallel dispatch (Phase 1/4/5/6), Phase 6 tri-path parallel (test + code review + quality scans), Allure unified test reporting, requirement-driven test traceability, code constraint enforcement, crash recovery, and model routing",
   "author": {
     "name": "vibeflow-team"

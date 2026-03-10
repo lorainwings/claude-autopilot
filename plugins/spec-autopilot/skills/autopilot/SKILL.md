@@ -89,40 +89,51 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 ## Phase 0: 环境检查 + 崩溃恢复
 
-1. 检查 `.claude/autopilot.config.yaml` 是否存在
+1. **读取插件版本**（最优先）：
+   - 从 `plugin.json` 读取版本号：`Bash("cat <plugin_dir>/.claude-plugin/plugin.json")`
+   - 提取 `version` 字段，**立即输出初始化提示**（先于一切其他操作让用户看到版本号）：
+     ```
+     ⏳ Autopilot v{version} initializing...
+     ```
+2. 检查 `.claude/autopilot.config.yaml` 是否存在
    - **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
    - **存在** → 直接读取并解析所有配置节，然后调用 `bash scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
-2. **解析执行模式**：
+3. **解析执行模式**：
    - 从 $ARGUMENTS 首个 token 提取 mode（full/lite/minimal）
    - 未匹配 → 读取 `config.default_mode`（默认 "full"）
-   - 展示当前模式：「执行模式: {mode}（阶段: {phase_list}）」
-2.5. **展示启动 Banner**：
+4. **展示启动 Banner**：
+
+   > **渲染规则**: 使用 markdown 代码块输出。框内宽度（左 `│` 与右 `│` 之间）固定 **50 字符**（纯 ASCII，禁止在框内使用 emoji 避免终端宽度歧义），每行内容不足时用空格右填充至 50 字符，确保右侧 `│` 严格垂直对齐。单字段值超长时截断并追加 `…`，保证不溢出框宽。时间使用本地时间格式 `YYYY-MM-DD HH:mm:ss`。
+
    ```
-   ╭─────────────────────────────────────────╮
-   │  🚀 Autopilot v{version}                │
-   │  Mode:    {full|lite|minimal}           │
-   │  Change:  {change_name}                 │
-   │  Session: {session_id}                  │
-   │  Started: {ISO-8601 时间}                │
-   ╰─────────────────────────────────────────╯
+   ╭──────────────────────────────────────────────────╮
+   │                                                  │
+   │   Autopilot v{version}                           │
+   │                                                  │
+   │   Mode      {mode}                               │
+   │   Change    {change_name}                        │
+   │   Session   {session_id}                         │
+   │   Started   {YYYY-MM-DD HH:mm:ss}               │
+   │                                                  │
+   ╰──────────────────────────────────────────────────╯
    ```
-   - version 从 `plugin.json` 读取：`Bash("cat <plugin_dir>/.claude-plugin/plugin.json | grep version")`
-   - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 7 写入锁文件时复用同一值
-   - change_name：此时尚未确定，显示 "pending"（Phase 1 完成后更新锁文件时回填）
-   - 输出方式：直接在主线程中以 markdown 代码块展示
-3. 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查已启用插件列表
-4. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
-5. 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链
+
+   - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 9 写入锁文件时复用同一值
+   - change_name：此时尚未确定，显示 `pending`（Phase 1 完成后更新锁文件时回填）
+   - Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
+5. 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查已启用插件列表
+6. **调用 Skill(`spec-autopilot:autopilot-recovery`)**：扫描 checkpoint，决定起始阶段
+7. 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链
    - **full 模式**: 创建 Phase 1-7（7 个任务）
    - **lite 模式**: 创建 Phase 1, 5, 6, 7（4 个任务），Phase 5 blockedBy Phase 1，Phase 6 blockedBy Phase 5
    - **minimal 模式**: 创建 Phase 1, 5, 7（3 个任务），Phase 5 blockedBy Phase 1
    - 崩溃恢复时：已完成阶段直接标记 completed
-6. **确保锁文件被 gitignore**：检查项目根目录 `.gitignore` 是否包含 `.autopilot-active`，若不包含则追加：
+8. **确保锁文件被 gitignore**：检查项目根目录 `.gitignore` 是否包含 `.autopilot-active`，若不包含则追加：
    ```
    echo '.autopilot-active' >> .gitignore
    ```
    > 此文件是会话级运行时锁，包含 PID/session_id 等本机信息，禁止提交到 git，否则多人使用时必然冲突。
-7. **写入活跃 change 锁定文件**：确定 change 名称后，使用 **绝对路径** 写入 `${session_cwd}/openspec/changes/.autopilot-active`（JSON 格式）。**注意：Write 工具要求绝对路径，禁止使用相对路径**：
+9. **写入活跃 change 锁定文件**：确定 change 名称后，使用 **绝对路径** 写入 `${session_cwd}/openspec/changes/.autopilot-active`（JSON 格式）。**注意：Write 工具要求绝对路径，禁止使用相对路径**：
    ```json
    {"change":"<change_name>","pid":"<当前进程PID>","started":"<ISO-8601时间戳>","session_cwd":"<项目根目录>","anchor_sha":"<SHA>","session_id":"<毫秒级时间戳>","mode":"<full|lite|minimal>"}
    ```
@@ -131,13 +142,13 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
      - PID 存活 + `session_id` 匹配 → 确认为同一进程，AskUserQuestion：「检测到另一个 autopilot 正在运行（PID: {pid}，启动于 {started}），是否覆盖？」
      - PID 存活 + `session_id` 不匹配 → PID 已被操作系统回收给其他进程，视为崩溃残留，自动清理并覆盖
      - PID 不存在 → 视为崩溃残留，自动清理并覆盖
-8. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
-   ```
-   git commit --allow-empty -m "autopilot: start <change_name>"
-   ANCHOR_SHA=$(git rev-parse HEAD)
-   ```
-   将 `ANCHOR_SHA` 写入锁定文件的 `anchor_sha` 字段（更新已写入的 `.autopilot-active` 文件）
-   > **原子性保障**：步骤 7 初次写入锁文件时 `anchor_sha` 设为空字符串。步骤 8 创建 commit 后立即更新。如果步骤 8 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
+10. **创建锚定 Commit**：为后续 fixup + autosquash 策略创建空锚定 commit：
+    ```
+    git commit --allow-empty -m "autopilot: start <change_name>"
+    ANCHOR_SHA=$(git rev-parse HEAD)
+    ```
+    将 `ANCHOR_SHA` 写入锁定文件的 `anchor_sha` 字段（更新已写入的 `.autopilot-active` 文件）
+    > **原子性保障**：步骤 9 初次写入锁文件时 `anchor_sha` 设为空字符串。步骤 10 创建 commit 后立即更新。如果步骤 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
 
 ## Phase 1: 需求理解与多轮决策（主线程）
 
