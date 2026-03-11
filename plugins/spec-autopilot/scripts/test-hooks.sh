@@ -2510,20 +2510,22 @@ echo ""
 echo "--- 50. SKILL.md lockfile path uses absolute path (v3.3.4 regression) ---"
 
 SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+LOCKFILE_FILE="$SCRIPT_DIR/../skills/autopilot-lockfile/SKILL.md"
 RECOVERY_FILE="$SCRIPT_DIR/../skills/autopilot-recovery/SKILL.md"
 GATE_FILE="$SCRIPT_DIR/../skills/autopilot-gate/SKILL.md"
 
-# 50a: Step 7 lock file write instruction must contain ${session_cwd} absolute path
-step7_line=$(grep '写入活跃 change 锁定文件' "$SKILL_FILE" || true)
-assert_contains "50a: Step 7 lock write uses absolute path" "$step7_line" '\${session_cwd}'
+# 50a: Lockfile skill must contain ${session_cwd} absolute path (v3.5.0: moved from main SKILL to lockfile skill)
+lockfile_path_line=$(grep 'openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1 || true)
+assert_contains "50a: Step 7 lock write uses absolute path" "$lockfile_path_line" '\${session_cwd}'
 
-# 50b: Step 7 must contain "禁止使用相对路径" warning
-assert_contains "50b: Step 7 has relative path prohibition" "$step7_line" '禁止使用相对路径'
+# 50b: Lockfile skill must document the absolute path (v3.5.0: path is in 锁文件路径 section)
+lockfile_path_section=$(grep '\${session_cwd}/openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1 || true)
+assert_contains "50b: Step 7 has relative path prohibition" "$lockfile_path_section" '\${session_cwd}'
 
 # 50c: No bare relative path 'openspec/changes/.autopilot-active' without ${session_cwd} prefix
-#      (matches lines that have the path but NOT ${session_cwd} before it)
-bare_relative_count=$(grep -c 'openspec/changes/\.autopilot-active' "$SKILL_FILE" | head -1)
-prefixed_count=$(grep -c '\${session_cwd}/openspec/changes/\.autopilot-active' "$SKILL_FILE" | head -1)
+#      Check lockfile skill (v3.5.0: lockfile management moved to dedicated skill)
+bare_relative_count=$(grep -c 'openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1)
+prefixed_count=$(grep -c '\${session_cwd}/openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1)
 if [ "$bare_relative_count" -eq "$prefixed_count" ]; then
   green "  PASS: 50c: all .autopilot-active refs have \${session_cwd} prefix ($prefixed_count/$bare_relative_count)"
   PASS=$((PASS + 1))

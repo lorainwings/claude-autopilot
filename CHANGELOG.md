@@ -5,6 +5,28 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-03-12
+
+### Added
+- **autopilot-phase0 Skill**: 从主编排器提取 Phase 0（环境检查 + 崩溃恢复 + 锁文件初始化），主编排器 487→351 行
+- **autopilot-phase7 Skill**: 从主编排器提取 Phase 7（汇总 + Summary Box + 归档 + 锁文件清理），含美化 Summary Box 渲染
+- **autopilot-lockfile Skill**: 后台 Agent 封装锁文件 Read→Write→Verify 流程，修复 Write 前置 Read 和 Update 工具不存在的 bug
+- **references/log-format.md**: 统一日志格式规范（GATE/CP/LOCK/WARN/ERROR/TIMEOUT），所有 Skill 共享
+- **references/dispatch-prompt-template.md**: 从 dispatch 提取 Prompt 构造模板（含 for-each 循环和模型路由注入）
+
+### Changed
+- **主编排器瘦身**: autopilot/SKILL.md 487→351 行，Phase 0/7 替换为 Skill 调用，协议技能表新增 phase0/phase7/lockfile
+- **dispatch 瘦身**: autopilot-dispatch/SKILL.md 389→304 行，Prompt 模板外部化为 reference 文件
+- **autopilot-gate 日志美化**: 门禁通过后输出阶段过渡 header（`── Phase N: name ──`）+ 结果行（`[GATE] PASSED (8/8)`）
+- **autopilot-checkpoint 日志美化**: 写入成功后输出标准化确认（`[CP] phase-N-slug.json | commit: sha`）
+- **test-hooks.sh 适配**: 锁文件路径检测（50a/50b/50c）适配 v3.5.0 拆分结构，从主 SKILL 改为检查 lockfile Skill
+
+### Fixed
+- **锁文件 Write 报错**: Phase 0 Step 9 直接 Write 已有文件导致报错 → lockfile Agent 内部先 Read 后 Write
+- **Update 工具不存在**: Phase 0 Step 10 使用 `Update(...)` → lockfile Agent 使用 Read→Write 全量覆盖
+- **锁文件目录缺失**: 首次运行时 `openspec/changes/` 目录不存在 → lockfile Agent 先 mkdir -p
+- **anchor_sha 更新鲁棒性**: 从 Edit 精确匹配空字符串改为 Read→Write 全量覆盖，兼容崩溃恢复后非空值场景
+
 ## [3.4.4] - 2026-03-11
 
 ### Added

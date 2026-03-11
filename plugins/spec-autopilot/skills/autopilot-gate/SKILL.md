@@ -12,6 +12,8 @@ user-invocable: false
 
 > JSON 信封契约、状态规则、特殊门禁阈值等详见：`autopilot/references/protocol.md`
 
+**执行前读取**: `autopilot/references/log-format.md`（日志格式规范）
+
 ## 三层门禁架构
 
 | 层级 | 机制 | 执行者 |
@@ -36,6 +38,34 @@ user-invocable: false
 ```
 
 **任何 Step 失败 → 硬阻断，禁止启动下一阶段。**
+
+### 门禁通过后输出
+
+8 步检查清单全部通过后，**必须**输出以下格式化日志（遵循 `autopilot/references/log-format.md`）：
+
+```
+── Phase {N+1}: {phase_name} ──
+
+[GATE] Phase {N} → {N+1}: PASSED (8/8)
+```
+
+阶段名称映射：
+
+| Phase | name |
+|-------|------|
+| 1 | Requirements |
+| 2 | OpenSpec |
+| 3 | Fast-Forward |
+| 4 | Test Design |
+| 5 | Implementation |
+| 6 | Test Report |
+| 7 | Archive |
+
+门禁失败时输出：
+
+```
+[GATE] Phase {N} → {N+1}: BLOCKED at Step {M} — {reason}
+```
 
 ## 特殊门禁：Phase 4 → Phase 5
 

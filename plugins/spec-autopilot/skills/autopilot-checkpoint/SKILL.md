@@ -12,6 +12,8 @@ user-invocable: false
 
 > JSON 信封格式、阶段额外字段、Checkpoint 命名等详见：`autopilot/references/protocol.md`
 
+**执行前读取**: `autopilot/references/log-format.md`（日志格式规范）
+
 ## Checkpoint 文件命名
 
 ```
@@ -56,6 +58,20 @@ phase-results/
 `_metrics` 字段为可选，由主线程在写入 checkpoint 时附加。详见 `autopilot/references/metrics-collection.md`。
 
 写入时自动追加 `timestamp` 和 `phase` 字段。
+
+### 写入确认输出
+
+Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `autopilot/references/log-format.md`）：
+
+```
+[CP] phase-{N}-{slug}.json | commit: {short_sha}
+```
+
+写入失败时输出：
+
+```
+[ERROR] Checkpoint write failed: phase-{N}-{slug}.json — {reason}
+```
 
 ## 读取 Checkpoint
 
