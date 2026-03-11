@@ -21,8 +21,8 @@
 主线程同时派发 2-3 个 Task（不含 autopilot-phase 标记，不受 Hook 校验）：
 
 ```markdown
-# Task 1: Auto-Scan（Explore agent）
-Task(subagent_type: "Explore", run_in_background: true,
+# Task 1: Auto-Scan（general-purpose agent）
+Task(subagent_type: "general-purpose", run_in_background: true,
   prompt: "分析项目结构，生成 Steering Documents:
   - project-context.md（技术栈、目录结构）
   - existing-patterns.md（现有代码模式）
@@ -30,8 +30,8 @@ Task(subagent_type: "Explore", run_in_background: true,
   输出到: openspec/changes/{change_name}/context/"
 )
 
-# Task 2: 技术调研（Explore agent）
-Task(subagent_type: "Explore", run_in_background: true,
+# Task 2: 技术调研（general-purpose agent）
+Task(subagent_type: "general-purpose", run_in_background: true,
   prompt: "分析与需求相关的代码:
   需求: {RAW_REQUIREMENT}
   重点: 影响范围、依赖兼容性、技术可行性

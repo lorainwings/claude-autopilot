@@ -313,11 +313,11 @@ Task(
 ```yaml
 parallel_tasks:
   - name: "auto-scan"
-    agent: "Explore"
+    agent: "general-purpose"
     prompt_template: "分析项目结构和现有代码模式..."
     merge_strategy: "none"
   - name: "tech-research"
-    agent: "Explore"
+    agent: "general-purpose"
     prompt_template: "分析与需求相关的代码、依赖兼容性..."
     merge_strategy: "none"
   - name: "web-search"

@@ -2546,11 +2546,11 @@ echo ""
 # --- 51. Fixup commit must use git add -A, never explicit lockfile ---
 echo "--- 51. Fixup commit uses git add -A, forbids explicit lockfile add (v3.3.5 regression) ---"
 
-# 51a: Step 7 fixup commit section contains "必须使用 git add -A"
-step7_git=$(grep -A5 '上下文保护.*Git Fixup Commit' "$SKILL_FILE" || true)
+# 51a: Step 5+7 Checkpoint Agent section contains "必须使用 git add -A"
+step7_git=$(grep -A15 'Step 5+7.*Checkpoint Agent' "$SKILL_FILE" || true)
 assert_contains "51a: Step 7 mandates git add -A" "$step7_git" '必须使用.*git add -A'
 
-# 51b: Step 7 contains explicit prohibition of adding .autopilot-active
+# 51b: Step 5+7 contains explicit prohibition of adding .autopilot-active
 assert_contains "51b: Step 7 forbids explicit add of lockfile" "$step7_git" '禁止显式.*git add.*autopilot-active'
 
 # 51c: Real git simulation — .gitignore blocks explicit add of .autopilot-active

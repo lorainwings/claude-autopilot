@@ -26,7 +26,7 @@ phases:
       max_depth: 2
     research:
       enabled: true
-      agent: "Explore"
+      agent: "general-purpose"
       web_search:
         enabled: true            # v3.3.7: 默认 true（默认搜索），规则引擎判定跳过
         max_queries: 5           # 最大搜索次数

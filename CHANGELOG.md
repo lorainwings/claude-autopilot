@@ -5,6 +5,16 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.3] - 2026-03-11
+
+### Fixed
+- **Phase 1 调研 Agent 类型修正**: Auto-Scan 和技术调研从 Explore 改为 general-purpose agent，解决 Explore agent 无 Write 权限导致主线程被迫补写文件、污染上下文的问题，与 v3.3.0 子 Agent 自写入约束保持一致
+
+### Changed
+- **Checkpoint + Git Fixup 后台 Agent 化**: 统一调度模板 Step 5+7 合并为后台 Checkpoint Agent，checkpoint 写入和 git fixup commit 打包在后台执行，避免 Write/Bash 输出污染主窗口上下文（每 Phase 约省 25-50 行上下文）
+- **Checkpoint 进度显示**: 后台 Agent 完成后主线程输出格式化状态行（`Phase N ✓ checkpoint: ... | commit: ...`），保持用户对关键操作的可见性
+- **Allure 本地预览**: Phase 7 收集 Phase 6 结果后自动启动 `npx allure open`（后台运行），用户可在浏览器中查看测试报告，替代无法正常加载的 `file://` URL
+
 ## [3.4.2] - 2026-03-10
 
 ### Changed
