@@ -5,6 +5,11 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.4] - 2026-03-11
+
+### Added
+- **插件深度分析报告**: 新增 `docs/evaluation/deep-analysis-v3.4.3.md`，9 章完整分析（架构总览、8 阶段实现逻辑、3 层门禁体系、崩溃恢复、日志美化方案、各阶段优化点 30+ 项、竞品对比评分更新、P0/P1/P2 优化路线图），支持会话恢复直接进行方案实施
+
 ## [3.4.3] - 2026-03-11
 
 ### Fixed
