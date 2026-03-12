@@ -6,10 +6,16 @@
 - **`_hook_preamble.sh`**: 公共 Hook 前言脚本，统一 6 个 PostToolUse Hook 的 stdin 读取 + Layer 0 bypass 逻辑（消除 ~90 行重复）
 - **`_config_validator.py`**: 独立 Python 配置验证模块，从 validate-config.sh 中提取（支持 IDE 高亮/linting）
 - **`docs/plans/2026-03-12-v4.0-upgrade-blueprint.md`**: v4.0 升级蓝图（4 Wave 方案设计）
+- **`references/guardrails.md`**: 护栏约束清单（从 SKILL.md 拆出 ~65 行，按需加载）
+- **`post-task-validator.sh` + `_post_task_validator.py`**: 统一 PostToolUse(Task) 验证器，5→1 Hook 合并
+  - 单次 python3 fork 替代 5 次独立调用（~420ms → ~100ms）
+  - hooks.json PostToolUse(Task) 从 5 条注册简化为 1 条
 
 ### Changed
 - **Skill 合并 (9→7)**: `autopilot-checkpoint` 合入 `autopilot-gate`，`autopilot-lockfile` 合入 `autopilot-phase0`
 - **Hook 去重**: 6 个 PostToolUse Hook 脚本使用 `_hook_preamble.sh` 替代重复的前言逻辑
+- **SKILL.md 瘦身**: 护栏约束 + 错误处理 + 压缩恢复协议提取为 `references/guardrails.md`（~65 行 → 3 行概要引用）
+- **Hook 链合并**: 5 个 PostToolUse(Task) Hook 合并为 1 个统一入口 `post-task-validator.sh`
 - **validate-config.sh**: Python 验证逻辑外置为 `_config_validator.py`，bash 仅做调用和 fallback
 - 更新 16 处跨文件引用（SKILL.md / references / log-format 等）
 

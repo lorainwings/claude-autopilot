@@ -11,7 +11,7 @@
       "source": "./plugins/spec-autopilot",
       "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, and crash recovery",
       "category": "development",
-      "version": "4.0.0"
+      "version": "4.0.1"
     }
   ]
 }

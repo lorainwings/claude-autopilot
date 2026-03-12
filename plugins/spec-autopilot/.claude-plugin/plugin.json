@@ -1,6 +1,6 @@
 {
   "name": "spec-autopilot",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Spec-driven autopilot with hook preamble deduplication, config validator extraction, skill consolidation (9→7), TDD deterministic RED-GREEN-REFACTOR cycle, 3-layer gate system with checkpoint management, and comprehensive quality assurance pipeline",
   "author": {
     "name": "vibeflow-team"
