@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.1] - 2026-03-12
+
+### Added
+- `docs/self-evaluation-report-v3.6.0.md`: 插件多维度自评报告（9维度，综合 3.67/5）
+
+### Changed
+- `.gitignore`: 添加 Python 缓存文件排除规则（`__pycache__/`, `*.pyc`, `*.pyo`）
+
 ## [3.6.0] - 2026-03-12
 
 ### Added
