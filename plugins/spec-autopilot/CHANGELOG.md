@@ -13,6 +13,9 @@
 - **test_traceability L2 blocking**: Phase 4 需求追溯覆盖率从 recommended 升级为 L2 blocking（`traceability_floor` 默认 80%）
 - **brownfield_validation 默认开启**: 存量项目设计-实现漂移检测默认开启（greenfield 项目 Phase 0 自动关闭）
 - **`quality_scans.tools` 配置**: Phase 6 路径 C 支持配置真实静态分析工具（typecheck/lint/security）
+- **4 篇文档补全**: `quick-start.md`、`architecture-overview.md`、`troubleshooting-faq.md`、`config-tuning-guide.md`
+- **CLAUDE.md 变更感知**: Gate Step 5.5 检测运行期间 CLAUDE.md 修改，自动重新扫描规则
+- **错误信息增强**: Hook 阻断消息添加 `fix_suggestion` 字段（中文修复建议 + 文档链接）
 
 ### Changed
 - **Skill 合并 (9→7)**: `autopilot-checkpoint` 合入 `autopilot-gate`，`autopilot-lockfile` 合入 `autopilot-phase0`

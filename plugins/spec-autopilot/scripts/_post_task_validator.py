@@ -37,9 +37,12 @@ _cl = importlib.util.module_from_spec(_spec2)
 _spec2.loader.exec_module(_cl)
 
 
-def output_block(reason):
-    """Output a block decision and exit."""
-    print(json.dumps({"decision": "block", "reason": reason}))
+def output_block(reason, fix_suggestion=None):
+    """Output a block decision and exit. Optionally includes fix_suggestion."""
+    result = {"decision": "block", "reason": reason}
+    if fix_suggestion:
+        result["fix_suggestion"] = fix_suggestion
+    print(json.dumps(result))
     sys.exit(0)
 
 
@@ -182,7 +185,8 @@ if phase_num == 4:
     if violations:
         output_block(
             f'Phase 4 test_pyramid floor violation (Layer 2): {";".join(violations)}. '
-            "Adjust test distribution before proceeding."
+            "Adjust test distribution before proceeding.",
+            fix_suggestion="增加单元测试数量或减少 E2E 测试占比。阈值可在 config.test_pyramid.hook_floors 中调整。参考: docs/config-tuning-guide.md"
         )
 
     # Phase 4 test_traceability L2 blocking (v4.0 upgrade from recommended to required)
@@ -204,7 +208,8 @@ if phase_num == 4:
                 output_block(
                     f"Phase 4 test_traceability coverage {trace_coverage}% < {traceability_floor_val}% floor. "
                     "Each test case must trace to a Phase 1 requirement. "
-                    "Add traceability mappings to increase coverage."
+                    "Add traceability mappings to increase coverage.",
+                    fix_suggestion="为每个测试用例添加 requirement 追溯映射。阈值可在 config.test_pyramid.traceability_floor 中调整。参考: docs/troubleshooting-faq.md#10"
                 )
 
     # Phase 4 change_coverage validation

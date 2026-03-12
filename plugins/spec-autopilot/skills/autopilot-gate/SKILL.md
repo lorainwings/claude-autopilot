@@ -29,13 +29,31 @@ user-invocable: false
 ```
 - [ ] Step 1: 确认阶段 N 的子 Agent 已返回 JSON 信封
 - [ ] Step 2: 验证 JSON status 为 "ok" 或 "warning"
-- [ ] Step 3: 将 JSON 写入 phase-results/phase-N-*.json（由 checkpoint Skill 执行）
+- [ ] Step 3: 将 JSON 写入 phase-results/phase-N-*.json（由本 Skill checkpoint 管理执行）
 - [ ] Step 4: TaskUpdate 将阶段 N 标记为 completed
 - [ ] Step 5: TaskGet 阶段 N+1 的任务，确认 blockedBy 为空
+- [ ] Step 5.5: CLAUDE.md 变更检测（v4.0）— 检查 CLAUDE.md 修改时间是否比 Phase 0 缓存的规则更新，是则重新扫描规则
 - [ ] Step 6: 读取 phase-results/phase-N-*.json 确认文件存在且可解析
 - [ ] Step 7: TaskUpdate 将阶段 N+1 标记为 in_progress
 - [ ] Step 8: 准备 dispatch 子 Agent（由 dispatch Skill 执行）
 ```
+
+### Step 5.5 CLAUDE.md 变更感知（v4.0 新增）
+
+在每次阶段切换时检查项目 CLAUDE.md 是否在运行期间被修改：
+
+```bash
+# 比较 CLAUDE.md 修改时间与 Phase 0 缓存时间
+CLAUDE_MD_MTIME=$(stat -f "%m" "${session_cwd}/CLAUDE.md" 2>/dev/null || echo 0)
+CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 0)
+```
+
+如果修改时间不同：
+1. 重新执行 `rules-scanner.sh` 扫描 CLAUDE.md + `.claude/rules/`
+2. 更新缓存时间戳
+3. 将新规则注入后续子 Agent prompt
+
+如果修改时间相同：跳过，使用 Phase 0 缓存的规则。
 
 **任何 Step 失败 → 硬阻断，禁止启动下一阶段。**
 
