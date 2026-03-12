@@ -5,6 +5,11 @@ All notable changes to the spec-autopilot plugin will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2026-03-12
+
+### Added
+- **综合生态分析报告**: 新增 `docs/evaluation/comprehensive-ecosystem-analysis-v3.5.0.md`，9 章完整调研（插件功能剖析、稳定性评估 P0/P1/P2、5 个直接竞品 + 7 个间接竞品对比、行业数据、竞争威胁分析、6 维度最佳实践、加权评分矩阵、增强路线图），可作为后续增强任务的直接输入
+
 ## [3.5.0] - 2026-03-12
 
 ### Added

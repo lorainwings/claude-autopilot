@@ -1,6 +1,6 @@
 {
   "name": "spec-autopilot",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "description": "Spec-driven autopilot with SKILL splitting (v3.5.0: Phase 0/7 extracted, lockfile agent, log beautification, dispatch prompt template externalized), domain-single-agent parallel implementation, startup banner, background business-analyst with context protection, Plan agent for Phase 2/3, optimized agent type mapping, SKILL.md size enforcement (500-line limit with SessionStart hook), cross-phase parallel dispatch (Phase 1/4/5/6), Phase 6 tri-path parallel (test + code review + quality scans), Allure unified test reporting, requirement-driven test traceability, code constraint enforcement, crash recovery, and model routing",
   "author": {
     "name": "vibeflow-team"
