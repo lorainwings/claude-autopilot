@@ -6,6 +6,7 @@
 
 ```yaml
 version: "1.0"
+default_mode: "full"             # 执行模式默认值：full(默认)/lite/minimal
 
 services:
   # 自动检测到的服务
@@ -76,6 +77,10 @@ phases:
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     serial_task:
       max_retries_per_task: 3  # 单个 task 最大重试次数（1-10）
+    wall_clock_timeout_hours: 2  # Phase 5 超时小时数（默认 2h，支持小数如 0.5）
+    tdd_mode: false            # true: 启用 TDD RED-GREEN-REFACTOR（仅 full 模式生效）
+    tdd_refactor: true         # true: 包含 REFACTOR 步骤
+    tdd_test_command: ""       # 可选：覆盖 test_suites 的统一 TDD 测试命令
     worktree:
       enabled: false         # 设为 true 启用 Phase 5 worktree 隔离
     parallel:
@@ -122,6 +127,11 @@ test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
   max_e2e_pct: 20            # E2E+UI 测试最高占比（金字塔顶层）
   min_total_cases: 20        # 最少总用例数
+  hook_floors:               # Layer 2 Hook 宽松底线（可选覆盖，默认值见下方）
+    min_unit_pct: 30         # Hook 底线：单元测试最低占比（默认 30）
+    max_e2e_pct: 40          # Hook 底线：E2E 测试最高占比（默认 40）
+    min_total_cases: 10      # Hook 底线：最少总用例数（默认 10）
+    min_change_coverage_pct: 80  # Hook 底线：变更覆盖率最低百分比（默认 80）
 
 gates:
   user_confirmation:

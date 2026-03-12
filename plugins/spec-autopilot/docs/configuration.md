@@ -15,6 +15,8 @@
 | `context_management` | object | Recommended | See below | Git and context protection settings |
 | `async_quality_scans` | object | Optional | See below | Phase 6→7 quality scan configuration |
 | `brownfield_validation` | object | Optional | See below | Brownfield drift detection (opt-in) |
+| `default_mode` | string | No | `"full"` | Default execution mode: `"full"`, `"lite"`, or `"minimal"` |
+| `background_agent_timeout_minutes` | number | No | `30` | Hard timeout (minutes) for all background agents (Phase 2/3/6.5/7 knowledge extraction) |
 | `project_context` | object | Recommended | See below | Project-specific context for sub-agent dispatch (auto-detected by init) |
 
 ## `services`
@@ -69,9 +71,13 @@ services:
 |-------|------|----------|---------|-------------|
 | `instruction_files` | array | No | `[]` | Paths to implementation instruction files |
 | `serial_task.max_retries_per_task` | number | Yes | 3 | Max retry attempts per task on failure |
+| `wall_clock_timeout_hours` | number | No | `2` | Phase 5 wall-clock timeout in hours (supports decimals, e.g. `0.5`) |
+| `tdd_mode` | boolean | No | `false` | Enable TDD RED-GREEN-REFACTOR cycle (full mode only) |
+| `tdd_refactor` | boolean | No | `true` | Include REFACTOR step in TDD cycle |
+| `tdd_test_command` | string | No | `""` | Override test command for TDD (uses test_suites if empty) |
 | `worktree.enabled` | boolean | No | `false` | Enable git worktree isolation per task |
 | `parallel.enabled` | boolean | No | `false` | 启用 Phase 5 并行 Agent Team 执行 |
-| `parallel.max_agents` | number | No | `3` | 最大并行 Agent 数量（建议 2-4） |
+| `parallel.max_agents` | number | No | `8` | 最大并行 Agent 数量（建议 2-4） |
 | `parallel.dependency_analysis` | boolean | No | `true` | 是否自动分析 task 依赖关系 |
 
 ### `phases.reporting`
@@ -97,20 +103,35 @@ services:
 
 ## `test_pyramid`
 
-Layer 2 (Hook) enforces lenient floors; Layer 3 (AI gate) enforces strict config values.
+Layer 2 (Hook) enforces lenient floors; Layer 3 (AI gate) enforces strict config values. Hook floors are configurable via `test_pyramid.hook_floors`.
 
-| Field | Type | Default | Hook Floor | Description |
+| Field | Type | Default | Hook Floor Default | Description |
 |-------|------|---------|------------|-------------|
 | `min_unit_pct` | number | `50` | `30` | Minimum unit test percentage |
 | `max_e2e_pct` | number | `20` | `40` | Maximum E2E test percentage |
 | `min_total_cases` | number | `20` | `10` | Minimum total test cases |
+
+### `test_pyramid.hook_floors`
+
+Optional overrides for Layer 2 Hook floor thresholds. These are the lenient minimums enforced by `validate-json-envelope.sh`. The Hook floor must not be stricter than the Layer 3 strict threshold (cross-validated by `validate-config.sh`).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `min_unit_pct` | number | `30` | Hook floor: minimum unit test percentage |
+| `max_e2e_pct` | number | `40` | Hook floor: maximum E2E test percentage |
+| `min_total_cases` | number | `10` | Hook floor: minimum total test cases |
+| `min_change_coverage_pct` | number | `80` | Hook floor: minimum change coverage percentage |
 
 ```yaml
 test_pyramid:
   min_unit_pct: 50     # Layer 3 strict (config)
   max_e2e_pct: 20      # Layer 3 strict (config)
   min_total_cases: 20   # Layer 3 strict (config)
-  # Hook Layer 2 uses lenient floors: 30/40/10
+  hook_floors:          # Layer 2 lenient (configurable)
+    min_unit_pct: 30
+    max_e2e_pct: 40
+    min_total_cases: 10
+    min_change_coverage_pct: 80
 ```
 
 ## `gates`
@@ -264,6 +285,21 @@ Output:
 | `phases.code_review.enabled` | boolean |
 | `phases.implementation.parallel.enabled` | boolean |
 | `phases.implementation.parallel.max_agents` | number |
+| `phases.requirements.min_qa_rounds` | number |
+| `phases.reporting.zero_skip_required` | boolean |
+| `test_pyramid.min_unit_pct` | number |
+| `test_pyramid.max_e2e_pct` | number |
+| `test_pyramid.min_total_cases` | number |
+| `phases.implementation.wall_clock_timeout_hours` | number |
+| `phases.implementation.tdd_mode` | boolean |
+| `phases.implementation.tdd_refactor` | boolean |
+| `phases.implementation.tdd_test_command` | string |
+| `test_pyramid.hook_floors.min_unit_pct` | number |
+| `test_pyramid.hook_floors.max_e2e_pct` | number |
+| `test_pyramid.hook_floors.min_total_cases` | number |
+| `test_pyramid.hook_floors.min_change_coverage_pct` | number |
+| `default_mode` | string |
+| `background_agent_timeout_minutes` | number |
 
 ### 范围验证规则
 
@@ -279,6 +315,13 @@ Output:
 | `phases.requirements.auto_scan.max_depth` | [1, 5] |
 | `phases.requirements.complexity_routing.thresholds.small` | [1, 20] |
 | `phases.requirements.complexity_routing.thresholds.medium` | [2, 50] |
+| `test_pyramid.min_total_cases` | [1, 1000] |
+| `phases.implementation.wall_clock_timeout_hours` | [0.1, 24] |
+| `test_pyramid.hook_floors.min_unit_pct` | [0, 100] |
+| `test_pyramid.hook_floors.max_e2e_pct` | [0, 100] |
+| `test_pyramid.hook_floors.min_total_cases` | [1, 1000] |
+| `test_pyramid.hook_floors.min_change_coverage_pct` | [0, 100] |
+| `background_agent_timeout_minutes` | [1, 120] |
 
 ### 交叉引用检查
 

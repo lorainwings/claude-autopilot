@@ -200,6 +200,15 @@ Step 8: 等待 Step 5+7 后台 Agent 完成通知
 
 **执行前读取**: `references/parallel-dispatch.md` Phase 4 并行配置 + `references/protocol.md` 特殊门禁
 
+**TDD 模式跳过**（当 `config.phases.implementation.tdd_mode: true` 且模式为 `full`）：
+Phase 4 标记为 `skipped_tdd`。测试在 Phase 5 per-task TDD RED step 创建。写入 `phase-4-tdd-override.json` checkpoint：
+```json
+{"status": "ok", "summary": "Phase 4 skipped: TDD mode active, tests created per-task in Phase 5", "tdd_mode_override": true}
+```
+直接跳转 Phase 5（Phase 2/3 OpenSpec 保留，Phase 4 不执行）。
+
+**非 TDD 模式**（正常流程）：
+
 **并行模式**（当 `config.phases.testing.parallel.enabled = true`）：按测试类型（unit/api/e2e/ui）并行派发子 Agent，每个注入 Phase 1 需求追溯 + 对应 test_suites 配置。详见 `references/parallel-phase-dispatch.md` Phase 4 模板。
 
 **Phase 4 门禁与阻断规则**（详见 `references/protocol.md`）：
@@ -238,6 +247,29 @@ Step 8: 等待 Step 5+7 后台 Agent 完成通知
 主线程逐个派发前台 Task 实施每个 task，实现上下文隔离。
 流程：解析任务清单 → 对每个 task 构造 prompt → `Task(subagent_type: "general-purpose", prompt: "...")` 同步等待 → 解析 JSON 信封 → 写入 task checkpoint → 继续下一个 task。
 详见 `references/phase5-implementation.md` 串行模式章节。
+
+**【路径 C — TDD 模式】**（`tdd_mode: true` 且模式为 `full`）：
+主线程执行 RED-GREEN-REFACTOR 确定性循环。**优先于路径 A/B，与 parallel.enabled 配合使用。**
+
+**执行前读取**: `references/tdd-cycle.md`（完整 TDD 协议）+ `references/testing-anti-patterns.md`（反模式指南）
+
+- **串行 TDD**（`parallel.enabled: false` + `tdd_mode: true`）：
+  每个 task 派发 3 个 sequential Task (RED → GREEN → REFACTOR)，主线程 Bash() 执行 L2 确定性验证。
+  详见 `references/tdd-cycle.md` 串行 TDD 章节。
+
+- **并行 TDD**（`parallel.enabled: true` + `tdd_mode: true`）：
+  域 Agent prompt 注入完整 TDD 纪律文档，Agent 内部执行 RED-GREEN-REFACTOR。
+  **合并后 L2 后置验证**：所有域 Agent 完成并合并后，主线程执行 `Bash(full_test_command)` 验证所有测试通过。失败则阻断，要求修复。
+  详见 `references/tdd-cycle.md` 并行 TDD + L2 后置验证章节。
+
+TDD 护栏约束（Phase 5 专属）：
+
+| 约束 | 规则 |
+|------|------|
+| TDD Iron Law | 先测试后实现，违反即删除（Superpowers 原则） |
+| TDD 确定性验证 | 主线程 Bash() 运行测试验证 RED 失败/GREEN 通过 |
+| TDD 测试不可变 | GREEN 阶段测试失败 → 修复实现，禁止修改测试 |
+| TDD 回滚保护 | REFACTOR 破坏测试 → 自动 git checkout 回滚 |
 
 > **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造详见 `references/protocol.md`。
 

@@ -71,10 +71,17 @@ user-invocable: false
 
 除通用 8 步校验外，额外验证（从 `autopilot.config.yaml` 读取阈值）：
 
+**非 TDD 模式**（`tdd_mode: false` 或未设置）：
 ```
 - [ ] phase-4-testing.json 中 test_counts 的每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
 - [ ] artifacts 列表中包含 config.phases.testing.gate.required_test_types 对应的文件
 - [ ] dry_run_results 的所有字段全部为 0（exit code）
+```
+
+**TDD 模式**（`tdd_mode: true` 且模式为 `full`）：
+```
+- [ ] phase-4-tdd-override.json 存在且 tdd_mode_override === true
+- [ ] 跳过 test_counts / dry_run 验证（测试在 Phase 5 per-task 创建）
 ```
 
 任何条件不满足 → 阻断 Phase 5，要求重新执行 Phase 4。
@@ -89,7 +96,34 @@ user-invocable: false
 - [ ] tasks.md 中所有任务标记为 [x]
 ```
 
+**TDD 模式额外验证**（当 `tdd_mode: true`）：
+```
+- [ ] tdd_metrics 存在
+- [ ] tdd_metrics.red_violations === 0（零 RED 违规）
+- [ ] 每个 task 的 tdd_cycle 完整（red + green 都 verified）
+```
+
 任何条件不满足 → 阻断 Phase 6。
+
+## TDD 完整性审计（L3 层保障）
+
+当 `tdd_mode: true` 时，Phase 5→6 门禁执行额外的 TDD 审计：
+
+1. 扫描所有 `phase5-tasks/task-N.json` 文件
+2. 验证每个 task 包含 `tdd_cycle` 字段
+3. 验证 `tdd_cycle.red.verified === true` 和 `tdd_cycle.green.verified === true`
+4. 记录 `refactor_reverts` 总数（允许 > 0，仅审计记录）
+5. 汇总为 `tdd_audit` 输出：
+   ```json
+   {
+     "total_tasks": 10,
+     "tdd_complete": 10,
+     "red_violations": 0,
+     "refactor_reverts": 1,
+     "audit_passed": true
+   }
+   ```
+6. `audit_passed === false` → 阻断 Phase 6
 
 ## Phase 6.5 代码审查门禁（可选，v3.2.2 三路并行）
 
@@ -152,7 +186,7 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 ### lite/minimal 的 Phase 1 → Phase 5 门禁
 
 当 mode 为 lite 或 minimal 时，Phase 5 的前置检查为：
-- Phase 1 checkpoint（`phase-1-requirements.json`）存在且 status 为 ok
+- Phase 1 checkpoint（`phase-1-requirements.json`）存在且 status 为 ok 或 warning
 - Phase 2/3/4 checkpoint **不需要存在**（已被跳过）
 
 ## 阶段强制执行保障

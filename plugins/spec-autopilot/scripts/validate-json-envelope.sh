@@ -28,6 +28,7 @@ fi
 # --- Fast bypass Layer 0: lock file pre-check ---
 # 无活跃 autopilot 会话时，跳过所有检查。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 source "$SCRIPT_DIR/_common.sh"
 PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 if [ -z "$PROJECT_ROOT_QUICK" ]; then
@@ -39,35 +40,31 @@ fi
 
 # --- Fast bypass Layer 1: prompt 首行标记检测 ---
 # 仅匹配 prompt 字段以标记开头的情况，排除文本内容中的误判。
-if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
-  exit 0
-fi
+# Pattern: autopilot-phase:[0-9] (via has_phase_marker from _common.sh)
+has_phase_marker || exit 0
 
 # --- Fast bypass Layer 1.5: background agent skip ---
-# Agent tool with run_in_background=true fires PostToolUse at launch time,
-# before the agent completes. tool_response won't contain the JSON envelope yet.
-if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
-  exit 0
-fi
+is_background_agent && exit 0
 
-# --- Dependency check (only needed for autopilot Tasks) ---
-if ! command -v python3 &>/dev/null; then
-  # Fail-closed: block autopilot tasks when python3 unavailable
-  # (consistent with check-predecessor-checkpoint.sh behavior)
-  cat <<'BLOCK_JSON'
-{
-  "decision": "block",
-  "reason": "python3 is required for autopilot envelope validation but not found in PATH. Install python3 to continue."
-}
-BLOCK_JSON
+# --- Dependency check: python3 is required for autopilot envelope validation ---
+# Fail-closed: block autopilot tasks when python3 unavailable (via require_python3 in _common.sh)
+if ! require_python3; then
   exit 0
 fi
 
 # --- Single python3 call to do all processing ---
 echo "$STDIN_DATA" | python3 -c "
+import importlib.util
 import json
+import os
 import re
 import sys
+
+# Import shared envelope parser
+_script_dir = os.environ.get('SCRIPT_DIR', '.')
+_spec = importlib.util.spec_from_file_location('_ep', os.path.join(_script_dir, '_envelope_parser.py'))
+_ep = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ep)
 
 try:
     data = json.load(sys.stdin)
@@ -78,78 +75,20 @@ except (json.JSONDecodeError, ValueError) as e:
 # 1) Check for autopilot marker in tool_input.prompt
 prompt = data.get('tool_input', {}).get('prompt', '')
 if not re.search(r'<!--\s*autopilot-phase:\d+\s*-->', prompt):
-    # Not an autopilot Task → no validation needed
     sys.exit(0)
 
-# 2) Extract tool_response (official PostToolUse field name)
-#    tool_response for Task is the sub-agent's output text
-tool_response = data.get('tool_response', '')
-if isinstance(tool_response, dict):
-    # Some tools return structured responses
-    output = json.dumps(tool_response)
-elif isinstance(tool_response, str):
-    output = tool_response
-else:
-    output = str(tool_response) if tool_response else ''
+# 2) Extract and normalize tool_response
+output = _ep.normalize_tool_response(data)
 
 if not output.strip():
-    # Empty output → tell Claude to re-dispatch
-    print(json.dumps({
-        'decision': 'block',
-        'reason': 'Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase.'
-    }))
+    _ep.output_block('Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase.')
     sys.exit(0)
 
-# 3) Extract JSON envelope from output using raw_decode (handles nested objects)
-found_json = None
-
-# Strategy A: Two-pass search — prefer JSON with both 'status' AND 'summary'
-# (avoids matching tool output JSON that happens to have 'status' but no 'summary')
-decoder = json.JSONDecoder()
-candidates = []
-for i, ch in enumerate(output):
-    if ch == '{':
-        try:
-            obj, end = decoder.raw_decode(output, i)
-            if isinstance(obj, dict) and 'status' in obj:
-                candidates.append(obj)
-        except (json.JSONDecodeError, ValueError):
-            continue
-
-# Pass 1: Find first candidate with both required fields (full envelope)
-for c in candidates:
-    if 'summary' in c:
-        found_json = c
-        break
-# Pass 2: Fall back to first candidate with 'status' only
-if not found_json and candidates:
-    found_json = candidates[0]
-
-# Strategy B: Try fenced code block extraction
-if not found_json:
-    code_block_match = re.search(r'\x60\x60\x60(?:json)?\s*\n(.*?)\n\x60\x60\x60', output, re.DOTALL)
-    if code_block_match:
-        try:
-            obj = json.loads(code_block_match.group(1))
-            if isinstance(obj, dict) and 'status' in obj:
-                found_json = obj
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-# Strategy C: Try parsing entire output as JSON
-if not found_json:
-    try:
-        obj = json.loads(output.strip())
-        if isinstance(obj, dict):
-            found_json = obj
-    except (json.JSONDecodeError, ValueError):
-        pass
+# 3) Extract JSON envelope using shared 3-strategy parser
+found_json = _ep.extract_envelope(output)
 
 if not found_json:
-    print(json.dumps({
-        'decision': 'block',
-        'reason': 'No valid JSON envelope found in autopilot sub-agent output. The sub-agent must return a JSON object with at least {\"status\": \"ok|warning|blocked|failed\"}. Re-dispatch this phase with clearer instructions.'
-    }))
+    _ep.output_block('No valid JSON envelope found in autopilot sub-agent output. The sub-agent must return a JSON object with at least {\"status\": \"ok|warning|blocked|failed\"}. Re-dispatch this phase with clearer instructions.')
     sys.exit(0)
 
 # 4) Validate required fields (only 'status' is hard-required)
@@ -244,6 +183,21 @@ if phase_num in (4, 6):
 #     These are lenient floors — strict thresholds enforced by Layer 3 (autopilot-gate).
 #     Catches severely inverted pyramids that slip through LLM self-checks.
 if phase_num == 4:
+    # Read floor thresholds from config using shared module (replaces inline read_hook_floor)
+    _root = _ep.find_project_root(data)
+
+    def read_hook_floor(key, default):
+        val = _ep.read_config_value(_root, f'test_pyramid.hook_floors.{key}', default)
+        try:
+            return int(val) if val is not None else default
+        except (ValueError, TypeError):
+            return default
+
+    FLOOR_MIN_UNIT_PCT = read_hook_floor('min_unit_pct', 30)
+    FLOOR_MAX_E2E_PCT = read_hook_floor('max_e2e_pct', 40)
+    FLOOR_MIN_TOTAL_CASES = read_hook_floor('min_total_cases', 10)
+    FLOOR_MIN_CHANGE_COV = read_hook_floor('min_change_coverage_pct', 80)
+
     pyramid = found_json.get('test_pyramid', {})
     unit_pct = pyramid.get('unit_pct', 0)
     e2e_pct = pyramid.get('e2e_pct', 0)
@@ -251,12 +205,12 @@ if phase_num == 4:
     total_sum = sum(v for v in total.values() if isinstance(v, (int, float)))
 
     violations = []
-    if isinstance(unit_pct, (int, float)) and unit_pct < 30:
-        violations.append(f'unit_pct={unit_pct}% < 30% floor')
-    if isinstance(e2e_pct, (int, float)) and e2e_pct > 40:
-        violations.append(f'e2e_pct={e2e_pct}% > 40% ceiling')
-    if total_sum < 10:
-        violations.append(f'total_cases={total_sum} < 10 minimum')
+    if isinstance(unit_pct, (int, float)) and unit_pct < FLOOR_MIN_UNIT_PCT:
+        violations.append(f'unit_pct={unit_pct}% < {FLOOR_MIN_UNIT_PCT}% floor')
+    if isinstance(e2e_pct, (int, float)) and e2e_pct > FLOOR_MAX_E2E_PCT:
+        violations.append(f'e2e_pct={e2e_pct}% > {FLOOR_MAX_E2E_PCT}% ceiling')
+    if total_sum < FLOOR_MIN_TOTAL_CASES:
+        violations.append(f'total_cases={total_sum} < {FLOOR_MIN_TOTAL_CASES} minimum')
 
     if violations:
         print(json.dumps({
@@ -274,12 +228,12 @@ if phase_num == 4:
         }))
         sys.exit(0)
     cov_pct = cc.get('coverage_pct', 0)
-    if isinstance(cov_pct, (int, float)) and cov_pct < 80:
+    if isinstance(cov_pct, (int, float)) and cov_pct < FLOOR_MIN_CHANGE_COV:
         untested = cc.get('untested_points', [])
         shown = untested[:3] if isinstance(untested, list) else []
         print(json.dumps({
             'decision': 'block',
-            'reason': f'Phase 4 change_coverage insufficient: {cov_pct}% < 80% threshold. Untested: {(chr(44)+chr(32)).join(str(p) for p in shown)}. Add targeted tests for each change point.'
+            'reason': f'Phase 4 change_coverage insufficient: {cov_pct}% < {FLOOR_MIN_CHANGE_COV}% threshold. Untested: {(chr(44)+chr(32)).join(str(p) for p in shown)}. Add targeted tests for each change point.'
         }))
         sys.exit(0)
 

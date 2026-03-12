@@ -26,6 +26,7 @@ fi
 # --- Fast bypass Layer 0: lock file pre-check ---
 # 无活跃 autopilot 会话时，跳过所有检查。
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 source "$SCRIPT_DIR/_common.sh"
 PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 if [ -z "$PROJECT_ROOT_QUICK" ]; then
@@ -36,16 +37,10 @@ if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
 fi
 
 # --- Fast bypass Layer 1: prompt 首行标记检测 ---
-if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
-  exit 0
-fi
+has_phase_marker || exit 0
 
 # --- Fast bypass Layer 1.5: background agent skip ---
-# Agent/Task with run_in_background=true fires hook at launch time,
-# before the agent completes. Skip validation for background dispatch.
-if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
-  exit 0
-fi
+is_background_agent && exit 0
 
 # --- Dependency check ---
 if ! command -v python3 &>/dev/null; then
@@ -57,8 +52,16 @@ fi
 # --- Pattern detection via python3 ---
 echo "$STDIN_DATA" | python3 -c "
 import json
+import os
 import re
 import sys
+import importlib.util
+
+# Import shared envelope parser
+_script_dir = os.environ.get('SCRIPT_DIR', '.')
+_spec = importlib.util.spec_from_file_location('_ep', os.path.join(_script_dir, '_envelope_parser.py'))
+_ep = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ep)
 
 try:
     data = json.load(sys.stdin)
@@ -70,39 +73,17 @@ prompt = data.get('tool_input', {}).get('prompt', '')
 phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
 if not phase_match:
     sys.exit(0)
-
 phase_num = int(phase_match.group(1))
-
-# Only check phases 4, 5, 6
 if phase_num not in (4, 5, 6):
     sys.exit(0)
 
-# Extract tool_response
-tool_response = data.get('tool_response', '')
-if isinstance(tool_response, dict):
-    output = json.dumps(tool_response)
-elif isinstance(tool_response, str):
-    output = tool_response
-else:
-    output = str(tool_response) if tool_response else ''
-
+output = _ep.normalize_tool_response(data)
 if not output.strip():
     sys.exit(0)
 
-# Try to extract status from JSON envelope
-status = None
-decoder = json.JSONDecoder()
-for i, ch in enumerate(output):
-    if ch == '{':
-        try:
-            obj, end = decoder.raw_decode(output, i)
-            if isinstance(obj, dict) and 'status' in obj:
-                status = obj['status']
-                break
-        except (json.JSONDecodeError, ValueError):
-            continue
-
-# Only check ok/warning status — blocked/failed are legitimate stops
+# Extract status from envelope
+envelope = _ep.extract_envelope(output)
+status = envelope.get('status') if envelope else None
 if status not in ('ok', 'warning'):
     sys.exit(0)
 
@@ -152,18 +133,11 @@ for weight, pattern in WEIGHTED_PATTERNS:
 
 _sep = chr(44) + chr(32)
 
-# Extract artifacts from JSON envelope to check for actual output
+# Extract artifacts from envelope to check for actual output
 has_artifacts = False
-for i, ch in enumerate(output):
-    if ch == '{':
-        try:
-            obj, end = decoder.raw_decode(output, i)
-            if isinstance(obj, dict) and 'artifacts' in obj:
-                arts = obj['artifacts']
-                has_artifacts = isinstance(arts, list) and len(arts) > 0
-                break
-        except (json.JSONDecodeError, ValueError):
-            continue
+if envelope:
+    arts = envelope.get('artifacts', [])
+    has_artifacts = isinstance(arts, list) and len(arts) > 0
 
 # Scoring thresholds:
 #   total_score >= 5          → hard block

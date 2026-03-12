@@ -146,3 +146,137 @@ find_checkpoint() {
     echo "$results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1
   fi
 }
+
+# --- Read config value from autopilot.config.yaml ---
+# Usage: read_config_value <project_root> <dotted.key.path> [default]
+# Returns: config value on stdout, or default if not found
+# Strategy: PyYAML priority → regex fallback → default
+# NOTE: Only for scalar values (string/number/boolean). For nested objects/lists,
+#       use _envelope_parser.py's read_config_value() via importlib in Python context.
+read_config_value() {
+  local project_root="$1"
+  local key_path="$2"
+  local default_val="${3:-}"
+  local config_file="$project_root/.claude/autopilot.config.yaml"
+
+  if [ ! -f "$config_file" ]; then
+    echo "$default_val"
+    return 0
+  fi
+
+  local result
+  result=$(python3 -c "
+import sys, os
+
+config_path = sys.argv[1]
+key_path = sys.argv[2]
+default = sys.argv[3] if len(sys.argv) > 3 else ''
+
+# Strategy 1: PyYAML
+try:
+    import yaml
+    with open(config_path) as f:
+        data = yaml.safe_load(f) or {}
+    parts = key_path.split('.')
+    current = data
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            print(default)
+            sys.exit(0)
+    print(current if current is not None else default)
+    sys.exit(0)
+except ImportError:
+    pass
+except Exception:
+    print(default)
+    sys.exit(0)
+
+# Strategy 2: Regex fallback
+import re
+try:
+    with open(config_path) as f:
+        content = f.read()
+    parts = key_path.split('.')
+    # Walk nested YAML structure using indentation
+    search_text = content
+    for i, part in enumerate(parts):
+        if i < len(parts) - 1:
+            # Find section header and extract its block
+            pattern = rf'^(\s*){re.escape(part)}:\s*$'
+            m = re.search(pattern, search_text, re.MULTILINE)
+            if not m:
+                print(default)
+                sys.exit(0)
+            indent = m.group(1)
+            block_start = m.end()
+            # Find next key at same or lower indentation
+            next_key = re.search(rf'^{re.escape(indent)}[a-zA-Z_]', search_text[block_start:], re.MULTILINE)
+            search_text = search_text[block_start:block_start + next_key.start()] if next_key else search_text[block_start:]
+        else:
+            # Find leaf value
+            pattern = rf'^\s*{re.escape(part)}:\s*(.+?)\s*$'
+            m = re.search(pattern, search_text, re.MULTILINE)
+            if m:
+                val = m.group(1).strip().strip('\"').strip(\"'\")
+                print(val)
+                sys.exit(0)
+            print(default)
+            sys.exit(0)
+    print(default)
+except Exception:
+    print(default)
+" "$config_file" "$key_path" "$default_val" 2>/dev/null) || result="$default_val"
+
+  echo "$result"
+}
+
+# --- Check if current Task is a background agent ---
+# Usage: is_background_agent
+# Reads from global $STDIN_DATA. Returns 0 if run_in_background=true, 1 otherwise.
+is_background_agent() {
+  echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'
+}
+
+# --- Check if Task prompt contains autopilot phase marker ---
+# Usage: has_phase_marker [phase_pattern]
+# Args:
+#   phase_pattern: optional regex digit pattern (default: [0-9])
+# Reads from global $STDIN_DATA. Returns 0 if marker found, 1 otherwise.
+has_phase_marker() {
+  local pattern="${1:-[0-9]}"
+  echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:'"$pattern"
+}
+
+# --- Require python3 for hook execution ---
+# Usage: require_python3 [hook_type]
+# Args:
+#   hook_type: "block" (PostToolUse, outputs block JSON) or "deny" (PreToolUse, outputs deny JSON)
+# If python3 is missing, outputs appropriate JSON and returns 1.
+# Returns 0 if python3 is available.
+require_python3() {
+  local hook_type="${1:-block}"
+  if command -v python3 &>/dev/null; then
+    return 0
+  fi
+  if [ "$hook_type" = "deny" ]; then
+    cat <<'DENY_JSON'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "python3 is required for autopilot gate hooks but not found in PATH"
+  }
+}
+DENY_JSON
+  else
+    cat <<'BLOCK_JSON'
+{
+  "decision": "block",
+  "reason": "python3 is required for autopilot hook validation but not found in PATH. Install python3 to continue."
+}
+BLOCK_JSON
+  fi
+  return 1
+}

@@ -436,3 +436,52 @@ Phase 5 启动时，扫描 `phase5-tasks/` 目录：
 1. 确保 `phase5-tasks/` 目录存在
 2. 写入 `task-N.json`（N 为 task 编号）
 3. 验证写入成功
+
+---
+
+## TDD Mode（当 `tdd_mode: true` 且模式为 `full`）
+
+> 详细协议见 `references/tdd-cycle.md`。本节为 Phase 5 集成概述。
+
+### 概述
+
+TDD 模式将 Phase 4（测试设计）的职责吸收到 Phase 5，对每个 task 执行 RED-GREEN-REFACTOR 确定性循环。
+
+### 串行 TDD 流程
+
+对每个 task：
+1. **RED**: 派发子 Agent 仅写测试 → 主线程 Bash() 验证测试失败
+2. **GREEN**: 派发子 Agent 写最小实现 → 主线程 Bash() 验证测试通过
+3. **REFACTOR**（可选）: 派发子 Agent 重构 → 主线程 Bash() 验证测试仍通过
+
+每个步骤之间由主线程执行确定性验证（L2）。
+
+### 并行 TDD 流程
+
+域 Agent prompt 注入完整 TDD 纪律文档，Agent 内部自主执行 RED-GREEN-REFACTOR。
+主线程在合并后验证 `tdd_cycles` 完整性。
+
+### TDD Task Checkpoint 格式
+
+```json
+{
+  "task_number": 1,
+  "task_title": "实现用户登录 API",
+  "status": "ok",
+  "tdd_cycle": {
+    "red": { "verified": true, "test_file": "tests/test_login.py", "test_command": "pytest tests/test_login.py" },
+    "green": { "verified": true, "impl_files": ["src/login.py"], "retries": 0 },
+    "refactor": { "verified": true, "reverted": false }
+  },
+  "artifacts": ["src/login.py", "tests/test_login.py"],
+  "_metrics": { "start_time": "...", "end_time": "...", "duration_seconds": 900 }
+}
+```
+
+### TDD 崩溃恢复
+
+扫描 `phase5-tasks/task-N.json` 的 `tdd_cycle` 字段确定恢复点：
+- 无 `tdd_cycle` → 从 RED 开始
+- `red.verified = true`，无 `green` → 从 GREEN 恢复
+- `green.verified = true`，无 `refactor` → 从 REFACTOR 恢复
+- `tdd_cycle` 完整 → 下一个 task

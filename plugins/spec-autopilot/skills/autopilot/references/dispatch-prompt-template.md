@@ -93,6 +93,88 @@ dispatch 子 Agent 时，从 `config.model_routing.phase_{N}` 读取模型等级
 执行完毕后返回结构化 JSON 结果。")
 ```
 
+## TDD 模式 Prompt 模板（Phase 5 专属）
+
+当 `tdd_mode: true` 时，Phase 5 的每个 task 派发 3 个 sequential Task：
+
+### RED Task Prompt
+
+```markdown
+Task(prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 TDD RED 子 Agent。
+
+## The Iron Law
+NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.
+
+## 任务
+为 task-{N} 编写失败测试。
+
+### 任务描述
+{task.description}
+
+### 约束
+- 仅写测试文件，**禁止写任何实现代码**
+- 测试必须验证尚不存在的新行为
+- 测试运行后必须因断言失败而失败（非语法/编译错误）
+
+### 反模式检查（自查）
+- 测试验证的是真实行为，不是 mock 行为
+- Mock 仅用于外部 I/O
+- 每个测试只验证一件事
+
+{project_context}
+
+返回 JSON：{\"status\": \"ok\", \"test_file\": \"<path>\", \"test_command\": \"<cmd>\", \"summary\": \"...\"}
+")
+```
+
+### GREEN Task Prompt
+
+```markdown
+Task(prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 TDD GREEN 子 Agent。
+
+## 任务
+为 task-{N} 编写最小实现让测试通过。
+
+### 测试文件
+Read: {red_task.test_file}
+
+### 测试命令
+{red_task.test_command}
+
+### 约束
+- 写最小代码让测试通过（YAGNI）
+- **禁止修改测试文件**
+- 如果测试失败 → 修复实现代码，不修改测试
+
+{project_context}
+
+返回 JSON：{\"status\": \"ok\", \"impl_files\": [...], \"summary\": \"...\"}
+")
+```
+
+### REFACTOR Task Prompt（当 `tdd_refactor: true`）
+
+```markdown
+Task(prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 TDD REFACTOR 子 Agent。
+
+## 任务
+清理 task-{N} 的实现代码。
+
+### 约束
+- 删除重复、改善命名、提取辅助函数
+- **禁止修改测试文件**
+- **禁止改变行为**（测试必须继续通过）
+- 运行 {test_command} 确认测试通过
+
+{project_context}
+
+返回 JSON：{\"status\": \"ok\", \"refactored_files\": [...], \"summary\": \"...\"}
+")
+```
+
 ## 注入位置
 
 Project Rules Auto-Scan 结果注入在 `## Phase 1 项目分析` 之前、`### Playwright 登录流程` 之后。

@@ -1,6 +1,9 @@
 # Phase 4: 测试用例设计（内置模板）
 
 > 此模板由插件内置提供。项目可通过 config.phases.testing.instruction_files 覆盖。
+> **TDD 模式说明**: 当 `config.phases.implementation.tdd_mode: true` 且模式为 `full` 时，
+> Phase 4 被跳过（标记 `skipped_tdd`）。测试在 Phase 5 per-task TDD RED step 创建。
+> 此模板在 TDD 模式下不使用。
 
 ## 环境前置检查
 

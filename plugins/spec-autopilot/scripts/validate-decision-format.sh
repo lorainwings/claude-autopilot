@@ -7,6 +7,11 @@
 # Detection: Only processes Task calls whose prompt contains
 #            <!-- autopilot-phase:1 -->. All other Task calls exit 0 immediately.
 #
+# NOTE (by design): Phase 1 的 research/business-analyst Task 不含 autopilot-phase
+#   标记（见 autopilot-dispatch SKILL.md），因此该 Hook 仅在主线程直接使用含
+#   Phase 1 标记的 Task 时触发。当前设计下 Phase 1 走主线程交互模式，
+#   决策格式由主线程自身保证。此 Hook 作为额外防线存在。
+#
 # Complexity-aware:
 #   - medium/large: Full DecisionPoint validation (options/pros/cons/recommended/choice/rationale)
 #   - small: Relaxed validation (old format {point, choice} is acceptable)
@@ -28,6 +33,7 @@ fi
 
 # --- Fast bypass Layer 0: lock file pre-check ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 source "$SCRIPT_DIR/_common.sh"
 PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 if [ -z "$PROJECT_ROOT_QUICK" ]; then
@@ -38,29 +44,29 @@ if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
 fi
 
 # --- Fast bypass Layer 1: 仅 Phase 1 ---
-echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:1' || exit 0
+has_phase_marker "1" || exit 0
 
 # --- Dependency check ---
-if ! command -v python3 &>/dev/null; then
-  cat <<'BLOCK_JSON'
-{
-  "decision": "block",
-  "reason": "python3 is required for decision format validation but not found in PATH. Install python3 to continue."
-}
-BLOCK_JSON
+if ! require_python3; then
   exit 0
 fi
 
 # --- Fast bypass Layer 1.5: background agent skip ---
-if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
-  exit 0
-fi
+is_background_agent && exit 0
 
 # --- Decision format validation via python3 ---
 echo "$STDIN_DATA" | python3 -c "
+import importlib.util
 import json
 import re
 import sys
+import os
+
+# Import shared envelope parser
+_script_dir = os.environ.get('SCRIPT_DIR', '.')
+_spec = importlib.util.spec_from_file_location('_ep', os.path.join(_script_dir, '_envelope_parser.py'))
+_ep = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ep)
 
 try:
     data = json.load(sys.stdin)
@@ -72,31 +78,12 @@ prompt = data.get('tool_input', {}).get('prompt', '')
 if not re.search(r'autopilot-phase:1\b', prompt):
     sys.exit(0)
 
-# 2) Extract tool_response
-tool_response = data.get('tool_response', '')
-if isinstance(tool_response, dict):
-    output = json.dumps(tool_response)
-elif isinstance(tool_response, str):
-    output = tool_response
-else:
-    output = str(tool_response) if tool_response else ''
-
+# 2) Extract tool_response and envelope using shared module
+output = _ep.normalize_tool_response(data)
 if not output.strip():
     sys.exit(0)
 
-# 3) Find JSON envelope via raw_decode
-envelope = None
-decoder = json.JSONDecoder()
-for i, ch in enumerate(output):
-    if ch == '{':
-        try:
-            obj, _ = decoder.raw_decode(output, i)
-            if isinstance(obj, dict) and 'status' in obj:
-                envelope = obj
-                break
-        except (json.JSONDecodeError, ValueError):
-            continue
-
+envelope = _ep.extract_envelope(output)
 if not envelope:
     sys.exit(0)
 

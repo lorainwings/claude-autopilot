@@ -24,7 +24,7 @@
 |-------|----------|----------|
 | 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach }` |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }`, `change_coverage: { change_points, tested_points, coverage_pct, untested_points }` | `test_traceability: [{ test, requirement }]` |
-| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }` |
+| 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }`, `tdd_metrics: { total_cycles, red_violations, green_retries, refactor_reverts }` (TDD mode) |
 | 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir`, `suite_results: [{ suite, total, passed, failed, skipped }]`, `anomaly_alerts: [string]` |
 | 7 | `archive_path`, `change_name` | `cleanup_actions`, `knowledge_extracted: number` |
 

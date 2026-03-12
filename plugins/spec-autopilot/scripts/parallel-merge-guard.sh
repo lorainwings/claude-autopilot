@@ -18,16 +18,17 @@ fi
 
 # --- Fast bypass Layer 0: lock file pre-check ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 source "$SCRIPT_DIR/_common.sh"
 PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 [ -z "$PROJECT_ROOT_QUICK" ] && PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
 
 # --- Fast bypass Layer 1.5: background agent skip ---
-echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true' && exit 0
+is_background_agent && exit 0
 
 # --- Fast bypass Layer 1: 仅 Phase 5 ---
-echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:5' || exit 0
+has_phase_marker "5" || exit 0
 
 # --- Fast bypass Layer 2: 仅 worktree merge 相关输出 ---
 echo "$STDIN_DATA" | grep -qi 'worktree.*merge\|merge.*worktree\|git merge.*autopilot-task' || exit 0
@@ -37,7 +38,14 @@ command -v python3 &>/dev/null || exit 0
 
 # --- Merge validation via python3 ---
 echo "$STDIN_DATA" | python3 -c "
+import importlib.util
 import json, os, re, subprocess, sys
+
+# Import shared envelope parser
+_script_dir = os.environ.get('SCRIPT_DIR', '.')
+_spec = importlib.util.spec_from_file_location('_ep', os.path.join(_script_dir, '_envelope_parser.py'))
+_ep = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ep)
 
 try:
     data = json.load(sys.stdin)
@@ -49,9 +57,7 @@ pm = re.search(r'autopilot-phase:(\d+)', prompt)
 if not pm or int(pm.group(1)) != 5:
     sys.exit(0)
 
-# 提取 tool_response
-tr = data.get('tool_response', '')
-output = json.dumps(tr) if isinstance(tr, dict) else (tr if isinstance(tr, str) else str(tr or ''))
+output = _ep.normalize_tool_response(data)
 if not output.strip():
     sys.exit(0)
 
@@ -61,16 +67,7 @@ if not merge_pattern.search(output):
     sys.exit(0)
 
 # --- 定位项目根 ---
-# Hook stdin 的 cwd 在顶层，不在 tool_input 内
-cwd = data.get('cwd', '') or data.get('tool_input', {}).get('cwd', '') or os.getcwd()
-root = cwd
-for _ in range(10):
-    if os.path.isdir(os.path.join(root, '.claude')):
-        break
-    p = os.path.dirname(root)
-    if p == root:
-        break
-    root = p
+root = _ep.find_project_root(data)
 
 violations = []
 
@@ -102,18 +99,7 @@ except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
 
 # === 检查 2: 合并文件在预期 task scope 内 ===
 # 从 JSON envelope 提取 artifacts
-envelope = None
-decoder = json.JSONDecoder()
-for i, ch in enumerate(output):
-    if ch == '{':
-        try:
-            obj, _ = decoder.raw_decode(output, i)
-            if isinstance(obj, dict) and 'status' in obj:
-                envelope = obj
-                break
-        except (json.JSONDecodeError, ValueError):
-            continue
-
+envelope = _ep.extract_envelope(output)
 expected_artifacts = []
 if envelope and isinstance(envelope.get('artifacts'), list):
     expected_artifacts = [a for a in envelope['artifacts'] if isinstance(a, str)]
@@ -191,21 +177,18 @@ if expected_artifacts:
 
 # === 检查 3: 快速编译/类型检查 ===
 # 从 config.yaml 读取 test_suites 中 type=typecheck 的命令
-cfg_path = os.path.join(root, '.claude', 'autopilot.config.yaml')
 typecheck_cmds = []
+cfg_path = os.path.join(root, '.claude', 'autopilot.config.yaml')
 if os.path.isfile(cfg_path):
     try:
         with open(cfg_path) as f:
             cfg_txt = f.read()
-        # 轻量 YAML 解析: 提取 test_suites 段
         ts_match = re.search(r'^test_suites:\s*$', cfg_txt, re.MULTILINE)
         if ts_match:
             section = cfg_txt[ts_match.end():]
             next_top = re.search(r'^\S', section, re.MULTILINE)
             section = section[:next_top.start()] if next_top else section
-            # 找所有 type: typecheck 的套件及其 command
             suites = re.split(r'\n  (\w[\w_-]*):\s*\n', section)
-            # suites[0] is before first suite name, then alternating name/body
             for idx in range(1, len(suites) - 1, 2):
                 body = suites[idx + 1]
                 type_m = re.search(r'type:\s*(\S+)', body)
@@ -239,6 +222,7 @@ if violations:
     }))
 
 sys.exit(0)
-" 2>/dev/null
+"
+# NOTE: stderr is NOT suppressed — allows observability of importlib/python3 errors
 
 exit 0

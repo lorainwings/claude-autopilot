@@ -49,6 +49,11 @@ fi
 # --- Fast bypass Layer 1.5: background agent skip ---
 # Agent/Task with run_in_background=true fires hook at launch time,
 # before the agent completes. Skip validation for background dispatch.
+# NOTE (by design): Phase 2/3/4/6 background dispatch bypasses ALL L2 checks here,
+# including Phase 6's zero_skip_check and tasks completion check.
+# These validations are guaranteed by Layer 3 (autopilot-gate Skill) which runs
+# BEFORE the main thread dispatches the background Task. L2 Hook only fires at
+# launch time when the agent hasn't produced output yet, so L2 cannot validate.
 if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
   exit 0
 fi
@@ -197,6 +202,16 @@ last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 # --- Read execution mode (full/lite/minimal) ---
 EXEC_MODE=$(get_autopilot_mode "$CHANGES_DIR")
 
+# --- Lazy-load TDD mode (only when full mode needs it) ---
+# Avoids ~50ms python3 fork for lite/minimal modes that never use TDD.
+TDD_MODE=""
+_get_tdd_mode() {
+  if [ -z "$TDD_MODE" ]; then
+    TDD_MODE=$(read_config_value "$PROJECT_ROOT" "phases.implementation.tdd_mode" "false")
+  fi
+  echo "$TDD_MODE"
+}
+
 # --- Define expected phase sequences per mode ---
 # full:    1 → 2 → 3 → 4 → 5 → 6 → 7
 # lite:    1 → 5 → 6 → 7
@@ -221,7 +236,13 @@ get_predecessor_phase() {
       esac
       ;;
     *)  # full
-      echo $((target - 1))
+      # TDD mode check only needed for full mode (lite/minimal skip Phase 4 regardless)
+      if [ "$(_get_tdd_mode)" = "true" ] && [ "$target" -eq 5 ]; then
+        # TDD mode: Phase 5 depends on Phase 3 (Phase 4 skipped)
+        echo 3
+      else
+        echo $((target - 1))
+      fi
       ;;
   esac
 }
@@ -263,10 +284,33 @@ if [ "$TARGET_PHASE" -ge 3 ]; then
   fi
 fi
 
-# Special gate: Phase 5 requires Phase 4 checkpoint ONLY in full mode
+# Special gate: Phase 5 requires Phase 4 checkpoint ONLY in full mode (non-TDD)
 if [ "$TARGET_PHASE" -eq 5 ]; then
   if [ "$EXEC_MODE" = "full" ]; then
-    phase4_file=$(find_checkpoint "$phase_results_dir" 4)
+    # Check TDD mode (lazy-loaded): accept tdd_mode_override checkpoint or Phase 3
+    if [ "$(_get_tdd_mode)" = "true" ]; then
+      # TDD mode: Phase 4 is skipped, accept Phase 3 checkpoint or tdd_mode_override
+      phase4_file=$(find_checkpoint "$phase_results_dir" 4)
+      if [ -n "$phase4_file" ] && [ -f "$phase4_file" ]; then
+        # Phase 4 checkpoint exists (tdd_mode_override) — check it's ok
+        phase4_status=$(read_checkpoint_status "$phase4_file")
+        if [ "$phase4_status" != "ok" ]; then
+          deny "Phase 4 TDD override checkpoint status is '$phase4_status'. Expected 'ok'."
+        fi
+      else
+        # No Phase 4 checkpoint — verify Phase 3 exists (predecessor in TDD mode)
+        phase3_file=$(find_checkpoint "$phase_results_dir" 3)
+        if [ -z "$phase3_file" ] || [ ! -f "$phase3_file" ]; then
+          deny "TDD mode: Neither Phase 4 override nor Phase 3 checkpoint found. Phase 3 must complete before Phase 5."
+        fi
+        phase3_status=$(read_checkpoint_status "$phase3_file")
+        if [ "$phase3_status" != "ok" ] && [ "$phase3_status" != "warning" ]; then
+          deny "TDD mode: Phase 3 checkpoint status is '$phase3_status'. Must be ok/warning before Phase 5."
+        fi
+      fi
+    else
+      # Non-TDD full mode: require Phase 4 checkpoint
+      phase4_file=$(find_checkpoint "$phase_results_dir" 4)
 
     if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
       deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
@@ -277,6 +321,7 @@ if [ "$TARGET_PHASE" -eq 5 ]; then
     if [ "$phase4_status" != "ok" ]; then
       deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
     fi
+    fi  # end non-TDD full mode
   else
     # lite/minimal: Phase 5 predecessor is Phase 1
     phase1_file=$(find_checkpoint "$phase_results_dir" 1)
@@ -359,9 +404,11 @@ except Exception:
       if [ "$start_epoch" -gt 0 ] 2>/dev/null; then
         now_epoch=$(date +%s)
         elapsed=$((now_epoch - start_epoch))
-        # 7200 seconds = 2 hours
-        if [ "$elapsed" -gt 7200 ]; then
-          deny "Phase 5 wall-clock timeout: running for ${elapsed}s (limit: 7200s / 2h). Save progress and investigate."
+        # Read timeout from config (default: 2 hours)
+        timeout_hours=$(read_config_value "$PROJECT_ROOT" "phases.implementation.wall_clock_timeout_hours" "2")
+        timeout_seconds=$((timeout_hours * 3600))
+        if [ "$elapsed" -gt "$timeout_seconds" ]; then
+          deny "Phase 5 wall-clock timeout: running for ${elapsed}s (limit: ${timeout_seconds}s / ${timeout_hours}h). Save progress and investigate."
         fi
       fi
     fi

@@ -164,6 +164,16 @@ TYPE_RULES = {
     'phases.code_review.enabled': bool,
     'phases.implementation.parallel.enabled': bool,
     'phases.implementation.parallel.max_agents': (int, float),
+    'phases.implementation.wall_clock_timeout_hours': (int, float),
+    'phases.implementation.tdd_mode': bool,
+    'phases.implementation.tdd_refactor': bool,
+    'phases.implementation.tdd_test_command': str,
+    'default_mode': str,
+    'background_agent_timeout_minutes': (int, float),
+    'test_pyramid.hook_floors.min_unit_pct': (int, float),
+    'test_pyramid.hook_floors.max_e2e_pct': (int, float),
+    'test_pyramid.hook_floors.min_total_cases': (int, float),
+    'test_pyramid.hook_floors.min_change_coverage_pct': (int, float),
 }
 
 type_errors = []
@@ -187,6 +197,12 @@ RANGE_RULES = {
     'test_pyramid.max_e2e_pct': (0, 100),
     'test_pyramid.min_total_cases': (1, 1000),
     'phases.implementation.parallel.max_agents': (1, 10),
+    'phases.implementation.wall_clock_timeout_hours': (0.1, 24),
+    'test_pyramid.hook_floors.min_unit_pct': (0, 100),
+    'test_pyramid.hook_floors.max_e2e_pct': (0, 100),
+    'test_pyramid.hook_floors.min_total_cases': (1, 1000),
+    'test_pyramid.hook_floors.min_change_coverage_pct': (0, 100),
+    'background_agent_timeout_minutes': (1, 120),
     'async_quality_scans.timeout_minutes': (1, 120),
     'phases.requirements.auto_scan.max_depth': (1, 5),
     'phases.requirements.complexity_routing.thresholds.small': (1, 20),
@@ -236,6 +252,38 @@ if cr_small is not None and cr_medium is not None:
     if isinstance(cr_small, (int, float)) and isinstance(cr_medium, (int, float)):
         if cr_small >= cr_medium:
             cross_ref_warnings.append('complexity_routing: thresholds.small >= thresholds.medium, routing ineffective')
+
+# hook_floors vs strict thresholds cross-check (floor must not be stricter)
+hf_unit = get_value(yaml_data, 'test_pyramid.hook_floors.min_unit_pct')
+strict_unit = get_value(yaml_data, 'test_pyramid.min_unit_pct')
+if hf_unit is not None and strict_unit is not None:
+    if isinstance(hf_unit, (int, float)) and isinstance(strict_unit, (int, float)):
+        if hf_unit > strict_unit:
+            cross_ref_warnings.append(f'hook_floors.min_unit_pct ({hf_unit}) > test_pyramid.min_unit_pct ({strict_unit}), floor stricter than gate')
+
+hf_e2e = get_value(yaml_data, 'test_pyramid.hook_floors.max_e2e_pct')
+strict_e2e = get_value(yaml_data, 'test_pyramid.max_e2e_pct')
+if hf_e2e is not None and strict_e2e is not None:
+    if isinstance(hf_e2e, (int, float)) and isinstance(strict_e2e, (int, float)):
+        if hf_e2e < strict_e2e:
+            cross_ref_warnings.append(f'hook_floors.max_e2e_pct ({hf_e2e}) < test_pyramid.max_e2e_pct ({strict_e2e}), floor stricter than gate')
+
+hf_total = get_value(yaml_data, 'test_pyramid.hook_floors.min_total_cases')
+strict_total = get_value(yaml_data, 'test_pyramid.min_total_cases')
+if hf_total is not None and strict_total is not None:
+    if isinstance(hf_total, (int, float)) and isinstance(strict_total, (int, float)):
+        if hf_total > strict_total:
+            cross_ref_warnings.append(f'hook_floors.min_total_cases ({hf_total}) > test_pyramid.min_total_cases ({strict_total}), floor stricter than gate')
+
+# tdd_mode only effective in full mode (informational)
+tdd_mode = get_value(yaml_data, 'phases.implementation.tdd_mode')
+if tdd_mode is True:
+    cross_ref_warnings.append('tdd_mode=true: TDD cycle only active in full execution mode')
+
+# default_mode 枚举值检查
+dm = get_value(yaml_data, 'default_mode')
+if dm is not None and isinstance(dm, str) and dm not in ('full', 'lite', 'minimal'):
+    cross_ref_warnings.append(f'default_mode: \"{dm}\" is not a valid mode (must be full/lite/minimal)')
 
 valid = len(missing) == 0 and len(type_errors) == 0
 print(json.dumps({
