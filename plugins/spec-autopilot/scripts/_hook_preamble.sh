@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# _hook_preamble.sh
+# Common preamble for PostToolUse Hook scripts (Task & Write|Edit).
+# Source this at the top of each hook script:
+#
+#   source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
+#
+# Provides (exported to calling script):
+#   STDIN_DATA          — raw stdin JSON from Claude Code
+#   SCRIPT_DIR          — absolute path to shared scripts directory
+#   PROJECT_ROOT_QUICK  — project root (from stdin cwd or git fallback)
+#
+# Auto-exits (exit 0) if:
+#   - stdin is empty (not a hook invocation)
+#   - no active autopilot session (Layer 0 bypass, ~1ms)
+
+set -uo pipefail
+
+# --- Read stdin JSON ---
+STDIN_DATA=""
+if [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
+[ -z "$STDIN_DATA" ] && exit 0
+
+# --- Set up shared infrastructure ---
+# Use BASH_SOURCE[0] which points to this preamble file (same directory as all scripts)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
+source "$SCRIPT_DIR/_common.sh"
+
+# --- Extract project root (pure bash, ~1ms) ---
+PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+if [ -z "$PROJECT_ROOT_QUICK" ]; then
+  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+
+# --- Layer 0 bypass: no active autopilot session ---
+has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0

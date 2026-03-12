@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase0
-description: "[ONLY for autopilot orchestrator] Phase 0: Environment check, config loading, crash recovery, banner rendering, task creation, and lockfile initialization."
+description: "[ONLY for autopilot orchestrator] Phase 0: Environment check, config loading, crash recovery, banner rendering, task creation, lockfile management, and anchor commit."
 user-invocable: false
 ---
 
@@ -94,7 +94,7 @@ echo '.autopilot-active' >> .gitignore
 
 ### Step 9: 创建锁文件
 
-调用 Skill(`spec-autopilot:autopilot-lockfile`) **操作 1**：
+调用锁文件管理（本 Skill 内置操作 1，见下方「锁文件管理」章节）：
 
 传入参数（由主线程构造 JSON 字符串）：
 ```json
@@ -116,7 +116,7 @@ git commit --allow-empty -m "autopilot: start <change_name>"
 ANCHOR_SHA=$(git rev-parse HEAD)
 ```
 
-调用 Skill(`spec-autopilot:autopilot-lockfile`) **操作 2**：将 `ANCHOR_SHA` 写入锁文件的 `anchor_sha` 字段。
+调用锁文件管理（本 Skill 内置操作 2）：将 `ANCHOR_SHA` 写入锁文件的 `anchor_sha` 字段。
 
 > **原子性保障**：如果 Step 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
 
@@ -136,3 +136,78 @@ Phase 0 完成后，主编排器获得：
 | recovery_phase | 崩溃恢复起始阶段（正常为 1） |
 
 > **Checkpoint 范围**: Phase 0 在主线程执行，不写 checkpoint。
+
+---
+
+## 锁文件管理（原 autopilot-lockfile，v4.0 合入）
+
+管理 `${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期。通过后台 Agent 封装 Read→Write→Verify 流程，从根本上解决 Write 工具的前置 Read 要求。
+
+### 锁文件路径
+
+```
+${session_cwd}/openspec/changes/.autopilot-active
+```
+
+### 锁文件 JSON 格式
+
+```json
+{
+  "change": "<change_name>",
+  "pid": "<当前进程PID>",
+  "started": "<ISO-8601时间戳>",
+  "session_cwd": "<项目根目录>",
+  "anchor_sha": "<SHA|空字符串>",
+  "session_id": "<毫秒级时间戳>",
+  "mode": "<full|lite|minimal>"
+}
+```
+
+### 操作 1: 创建锁文件（Step 9）
+
+使用后台 Agent 创建锁文件：
+
+```
+Agent(subagent_type: "general-purpose", run_in_background: true, prompt: "
+  <!-- lockfile-writer -->
+  你是 autopilot 锁文件管理 Agent。执行以下步骤：
+
+  1. 确保目录存在：Bash('mkdir -p ${session_cwd}/openspec/changes/')
+  2. 检查锁文件是否已存在：Bash('test -f ... && echo exists || echo new')
+     - exists → Read 锁文件，执行 PID 冲突检测
+     - new → 跳过检测
+  3. Write 锁文件 JSON 内容
+  4. Read 验证写入成功
+
+  返回: {\"status\": \"ok|conflict\", \"action\": \"created|overwritten\", \"message\": \"...\"}
+")
+```
+
+#### PID 冲突检测逻辑
+
+| 条件 | 判定 | 处理 |
+|------|------|------|
+| PID 存活 + session_id 匹配 | 同一进程 | 返回 `conflict`，主线程 AskUserQuestion |
+| PID 存活 + session_id 不匹配 | PID 被系统回收 | 自动覆盖，返回 `overwritten` |
+| PID 不存在 | 崩溃残留 | 自动覆盖，返回 `overwritten` |
+
+PID 存活检测：`Bash('kill -0 ${pid} 2>/dev/null && echo alive || echo dead')`
+
+### 操作 2: 更新 anchor_sha（Step 10）
+
+使用后台 Agent 更新锁文件中的 `anchor_sha` 字段。Read → 更新 JSON → Write → Read 验证。
+
+### 操作 3: 删除锁文件（Phase 7 Step 7）
+
+由 `autopilot-phase7` 直接执行：`Bash('rm -f ${session_cwd}/openspec/changes/.autopilot-active')`
+
+### 日志格式
+
+遵循 `autopilot/references/log-format.md` 规范：
+
+```
+[LOCK] created: .autopilot-active
+[LOCK] updated: anchor_sha → {short_sha}
+[LOCK] deleted: .autopilot-active
+[LOCK] conflict: PID {pid} (started {time})
+```

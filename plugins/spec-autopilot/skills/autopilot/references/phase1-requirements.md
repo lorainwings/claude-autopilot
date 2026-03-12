@@ -663,7 +663,7 @@ ELSE:
 
 ## 1.9 写入 Phase 1 Checkpoint
 
-需求确认后，调用 Skill(`spec-autopilot:autopilot-checkpoint`) 写入 `phase-1-requirements.json`：
+需求确认后，调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-1-requirements.json`：
 
 ```json
 {

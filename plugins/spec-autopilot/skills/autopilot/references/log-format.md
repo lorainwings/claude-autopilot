@@ -8,11 +8,11 @@
 |------|------|---------|
 | 阶段过渡 | `── Phase {N}: {name} ──` | autopilot-gate |
 | 门禁结果 | `[GATE] Phase {N-1} → {N}: PASSED ({M}/8)` | autopilot-gate |
-| Checkpoint | `[CP] phase-{N}-{slug}.json \| commit: {sha}` | autopilot-checkpoint |
+| Checkpoint | `[CP] phase-{N}-{slug}.json \| commit: {sha}` | autopilot-gate |
 | 警告 | `[WARN] {message}` | 各 skill |
 | 错误 | `[ERROR] {message}` | 各 skill |
 | 超时 | `[TIMEOUT] {agent}: exceeded {N}m` | autopilot 主编排器 |
-| 锁文件 | `[LOCK] {action}: .autopilot-active` | autopilot-lockfile |
+| 锁文件 | `[LOCK] {action}: .autopilot-active` | autopilot-phase0 |
 
 ## 阶段名称映射
 

@@ -1,6 +1,6 @@
 # Autopilot 共享协议参考
 
-> 此文件被 autopilot-dispatch、autopilot-gate、autopilot-checkpoint 共同引用。修改时需同步评估影响。
+> 此文件被 autopilot-dispatch、autopilot-gate（含 checkpoint 管理）共同引用。修改时需同步评估影响。
 
 ## JSON 信封契约
 

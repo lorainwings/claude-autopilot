@@ -19,29 +19,8 @@
 # Output: Uses PostToolUse `decision: "block"` with `reason` to feed validation
 #         errors back to Claude as actionable feedback. Exit is always 0.
 
-set -uo pipefail
-
-# --- Read stdin JSON ---
-STDIN_DATA=""
-if [ ! -t 0 ]; then
-  STDIN_DATA=$(cat)
-fi
-
-if [ -z "$STDIN_DATA" ]; then
-  exit 0
-fi
-
-# --- Fast bypass Layer 0: lock file pre-check ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SCRIPT_DIR
-source "$SCRIPT_DIR/_common.sh"
-PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-if [ -z "$PROJECT_ROOT_QUICK" ]; then
-  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-fi
-if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
-  exit 0
-fi
+# --- Common preamble: stdin read, SCRIPT_DIR, _common.sh, Layer 0 bypass ---
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
 
 # --- Fast bypass Layer 1: 仅 Phase 1 ---
 has_phase_marker "1" || exit 0

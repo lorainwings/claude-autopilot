@@ -1,6 +1,6 @@
 # 指标收集协议
 
-> 由 autopilot SKILL.md 和 autopilot-checkpoint SKILL.md 引用。
+> 由 autopilot SKILL.md 和 autopilot-gate SKILL.md（checkpoint 管理）引用。
 
 ## `_metrics` 字段
 

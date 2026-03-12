@@ -11,32 +11,9 @@
 #         errors back to Claude as actionable feedback. Exit is always 0.
 #         See: https://code.claude.com/docs/en/hooks#posttooluse-decision-control
 
-set -uo pipefail
 # NOTE: no `set -e` — we handle errors explicitly.
-
-# --- Read stdin JSON ---
-# PostToolUse receives: {"tool_name":"Task","tool_input":{...},"tool_response":"..."}
-STDIN_DATA=""
-if [ ! -t 0 ]; then
-  STDIN_DATA=$(cat)
-fi
-
-if [ -z "$STDIN_DATA" ]; then
-  exit 0
-fi
-
-# --- Fast bypass Layer 0: lock file pre-check ---
-# 无活跃 autopilot 会话时，跳过所有检查。
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SCRIPT_DIR
-source "$SCRIPT_DIR/_common.sh"
-PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-if [ -z "$PROJECT_ROOT_QUICK" ]; then
-  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-fi
-if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
-  exit 0
-fi
+# --- Common preamble: stdin read, SCRIPT_DIR, _common.sh, Layer 0 bypass ---
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
 
 # --- Fast bypass Layer 1: prompt 首行标记检测 ---
 # 仅匹配 prompt 字段以标记开头的情况，排除文本内容中的误判。

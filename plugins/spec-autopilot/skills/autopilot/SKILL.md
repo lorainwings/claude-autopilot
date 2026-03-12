@@ -62,11 +62,11 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 |------|------|
 | `spec-autopilot:autopilot-phase0` | Phase 0 初始化（环境检查 + 崩溃恢复 + 锁文件） |
 | `spec-autopilot:autopilot-phase7` | Phase 7 汇总 + 归档 |
-| `spec-autopilot:autopilot-lockfile` | 锁文件管理（后台 Agent 封装） |
+| `spec-autopilot:autopilot-phase0` | 锁文件管理 + 环境初始化 + 崩溃恢复 |
 | `spec-autopilot:autopilot-recovery` | 崩溃恢复协议 |
 | `spec-autopilot:autopilot-gate` | 阶段门禁验证 |
 | `spec-autopilot:autopilot-dispatch` | 子 Agent 调度构造 |
-| `spec-autopilot:autopilot-checkpoint` | 检查点读写管理 |
+| `spec-autopilot:autopilot-gate` | 检查点读写管理 + 门禁验证 |
 
 **参考文档**:
 | 文档 | 用途 |

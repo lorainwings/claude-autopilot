@@ -1,14 +1,14 @@
 ---
 name: autopilot-gate
-description: "[ONLY for autopilot orchestrator] Gate verification protocol for autopilot phase transitions. Enforces 8-step checklist and special gates (Phase 4→5 test_counts, Phase 5→6 zero_skip)."
+description: "[ONLY for autopilot orchestrator] Gate verification + checkpoint management for autopilot phase transitions. Enforces 8-step checklist, special gates, and manages phase-results checkpoint files."
 user-invocable: false
 ---
 
-# Autopilot Gate — 门禁验证协议
+# Autopilot Gate — 门禁验证 + Checkpoint 管理协议
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
-阶段切换时的 AI 侧验证清单。Layer 1（Task blockedBy）和 Layer 2（磁盘 checkpoint）已由 Hooks 确定性执行，本 Skill 负责 Layer 3（AI 执行的补充检查清单）。
+阶段切换时的 AI 侧验证清单 + Checkpoint 状态持久化。Layer 1（Task blockedBy）和 Layer 2（磁盘 checkpoint）已由 Hooks 确定性执行，本 Skill 负责 Layer 3（AI 执行的补充检查清单）以及 Checkpoint 文件的读写管理。
 
 > JSON 信封契约、状态规则、特殊门禁阈值等详见：`autopilot/references/protocol.md`
 
@@ -192,3 +192,101 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 ## 阶段强制执行保障
 
 阶段跳过由 Hook（`check-predecessor-checkpoint.sh`）+ TaskCreate blockedBy 依赖链确定性阻断，AI 无需自我审查。在 full 模式下 8 个阶段是不可分割整体；在 lite/minimal 模式下，跳过的阶段由 Phase 0 的 TaskCreate 链控制，不需要产出 checkpoint。非跳过的阶段产出为空时应产出 "N/A with justification" 而非跳过。
+
+---
+
+## Checkpoint 管理（原 autopilot-checkpoint，v4.0 合入）
+
+管理 `openspec/changes/<name>/context/phase-results/` 目录下的 checkpoint 文件。
+
+> JSON 信封格式、阶段额外字段、Checkpoint 命名等详见：`autopilot/references/protocol.md`
+
+### Checkpoint 文件命名
+
+```
+phase-results/
+├── phase-1-requirements.json
+├── phase-2-openspec.json
+├── phase-3-ff.json
+├── phase-4-testing.json
+├── phase-5-implement.json
+├── phase-6-report.json
+└── phase-7-summary.json
+```
+
+### 写入 Checkpoint
+
+阶段完成后，将子 Agent 返回的 JSON 信封写入对应文件：
+
+1. 确保 `context/phase-results/` 目录存在（不存在则创建）
+2. 将完整 JSON 信封写入 `phase-{N}-{slug}.json`
+3. 验证写入成功：读回文件并解析 JSON
+
+#### JSON 格式
+
+```json
+{
+  "status": "ok | warning | blocked | failed",
+  "summary": "单行决策级摘要",
+  "artifacts": ["文件路径列表"],
+  "risks": ["风险列表"],
+  "next_ready": true,
+  "timestamp": "ISO-8601",
+  "phase": 2,
+  "_metrics": {
+    "start_time": "ISO-8601",
+    "end_time": "ISO-8601",
+    "duration_seconds": 0,
+    "retry_count": 0
+  }
+}
+```
+
+`_metrics` 字段为可选，由主线程在写入 checkpoint 时附加。详见 `autopilot/references/metrics-collection.md`。
+
+写入时自动追加 `timestamp` 和 `phase` 字段。
+
+#### 写入确认输出
+
+Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `autopilot/references/log-format.md`）：
+
+```
+[CP] phase-{N}-{slug}.json | commit: {short_sha}
+```
+
+写入失败时输出：
+
+```
+[ERROR] Checkpoint write failed: phase-{N}-{slug}.json — {reason}
+```
+
+### 读取 Checkpoint
+
+验证前置阶段状态：
+
+1. 构造路径：`phase-results/phase-{N}-*.json`
+2. 读取并解析 JSON
+3. 判定规则：
+   - `status === "ok" || "warning"` → 校验通过
+   - `status === "blocked" || "failed"` → 硬阻断
+   - 文件不存在 → 硬阻断（阶段未完成）
+
+### Task 级 Checkpoint（Phase 5 专用）
+
+Phase 5 长时间实施中，每个 task 完成后写入独立 checkpoint，支持细粒度恢复。
+
+```
+phase-results/phase5-tasks/
+├── task-1.json
+├── task-2.json
+└── ...
+```
+
+- 确保 `context/phase-results/phase5-tasks/` 目录存在
+- 写入 `task-{N}.json`（格式同主 checkpoint，额外含 `task_number` 和 `task_title`）
+- 恢复 Phase 5 时：扫描 `phase5-tasks/task-*.json`，找到第一个非 `"ok"` 的 task 重新开始
+- **非连续恢复约束**：不跳过失败的 task
+
+### 扫描所有 Checkpoint
+
+用于崩溃恢复，按阶段顺序扫描 phase-1 → phase-7，找到最后一个 `status: "ok"` 或 `"warning"` 的文件返回该阶段编号。

@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "3.6.1",
-  "description": "Spec-driven autopilot with config externalization, Hook engineering refactoring, TDD deterministic RED-GREEN-REFACTOR cycle, interactive quick-start wizard (strict/moderate/relaxed presets), shared Python modules for Hook deduplication, 3-layer gate system with TDD audit, parallel TDD L2 post-merge verification, and comprehensive quality assurance pipeline",
+  "version": "4.0.0",
+  "description": "Spec-driven autopilot with hook preamble deduplication, config validator extraction, skill consolidation (9→7), TDD deterministic RED-GREEN-REFACTOR cycle, 3-layer gate system with checkpoint management, and comprehensive quality assurance pipeline",
   "author": {
     "name": "vibeflow-team"
   },

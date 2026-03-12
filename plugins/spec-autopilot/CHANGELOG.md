@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.0.0] - 2026-03-12
+
+### Added
+- **`_hook_preamble.sh`**: 公共 Hook 前言脚本，统一 6 个 PostToolUse Hook 的 stdin 读取 + Layer 0 bypass 逻辑（消除 ~90 行重复）
+- **`_config_validator.py`**: 独立 Python 配置验证模块，从 validate-config.sh 中提取（支持 IDE 高亮/linting）
+- **`docs/plans/2026-03-12-v4.0-upgrade-blueprint.md`**: v4.0 升级蓝图（4 Wave 方案设计）
+
+### Changed
+- **Skill 合并 (9→7)**: `autopilot-checkpoint` 合入 `autopilot-gate`，`autopilot-lockfile` 合入 `autopilot-phase0`
+- **Hook 去重**: 6 个 PostToolUse Hook 脚本使用 `_hook_preamble.sh` 替代重复的前言逻辑
+- **validate-config.sh**: Python 验证逻辑外置为 `_config_validator.py`，bash 仅做调用和 fallback
+- 更新 16 处跨文件引用（SKILL.md / references / log-format 等）
+
 ## [3.6.1] - 2026-03-12
 
 ### Added

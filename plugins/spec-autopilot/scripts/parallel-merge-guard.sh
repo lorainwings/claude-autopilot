@@ -7,22 +7,8 @@
 #   3. 快速编译/类型检查通过 (读取 config test_suites 中 typecheck 命令)
 # Output: PostToolUse decision: "block" on merge validation failure.
 
-set -uo pipefail
-
-# --- Read stdin JSON ---
-STDIN_DATA=""
-if [ ! -t 0 ]; then
-  STDIN_DATA=$(cat)
-fi
-[ -z "$STDIN_DATA" ] && exit 0
-
-# --- Fast bypass Layer 0: lock file pre-check ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SCRIPT_DIR
-source "$SCRIPT_DIR/_common.sh"
-PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-[ -z "$PROJECT_ROOT_QUICK" ] && PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
+# --- Common preamble: stdin read, SCRIPT_DIR, _common.sh, Layer 0 bypass ---
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
 
 # --- Fast bypass Layer 1.5: background agent skip ---
 is_background_agent && exit 0
