@@ -185,6 +185,28 @@ if phase_num == 4:
             "Adjust test distribution before proceeding."
         )
 
+    # Phase 4 test_traceability L2 blocking (v4.0 upgrade from recommended to required)
+    TRACEABILITY_FLOOR = read_hook_floor("traceability_floor", 80)
+    # Read from top-level test_pyramid.traceability_floor as override
+    traceability_floor_cfg = _ep.read_config_value(
+        _root, "test_pyramid.traceability_floor", TRACEABILITY_FLOOR
+    )
+    try:
+        traceability_floor_val = int(traceability_floor_cfg)
+    except (ValueError, TypeError):
+        traceability_floor_val = 80
+
+    traceability = envelope.get("test_traceability", {})
+    if isinstance(traceability, dict):
+        trace_coverage = traceability.get("coverage_pct", None)
+        if trace_coverage is not None and isinstance(trace_coverage, (int, float)):
+            if trace_coverage < traceability_floor_val:
+                output_block(
+                    f"Phase 4 test_traceability coverage {trace_coverage}% < {traceability_floor_val}% floor. "
+                    "Each test case must trace to a Phase 1 requirement. "
+                    "Add traceability mappings to increase coverage."
+                )
+
     # Phase 4 change_coverage validation
     cc = envelope.get("change_coverage", {})
     if not isinstance(cc, dict) or not cc or "change_points" not in cc:

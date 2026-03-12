@@ -10,6 +10,9 @@
 - **`post-task-validator.sh` + `_post_task_validator.py`**: 统一 PostToolUse(Task) 验证器，5→1 Hook 合并
   - 单次 python3 fork 替代 5 次独立调用（~420ms → ~100ms）
   - hooks.json PostToolUse(Task) 从 5 条注册简化为 1 条
+- **test_traceability L2 blocking**: Phase 4 需求追溯覆盖率从 recommended 升级为 L2 blocking（`traceability_floor` 默认 80%）
+- **brownfield_validation 默认开启**: 存量项目设计-实现漂移检测默认开启（greenfield 项目 Phase 0 自动关闭）
+- **`quality_scans.tools` 配置**: Phase 6 路径 C 支持配置真实静态分析工具（typecheck/lint/security）
 
 ### Changed
 - **Skill 合并 (9→7)**: `autopilot-checkpoint` 合入 `autopilot-gate`，`autopilot-lockfile` 合入 `autopilot-phase0`

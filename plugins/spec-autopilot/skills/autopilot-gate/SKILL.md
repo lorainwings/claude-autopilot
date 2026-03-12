@@ -156,7 +156,7 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 ## 可选 Layer 3 补充：Brownfield 验证
 
 > 详见：`autopilot/references/brownfield-validation.md`
-> 通过 `config.brownfield_validation.enabled` 控制（默认关闭）。
+> 通过 `config.brownfield_validation.enabled` 控制（v4.0 起默认开启，greenfield 项目 Phase 0 自动关闭）。
 
 当启用时，在特定阶段切换时执行额外的三向一致性检查：
 

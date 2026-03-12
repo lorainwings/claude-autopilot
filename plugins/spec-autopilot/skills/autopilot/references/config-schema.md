@@ -127,11 +127,24 @@ test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
   max_e2e_pct: 20            # E2E+UI 测试最高占比（金字塔顶层）
   min_total_cases: 20        # 最少总用例数
+  traceability_floor: 80     # v4.0: test_traceability 覆盖率阈值（L2 blocking，默认 80%）
   hook_floors:               # Layer 2 Hook 宽松底线（可选覆盖，默认值见下方）
     min_unit_pct: 30         # Hook 底线：单元测试最低占比（默认 30）
     max_e2e_pct: 40          # Hook 底线：E2E 测试最高占比（默认 40）
     min_total_cases: 10      # Hook 底线：最少总用例数（默认 10）
     min_change_coverage_pct: 80  # Hook 底线：变更覆盖率最低百分比（默认 80）
+
+quality_scans:               # v4.0: Phase 6 真实静态分析工具集成（可选）
+  tools:                     # 工具列表，Phase 6 路径 C 按顺序执行
+    # - name: typecheck
+    #   command: "npx tsc --noEmit"
+    #   blocking: true        # true: 失败阻断 Phase 6; false: 仅 warning
+    # - name: lint
+    #   command: "npx eslint . --max-warnings 0"
+    #   blocking: false
+    # - name: security
+    #   command: "npx audit-ci --moderate"
+    #   blocking: true
 
 gates:
   user_confirmation:
@@ -154,7 +167,7 @@ context_management:
   squash_on_archive: true    # Phase 7 归档时 autosquash fixup commits 为单一 commit
 
 brownfield_validation:
-  enabled: false               # 存量项目手动开启漂移检测
+  enabled: true                # v4.0: 默认开启漂移检测（greenfield 项目 Phase 0 自动关闭）
   strict_mode: false           # true: block; false: warning only
   ignore_patterns: ["*.test.*", "*.spec.*", "__mocks__/**"]
 

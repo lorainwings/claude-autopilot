@@ -39,7 +39,7 @@
 | 结构化决策 | 所有决策点以结构化卡片呈现（选项/优劣/推荐），所有复杂度级别均展示决策卡片 |
 | 执行模式 | 支持 full/lite/minimal 三种模式；模式仅控制跳过哪些阶段，Phase 1 和 Phase 5 在所有模式下执行质量完全一致 |
 | 并行编排 | Phase 1/4/5/6 支持阶段内并行执行；Phase 6+6.5+质量扫描三路并行；Phase 7 知识提取后台化 |
-| 测试追溯 | Phase 4 测试用例必须追溯到 Phase 1 需求点（traceability matrix） |
+| 测试追溯 | Phase 4 测试用例必须追溯到 Phase 1 需求点（traceability matrix），覆盖率 ≥ `traceability_floor`（默认 80%，L2 blocking） |
 | Allure 报告 | Phase 6 优先使用 Allure 生成统一测试报告，降级为自定义格式 |
 | 需求调研并行 | Phase 1 Auto-Scan + 技术调研 + 联网搜索三者并行执行 |
 | 代码约束增强 | Phase 4/5/6 注入 required_patterns + style_guide，强制合规 |
