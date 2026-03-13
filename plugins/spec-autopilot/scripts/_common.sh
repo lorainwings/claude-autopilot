@@ -232,6 +232,75 @@ except Exception:
   echo "$result"
 }
 
+# --- Read a specific field from the lock file JSON ---
+# Usage: read_lock_json_field <lock_file_path> <field_name> [default]
+# Returns: field value on stdout, or default if not found
+read_lock_json_field() {
+  local lock_file="$1"
+  local field="$2"
+  local default_val="${3:-}"
+  [ -f "$lock_file" ] || { echo "$default_val"; return 0; }
+
+  local result
+  result=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    print(data.get(sys.argv[2], ''))
+except Exception:
+    pass
+" "$lock_file" "$field" 2>/dev/null) || true
+  [ -n "$result" ] && echo "$result" || echo "$default_val"
+}
+
+# --- Get human-readable phase label ---
+# Usage: get_phase_label <phase_number>
+# Returns: label string on stdout
+get_phase_label() {
+  case "${1:-}" in
+    0) echo "Environment Setup" ;;
+    1) echo "Requirements" ;;
+    2) echo "OpenSpec" ;;
+    3) echo "Fast-Forward" ;;
+    4) echo "Test Design" ;;
+    5) echo "Implementation" ;;
+    6) echo "Test Report" ;;
+    7) echo "Archive" ;;
+    *) echo "Unknown" ;;
+  esac
+}
+
+# --- Get total phases count for a given mode ---
+# Usage: get_total_phases <mode>
+# Returns: phase count on stdout (full=8, lite=5, minimal=4)
+get_total_phases() {
+  case "${1:-full}" in
+    full)    echo 8 ;;
+    lite)    echo 5 ;;
+    minimal) echo 4 ;;
+    *)       echo 8 ;;
+  esac
+}
+
+# --- Auto-increment event sequence counter ---
+# Usage: next_event_sequence <project_root>
+# Returns: next sequence number on stdout (1-based)
+# Thread-safe via atomic write
+next_event_sequence() {
+  local project_root="$1"
+  local seq_file="$project_root/logs/.event_sequence"
+  mkdir -p "$(dirname "$seq_file")" 2>/dev/null || true
+
+  local current=0
+  [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
+  [ -z "$current" ] && current=0
+
+  local next=$((current + 1))
+  echo "$next" > "$seq_file"
+  echo "$next"
+}
+
 # --- Check if current Task is a background agent ---
 # Usage: is_background_agent
 # Reads from global $STDIN_DATA. Returns 0 if run_in_background=true, 1 otherwise.

@@ -54,3 +54,10 @@
 3. **必须返回 JSON 信封**: `{"status": "ok|warning|blocked|failed", "summary": "...", "artifacts": [...]}`
 4. **背景 Agent 产出必须 Write 到文件**: 返回信封仅含摘要，禁止全文灌入主窗口
 5. **文件所有权 ENFORCED**: 并行模式下仅可修改 owned_files 范围内的文件
+
+## 发版纪律 (v4.3)
+
+1. **唯一入口**: 版本号升级必须且只能通过 `scripts/bump-version.sh <new_version>` 执行
+2. **禁止散弹式修改**: 禁止人工或 AI 单独修改 plugin.json / marketplace.json / README.md / CHANGELOG.md 中的版本号
+3. **同步范围**: 脚本一键同步 4 个文件 — plugin.json (version) + marketplace.json (plugins[].version) + README.md (badge) + CHANGELOG.md (header)
+4. **验证闭环**: 脚本执行后自动验证 4 个文件一致性，任一不匹配则 exit 1

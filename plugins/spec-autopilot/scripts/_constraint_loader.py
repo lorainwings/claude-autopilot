@@ -119,6 +119,10 @@ def load_constraints(root):
     forbidden_files = list(dict.fromkeys(forbidden_files))
     forbidden_patterns = list(dict.fromkeys(forbidden_patterns))
 
+    # YAML escape normalization: _parse_list extracts raw text, so YAML-style
+    # double backslashes (e.g., "eval\\(") need to be reduced to single (e.g., "eval\(")
+    forbidden_patterns = [p.replace('\\\\', '\\') for p in forbidden_patterns]
+
     return {
         'forbidden_files': forbidden_files,
         'forbidden_patterns': forbidden_patterns,
@@ -167,8 +171,13 @@ def check_file_violations(file_path, root, constraints):
             if lc > max_lines:
                 violations.append(f'File too long: {rel} ({lc} lines > {max_lines})')
             for pat in forbidden_patterns:
-                if re.search(re.escape(pat), content):
-                    violations.append(f'Forbidden pattern "{pat}" in {rel}')
+                try:
+                    if re.search(pat, content):
+                        violations.append(f'Forbidden pattern "{pat}" in {rel}')
+                except re.error:
+                    # Fallback to literal match if pattern is invalid regex
+                    if pat in content:
+                        violations.append(f'Forbidden pattern "{pat}" in {rel}')
         except Exception:
             pass
 

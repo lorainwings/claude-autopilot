@@ -1,11 +1,23 @@
-# Event Bus API Reference (v4.2 Vanguard)
+# Event Bus API Reference (v5.0)
 
-> 本文件定义 autopilot 事件总线的事件格式规范，为后续 GUI 集成提供标准化接口。
+> 本文件定义 autopilot 事件总线的事件格式规范，为 GUI 大盘集成提供标准化接口。
 
 ## 事件传输
 
-- **当前实现 (v4.2)**: 文件系统 — `logs/events.jsonl` (JSON Lines 格式)
-- **未来规划 (v5.0)**: WebSocket / Server-Sent Events (SSE)
+- **文件系统**: `logs/events.jsonl` (JSON Lines 格式，append-only)
+- **实时推送 (v5.0)**: WebSocket (`ws://localhost:8765`) — 双模服务器自动监听 events.jsonl 并推送
+
+## v5.0 通用上下文字段
+
+所有事件类型均包含以下顶层字段，为 GUI 渲染提供充足上下文：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| `change_name` | string | 锁文件 `.change` / `AUTOPILOT_CHANGE_NAME` | 当前变更名称 |
+| `session_id` | string | 锁文件 `.session_id` / `AUTOPILOT_SESSION_ID` | 会话唯一标识 |
+| `phase_label` | string | 静态映射 | Phase 人类可读名称 (e.g. "Implementation") |
+| `total_phases` | number | mode 推导 | 当前模式的总阶段数 (full=8, lite=5, minimal=4) |
+| `sequence` | number | `logs/.event_sequence` 自增 | 全局事件自增序号，保证 GUI 排序 |
 
 ## 事件类型
 
@@ -19,6 +31,11 @@ interface PhaseEvent {
   phase: number;             // 0-7
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;         // ISO-8601
+  change_name: string;       // v5.0: 变更名称
+  session_id: string;        // v5.0: 会话 ID
+  phase_label: string;       // v5.0: "Environment Setup" | "Requirements" | ...
+  total_phases: number;      // v5.0: 8 | 5 | 4
+  sequence: number;          // v5.0: 全局自增序号
   payload: {
     status?: 'ok' | 'warning' | 'blocked' | 'failed';
     duration_ms?: number;
@@ -38,6 +55,11 @@ interface GateEvent {
   phase: number;             // 目标 Phase (即将进入的 Phase)
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;         // ISO-8601
+  change_name: string;       // v5.0: 变更名称
+  session_id: string;        // v5.0: 会话 ID
+  phase_label: string;       // v5.0: 目标 Phase 标签
+  total_phases: number;      // v5.0: 8 | 5 | 4
+  sequence: number;          // v5.0: 全局自增序号
   payload: {
     gate_score?: string;     // "8/8"
     status?: 'ok' | 'warning' | 'blocked' | 'failed';

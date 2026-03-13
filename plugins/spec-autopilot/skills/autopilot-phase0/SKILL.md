@@ -69,6 +69,16 @@ user-invocable: false
 - change_name：此时尚未确定，显示 `pending`（Phase 1 完成后更新锁文件时回填）
 - Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
 
+### Step 4.5: 启动 GUI 服务器（v5.0）
+
+调用 `Bash("bash <plugin_dir>/scripts/start-gui-server.sh <project_root>")`：
+
+- **已存活** → 静默退出（exit 0），无输出
+- **未存活** → 后台启动 autopilot-server.ts，输出一行提示：`✨ 引擎已启动，GUI 大盘见 http://localhost:9527`
+- **启动失败** → 输出 WARN 但不阻断流程（GUI 为可选增强功能）
+
+> **零侵入保障**: 服务器以守护进程运行，日志重定向到 `/dev/null`，不干扰主线程输出。用户可手动访问 `http://localhost:9527` 查看可视化大盘。
+
 ### Step 5: 检查已启用插件
 
 读取 `.claude/settings.json` 的 `enabledPlugins` → 检查已启用插件列表
