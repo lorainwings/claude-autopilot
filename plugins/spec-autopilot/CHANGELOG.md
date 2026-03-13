@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.4] - 2026-03-13
+
+### Added
+- **全链路审计报告 (7 份)**: 稳定性/需求质量/代码生成/TDD 流程/性能评估/竞品对比/架构演进
+- **重构执行计划**: `docs/plans/execution-plan.md` — v4.1 目标 20 任务 4 批次
+- **Benchmark prompts**: `docs/beenchmark/prompt.md` + `validate.md` 审计与重构驱动 prompt
+
 ## [4.0.0] - 2026-03-12
 
 ### Added

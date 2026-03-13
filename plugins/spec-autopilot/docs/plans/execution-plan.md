@@ -1,0 +1,399 @@
+# 重构执行计划 (Execution Plan)
+
+> **生成日期**: 2026-03-13
+> **输入源**: 7 份审计报告 (47 缺陷: 4 P0 / 17 P1 / 26 P2)
+> **目标版本**: v4.1.0
+> **执行纪律**: 严格串行 — P0 全部修复 → 关键 P1 修复 → Token 优化 → 文档同步
+
+---
+
+## 执行优先级总览
+
+| 批次 | 目标 | 涉及文件 | 预计工作量 |
+|------|------|---------|-----------|
+| **Batch 1** | P0 缺陷修复 (4 个) | 4 文件 | ~10h |
+| **Batch 2** | 关键 P1 修复 (8 个) | 8 文件 | ~12h |
+| **Batch 3** | Token 优化 + 清理 | 6 文件 | ~6h |
+| **Batch 4** | 文档同步 + 版本发布 | 4 文件 | ~4h |
+
+---
+
+## Batch 1: P0 缺陷修复
+
+### Task 1.1 — `post-task-validator` 增加 TDD Metrics L2 检查 [P0-TDD-2]
+
+**问题**: `validate-json-envelope.sh` / `_post_task_validator.py` 不检查 `tdd_metrics` 字段，TDD 完整性仅靠 L3 AI Gate。
+
+**修改文件**: `scripts/_post_task_validator.py`
+
+**修改内容**:
+- 在 Phase 5 的 `phase_required` 字段列表中，增加 TDD 条件检查
+- 当检测到 TDD 模式（通过检查 `phase-4-tdd-override.json` 存在 或 config `tdd_mode: true`）时：
+  - 要求信封包含 `tdd_metrics` 字段
+  - 验证 `tdd_metrics.red_violations === 0`
+  - 验证 `tdd_metrics.cycles_completed >= 1`
+- 违反则 `decision: "block"`
+
+**验证**: 运行 `test-hooks.sh` 中的 Phase 5 信封验证相关测试
+
+---
+
+### Task 1.2 — Phase 5 并行模式增加合并后 TDD 审计 [P0-TDD-1]
+
+**问题**: 并行模式域 Agent 以 `run_in_background: true` 运行，`is_background_agent && exit 0` 跳过所有 L2 Hook。TDD Iron Law 在并行模式下形同虚设。
+
+**修改文件**: `skills/autopilot/references/phase5-implementation.md`
+
+**修改内容**:
+- 在"并行模式合并步骤"章节（域 Agent 完成 → 主线程合并 worktree 之后、全量测试之前），新增"TDD 后置审计"步骤：
+  ```
+  ### 并行 TDD 后置审计（仅 tdd_mode=true 时执行）
+
+  主线程在合并所有域 Agent 的 worktree 后，逐 task 执行：
+  1. 检查每个 task 的 checkpoint JSON 中 `tdd_cycle` 字段完整性
+  2. 验证 `tdd_metrics` 存在且 `red_violations === 0`
+  3. 如果 task checkpoint 缺少 `tdd_cycle`，标记该 task 为 `tdd_unverified`
+  4. `tdd_unverified` 的 task 数 > 0 → 警告但不阻断（v4.1 宽松策略）
+  5. 执行全量测试验证
+  ```
+
+**验证**: 文档一致性检查
+
+---
+
+### Task 1.3 — 需求模糊度检测前置步骤 [P0-REQ-1]
+
+**问题**: 模糊需求（如"优化性能"）直接进入三路调研，浪费大量 Token。
+
+**修改文件**: `skills/autopilot/references/phase1-requirements.md`
+
+**修改内容**:
+- 在 Step 1.1 之后、Step 1.2 之前，插入 Step 1.1.5:
+  ```
+  ### Step 1.1.5 需求信息量评估（主线程执行）
+
+  对 RAW_REQUIREMENT 执行规则检测：
+  - 文本长度 < 20 字符 → flag: brevity
+  - 不含技术名词（组件/API/模块/库名/框架名）→ flag: no_tech_entity
+  - 不含量化指标（数字/百分比/时间单位/容量单位）→ flag: no_metric
+  - 不含具体动词（创建/迁移/修复/集成/添加/删除/重构）→ flag: vague_action
+
+  决策：
+  - flags >= 3 → 强制进入"需求澄清预循环"：
+    AskUserQuestion 构造 3-5 个针对性问题，澄清后更新 RAW_REQUIREMENT 再继续
+  - flags >= 2 → 标记 requirement_clarity: "low"，
+    调研 Agent prompt 追加"需求模糊，优先进行范围界定而非方案探索"
+  - flags < 2 → 正常流程
+  ```
+- 同步更新 Step 编号（后续步骤 +0.5 或重新编号）
+
+**验证**: 文档一致性检查，Phase 1 流程连贯性
+
+---
+
+### Task 1.4 — Phase 5 串行模式优化提示 [P0-PERF-1]
+
+**问题**: Phase 5 串行模式占全流程 ~51% 耗时。
+
+**修改文件**: `skills/autopilot/references/phase5-implementation.md`
+
+**修改内容**:
+- 在串行模式章节增加"无依赖 task 后台并行"策略：
+  ```
+  ### 串行模式优化: 无依赖 task 后台并行
+
+  在串行模式下，如果 tasks.md 中存在无文件依赖的相邻 task（affected_files 无交集），
+  可以将它们以 `run_in_background: true` 并行执行，无需 worktree 隔离。
+
+  条件：
+  1. 两个相邻 task 的 affected_files 完全无交集
+  2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
+  3. config.allow_serial_parallel_optimization !== false
+
+  执行方式：
+  - 从 task 列表中识别无依赖的连续 task 组
+  - 同组 task 以 run_in_background: true 并行派发
+  - 等待同组所有 task 完成后继续下一组
+  ```
+
+**验证**: 文档逻辑检查
+
+---
+
+## Batch 2: 关键 P1 修复
+
+### Task 2.1 — Phase 0 增加 python3 硬前置检查 [P1-CG-2]
+
+**修改文件**: `skills/autopilot-phase0/SKILL.md`
+
+**修改内容**:
+- 在 Step 2（环境检查）中增加:
+  ```
+  ### python3 可用性检查
+  执行 `command -v python3`，如果不可用：
+  → 输出 "[FATAL] python3 is required for autopilot Hook constraint checking"
+  → 输出安装指引: "Install: brew install python3 / apt install python3"
+  → 设置 status: "blocked"，终止流程
+  ```
+
+---
+
+### Task 2.2 — `autopilot-recovery` 增加 anchor_sha 校验 [P1-S3]
+
+**修改文件**: `skills/autopilot-recovery/SKILL.md`
+
+**修改内容**:
+- 在恢复流程 Step 5（Mode 恢复）之后新增 Step 6:
+  ```
+  ### Step 6: Anchor SHA 验证
+  从锁文件读取 anchor_sha:
+  1. 空字符串 → 创建新锚定 commit (`git commit --allow-empty -m "autopilot: anchor (recovery)"`) 并更新锁文件
+  2. 非空但 `git rev-parse ${anchor_sha}^{commit}` 失败 → 同上，创建新锚定 commit
+  3. 有效 → 继续使用现有 anchor_sha
+  ```
+
+---
+
+### Task 2.3 — brownfield-validation.md 默认值描述统一 [P1-CG-3]
+
+**修改文件**: `skills/autopilot/references/brownfield-validation.md`
+
+**修改内容**:
+- 找到默认值描述（"默认 false" 或 "opt-in"）
+- 修改为: "v4.0 起默认 true（greenfield 项目由 Phase 0 自动关闭）"
+- 与 `autopilot-gate/SKILL.md` 保持一致
+
+---
+
+### Task 2.4 — minimal 模式 Phase 5→7 门禁增加 zero_skip_check [P1-S2]
+
+**修改文件**: `scripts/check-predecessor-checkpoint.sh`
+
+**修改内容**:
+- 在 minimal 模式 Phase 5→7 门禁处（`get_predecessor_phase` minimal case `7) echo 5`）
+- 增加: 读取 `phase-5-implement.json` 的 `zero_skip_check.passed` 字段
+- 如果 `passed !== true` → stderr 警告 "minimal mode: zero_skip_check not passed, tests may not have been verified"
+- 不阻断（保持 minimal 极简设计意图），但在输出中标记
+
+**同步修改**: `skills/autopilot-gate/SKILL.md`
+- 在 Phase 5→7 (minimal) 门禁说明中增加 zero_skip_check 警告逻辑
+
+---
+
+### Task 2.5 — `get_predecessor_phase` fallback 改为安全值 [P2-S4]
+
+**修改文件**: `scripts/check-predecessor-checkpoint.sh`
+
+**修改内容**:
+- 将所有模式的 `*) echo $((target - 1))` fallback 改为 `*) echo 0`
+- 这使非法阶段的前置检查必然因缺少 Phase 0 checkpoint 而失败（Phase 0 不写标准 checkpoint）
+
+---
+
+### Task 2.6 — `scan-checkpoints-on-start.sh` 模式感知 [P2-S5]
+
+**修改文件**: `scripts/scan-checkpoints-on-start.sh`
+
+**修改内容**:
+- 从锁文件读取 `mode` 字段
+- 按模式计算 suggested resume phase:
+  ```bash
+  case "$mode" in
+    lite)    phases_sequence=(1 5 6 7) ;;
+    minimal) phases_sequence=(1 5 7) ;;
+    *)       phases_sequence=(1 2 3 4 5 6 7) ;;
+  esac
+  ```
+- 使用 phases_sequence 而非线性 +1 来推荐下一个 phase
+
+---
+
+### Task 2.7 — lite 模式 Summary Box 展示跳过阶段说明 [P2-S3]
+
+**修改文件**: `skills/autopilot-phase7/SKILL.md`
+
+**修改内容**:
+- 在 Phase 7 Summary Box 渲染逻辑中增加:
+  ```
+  如果 mode !== "full":
+    在 Summary Box 顶部添加一行:
+    "Mode: {mode} (Phase {skipped_phases} skipped)"
+    例如: "Mode: lite (Phase 2/3/4 skipped)"
+  ```
+
+---
+
+### Task 2.8 — 遗留脚本添加 DEPRECATED 注释 [P2-S1]
+
+**修改文件**:
+- `scripts/validate-json-envelope.sh`
+- `scripts/anti-rationalization-check.sh`
+- `scripts/code-constraint-check.sh`
+- `scripts/validate-decision-format.sh`
+
+**修改内容**:
+- 在每个脚本的文件头部（shebang 后第一行）添加:
+  ```bash
+  # DEPRECATED: Logic merged into post-task-validator.sh / _post_task_validator.py (v4.0)
+  # This file is retained for reference only and is NOT registered in hooks.json
+  ```
+
+---
+
+## Batch 3: Token 优化 + 清理
+
+### Task 3.1 — 物理删除已合并的 Skill 文件 [P2-PERF-1]
+
+**操作**:
+- 删除 `skills/autopilot-checkpoint/` 目录（已合入 autopilot-gate）
+- 删除 `skills/autopilot-lockfile/` 目录（已合入 autopilot-phase0）
+
+**预期收益**: 清理 ~2,921 tokens 冗余，消除 Skill 索引混淆
+
+---
+
+### Task 3.2 — 合并并行参考文档 [P1-PERF-3]
+
+**操作**:
+- 将 `references/parallel-dispatch.md`（通用协议）和 `references/parallel-phase-dispatch.md`（阶段模板）合并为单一文档 `references/parallel-dispatch.md`
+- 删除 `references/parallel-phase-dispatch.md`
+- 保留所有内容但去除重叠部分，按阶段索引分节
+- 更新所有引用该文件的 SKILL.md 中的路径
+
+**预期收益**: 减少 ~3-4K tokens 冗余
+
+---
+
+### Task 3.3 — `phase1-requirements.md` 分层拆分 [P1-PERF-2]
+
+**操作**:
+- 将 `references/phase1-requirements.md`（722 行，~12,295 tokens）拆分为:
+  - `references/phase1-requirements.md` — 核心流程（Step 1.1-1.8 精简版，~3K tokens）
+  - `references/phase1-requirements-detail.md` — 详细补充（调研 Agent 模板、搜索决策规则引擎、苏格拉底模式详细步骤）
+- 核心文件始终加载，详细补充按需由子 Agent Read
+
+**预期收益**: 主线程常驻 Token 减少 ~8K
+
+---
+
+### Task 3.4 — protocol.md 补充 L2/L3 分层说明 [P2-S2]
+
+**修改文件**: `skills/autopilot/references/protocol.md`
+
+**修改内容**:
+- 在 Phase 4 特殊门禁章节添加注释:
+  ```
+  > **L2/L3 分层策略**: L2 Hook 使用宽松底线（unit_pct >= 30, e2e_pct <= 40）
+  > 确保极端倒金字塔被确定性拦截；L3 AI Gate 使用严格配置阈值（unit_pct >= 50,
+  > e2e_pct <= 20）进一步收敛。这种分层设计允许 L3 在特殊情况下酌情放宽，同时 L2
+  > 提供不可绕过的硬底线。
+  ```
+
+---
+
+## Batch 4: 文档同步 + 版本发布
+
+### Task 4.1 — 更新 README.md
+
+**修改内容**:
+- 更新版本号为 v4.1.0
+- 在功能列表中新增:
+  - TDD Metrics L2 确定性检查
+  - 需求模糊度前置检测
+  - python3 硬前置条件
+  - anchor_sha 崩溃恢复校验
+- 更新三种模式对比表（minimal 增加 zero_skip_check 警告说明）
+
+### Task 4.2 — 更新 CHANGELOG.md
+
+**修改内容**:
+```markdown
+## [4.1.0] - 2026-03-XX
+
+### Fixed (P0)
+- **TDD Metrics L2 确定性检查**: `post-task-validator.py` 新增 tdd_metrics 字段验证
+- **并行 TDD 后置审计**: 合并后逐 task 验证 TDD 循环完整性
+- **需求模糊度前置检测**: Step 1.1.5 规则引擎避免模糊需求浪费 Token
+- **Phase 5 串行优化**: 无依赖 task 后台并行策略
+
+### Fixed (P1)
+- **python3 硬前置条件**: Phase 0 环境检查阻断无 python3 环境
+- **anchor_sha 恢复校验**: recovery Skill 增加 anchor_sha 有效性验证
+- **brownfield 默认值统一**: brownfield-validation.md 与 gate SKILL.md 一致
+- **minimal zero_skip 警告**: Phase 5→7 门禁输出测试未验证警告
+
+### Changed
+- `get_predecessor_phase` fallback 改为安全值 (echo 0)
+- `scan-checkpoints-on-start.sh` 支持模式感知的 resume 建议
+- lite/minimal Summary Box 展示跳过阶段说明
+- 遗留脚本（validate-json-envelope.sh 等）标记 DEPRECATED
+
+### Removed
+- 物理删除 `autopilot-checkpoint/` Skill（已合入 gate）
+- 物理删除 `autopilot-lockfile/` Skill（已合入 phase0）
+- 合并 `parallel-phase-dispatch.md` 入 `parallel-dispatch.md`
+
+### Optimized
+- `phase1-requirements.md` 分层拆分（常驻 Token 减少 ~8K）
+- 并行参考文档合并（减少 ~3-4K tokens）
+- protocol.md 补充 L2/L3 分层策略说明
+```
+
+### Task 4.3 — 更新 plugin.json 版本号
+
+**修改文件**: `.claude-plugin/plugin.json`
+- 版本号从 `4.0.3` 更新为 `4.1.0`
+
+### Task 4.4 — 运行回归测试
+
+**操作**: `bash scripts/test-hooks.sh`
+- 验证所有 Hook 修改未引入回归
+- 特别关注 Phase 5 信封验证、predecessor checkpoint、write-edit constraint 相关测试
+
+---
+
+## 冲突项剔除记录
+
+| 建议来源 | 建议内容 | 剔除原因 |
+|---------|---------|---------|
+| TDD 审计 | 新增 `assertion-quality-check.sh` Hook | 工作量较大（8h），延至 v4.2 |
+| TDD 审计 | Phase 4 增加 Sad Path 计数字段 | 涉及信封 schema 变更，延至 v4.2 |
+| Phase 1 | 需求类型分类 Step 1.1.6 | 依赖模糊度检测先行，延至 v4.2 |
+| 性能 | Dispatch 上下文紧凑化 | 架构变更较大，延至 v5.0 |
+| 性能 | subagent_type 分级路由 | 需要 Claude Code API 支持，延至 v5.0 |
+| 竞品 | 易用性突破（quickstart skill） | 新功能开发，延至 v5.0 |
+| 竞品 | Agent Teams 适配 | 外部依赖，延至 v5.0 |
+| 架构演进 | 事件总线 + 状态存储层 | 架构革新，延至 v5.0 |
+| 架构演进 | Web Dashboard | 长期规划，延至 v6.0 |
+
+---
+
+## 执行顺序依赖图
+
+```
+Batch 1 (P0 修复):
+  Task 1.1 (TDD Metrics L2)     ─┐
+  Task 1.2 (并行 TDD 审计)       ─┤── 可并行
+  Task 1.3 (需求模糊度检测)       ─┤
+  Task 1.4 (串行模式优化)         ─┘
+
+Batch 2 (P1 修复):
+  Task 2.1 (python3 前置)        ─┐
+  Task 2.2 (anchor_sha 校验)     ─┤
+  Task 2.3 (brownfield 文档)     ─┤── 可并行
+  Task 2.4 (minimal zero_skip)   ─┤
+  Task 2.5 (fallback 安全值)     ─┤   ← Task 2.4 依赖此项
+  Task 2.6 (模式感知扫描)        ─┤
+  Task 2.7 (Summary Box)         ─┤
+  Task 2.8 (遗留脚本标记)        ─┘
+
+Batch 3 (Token 优化):
+  Task 3.1 (删除已合并 Skill)    ─┐
+  Task 3.2 (合并并行文档)        ─┤── 可并行
+  Task 3.3 (phase1-req 拆分)     ─┤
+  Task 3.4 (protocol 补充说明)   ─┘
+
+Batch 4 (文档同步):
+  Task 4.1-4.3 (README/CHANGELOG/plugin.json)  ← 依赖 Batch 1-3 全部完成
+  Task 4.4 (回归测试)                           ← 依赖 Task 4.1-4.3
+```
