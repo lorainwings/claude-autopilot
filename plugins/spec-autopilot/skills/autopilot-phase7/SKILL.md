@@ -152,10 +152,15 @@ git tag -d autopilot-phase5-start 2>/dev/null
 
 Phase 7 汇总展示时，输出 Summary Box（遵循 `autopilot/references/log-format.md`）：
 
+如果 mode !== "full"，在 Summary Box 顶部添加模式说明行：
+- lite 模式: `Mode: lite (Phase 2/3/4 skipped)`
+- minimal 模式: `Mode: minimal (Phase 2/3/4/6 skipped)`
+
 ```
 ╭──────────────────────────────────────────────────╮
 │                                                  │
 │   Autopilot Summary                              │
+│   Mode: lite (Phase 2/3/4 skipped)               │
 │                                                  │
 │   Phase 1  Requirements    ok                    │
 │   Phase 5  Implementation  ok                    │

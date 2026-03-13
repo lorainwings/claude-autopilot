@@ -176,7 +176,7 @@ Task(
 ### Worktree 隔离模板（Phase 5 实施专用 — 基础模板）
 
 > **注意**：此为通用基础模板。Phase 5 实际 dispatch 时 `subagent_type` 由域检测动态决定，
-> 详见 `parallel-phase-dispatch.md` Step 3 的 `resolve_agent(domain)`。
+> 详见本文档 Step 3 的 `resolve_agent(domain)`。
 
 ```markdown
 Task(
@@ -377,7 +377,6 @@ parallel_tasks:
 
 > **强制约束**: 当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 **必须**走并行模式。
 > **禁止**: 在并行模式下进入串行模式或调用串行 Task 派发流程。
-> **完整 dispatch 模板**: 见 `references/parallel-phase-dispatch.md` Phase 5 并行调度章节。
 
 ```yaml
 parallel_config:
@@ -463,3 +462,304 @@ tri_path_parallel:
 | Review | 每任务双阶段（spec + quality） | 每组批量 review |
 | 冲突处理 | 不涉及（串行无冲突） | 3 层冲突检测 + 自动降级 |
 | 上下文管理 | 控制器提取全文 | 控制器提取全文（借鉴） |
+
+---
+
+## 阶段调度模板（详细 Prompt 构造）
+
+> 以下为各阶段的并行 Task prompt 构造模板。
+
+### 并行调度触发条件
+
+| Phase | 并行条件 | 配置项 |
+|-------|---------|--------|
+| 1 | 始终并行（Auto-Scan + 调研 + 搜索） | `config.phases.requirements.research.enabled` |
+| 4 | `config.phases.testing.parallel.enabled = true` | 按测试类型分组 |
+| 5 | `config.phases.implementation.parallel.enabled = true` | 按文件域分组 |
+| 6 | `config.phases.reporting.parallel.enabled = true`（默认 true） | 按测试套件分组 |
+
+### Phase 1 调度模板
+
+主线程同时派发 2-3 个 Task（不含 autopilot-phase 标记，不受 Hook 校验）：
+
+```markdown
+# Task 1: Auto-Scan（general-purpose agent）
+Task(subagent_type: "general-purpose", run_in_background: true,
+  prompt: "分析项目结构，生成 Steering Documents:
+  - project-context.md（技术栈、目录结构）
+  - existing-patterns.md（现有代码模式）
+  - tech-constraints.md（技术约束）
+  输出到: openspec/changes/{change_name}/context/"
+)
+
+# Task 2: 技术调研（general-purpose agent）
+Task(subagent_type: "general-purpose", run_in_background: true,
+  prompt: "分析与需求相关的代码:
+  需求: {RAW_REQUIREMENT}
+  重点: 影响范围、依赖兼容性、技术可行性
+  输出到: openspec/changes/{change_name}/context/research-findings.md"
+)
+
+# Task 3: 联网搜索（条件派发）
+{if config.phases.requirements.web_search.enabled}
+Task(subagent_type: "general-purpose", run_in_background: true,
+  prompt: "联网搜索与需求相关的最佳实践:
+  需求: {RAW_REQUIREMENT}
+  搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
+  输出结构化结果到: openspec/changes/{change_name}/context/web-research-findings.md
+  注意: 输出到独立文件 web-research-findings.md，不要修改 research-findings.md"
+)
+{end if}
+```
+
+等待全部完成 → 主线程合并 research-findings.md 和 web-research-findings.md（如存在）的内容 → 传递给 business-analyst 分析。
+
+### Phase 4 调度模板
+
+按 `config.phases.testing.gate.required_test_types` 中的测试类型分组，每种类型派发一个子 Agent：
+
+```markdown
+{for each test_type in config.phases.testing.gate.required_test_types}
+Task(subagent_type: "{agent_for_type}", run_in_background: true,
+  prompt: "<!-- autopilot-phase:4 -->
+  你是 autopilot Phase 4 的并行测试设计子 Agent（{test_type} 专项）。
+
+  ## 需求追溯（必须遵守）
+  以下是 Phase 1 确认的需求清单，每个测试用例必须关联到至少一个需求点：
+  {phase1_requirements_summary}
+  {phase1_decisions}
+
+  ## 你的任务
+  仅创建 {test_type} 类型的测试用例（≥ {min_test_count_per_type} 个）。
+  测试套件配置: {config.test_suites[test_type]}
+
+  ## 测试追溯要求
+  每个测试用例必须包含注释，说明其追溯的需求点:
+  // Traces: REQ-1.1 用户登录功能
+
+  ## 返回要求
+  {"status": "ok|blocked", "summary": "...", "test_counts": {"{test_type}": N}, "artifacts": [...], "test_traceability": [{"test": "...", "requirement": "..."}]}
+  "
+)
+{end for}
+```
+
+主线程汇合后合并所有子 Agent 的 `test_counts`、`artifacts`、`test_traceability`，验证 test_pyramid。
+
+#### Phase 4 Dispatch 强制指令
+
+以下指令必须注入到 Phase 4 所有子 Agent prompt 中：
+
+```markdown
+## 强制要求（不可违反）
+
+你**必须**创建实际的测试文件，不允许以"后续补充"或"纯 UI 变更不需要"为由跳过。
+
+### 必须创建的测试文件
+
+根据 config.test_suites 中定义的测试套件，为每种 type 创建对应的测试文件：
+
+{for each suite in config.test_suites where suite.type in config.phases.testing.gate.required_test_types}
+- **{suite_name}**（≥{config.phases.testing.gate.min_test_count_per_type} 个用例）
+  - 命令: `{suite.command}`
+  - 目录: {从 config.project_context.project_structure.test_dirs 获取}
+{end for}
+
+### 测试凭据（从 config 自动注入，禁止使用假数据）
+{自动从 config.project_context.test_credentials 注入}
+
+### Playwright 登录流程（从 config 自动注入）
+{自动从 config.project_context.playwright_login 注入}
+
+### 测试计划文档（必须创建）
+
+在 `openspec/changes/{change_name}/context/test-plan.md` 中记录：
+- 测试策略概述
+- 各类型用例数量统计
+- 每个测试文件路径和覆盖范围
+
+### Dry-run 语法验证（必须执行）
+
+创建测试文件后必须执行语法检查：
+{for each suite in config.test_suites}
+- {suite_name}: 对应的 dry-run 命令
+{end for}
+
+### 返回要求
+
+status 只允许 "ok" 或 "blocked"：
+- 所有测试文件创建成功 + dry-run 通过 → `"status": "ok"`
+- 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
+- **禁止返回 "warning"**：Phase 4 不接受降级通过
+
+### 变更聚焦专项测试（v3.2.5 新增）
+
+测试用例**必须聚焦本次变更点**，不允许只生成泛化测试。
+
+1. 从 tasks.md 或 phase-1-requirements.json 提取本次变更涉及的具体代码单元
+2. 每个变更点至少 1 个专项测试用例
+3. 返回信封中必须包含 `change_coverage` 字段
+
+### 测试金字塔比例约束
+
+测试用例分布必须符合金字塔模型（从 `config.test_pyramid` 读取阈值）。
+返回信封中必须包含 `test_pyramid` 字段。
+```
+
+### Phase 5 调度模板
+
+> **触发条件**: `config.phases.implementation.parallel.enabled = true`
+> **强制约束**: 进入并行模式后，禁止进入串行模式
+
+#### Step 1: 任务清单解析
+
+```
+主线程读取任务清单:
+- full 模式: openspec/changes/{change_name}/tasks.md
+- lite/minimal 模式: openspec/changes/{change_name}/context/phase5-task-breakdown.md
+
+解析每个 task 的 affected_files 和 depends_on
+主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
+```
+
+#### Step 2: 文件所有权分区（v3.4.0: 三步域检测）
+
+```python
+# Step A: 最长前缀匹配
+domain_prefixes = config...domain_agents.keys()
+domain_tasks, unmatched = {}, []
+for task in all_tasks:
+    domains = {longest_prefix(f, domain_prefixes) for f in task.affected_files}
+    if len(domains) == 1 and None not in domains:
+        domain_tasks[domains.pop()].append(task)
+    else:
+        unmatched.append(task)
+
+# Step B: auto 发现（祖先冲突检测）
+cross_cutting = []
+for task in unmatched:
+    top = common_top_dir(task.affected_files)
+    if top and no_child_prefix(top, domain_prefixes):
+        domain_tasks[top].append(task)
+    else:
+        cross_cutting.append(task)
+
+# Step C: 溢出合并（同 Agent 域合并）
+if len(domain_tasks) > max_agents:
+    domain_tasks = coalesce_same_agent_domains(domain_tasks, max_agents)
+
+写入: phase5-ownership/{domain_name}.json
+```
+
+#### Step 3: 域级并行 Task 派发（v3.4.0 — 单 Agent 模式）
+
+> **HARD CONSTRAINT**: 每个域严格 1 个 Agent，禁止同一域内派发多个 Agent。
+
+```markdown
+{for each non_empty_domain in domain_tasks.keys()}
+Task(
+  subagent_type: "{resolve_agent(domain)}",
+  isolation: "worktree",
+  run_in_background: true,
+  prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 的 {domain} 域实施 Agent。
+
+## 你的任务（批量执行，按编号顺序）
+{for each task in domain_tasks}
+### Task #{task_number}: {task_title}
+{task_full_text}
+---
+{end for}
+
+## 文件所有权约束（ENFORCED）
+你被分配以下文件的独占所有权：
+{domain_all_owned_files}
+禁止修改此列表之外的任何文件。
+
+## 返回要求
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"tasks_completed\": [1,2,3], \"test_result\": \"N/M passed\"}
+"
+)
+{end for}
+```
+
+#### Step 4-6: 合并 + Review + 全量测试
+
+```
+按域顺序合并 worktree → quick_check → 批量 review → cross_cutting 串行 → full_test
+```
+
+### Phase 6 调度模板
+
+按 `config.test_suites` 中的套件分组，每个套件派发一个子 Agent 并行执行：
+
+```markdown
+{for each suite in config.test_suites}
+Task(subagent_type: "qa-expert", run_in_background: true,
+  prompt: "<!-- autopilot-phase:6 -->
+  你是 autopilot Phase 6 的并行测试执行子 Agent（{suite_name} 专项）。
+
+  ## 你的任务
+  执行以下测试套件并收集结果:
+  - 命令: `{suite.command}`
+  - 类型: {suite.type}
+
+  ## 返回要求
+  {"status": "ok|warning|failed", "summary": "...", "pass_rate": N, "total": N, "passed": N, "failed": N, "skipped": N, "artifacts": [...]}
+  "
+)
+{end for}
+```
+
+主线程汇合后合并所有套件测试结果。
+
+## 代码生成约束增强（v3.2.0 新增）
+
+### 新增配置项
+
+```yaml
+code_constraints:
+  forbidden_files: [...]
+  forbidden_patterns: [...]
+  allowed_dirs: [...]
+  max_file_lines: 800
+  required_patterns:
+    - pattern: "createWebHashHistory"
+      context: "Vue Router 配置文件"
+      message: "Must use Hash mode routing"
+  style_guide: "rules/frontend/README.md"
+```
+
+### Phase 5 prompt 增强注入
+
+```markdown
+## 代码约束（ENFORCED — Hook 确定性拦截）
+
+### 禁止项
+{for each p in config.code_constraints.forbidden_patterns}
+- ❌ `{p.pattern}` → {p.message}
+{end for}
+
+### 必须使用
+{for each p in config.code_constraints.required_patterns}
+- ✅ `{p.pattern}` — {p.message}（在 {p.context} 中必须出现）
+{end for}
+```
+
+## 需求理解增强（v3.2.0 新增）
+
+### 复杂度自适应调研深度
+
+| 复杂度 | Auto-Scan | 技术调研 | 联网搜索 | 竞品分析 |
+|--------|-----------|---------|---------|---------|
+| small | ✅ | ❌ | ❌ | ❌ |
+| medium | ✅ | ✅（并行） | ❌ | ❌ |
+| large | ✅ | ✅（并行） | ✅（并行） | ✅（并行） |
+
+### 主动决策增强
+
+所有复杂度级别均展示决策卡片（v3.2.0 取消 small 豁免）。
+
+`config.phases.requirements.decision_mode`:
+- `proactive`（默认）: AI 主动识别决策点并展示
+- `reactive`: 仅在用户提问时展示

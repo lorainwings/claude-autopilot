@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# DEPRECATED: Logic merged into post-task-validator.sh / _post_task_validator.py (v4.0)
+# This file is retained for reference only and is NOT registered in hooks.json
 # validate-decision-format.sh
 # Hook: PostToolUse(Task) — Phase 1 决策格式验证
 # Purpose: Validate that Phase 1 JSON envelope contains properly structured

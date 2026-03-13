@@ -1245,12 +1245,12 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 30b. parallel-phase-dispatch.md exists
-if [ -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-phase-dispatch.md" ]; then
-  green "  PASS: parallel-phase-dispatch.md exists"
+# 30b. parallel-dispatch.md exists (merged file)
+if [ -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md" ]; then
+  green "  PASS: parallel-dispatch.md exists (merged)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: parallel-phase-dispatch.md not found"
+  red "  FAIL: parallel-dispatch.md not found"
   FAIL=$((FAIL + 1))
 fi
 
@@ -1788,7 +1788,6 @@ CORE_FILES=(
   "$SCRIPT_DIR/../skills/autopilot-dispatch/SKILL.md"
   "$SCRIPT_DIR/../skills/autopilot/references/phase5-implementation.md"
   "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md"
-  "$SCRIPT_DIR/../skills/autopilot/references/parallel-phase-dispatch.md"
   "$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
 )
 ralph_found=false
@@ -2510,22 +2509,21 @@ echo ""
 echo "--- 50. SKILL.md lockfile path uses absolute path (v3.3.4 regression) ---"
 
 SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
-LOCKFILE_FILE="$SCRIPT_DIR/../skills/autopilot-lockfile/SKILL.md"
+PHASE0_FILE="$SCRIPT_DIR/../skills/autopilot-phase0/SKILL.md"
 RECOVERY_FILE="$SCRIPT_DIR/../skills/autopilot-recovery/SKILL.md"
 GATE_FILE="$SCRIPT_DIR/../skills/autopilot-gate/SKILL.md"
 
-# 50a: Lockfile skill must contain ${session_cwd} absolute path (v3.5.0: moved from main SKILL to lockfile skill)
-lockfile_path_line=$(grep 'openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1 || true)
+# 50a: Phase0 skill (formerly lockfile) must contain ${session_cwd} absolute path
+lockfile_path_line=$(grep 'openspec/changes/\.autopilot-active' "$PHASE0_FILE" | head -1 || true)
 assert_contains "50a: Step 7 lock write uses absolute path" "$lockfile_path_line" '\${session_cwd}'
 
-# 50b: Lockfile skill must document the absolute path (v3.5.0: path is in 锁文件路径 section)
-lockfile_path_section=$(grep '\${session_cwd}/openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1 || true)
+# 50b: Phase0 skill must document the absolute path
+lockfile_path_section=$(grep '\${session_cwd}/openspec/changes/\.autopilot-active' "$PHASE0_FILE" | head -1 || true)
 assert_contains "50b: Step 7 has relative path prohibition" "$lockfile_path_section" '\${session_cwd}'
 
 # 50c: No bare relative path 'openspec/changes/.autopilot-active' without ${session_cwd} prefix
-#      Check lockfile skill (v3.5.0: lockfile management moved to dedicated skill)
-bare_relative_count=$(grep -c 'openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1)
-prefixed_count=$(grep -c '\${session_cwd}/openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1)
+bare_relative_count=$(grep -c 'openspec/changes/\.autopilot-active' "$PHASE0_FILE" | head -1)
+prefixed_count=$(grep -c '\${session_cwd}/openspec/changes/\.autopilot-active' "$PHASE0_FILE" | head -1)
 if [ "$bare_relative_count" -eq "$prefixed_count" ]; then
   green "  PASS: 50c: all .autopilot-active refs have \${session_cwd} prefix ($prefixed_count/$bare_relative_count)"
   PASS=$((PASS + 1))
@@ -2602,6 +2600,7 @@ echo "--- 52. Search policy rule engine and SKILL.md assertions (v3.3.7) ---"
 
 SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
 P1_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase1-requirements.md"
+P1_DETAIL_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase1-requirements-detail.md"
 PD_FILE="$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md"
 CS_FILE="$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
 
@@ -2615,17 +2614,17 @@ assert_contains "52b: SKILL.md default is search" "$skill_default" 'search_polic
 skill_rules=$(grep '规则引擎执行' "$SKILL_FILE" || true)
 assert_contains "52c: SKILL.md mentions rule engine (non-AI)" "$skill_rules" '规则引擎'
 
-# --- 52d-g: phase1-requirements.md assertions ---
-p1_default=$(grep 'default: search' "$P1_FILE" || true)
+# --- 52d-g: phase1-requirements.md or phase1-requirements-detail.md assertions ---
+p1_default=$(grep 'default: search' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52d: P1 search_policy default is search" "$p1_default" 'default: search'
 
-p1_skip=$(grep 'skip_when_ALL_true' "$P1_FILE" || true)
+p1_skip=$(grep 'skip_when_ALL_true' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52e: P1 has skip_when_ALL_true rule" "$p1_skip" 'skip_when_ALL_true'
 
-p1_force=$(grep 'force_search_when_ANY_true' "$P1_FILE" || true)
+p1_force=$(grep 'force_search_when_ANY_true' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52f: P1 has force_search_when_ANY_true rule" "$p1_force" 'force_search_when_ANY_true'
 
-p1_no_ai=$(grep '非 AI 自评' "$P1_FILE" || true)
+p1_no_ai=$(grep '非 AI 自评' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52g: P1 explicitly states non-AI assessment" "$p1_no_ai" '非 AI 自评'
 
 # --- 52h: competitive analysis in focus_areas ---
@@ -2705,11 +2704,11 @@ r=$(evaluate_search_policy "重构认证模块迁移 OAuth2")
 assert_contains "52w: 重构+迁移 (force > skip) → search" "$r" "search"
 
 # --- 52x: trust mechanism assertions ---
-p1_trust=$(grep '以项目规范为准' "$P1_FILE" || true)
+p1_trust=$(grep '以项目规范为准' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52x: P1 has trust mechanism (project rules priority)" "$p1_trust" '以项目规范为准'
 
 # --- 52y: search_decision field in envelope ---
-p1_envelope=$(grep 'search_decision' "$P1_FILE" || true)
+p1_envelope=$(grep 'search_decision' "$P1_FILE" "$P1_DETAIL_FILE" 2>/dev/null || true)
 assert_contains "52y: P1 envelope has search_decision field" "$p1_envelope" 'search_decision'
 
 echo ""

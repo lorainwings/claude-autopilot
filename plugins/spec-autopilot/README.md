@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-4.0.4-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -17,6 +17,10 @@
 - **Context Compaction Resilience**: State persistence across Claude Code context compression
 - **Anti-Rationalization**: Pattern detection to prevent sub-agents from skipping work
 - **Test Pyramid Enforcement**: Hook-level validation of test distribution
+- **TDD Metrics L2 Check**: Deterministic TDD cycle validation in post-task-validator
+- **Requirement Fuzziness Detection**: Pre-filter vague requirements before costly research
+- **python3 Hard Prerequisite**: Phase 0 blocks on missing python3 with install guidance
+- **Anchor SHA Recovery Validation**: Recovery protocol verifies anchor commit integrity
 - **Metrics Collection**: Per-phase timing and retry tracking
 - **Socratic Requirements Mode**: Deep requirements analysis through challenging questions
 
@@ -219,9 +223,10 @@ test_suites:
 | `autopilot` | Yes | Main 8-phase orchestrator (runs in main thread) |
 | `autopilot-init` | Yes | Auto-detect tech stack, generate config |
 | `autopilot-dispatch` | No | Sub-Agent dispatch with JSON envelope contract |
-| `autopilot-gate` | No | 8-step checklist + special gates + semantic/brownfield validation |
-| `autopilot-checkpoint` | No | Checkpoint read/write + task-level checkpoints |
-| `autopilot-recovery` | No | Crash recovery via checkpoint scanning |
+| `autopilot-gate` | No | 8-step checklist + special gates + semantic/brownfield validation + checkpoint management |
+| `autopilot-recovery` | No | Crash recovery via checkpoint scanning + anchor_sha validation |
+| `autopilot-phase0` | No | Environment check + lockfile management |
+| `autopilot-phase7` | No | Summary display + archive + git autosquash |
 
 ### Hook Scripts
 

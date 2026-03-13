@@ -132,6 +132,11 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 - `artifacts` 非空
 - `dry_run_results` 全部为 0
 
+> **L2/L3 分层策略**: L2 Hook 使用宽松底线（unit_pct >= 30, e2e_pct <= 40）
+> 确保极端倒金字塔被确定性拦截；L3 AI Gate 使用严格配置阈值（unit_pct >= 50,
+> e2e_pct <= 20）进一步收敛。这种分层设计允许 L3 在特殊情况下酌情放宽，同时 L2
+> 提供不可绕过的硬底线。
+
 ### Phase 5 → Phase 6
 
 - `test-results.json` 存在

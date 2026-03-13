@@ -287,6 +287,21 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 > 如果 `parallel.enabled = true`，必须执行上方「并行执行模式」章节，**禁止进入本节**。
 > 如果从路径 A 降级到串行模式，本节作为降级后的执行路径。
 
+### 串行模式优化: 无依赖 task 后台并行
+
+在串行模式下，如果 tasks.md 中存在无文件依赖的相邻 task（affected_files 无交集），
+可以将它们以 `run_in_background: true` 并行执行，无需 worktree 隔离。
+
+条件：
+1. 两个相邻 task 的 affected_files 完全无交集
+2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
+3. config.allow_serial_parallel_optimization !== false
+
+执行方式：
+- 从 task 列表中识别无依赖的连续 task 组
+- 同组 task 以 run_in_background: true 并行派发
+- 等待同组所有 task 完成后继续下一组
+
 ### 前台 Task 逐个派发（串行模式）
 
 主线程通过**前台 Task**（同步阻塞）逐个派发每个 task 给子 Agent 执行。子 Agent 的内部工具调用（Read/Write/Edit/Bash 等）不会灌入主线程上下文，实现上下文隔离。
@@ -460,6 +475,15 @@ TDD 模式将 Phase 4（测试设计）的职责吸收到 Phase 5，对每个 ta
 
 域 Agent prompt 注入完整 TDD 纪律文档，Agent 内部自主执行 RED-GREEN-REFACTOR。
 主线程在合并后验证 `tdd_cycles` 完整性。
+
+### 并行 TDD 后置审计（仅 tdd_mode=true 时执行）
+
+主线程在合并所有域 Agent 的 worktree 后，逐 task 执行：
+1. 检查每个 task 的 checkpoint JSON 中 `tdd_cycle` 字段完整性
+2. 验证 `tdd_metrics` 存在且 `red_violations === 0`
+3. 如果 task checkpoint 缺少 `tdd_cycle`，标记该 task 为 `tdd_unverified`
+4. `tdd_unverified` 的 task 数 > 0 → 警告但不阻断（v4.1 宽松策略）
+5. 执行全量测试验证
 
 ### TDD Task Checkpoint 格式
 

@@ -1,6 +1,6 @@
 # Brownfield 验证协议（存量代码漂移检测）
 
-> 由 autopilot-gate SKILL.md 引用。通过 `config.brownfield_validation.enabled` 控制（默认 `false`，opt-in）。
+> 由 autopilot-gate SKILL.md 引用。通过 `config.brownfield_validation.enabled` 控制（v4.0 起默认 `true`，greenfield 项目由 Phase 0 自动关闭）。
 
 在存量项目中，新功能开发可能与现有代码产生漂移。本协议检测设计-测试-实现三者之间的一致性。
 
@@ -60,7 +60,7 @@
 
 ```yaml
 brownfield_validation:
-  enabled: false              # 默认关闭，存量项目手动开启
+  enabled: true               # v4.0 起默认 true，greenfield 项目由 Phase 0 自动关闭
   strict_mode: false          # true: 不一致直接 block; false: 仅 warning
   ignore_patterns:            # 忽略的文件模式
     - "*.test.*"

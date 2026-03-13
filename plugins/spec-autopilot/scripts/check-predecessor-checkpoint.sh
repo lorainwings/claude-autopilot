@@ -225,14 +225,16 @@ get_predecessor_phase() {
         5) echo 1 ;;
         6) echo 5 ;;
         7) echo 6 ;;
-        *) echo $((target - 1)) ;;
+        *) echo 0 ;;
       esac
       ;;
     minimal)
       case "$target" in
         5) echo 1 ;;
-        7) echo 5 ;;
-        *) echo $((target - 1)) ;;
+        7)
+          echo 5
+          ;;
+        *) echo 0 ;;
       esac
       ;;
     *)  # full
@@ -240,8 +242,10 @@ get_predecessor_phase() {
       if [ "$(_get_tdd_mode)" = "true" ] && [ "$target" -eq 5 ]; then
         # TDD mode: Phase 5 depends on Phase 3 (Phase 4 skipped)
         echo 3
-      else
+      elif [ "$target" -ge 2 ] && [ "$target" -le 7 ]; then
         echo $((target - 1))
+      else
+        echo 0
       fi
       ;;
   esac
@@ -375,6 +379,27 @@ except Exception:
     unchecked=$(grep -c '\- \[ \]' "$actual_tasks_file" 2>/dev/null || echo "0")
     if [ "$unchecked" -gt 0 ]; then
       deny "$(basename "$actual_tasks_file") has $unchecked incomplete tasks. All must be [x] before Phase 6."
+    fi
+  fi
+fi
+
+# Special gate: Phase 7 in minimal mode — zero_skip_check warning (non-blocking)
+if [ "$TARGET_PHASE" -eq 7 ] && [ "$EXEC_MODE" = "minimal" ]; then
+  phase5_file=$(find_checkpoint "$phase_results_dir" 5)
+  if [ -n "$phase5_file" ] && [ -f "$phase5_file" ]; then
+    zero_skip_passed=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    zsc = data.get('zero_skip_check', {})
+    print('true' if zsc.get('passed', False) else 'false')
+except Exception:
+    print('false')
+" "$phase5_file" 2>/dev/null || echo "false")
+
+    if [ "$zero_skip_passed" != "true" ]; then
+      echo "WARNING: minimal mode: zero_skip_check not passed, tests may not have been verified" >&2
     fi
   fi
 fi

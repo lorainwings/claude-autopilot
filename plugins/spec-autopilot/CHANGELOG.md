@@ -1,5 +1,35 @@
 # Changelog
 
+## [4.1.0] - 2026-03-13
+
+### Fixed (P0)
+- **TDD Metrics L2 确定性检查**: `post-task-validator.py` 新增 tdd_metrics 字段验证（red_violations === 0, cycles_completed >= 1）
+- **并行 TDD 后置审计**: 合并后逐 task 验证 TDD 循环完整性
+- **需求模糊度前置检测**: Step 1.1.5 规则引擎避免模糊需求浪费 Token
+- **Phase 5 串行优化**: 无依赖 task 后台并行策略
+
+### Fixed (P1)
+- **python3 硬前置条件**: Phase 0 环境检查阻断无 python3 环境
+- **anchor_sha 恢复校验**: recovery Skill 增加 anchor_sha 有效性验证
+- **brownfield 默认值统一**: brownfield-validation.md 与 gate SKILL.md 一致（v4.0 起默认 true）
+- **minimal zero_skip 警告**: Phase 5→7 门禁输出测试未验证警告
+
+### Changed
+- `get_predecessor_phase` fallback 改为安全值 (echo 0)
+- `scan-checkpoints-on-start.sh` 支持模式感知的 resume 建议
+- lite/minimal Summary Box 展示跳过阶段说明
+- 遗留脚本（validate-json-envelope.sh 等）标记 DEPRECATED
+- `protocol.md` 补充 L2/L3 分层策略说明
+
+### Removed
+- 物理删除 `autopilot-checkpoint/` Skill（已合入 gate）
+- 物理删除 `autopilot-lockfile/` Skill（已合入 phase0）
+- 合并 `parallel-phase-dispatch.md` 入 `parallel-dispatch.md`
+
+### Optimized
+- `phase1-requirements.md` 分层拆分（常驻 Token 减少 ~8K）
+- 并行参考文档合并（减少 ~3-4K tokens）
+
 ## [4.0.4] - 2026-03-13
 
 ### Added

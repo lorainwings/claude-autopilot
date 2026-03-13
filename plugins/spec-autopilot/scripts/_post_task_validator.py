@@ -129,6 +129,46 @@ if phase_num == 5 and envelope.get("status") == "ok":
             f'(got: {zsc.get("passed", "missing")}). All tests must pass with zero skips before proceeding.'
         )
 
+# Phase 5: TDD Metrics L2 check (when TDD mode is active)
+if phase_num == 5:
+    _root5 = _ep.find_project_root(data)
+    _tdd_mode = False
+    # Detect TDD mode via config
+    _tdd_cfg = _ep.read_config_value(_root5, "tdd_mode", False)
+    if str(_tdd_cfg).lower() in ("true", "1", "yes"):
+        _tdd_mode = True
+    # Detect TDD mode via phase-4-tdd-override.json existence
+    if not _tdd_mode:
+        _change_dir = os.path.join(_root5, "openspec", "changes")
+        if os.path.isdir(_change_dir):
+            for _cname in os.listdir(_change_dir):
+                _tdd_override = os.path.join(
+                    _change_dir, _cname, "context", "phase-results", "phase-4-tdd-override.json"
+                )
+                if os.path.isfile(_tdd_override):
+                    _tdd_mode = True
+                    break
+    if _tdd_mode:
+        tdd_metrics = envelope.get("tdd_metrics")
+        if tdd_metrics is None:
+            output_block(
+                "Phase 5 TDD mode is active but envelope missing required field: tdd_metrics. "
+                "The sub-agent must include tdd_metrics with red_violations and cycles_completed."
+            )
+        elif isinstance(tdd_metrics, dict):
+            red_violations = tdd_metrics.get("red_violations")
+            if red_violations is not None and red_violations != 0:
+                output_block(
+                    f"Phase 5 TDD red_violations={red_violations} (must be 0). "
+                    "All RED phase tests must fail before GREEN implementation. Fix TDD discipline violations."
+                )
+            cycles_completed = tdd_metrics.get("cycles_completed", 0)
+            if not isinstance(cycles_completed, (int, float)) or cycles_completed < 1:
+                output_block(
+                    f"Phase 5 TDD cycles_completed={cycles_completed} (must be >= 1). "
+                    "At least one complete RED-GREEN-REFACTOR cycle is required."
+                )
+
 if phase_num in phase_recommended:
     missing_rec = [f for f in phase_recommended[phase_num] if f not in envelope]
     if missing_rec:

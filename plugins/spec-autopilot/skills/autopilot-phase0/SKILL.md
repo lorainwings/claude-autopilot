@@ -33,6 +33,13 @@ user-invocable: false
 - **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
 - **存在** → 直接读取并解析所有配置节，然后调用 `bash scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
 
+### Step 2.5: python3 可用性检查
+
+执行 `command -v python3`，如果不可用：
+→ 输出 "[FATAL] python3 is required for autopilot Hook constraint checking"
+→ 输出安装指引: "Install: brew install python3 / apt install python3"
+→ 设置 status: "blocked"，终止流程
+
 ### Step 3: 解析执行模式
 
 ```
