@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED: Core logic merged into post-task-validator.sh / _post_task_validator.py (v4.0). This file is retained for reference only and is NOT registered in hooks.json.
 # validate-json-envelope.sh
 # Hook: PostToolUse(Task)
 # Purpose: After a sub-Agent completes, validate its output contains a valid

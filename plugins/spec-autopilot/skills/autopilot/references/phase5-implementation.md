@@ -223,6 +223,18 @@ cross_cutting 串行执行
    e. 删除临时分支: git branch -d autopilot-{domain}
 ```
 
+### 并行 TDD 后置审计（仅 tdd_mode=true 时执行）
+
+主线程在合并所有域 Agent 的 worktree 后，逐 task 执行：
+1. 检查每个 task 的 checkpoint JSON（`phase5-tasks/task-N.json`）中 `tdd_cycle` 字段完整性
+2. 验证 `tdd_metrics` 存在且 `red_violations === 0`
+3. 如果 task checkpoint 缺少 `tdd_cycle`，标记该 task 为 `tdd_unverified`
+4. `tdd_unverified` 的 task 数 > 0 → 警告（stderr 输出），但不阻断（v4.1 宽松策略）
+5. 全量测试验证通过后继续
+
+> **设计意图**: 并行模式下域 Agent 以 `run_in_background: true` 运行，L2 Hook 被跳过。
+> 此后置审计作为补偿机制，在合并后验证 TDD 循环完整性。未来版本可升级为阻断策略。
+
 ### 并行 Checkpoint 管理（v2.4.0 细化）
 
 - 每个 task 合并成功后，由**主线程**（非子 Agent）写入 `phase5-tasks/task-N.json`
@@ -377,6 +389,23 @@ Phase 5 启动时（含压缩后恢复），扫描 `phase5-tasks/` 目录：
 2. 找到最后一个 `status: "ok"` 或 `status: "warning"` 的 task
 3. 从下一个 task 继续执行
 4. 如果没有 task checkpoint → 从 task 1 开始
+
+### 串行模式优化：无依赖 task 后台并行（v4.1）
+
+在串行模式下，如果 tasks 中存在无文件依赖的相邻 task（affected_files 无交集），可以将它们以 `run_in_background: true` 并行执行，无需 worktree 隔离。
+
+**启用条件**（全部满足才启用）：
+1. 两个相邻 task 的 affected_files 完全无交集
+2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
+3. `config.serial_task.allow_background_parallel !== false`（默认 true）
+
+**执行方式**：
+- 从 task 列表中识别无依赖的连续 task 组（使用 affected_files 交集检测）
+- 同组 task 以 `run_in_background: true` 并行派发
+- 等待同组所有 task 完成后，按顺序合并结果，继续下一组
+- 如果任何 task 失败，回退到纯串行模式继续剩余 task
+
+> **预期收益**: Phase 5 串行耗时减少 30-50%（取决于 task 间依赖度）
 
 ## Phase 5→6 特殊门禁
 

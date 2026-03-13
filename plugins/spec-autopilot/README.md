@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-4.0.4-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.0.5-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -13,10 +13,12 @@
 
 - **8-Phase Pipeline**: Requirements → OpenSpec → FF Generate → Test Design → Implementation → Test Report → Archive
 - **3-Layer Gate System**: TaskCreate dependencies + Hook checkpoint validation + AI checklist verification
-- **Crash Recovery**: Automatic checkpoint scanning and session resume
+- **Crash Recovery**: Automatic checkpoint scanning and session resume (with anchor_sha validation)
 - **Context Compaction Resilience**: State persistence across Claude Code context compression
 - **Anti-Rationalization**: Pattern detection to prevent sub-agents from skipping work
-- **Test Pyramid Enforcement**: Hook-level validation of test distribution
+- **Test Pyramid Enforcement**: Hook-level validation of test distribution (L2/L3 layered thresholds)
+- **TDD Deterministic Cycle**: RED-GREEN-REFACTOR with L2 `tdd_metrics` validation (v4.1)
+- **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
 - **Metrics Collection**: Per-phase timing and retry tracking
 - **Socratic Requirements Mode**: Deep requirements analysis through challenging questions
 
@@ -219,18 +221,19 @@ test_suites:
 | `autopilot` | Yes | Main 8-phase orchestrator (runs in main thread) |
 | `autopilot-init` | Yes | Auto-detect tech stack, generate config |
 | `autopilot-dispatch` | No | Sub-Agent dispatch with JSON envelope contract |
-| `autopilot-gate` | No | 8-step checklist + special gates + semantic/brownfield validation |
-| `autopilot-checkpoint` | No | Checkpoint read/write + task-level checkpoints |
-| `autopilot-recovery` | No | Crash recovery via checkpoint scanning |
+| `autopilot-gate` | No | 8-step checklist + special gates + checkpoint R/W + semantic/brownfield validation |
+| `autopilot-phase0` | No | Environment check + config loading + crash recovery + lock file |
+| `autopilot-phase7` | No | Summary display + archive + git autosquash + mode-aware Summary Box |
+| `autopilot-recovery` | No | Crash recovery via checkpoint scanning + anchor_sha validation |
 
 ### Hook Scripts
 
 | Script | Event | Purpose |
 |--------|-------|---------|
-| `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint + wall-clock timeout |
-| `validate-json-envelope.sh` | PostToolUse(Task) | Validate JSON envelope + test pyramid floors |
-| `anti-rationalization-check.sh` | PostToolUse(Task) | Detect rationalization/skip patterns |
-| `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints |
+| `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint + wall-clock timeout + mode-aware gates |
+| `post-task-validator.sh` | PostToolUse(Task) | Unified 5-in-1 validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics |
+| `write-edit-constraint-check.sh` | PostToolUse(Write/Edit) | File-level code constraint checking during Phase 5 |
+| `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints (mode-aware resume suggestion) |
 | `save-state-before-compact.sh` | PreCompact | Persist orchestration state |
 | `reinject-state-after-compact.sh` | SessionStart(compact) | Restore state after compression |
 

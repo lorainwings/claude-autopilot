@@ -218,7 +218,7 @@ dispatch 主线程在构造 prompt 时执行变量替换：
 
 Phase 4 子 Agent prompt 构造详见以下参考文件（dispatch 时读取并注入）：
 - 内置模板：`autopilot/templates/phase4-testing.md`（测试标准 + dry-run + 金字塔）
-- 并行 dispatch：`autopilot/references/parallel-phase-dispatch.md` Phase 4 节
+- 并行 dispatch：`autopilot/references/parallel-dispatch.md` Phase 4 节
 
 **关键约束摘要**（完整指令在参考文件中）：
 - 必须创建实际测试文件，禁止以任何理由跳过
@@ -236,7 +236,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 
 - **路径 A: 并行模式**（当 `parallel.enabled = true` 时，**优先执行**）：
   - **禁止进入路径 B 或使用串行 Task 派发流程**
-  - 执行前读取: `references/parallel-phase-dispatch.md` Phase 5 并行调度（完整 dispatch 模板）
+  - 执行前读取: `references/parallel-dispatch.md` Phase 5 并行调度（完整 dispatch 模板）
   - 主线程解析任务清单 -> 按 config.domain_agents 路径前缀分域 -> 生成 owned_files -> 并行派发 Task(isolation: "worktree", run_in_background: true)
   - 最大并行数 = config.phases.implementation.parallel.max_agents（默认 8）
   - 每组完成后: 按 task 编号合并 worktree -> 快速验证 -> 批量 review -> checkpoint
@@ -274,7 +274,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 - 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）
 - 可选覆盖：config.phases.implementation.instruction_files（非空时注入）
 
-  Phase 5 并行 Task prompt 完整模板详见 `references/parallel-phase-dispatch.md` Phase 5 并行调度 Step 3。
+  Phase 5 并行 Task prompt 完整模板详见 `references/parallel-dispatch.md` Phase 5 并行调度 Step 3。
 
 - **Worktree 隔离模式**（当 config.phases.implementation.worktree.enabled = true）：
   - 主线程按 task 粒度逐个派发，每个 task 使用 `Task(isolation: "worktree")`
@@ -310,9 +310,9 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 
 ## 并行调度协议（v3.2.0 新增）
 
-**执行前读取**: `autopilot/references/parallel-phase-dispatch.md`（完整的 Phase 1/4/5/6 并行 Task prompt 模板）
+**执行前读取**: `autopilot/references/parallel-dispatch.md`（通用协议 + Phase 1/4/5/6 并行 Task prompt 模板，v4.1 已合并）
 
-概要：当阶段支持并行执行时，dispatch 按 `references/parallel-dispatch.md` 通用协议 + `references/parallel-phase-dispatch.md` 阶段模板构造并行 Task prompt。
+概要：当阶段支持并行执行时，dispatch 按 `references/parallel-dispatch.md`（通用协议 + 阶段模板）构造并行 Task prompt。
 
 | Phase | 并行条件 | 配置项 |
 |-------|---------|--------|

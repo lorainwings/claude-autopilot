@@ -129,6 +129,22 @@ if phase_num == 5 and envelope.get("status") == "ok":
             f'(got: {zsc.get("passed", "missing")}). All tests must pass with zero skips before proceeding.'
         )
 
+    # TDD Metrics L2 check (only when tdd_metrics present, i.e. TDD mode)
+    tdd_metrics = envelope.get("tdd_metrics")
+    if tdd_metrics is not None:
+        red_violations = tdd_metrics.get("red_violations", -1)
+        if red_violations != 0:
+            output_block(
+                f'Phase 5 TDD metrics check failed: red_violations={red_violations} (expected 0). '
+                'All TDD RED phases must have verified failing tests before GREEN implementation.'
+            )
+        cycles_completed = tdd_metrics.get("cycles_completed", 0)
+        if cycles_completed < 1:
+            output_block(
+                f'Phase 5 TDD metrics check failed: cycles_completed={cycles_completed} (expected >= 1). '
+                'At least one complete RED-GREEN-REFACTOR cycle must be recorded.'
+            )
+
 if phase_num in phase_recommended:
     missing_rec = [f for f in phase_recommended[phase_num] if f not in envelope]
     if missing_rec:

@@ -1,5 +1,36 @@
 # Changelog
 
+## [4.1.0] - 2026-03-13
+
+### Fixed (P0)
+- **TDD Metrics L2 确定性检查**: `_post_task_validator.py` 新增 `tdd_metrics` 字段验证（`red_violations === 0`, `cycles_completed >= 1`）
+- **并行 TDD 后置审计**: Phase 5 并行模式合并后逐 task 验证 TDD 循环完整性
+- **需求模糊度前置检测**: Step 1.1.5 规则引擎（4 维检测 + flags 决策树），避免模糊需求浪费 Token
+- **Phase 5 串行优化**: 无依赖 task 后台并行策略（预计耗时减少 30-50%）
+
+### Fixed (P1)
+- **python3 硬前置条件**: Phase 0 环境检查阻断无 python3 环境
+- **anchor_sha 恢复校验**: `autopilot-recovery` Step 6 验证 anchor_sha 有效性，无效时自动重建
+- **brownfield 默认值统一**: `brownfield-validation.md` 与 `autopilot-gate/SKILL.md` 一致（v4.0 起默认 true）
+- **minimal zero_skip 警告**: Phase 5→7 门禁输出测试未验证警告（stderr, 非阻断）
+- **`get_predecessor_phase` fallback 安全化**: 所有模式的 fallback 从 `$((target-1))` 改为 `echo 0`
+- **`scan-checkpoints-on-start.sh` 模式感知**: 按 mode 计算正确的 suggested resume phase
+- **Summary Box 模式说明**: lite/minimal 模式展示跳过阶段列表
+
+### Changed
+- 遗留脚本（`validate-json-envelope.sh` / `anti-rationalization-check.sh` / `code-constraint-check.sh` / `validate-decision-format.sh`）标记 DEPRECATED
+- `phase1-requirements.md` 分层拆分：核心流程（~138 行常驻）+ `phase1-requirements-detail.md`（~559 行按需加载）
+- `parallel-dispatch.md` + `parallel-phase-dispatch.md` 合并为单一文档
+- `protocol.md` 补充 L2/L3 分层策略说明
+
+### Removed
+- 物理删除 `skills/autopilot-checkpoint/` 目录（已合入 gate，v4.0）
+- 物理删除 `skills/autopilot-lockfile/` 目录（已合入 phase0，v4.0）
+- 删除 `references/parallel-phase-dispatch.md`（合入 `parallel-dispatch.md`）
+
+### Optimized
+- 主线程常驻 Token 预估减少 ~16K（phase1-req 拆分 ~8K + 并行文档合并 ~4K + 冗余 Skill 清理 ~3K）
+
 ## [4.0.4] - 2026-03-13
 
 ### Added

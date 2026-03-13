@@ -225,14 +225,14 @@ get_predecessor_phase() {
         5) echo 1 ;;
         6) echo 5 ;;
         7) echo 6 ;;
-        *) echo $((target - 1)) ;;
+        *) echo 0 ;;
       esac
       ;;
     minimal)
       case "$target" in
         5) echo 1 ;;
         7) echo 5 ;;
-        *) echo $((target - 1)) ;;
+        *) echo 0 ;;
       esac
       ;;
     *)  # full
@@ -240,8 +240,10 @@ get_predecessor_phase() {
       if [ "$(_get_tdd_mode)" = "true" ] && [ "$target" -eq 5 ]; then
         # TDD mode: Phase 5 depends on Phase 3 (Phase 4 skipped)
         echo 3
-      else
+      elif [ "$target" -ge 2 ] && [ "$target" -le 7 ]; then
         echo $((target - 1))
+      else
+        echo 0
       fi
       ;;
   esac
@@ -281,6 +283,23 @@ if [ "$TARGET_PHASE" -ge 3 ]; then
   pred_status=$(read_checkpoint_status "$pred_file")
   if [ "$pred_status" != "ok" ] && [ "$pred_status" != "warning" ]; then
     deny "Predecessor Phase $PRED_PHASE status is '$pred_status'. Must be ok/warning before Phase $TARGET_PHASE (mode: $EXEC_MODE)."
+  fi
+
+  # v4.1: minimal mode zero_skip_check warning
+  if [ "$EXEC_MODE" = "minimal" ] && [ "$TARGET_PHASE" = "7" ]; then
+    local zsc_passed
+    zsc_passed=$(python3 -c "
+import json, sys
+try:
+    with open('${pred_file}') as f:
+        data = json.load(f)
+    zsc = data.get('zero_skip_check', {})
+    print('true' if zsc.get('passed') is True else 'false')
+except: print('false')
+" 2>/dev/null || echo "false")
+    if [ "$zsc_passed" != "true" ]; then
+        echo "[WARNING] minimal mode: zero_skip_check not passed — tests may not have been verified" >&2
+    fi
   fi
 fi
 

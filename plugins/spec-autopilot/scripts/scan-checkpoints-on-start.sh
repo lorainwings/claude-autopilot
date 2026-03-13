@@ -76,10 +76,51 @@ except Exception:
       found_any=true
     fi
 
+    # v4.1: mode-aware resume suggestion
+    local lock_file="$CHANGES_DIR/.autopilot-active"
+    local mode=""
+    if [ -f "${lock_file}" ]; then
+        mode=$(python3 -c "
+import json
+try:
+    with open('${lock_file}') as f: data = json.load(f)
+    print(data.get('mode', 'full'))
+except: print('full')
+" 2>/dev/null || echo "full")
+    fi
+    if [ -z "$mode" ]; then
+        mode="full"
+    fi
+
+    local -a phases_seq
+    case "$mode" in
+        lite)    phases_seq=(1 5 6 7) ;;
+        minimal) phases_seq=(1 5 7) ;;
+        *)       phases_seq=(1 2 3 4 5 6 7) ;;
+    esac
+
+    # Calculate suggested resume phase from mode-aware sequence
+    local suggested_resume=1
+    for i in "${!phases_seq[@]}"; do
+        if [ "${phases_seq[$i]}" -eq "$last_phase" ]; then
+            local next_idx=$((i + 1))
+            if [ "$next_idx" -lt "${#phases_seq[@]}" ]; then
+                suggested_resume="${phases_seq[$next_idx]}"
+            else
+                suggested_resume="done"
+            fi
+            break
+        fi
+    done
+
     echo ""
     echo "Change: $change_name"
     echo "  Last successful phase: $last_phase ($last_status)"
-    echo "  Suggested resume: Phase $((last_phase + 1))"
+    if [ "$suggested_resume" = "done" ]; then
+      echo "  Suggested resume: All phases complete"
+    else
+      echo "  Suggested resume: Phase $suggested_resume (mode: $mode)"
+    fi
     echo "  Checkpoints:"
     for cp in "${checkpoints[@]}"; do
       echo "$cp"

@@ -90,6 +90,14 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 恢复后的 mode 传递给主线程，用于 Task 系统重建时的阶段选择。
 
+### Step 6: Anchor SHA 验证
+
+从锁文件读取 `anchor_sha` 字段：
+
+1. **空字符串** → 创建新锚定 commit：`Bash("git commit --allow-empty -m 'autopilot: anchor (recovery)'")`，将新 SHA 写回锁文件的 `anchor_sha` 字段
+2. **非空但 `git rev-parse ${anchor_sha}^{commit}` 失败** → 同上，创建新锚定 commit 并更新锁文件
+3. **有效** → 继续使用现有 anchor_sha，输出 `Anchor SHA verified: ${anchor_sha}`
+
 ## Task 系统重建
 
 崩溃恢复时需创建对应模式的阶段任务链，已完成的阶段直接标记为 `completed`，确保 blockedBy 依赖链正确。
