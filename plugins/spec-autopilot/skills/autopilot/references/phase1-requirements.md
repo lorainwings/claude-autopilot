@@ -156,8 +156,10 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 ## 1.9 写入 Phase 1 Checkpoint
 
 需求确认后，调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-1-requirements.json`。
+写入最终 checkpoint 后，删除中间态文件：`rm -f ${phase_results}/phase-1-interim.json`。
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
+> v5.1: 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
 
 ## 1.10 可配置用户确认点
 

@@ -46,16 +46,15 @@ if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopi
   exit 0
 fi
 
-# --- Fast bypass Layer 1.5: background agent skip ---
-# Agent/Task with run_in_background=true fires hook at launch time,
-# before the agent completes. Skip validation for background dispatch.
-# NOTE (by design): Phase 2/3/4/6 background dispatch bypasses ALL L2 checks here,
-# including Phase 6's zero_skip_check and tasks completion check.
-# These validations are guaranteed by Layer 3 (autopilot-gate Skill) which runs
-# BEFORE the main thread dispatches the background Task. L2 Hook only fires at
-# launch time when the agent hasn't produced output yet, so L2 cannot validate.
+# --- Layer 1.5: background agent — retain lightweight L2 checks (v5.1) ---
+# v5.1 FIX: Previously `exit 0` for all background agents, completely bypassing L2.
+# Now: background agents still undergo predecessor checkpoint existence check.
+# All checks below are about predecessor state (static data), not agent output,
+# so they are valid at dispatch time. L3 Gate runs before dispatch for additional
+# semantic validation.
+IS_BACKGROUND=false
 if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*true'; then
-  exit 0
+  IS_BACKGROUND=true
 fi
 
 # --- Dependency check (only needed for autopilot Tasks) ---

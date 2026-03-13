@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED (v5.1): Merged into unified-write-edit-check.sh. This file is retained for reference only and is NOT registered in hooks.json.
 # assertion-quality-check.sh
 # Hook: PostToolUse(Write|Edit) — 拦截恒真/恒假断言 (TD-1)
 # Purpose: Detect tautological assertions in test files that provide no real coverage.

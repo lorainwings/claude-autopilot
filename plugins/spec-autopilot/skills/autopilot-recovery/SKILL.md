@@ -20,6 +20,11 @@ user-invocable: false
 ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 ```
 
+**v5.1 原子写入残留清理**：扫描并删除所有 `.tmp` 残留文件（崩溃时未完成的原子写入）：
+```bash
+rm -f openspec/changes/*/context/phase-results/*.json.tmp 2>/dev/null
+```
+
 ### 2. 选择目标 Change
 
 **仅一个 change** → 自动选中。
@@ -41,6 +46,7 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 
 | 文件 | 含义 |
 |------|------|
+| phase-1-interim.json | Phase 1 中间态（v5.1：调研完成或决策轮次 N 完成） |
 | phase-1-requirements.json | Phase 1 完成（需求已确认） |
 | phase-2-openspec.json | Phase 2 完成（仅 full 模式） |
 | phase-3-ff.json | Phase 3 完成（仅 full 模式） |
@@ -49,9 +55,26 @@ ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
 | phase-6-report.json | Phase 6 完成（仅 full/lite 模式） |
 | phase-7-summary.json | Phase 7 完成（归档完毕） |
 
-对每个文件：读取 JSON → 验证 `status` 为 `ok` 或 `warning`。
+对每个文件：读取 JSON → 验证 `status` 为 `ok` 或 `warning`（中间态 `in_progress` 也视为有效恢复点）。
 
 找到最后一个有效 checkpoint → 记录阶段号 N。
+
+### 2.1 Phase 1 中间态恢复（v5.1 新增）
+
+当 `phase-1-interim.json` 存在但 `phase-1-requirements.json` 不存在时，Phase 1 部分完成：
+
+| `stage` 字段 | 恢复行为 |
+|--------------|---------|
+| `research_complete` | 跳过三路调研（Step 1.2-1.3），从复杂度评估（Step 1.4）继续 |
+| `decision_round_N` | 跳过调研和已完成决策轮，从第 N+1 轮决策继续。从 `decisions_resolved` 恢复已确认的决策 |
+
+恢复时向用户展示：
+```
+"检测到 Phase 1 中间进度：{stage}。是否从断点继续？"
+选项：
+- "从断点继续 (Recommended)"
+- "重新开始 Phase 1（清空调研缓存）"
+```
 
 ### 3. 用户决策
 

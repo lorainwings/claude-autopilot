@@ -4,7 +4,7 @@
 # Purpose: 在 Phase 开始/结束时输出结构化 JSON 事件到 events.jsonl
 # Usage:
 #   emit-phase-event.sh <event_type> <phase> <mode> [payload_json]
-#   event_type: phase_start | phase_end | error
+#   event_type: phase_start | phase_end | error | gate_decision_pending | gate_decision_received
 #   phase: 0-7
 #   mode: full | lite | minimal
 #   payload_json: optional JSON string with status, duration_ms, artifacts, error_message
@@ -32,7 +32,7 @@ fi
 
 # Validate event_type
 case "$EVENT_TYPE" in
-  phase_start|phase_end|error) ;;
+  phase_start|phase_end|error|gate_decision_pending|gate_decision_received) ;;
   *)
     echo "ERROR: Invalid event_type '$EVENT_TYPE'. Must be: phase_start|phase_end|error" >&2
     exit 1

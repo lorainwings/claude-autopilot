@@ -19,8 +19,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
 # --- Fast bypass Layer 1: prompt phase marker detection ---
 has_phase_marker || exit 0
 
-# --- Fast bypass Layer 1.5: background agent skip ---
-is_background_agent && exit 0
+# --- v5.1 FIX: Background agents must undergo validation ---
+# Previously: `is_background_agent && exit 0` — completely bypassed all validation.
+# Now: Background tasks are validated (JSON envelope + anti-rationalization) when they
+# complete, since PostToolUse fires after the agent produces output.
 
 # --- Dependency check: python3 required ---
 if ! require_python3; then

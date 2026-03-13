@@ -129,6 +129,15 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
    - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（Auto-Scan）
    - `context/research-findings.md`（技术调研）
    - `context/web-research-findings.md`（联网搜索，默认执行，规则判定跳过时无此文件）
+   **v5.1 中间 Checkpoint — 调研完成**: 三路调研汇合后立即写入中间态 checkpoint，防止崩溃丢失调研进度：
+   ```
+   Agent(run_in_background: true, prompt: "<!-- checkpoint-writer -->
+     Write JSON to ${phase_results}/phase-1-interim.json:
+     {\"status\":\"in_progress\",\"stage\":\"research_complete\",
+      \"complexity\":\"...\",\"requirement_type\":\"...\",
+      \"decision_points_count\":N,\"timestamp\":\"ISO-8601\"}
+     Then: git add -A && git commit --fixup=$ANCHOR_SHA -m 'fixup! autopilot: Phase 1 interim (research)'")
+   ```
 4. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
 5. Task 调度 business-analyst 分析需求（`run_in_background: true`）：
    - 子 Agent 自行 Read context/ 全部文件，将完整分析 Write 到 `context/requirements-analysis.md`
@@ -137,8 +146,18 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
    - 主线程**不读取** `requirements-analysis.md` 全文
 5.5. **主动讨论协议** — 基于信封中的 `decision_points` + business-analyst 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
 6. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认（复杂度分路影响循环深度）
+   **v5.1 中间 Checkpoint — 每轮决策后**: 每轮决策 LOOP 完成后，覆盖写入中间态 checkpoint，防止崩溃丢失用户决策：
+   ```
+   Agent(run_in_background: true, prompt: "<!-- checkpoint-writer -->
+     Write JSON to ${phase_results}/phase-1-interim.json:
+     {\"status\":\"in_progress\",\"stage\":\"decision_round_N\",
+      \"round\":N,\"decisions_resolved\":[...],\"decisions_pending\":[...],
+      \"timestamp\":\"ISO-8601\"}
+     Then: git add -A && git commit --fixup=$ANCHOR_SHA -m 'fixup! autopilot: Phase 1 interim (decision round N)'")
+   ```
 7. 生成结构化提示词 → 用户最终确认
 8. 写入 `phase-1-requirements.json` checkpoint + git fixup（使用后台 Checkpoint Agent，同统一调度模板 Step 5+7）
+   **v5.1**: 写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 9. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`）
 
 ---
@@ -154,6 +173,12 @@ Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
         → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
         → Gate 通过后: Bash('bash ${PLUGIN_ROOT}/scripts/emit-gate-event.sh gate_pass {N} {mode} \'{"gate_score":"8/8"}\'')
         → Gate 阻断时: Bash('bash ${PLUGIN_ROOT}/scripts/emit-gate-event.sh gate_block {N} {mode} \'{"status":"blocked","error_message":"..."}\'')
+          → 阻断后立即启动决策轮询（v5.1 双向反控）:
+            DECISION=$(Bash('bash ${PLUGIN_ROOT}/scripts/poll-gate-decision.sh "${change_dir}/" {N} {mode} \'{"blocked_step":M,"error_message":"..."}\''))
+            → override: 记录 [GATE] Override → 视为通过，继续 Step 2
+            → retry: 记录 [GATE] Retry → 重新执行 Step 1 完整 8 步检查
+            → fix: 记录 [GATE] Fix → 展示 fix_instructions 给用户，修复后重新 Step 1
+            → timeout: 回退原有行为 → AskUserQuestion 请求用户决策
 Step 1.5: 检查可配置用户确认点（仅当 config.gates.user_confirmation.after_phase_{N} === true 时）
         → AskUserQuestion 确认后继续，选暂停则保存进度退出
 Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
@@ -174,16 +199,20 @@ Step 4: 解析子 Agent 返回的 JSON 信封
         → ok → 继续
         → warning → **Phase 4 特殊处理**（见下方）
         → blocked/failed → 暂停展示给用户
-Step 5+7: 派发后台 Checkpoint Agent（v3.4.3 上下文保护增强）
+Step 5+7: 派发后台 Checkpoint Agent（v3.4.3 上下文保护增强, v5.1 原子写入 + 状态隔离）
         → 将 checkpoint 写入 + git fixup commit 合并为一个后台 Agent，避免 Write/Bash 输出污染主窗口上下文
+        → **v5.1 重要**: Checkpoint 写入**必须使用 Bash 工具**（非 Write 工具），以绕过 Write/Edit Hook 的状态隔离检查
         → Agent(subagent_type: "general-purpose", run_in_background: true, prompt: "
             <!-- checkpoint-writer -->
             1. 确保目录存在: Bash('mkdir -p ${session_cwd}/openspec/changes/<name>/context/phase-results/')
-            2. Write 以下 JSON 到 ${session_cwd}/openspec/changes/<name>/context/phase-results/phase-{N}-{slug}.json：
-               {envelope_json_with_timestamp_and_metrics}
-            3. 验证写入: Read 文件确认 JSON 有效
-            4. Bash('cd ${session_cwd} && git add -A && git commit --fixup=$ANCHOR_SHA -m \"fixup! autopilot: start <name> — Phase N\"')
-            5. Bash('git rev-parse --short HEAD')
+            2. 写入临时 checkpoint（使用 Bash，非 Write 工具）:
+               Bash('python3 -c \"import json; json.dump({envelope_dict}, open(\\\"${phase_results}/phase-{N}-{slug}.json.tmp\\\", \\\"w\\\"), ensure_ascii=False, indent=2)\"')
+            3. 验证临时文件: Bash('python3 -c \"import json; json.load(open(\\\"phase-{N}-{slug}.json.tmp\\\"))\"')
+               若验证失败 → 删除 .tmp 文件并报告错误，不覆盖正式文件
+            4. 原子重命名: Bash('mv phase-{N}-{slug}.json.tmp phase-{N}-{slug}.json')
+            5. 最终验证: Bash('python3 -c \"import json; d=json.load(open(\\\"phase-{N}-{slug}.json\\\")); assert \\\"status\\\" in d\"')
+            6. Bash('cd ${session_cwd} && git add -A && git commit --fixup=$ANCHOR_SHA -m \"fixup! autopilot: start <name> — Phase N\"')
+            7. Bash('git rev-parse --short HEAD')
             返回: {\"status\": \"ok\", \"checkpoint\": \"phase-N-slug.json\", \"commit_sha\": \"<short_sha>\"}
           ")
         → **必须使用 `git add -A`**（自动尊重 .gitignore，添加所有变更：代码文件 + checkpoint + 测试 + openspec 制品）
@@ -259,6 +288,14 @@ Phase 4 标记为 `skipped_tdd`。测试在 Phase 5 per-task TDD RED step 创建
 
 - **串行 TDD**（`parallel.enabled: false` + `tdd_mode: true`）：
   每个 task 派发 3 个 sequential Task (RED → GREEN → REFACTOR)，主线程 Bash() 执行 L2 确定性验证。
+  **v5.1 TDD 阶段状态文件**：每个 TDD 步骤派发前，主线程必须写入 `.tdd-stage` 文件，供 L2 Write/Edit Hook 确定性拦截：
+  ```
+  RED 派发前:   Bash('echo "red" > ${change_dir}/context/.tdd-stage')
+  GREEN 派发前: Bash('echo "green" > ${change_dir}/context/.tdd-stage')
+  REFACTOR 派发前: Bash('echo "refactor" > ${change_dir}/context/.tdd-stage')
+  task 全部完成后: Bash('rm -f ${change_dir}/context/.tdd-stage')
+  ```
+  Hook 行为：RED 阶段硬阻断实现文件写入，GREEN 阶段硬阻断测试文件修改。
   详见 `references/tdd-cycle.md` 串行 TDD 章节。
 
 - **并行 TDD**（`parallel.enabled: true` + `tdd_mode: true`）：

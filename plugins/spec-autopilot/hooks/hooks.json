@@ -28,28 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/write-edit-constraint-check.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/unified-write-edit-check.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "^(Write|Edit)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/banned-patterns-check.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^(Write|Edit)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/assertion-quality-check.sh",
-            "timeout": 10
           }
         ]
       }

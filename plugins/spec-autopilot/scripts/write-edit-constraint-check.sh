@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED (v5.1): Merged into unified-write-edit-check.sh. This file is retained for reference only and is NOT registered in hooks.json.
 # write-edit-constraint-check.sh
 # Hook: PostToolUse(Write|Edit) — Phase 5 直接文件写入约束检查
 # 与 code-constraint-check.sh 互补：后者检查 Task 子 Agent 返回的 artifacts，
@@ -73,6 +74,45 @@ fi
 # --- Fast bypass Layer 2: 提取 file_path ---
 FILE_PATH=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 [ -z "$FILE_PATH" ] && exit 0
+
+# --- v5.1 TDD Phase Isolation L2 Gate ---
+# When tdd_mode is active and .tdd-stage file exists, enforce file write restrictions:
+#   RED stage: only test files allowed (block implementation file writes)
+#   GREEN stage: only implementation files allowed (block test file writes)
+#   REFACTOR stage: all writes allowed (but behavior must not change — verified by L2 Bash)
+TDD_STAGE_FILE="$CHANGES_DIR/$CHANGE_NAME/context/.tdd-stage"
+if [ -f "$TDD_STAGE_FILE" ]; then
+  TDD_STAGE=$(cat "$TDD_STAGE_FILE" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  BASENAME=$(basename "$FILE_PATH")
+
+  # Test file detection: *.test.*, *.spec.*, *_test.*, *_spec.*, __tests__/*, test/*, tests/*
+  IS_TEST_FILE="no"
+  case "$BASENAME" in
+    *.test.* | *.spec.* | *_test.* | *_spec.* | *Test.* | *Spec.*) IS_TEST_FILE="yes" ;;
+  esac
+  case "$FILE_PATH" in
+    */__tests__/* | */test/* | */tests/* | */spec/* | *_test/* | *_spec/*) IS_TEST_FILE="yes" ;;
+  esac
+
+  case "$TDD_STAGE" in
+    red)
+      if [ "$IS_TEST_FILE" = "no" ]; then
+        echo '{"decision":"block","reason":"TDD RED stage violation: only test files can be written during RED. File '"$BASENAME"' appears to be an implementation file. Move to GREEN stage before writing implementation code."}'
+        exit 0
+      fi
+      ;;
+    green)
+      if [ "$IS_TEST_FILE" = "yes" ]; then
+        echo '{"decision":"block","reason":"TDD GREEN stage violation: test files cannot be modified during GREEN. File '"$BASENAME"' appears to be a test file. Fix the implementation to make tests pass — do NOT modify the test."}'
+        exit 0
+      fi
+      ;;
+    refactor)
+      # REFACTOR allows all writes; behavior preservation is verified by L2 Bash test run
+      ;;
+  esac
+fi
+
 # --- Dependency check ---
 command -v python3 &>/dev/null || exit 0
 

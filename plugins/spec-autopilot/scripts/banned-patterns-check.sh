@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DEPRECATED (v5.1): Merged into unified-write-edit-check.sh. This file is retained for reference only and is NOT registered in hooks.json.
 # banned-patterns-check.sh
 # Hook: PostToolUse(Write|Edit) — 拦截 TODO/FIXME/HACK 占位符 (TD-2)
 # Purpose: Scan written/edited file content for banned placeholder patterns.

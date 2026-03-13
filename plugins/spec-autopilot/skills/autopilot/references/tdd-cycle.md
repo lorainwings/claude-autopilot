@@ -57,6 +57,22 @@
 
 ## 串行 TDD (`parallel.enabled: false` + `tdd_mode: true`)
 
+### TDD 阶段状态文件（v5.1 L2 确定性门禁）
+
+主线程在每个 TDD 步骤派发前，**必须**写入 `.tdd-stage` 状态文件，供 `write-edit-constraint-check.sh` L2 Hook 确定性拦截：
+
+```
+文件位置: openspec/changes/<name>/context/.tdd-stage
+内容: "red" | "green" | "refactor"
+```
+
+| TDD 步骤 | 写入时机 | Hook 行为 |
+|-----------|---------|-----------|
+| RED | 派发 RED Task 前 | 硬阻断实现文件写入（仅允许测试文件） |
+| GREEN | 派发 GREEN Task 前 | 硬阻断测试文件修改（仅允许实现文件） |
+| REFACTOR | 派发 REFACTOR Task 前 | 放行所有写入（行为保持由 L2 Bash 验证） |
+| 清理 | task 全部完成后 | 删除 `.tdd-stage` 文件 |
+
 ```
 for each task in task_list:
 

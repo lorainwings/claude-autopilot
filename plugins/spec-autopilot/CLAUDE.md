@@ -23,8 +23,8 @@
 
 ## 代码质量硬约束
 
-1. **禁止 TODO/FIXME/HACK 占位符**: L2 Hook `banned-patterns-check.sh` 确定性拦截 (v4.2)
-2. **禁止恒真断言**: L2 Hook `assertion-quality-check.sh` 拦截 `expect(true).toBe(true)` 等 (v4.2)
+1. **禁止 TODO/FIXME/HACK 占位符**: L2 Hook `unified-write-edit-check.sh` 确定性拦截 (v5.1, 原 banned-patterns-check.sh)
+2. **禁止恒真断言**: L2 Hook `unified-write-edit-check.sh` 拦截 `expect(true).toBe(true)` 等 (v5.1, 原 assertion-quality-check.sh)
 3. **Anti-Rationalization**: 10 种 excuse 模式匹配 → status 强制降级为 blocked
 4. **代码约束**: `code_constraints` 配置的 forbidden_files/patterns → L2 硬阻断
 5. **Test Pyramid 地板**: unit_pct ≥ 30%, e2e_pct ≤ 40%, total ≥ 10 (L2 可配置)
@@ -50,10 +50,11 @@
 ## 子 Agent 约束
 
 1. **禁止自行读取计划文件**: 上下文由主线程提取注入
-2. **禁止修改 openspec/ checkpoint**: 隔离约束
+2. **禁止修改 openspec/ checkpoint**: L2 Hook `unified-write-edit-check.sh` 确定性阻断 (v5.1)，checkpoint 写入仅限 Bash 工具
 3. **必须返回 JSON 信封**: `{"status": "ok|warning|blocked|failed", "summary": "...", "artifacts": [...]}`
 4. **背景 Agent 产出必须 Write 到文件**: 返回信封仅含摘要，禁止全文灌入主窗口
 5. **文件所有权 ENFORCED**: 并行模式下仅可修改 owned_files 范围内的文件
+6. **背景 Agent 必须接受 L2 验证**: JSON 信封 + 反合理化检查不可绕过 (v5.1)
 
 ## 发版纪律 (v4.3)
 
