@@ -792,6 +792,26 @@ write-edit-constraint-check Hook 会拦截越权修改。
 
 等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。最多 max_agents 个域并行（默认 8），域内串行。
 
+#### 串行模式 Batch Scheduler（v4.2 — 默认并行引擎）
+
+当 `parallel.enabled = false`（串行模式）时，自动启用 Batch Scheduler：
+
+```
+算法:
+1. 解析任务清单 → 提取 affected_files
+2. 构建文件依赖图（affected_files 交集 → 依赖边）
+3. 拓扑排序 + 层级分组 → batches[]
+   - 同 batch 内 task 互相无文件依赖 → 可后台并行
+4. 对每个 batch:
+   - 单 task batch → 前台 Task 同步执行
+   - 多 task batch → Task(run_in_background: true) 全部后台派发
+   - 等待完成通知 → 收集 envelope → 按顺序写 checkpoint
+5. 失败处理: 失败 task 降级串行重试，>50% 失败则全面回退纯串行
+```
+
+禁用条件: `config.serial_task.allow_background_parallel = false` 或 TDD 模式。
+详见 `phase5-implementation.md` "串行模式优化：无依赖 task 后台并行引擎" 章节。
+
 #### Step 4: 合并 + 验证
 
 ```

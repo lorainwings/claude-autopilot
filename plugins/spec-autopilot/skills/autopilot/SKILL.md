@@ -148,8 +148,12 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
 对于每个 Phase N（2 ≤ N ≤ 6），在**主线程**中执行：
 
 ```
+Step 0: 发射 Phase 开始事件（v4.2 Event Bus）
+        → Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start {N} {mode}')
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
         → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
+        → Gate 通过后: Bash('bash ${PLUGIN_ROOT}/scripts/emit-gate-event.sh gate_pass {N} {mode} \'{"gate_score":"8/8"}\'')
+        → Gate 阻断时: Bash('bash ${PLUGIN_ROOT}/scripts/emit-gate-event.sh gate_block {N} {mode} \'{"status":"blocked","error_message":"..."}\'')
 Step 1.5: 检查可配置用户确认点（仅当 config.gates.user_confirmation.after_phase_{N} === true 时）
         → AskUserQuestion 确认后继续，选暂停则保存进度退出
 Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
@@ -185,6 +189,8 @@ Step 5+7: 派发后台 Checkpoint Agent（v3.4.3 上下文保护增强）
         → **必须使用 `git add -A`**（自动尊重 .gitignore，添加所有变更：代码文件 + checkpoint + 测试 + openspec 制品）
         → **禁止显式 `git add` 锁文件 `.autopilot-active`** — git add -A 自动尊重 .gitignore
 Step 6: TaskUpdate Phase N → completed
+Step 6.5: 发射 Phase 结束事件（v4.2 Event Bus）
+        → Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end {N} {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":{artifacts_json}}\'')
 Step 8: 等待 Step 5+7 后台 Agent 完成通知
         → 从 Agent 返回的 JSON 提取 checkpoint 文件名和 commit SHA
         → 输出格式化进度行（让用户看到关键状态）：

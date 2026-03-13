@@ -150,9 +150,12 @@ status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
 必须包含 test_counts、artifacts、dry_run_results、test_pyramid 字段。
 **v3.2.0 新增**: 必须包含 `test_traceability` 字段（需求追溯映射）。
 **v3.2.5 新增**: 必须包含 `change_coverage` 字段（变更聚焦覆盖率）。
+**v4.2.0 新增**: 必须包含 `sad_path_counts` 字段（异常分支用例统计）。
 
 ```json
 {
+  "test_counts": { "unit": 10, "api": 6, "e2e": 4, "ui": 3 },
+  "sad_path_counts": { "unit": 4, "api": 3, "e2e": 2, "ui": 1 },
   "test_traceability": [
     { "test": "test_user_login", "requirement": "REQ-1.1 用户登录" },
     { "test": "test_create_space", "requirement": "REQ-2.1 创建工作空间" }
@@ -165,3 +168,6 @@ status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
   }
 }
 ```
+
+**Sad Path 门禁规则** (v4.2.0): `sad_path_counts` 中每种测试类型的异常分支用例数 ≥ `test_counts` 同类型总数的 20%。
+异常分支包括：错误输入、权限不足、资源不存在、超时、并发冲突、网络异常等场景。

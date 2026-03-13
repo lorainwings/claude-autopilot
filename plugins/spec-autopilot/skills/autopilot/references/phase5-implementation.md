@@ -390,22 +390,105 @@ Phase 5 启动时（含压缩后恢复），扫描 `phase5-tasks/` 目录：
 3. 从下一个 task 继续执行
 4. 如果没有 task checkpoint → 从 task 1 开始
 
-### 串行模式优化：无依赖 task 后台并行（v4.1）
+### 串行模式优化：无依赖 task 后台并行引擎（v4.2 — Concurrency Engine）
 
-在串行模式下，如果 tasks 中存在无文件依赖的相邻 task（affected_files 无交集），可以将它们以 `run_in_background: true` 并行执行，无需 worktree 隔离。
+> **v4.2 升级**: 从 v4.1 可选优化升级为**默认行为**。串行模式下自动检测无依赖 task 并批量后台派发，
+> 显著降低 Phase 5 总耗时。仅在显式禁用或 TDD 模式下回退到纯串行。
 
-**启用条件**（全部满足才启用）：
-1. 两个相邻 task 的 affected_files 完全无交集
+**启用条件**（默认全部满足）：
+1. `config.serial_task.allow_background_parallel !== false`（默认 true）
 2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
-3. `config.serial_task.allow_background_parallel !== false`（默认 true）
 
-**执行方式**：
-- 从 task 列表中识别无依赖的连续 task 组（使用 affected_files 交集检测）
-- 同组 task 以 `run_in_background: true` 并行派发
-- 等待同组所有 task 完成后，按顺序合并结果，继续下一组
-- 如果任何 task 失败，回退到纯串行模式继续剩余 task
+**核心算法：Batch Scheduler**
 
-> **预期收益**: Phase 5 串行耗时减少 30-50%（取决于 task 间依赖度）
+```
+1. 解析任务清单 → 提取每个 task 的 affected_files[]
+2. 构建依赖图:
+   for (i, j) in tasks × tasks:
+     if affected_files[i] ∩ affected_files[j] ≠ ∅:
+       add_dependency(i, j)
+3. 拓扑排序 + 层级分组:
+   batches = []
+   remaining = all_tasks
+   while remaining:
+     ready = [t for t in remaining if all deps satisfied]
+     # 同一 batch 内 task 互相无依赖，可并行
+     batches.append(ready)
+     remaining -= ready
+4. 对每个 batch:
+   if len(batch) == 1:
+     → 前台 Task 同步执行（零开销）
+   else:
+     → 全部 Task(run_in_background: true) 后台并行派发
+     → 等待 Claude Code 自动完成通知
+     → 收集所有 JSON 信封
+     → 按 task 编号顺序写入 checkpoint + git fixup
+5. 继续下一个 batch
+```
+
+**Batch 派发模板**
+
+```markdown
+# 在同一条消息中同时发起 batch 内所有 task
+{for each task in batch}
+Task(
+  subagent_type: "{resolve_agent(task.domain)}",
+  run_in_background: true,
+  prompt: "<!-- autopilot-phase:5 -->
+你是 autopilot Phase 5 的并行实施子 Agent（Batch #{batch_id}, Task #{task_number}）。
+
+## 你的任务
+仅实施以下单个 task（禁止实施其他 task）：
+- Task #{task_number}: {task_title}
+- Task 内容: {task_full_text}
+
+## 前序 task 摘要（只读参考）
+{completed_task_summaries}
+
+## 上下文（由控制器提取，禁止自行读取计划文件）
+{context_injection}
+
+## 文件所有权约束（ENFORCED — batch 内互斥）
+你被分配以下文件的独占所有权：
+{task.affected_files}
+禁止修改此列表之外的任何文件。同 batch 其他 task 正在修改: {sibling_task_files}
+
+## 项目规则约束
+{rules_scan_result}
+
+## 返回要求
+执行完毕后返回 JSON 信封：
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+"
+)
+{end for}
+```
+
+**Batch 结果汇总（Wait & Merge）**
+
+```
+for each completed_agent in batch:
+  envelope = parse JSON 信封
+  if envelope.status == "failed":
+    # 记录失败，后续 batch 可能需要降级
+    failed_tasks.append(task)
+  else:
+    # 按 task 编号顺序写入 checkpoint
+    write phase5-tasks/task-{N}.json
+    git add -A && git commit --fixup
+
+if len(failed_tasks) > 0:
+  # 失败 task 降级为下一 batch 首个纯串行执行
+  retry_queue.extend(failed_tasks)
+```
+
+**降级条件**：
+- batch 中 > 50% task 失败 → 剩余所有 task 回退到纯串行
+- 任何 task 修改了非 owned_files 范围的文件 → 后续 batch 回退到纯串行
+- 用户通过 AskUserQuestion 选择 "切换纯串行"
+
+**预期收益**: Phase 5 串行耗时减少 40-60%（取决于 task 间依赖度）。
+10 个 task 中若有 3 个 batch（3+4+3），总耗时 ≈ 3×max(batch_time) 而非 10×task_time。
 
 ## Phase 5→6 特殊门禁
 

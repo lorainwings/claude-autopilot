@@ -1,14 +1,59 @@
 # Changelog
 
+## [4.2.0] - 2026-03-13
+
+### Added (规约补漏 — TD-1/TD-2/TD-3)
+
+- **`banned-patterns-check.sh`**: PostToolUse(Write|Edit) L2 Hook，确定性拦截 TODO:/FIXME:/HACK: 占位符代码 (TD-2)
+- **`assertion-quality-check.sh`**: PostToolUse(Write|Edit) L2 Hook，确定性拦截恒真断言 `expect(true).toBe(true)` 等 (TD-1)
+- **`sad_path_counts` 门禁**: Phase 4 JSON 信封新增必填字段，要求每种测试类型异常分支用例 ≥ 20% (TD-3)
+  - 默认 20%，Bugfix 路由提升至 40%
+  - `_post_task_validator.py` Validator 6 确定性验证
+
+### Added (需求分类路由 — TD-6)
+
+- **Step 1.1.6 需求类型分类**: 确定性规则将需求分类为 Feature/Bugfix/Refactor/Chore
+- **差异化路由策略**: 不同类别动态调整 sad_path 比例、change_coverage 阈值、必须测试类型
+- **`routing_overrides`**: Phase 1 checkpoint 写入路由覆盖值，L2 Hook 动态读取调整门禁
+
+### Added (GUI Event Bus — v5.0 先导)
+
+- **`emit-phase-event.sh`**: Phase 生命周期事件发射器 (phase_start/phase_end/error)
+- **`emit-gate-event.sh`**: Gate 判定事件发射器 (gate_pass/gate_block)
+- **`logs/events.jsonl`**: 结构化 JSON Lines 事件流 (PhaseEvent/GateEvent 规范)
+- **`references/event-bus-api.md`**: Event Bus API 规范文档 (TypeScript 接口定义)
+- **SKILL.md 事件埋点**: 统一调度模板 Step 0 (phase_start) + Step 1 (gate) + Step 6.5 (phase_end)
+
+### Added (工程治理)
+
+- **`CLAUDE.md`**: 项目级工程法则文档（状态机红线 + TDD Iron Law + 代码质量约束 + Event API）
+
+### Changed (Phase 5 并行引擎 — TD-5)
+
+- **Batch Scheduler 升级**: 串行模式后台并行从"可选优化"升级为"默认引擎"
+  - 拓扑排序 + 层级分组算法，自动检测无依赖 task 并批量后台派发
+  - 预期 Phase 5 串行耗时减少 40-60%（10 task → 3 batch）
+  - 失败降级: batch 内 >50% 失败则回退纯串行
+- **`parallel-dispatch.md`**: 新增 Batch Scheduler 协议引用
+
+### Changed
+
+- **`hooks.json`**: 新增 2 个 PostToolUse(Write|Edit) Hook 注册
+- **`protocol.md`**: Phase 1 新增 `requirement_type` + `routing_overrides` 可选字段；Phase 4 新增 `sad_path_counts` 必填字段
+- **`phase4-testing.md`**: 新增 Sad Path 门禁规则说明 + 返回格式更新
+- **`_post_task_validator.py`**: 新增 Validator 6 (sad_path) + routing_overrides 动态阈值读取
+
 ## [4.1.0] - 2026-03-13
 
 ### Fixed (P0)
+
 - **TDD Metrics L2 确定性检查**: `_post_task_validator.py` 新增 `tdd_metrics` 字段验证（`red_violations === 0`, `cycles_completed >= 1`）
 - **并行 TDD 后置审计**: Phase 5 并行模式合并后逐 task 验证 TDD 循环完整性
 - **需求模糊度前置检测**: Step 1.1.5 规则引擎（4 维检测 + flags 决策树），避免模糊需求浪费 Token
 - **Phase 5 串行优化**: 无依赖 task 后台并行策略（预计耗时减少 30-50%）
 
 ### Fixed (P1)
+
 - **python3 硬前置条件**: Phase 0 环境检查阻断无 python3 环境
 - **anchor_sha 恢复校验**: `autopilot-recovery` Step 6 验证 anchor_sha 有效性，无效时自动重建
 - **brownfield 默认值统一**: `brownfield-validation.md` 与 `autopilot-gate/SKILL.md` 一致（v4.0 起默认 true）
@@ -18,22 +63,26 @@
 - **Summary Box 模式说明**: lite/minimal 模式展示跳过阶段列表
 
 ### Changed
+
 - 遗留脚本（`validate-json-envelope.sh` / `anti-rationalization-check.sh` / `code-constraint-check.sh` / `validate-decision-format.sh`）标记 DEPRECATED
 - `phase1-requirements.md` 分层拆分：核心流程（~138 行常驻）+ `phase1-requirements-detail.md`（~559 行按需加载）
 - `parallel-dispatch.md` + `parallel-phase-dispatch.md` 合并为单一文档
 - `protocol.md` 补充 L2/L3 分层策略说明
 
 ### Removed
+
 - 物理删除 `skills/autopilot-checkpoint/` 目录（已合入 gate，v4.0）
 - 物理删除 `skills/autopilot-lockfile/` 目录（已合入 phase0，v4.0）
 - 删除 `references/parallel-phase-dispatch.md`（合入 `parallel-dispatch.md`）
 
 ### Optimized
+
 - 主线程常驻 Token 预估减少 ~16K（phase1-req 拆分 ~8K + 并行文档合并 ~4K + 冗余 Skill 清理 ~3K）
 
 ## [4.0.4] - 2026-03-13
 
 ### Added
+
 - **全链路审计报告 (7 份)**: 稳定性/需求质量/代码生成/TDD 流程/性能评估/竞品对比/架构演进
 - **重构执行计划**: `docs/plans/execution-plan.md` — v4.1 目标 20 任务 4 批次
 - **Benchmark prompts**: `docs/beenchmark/prompt.md` + `validate.md` 审计与重构驱动 prompt
@@ -41,6 +90,7 @@
 ## [4.0.0] - 2026-03-12
 
 ### Added
+
 - **`_hook_preamble.sh`**: 公共 Hook 前言脚本，统一 6 个 PostToolUse Hook 的 stdin 读取 + Layer 0 bypass 逻辑（消除 ~90 行重复）
 - **`_config_validator.py`**: 独立 Python 配置验证模块，从 validate-config.sh 中提取（支持 IDE 高亮/linting）
 - **`docs/plans/2026-03-12-v4.0-upgrade-blueprint.md`**: v4.0 升级蓝图（4 Wave 方案设计）
@@ -56,6 +106,7 @@
 - **错误信息增强**: Hook 阻断消息添加 `fix_suggestion` 字段（中文修复建议 + 文档链接）
 
 ### Changed
+
 - **Skill 合并 (9→7)**: `autopilot-checkpoint` 合入 `autopilot-gate`，`autopilot-lockfile` 合入 `autopilot-phase0`
 - **Hook 去重**: 6 个 PostToolUse Hook 脚本使用 `_hook_preamble.sh` 替代重复的前言逻辑
 - **SKILL.md 瘦身**: 护栏约束 + 错误处理 + 压缩恢复协议提取为 `references/guardrails.md`（~65 行 → 3 行概要引用）
@@ -66,14 +117,17 @@
 ## [3.6.1] - 2026-03-12
 
 ### Added
+
 - `docs/self-evaluation-report-v3.6.0.md`: 插件多维度自评报告（9维度，综合 3.67/5）
 
 ### Changed
+
 - `.gitignore`: 添加 Python 缓存文件排除规则（`__pycache__/`, `*.pyc`, `*.pyo`）
 
 ## [3.6.0] - 2026-03-12
 
 ### Added
+
 - **TDD 确定性模式** (Batch C2): RED-GREEN-REFACTOR 循环，Iron Law 强制先测试后实现
   - `references/tdd-cycle.md`: 完整 TDD 协议（串行/并行/崩溃恢复）
   - `references/testing-anti-patterns.md`: 5 种反模式 + Gate Function 检查表
@@ -86,6 +140,7 @@
 - **配置字段**: `tdd_mode`, `tdd_refactor`, `tdd_test_command`, `wall_clock_timeout_hours`, `hook_floors.*`, `default_mode`, `background_agent_timeout_minutes`
 
 ### Changed
+
 - **配置外部化** (Batch B): 硬编码值提取到 config
   - Phase 5 超时: `7200` → `config.wall_clock_timeout_hours` (默认 2h)
   - 测试金字塔阈值: `30/40/10/80` → `config.hook_floors.*`
@@ -97,6 +152,7 @@
 - **parallel-merge-guard.sh**: 移除 stderr 静默 (2>/dev/null)，提高可调试性
 
 ### Fixed
+
 - `configuration.md`: 补全 `default_mode` + `background_agent_timeout_minutes` 文档
 - `configuration.md`: 统一 `parallel.max_agents` 默认值为 8
 - `configuration.md`: 补全类型/范围验证规则表 (15 + 7 条)

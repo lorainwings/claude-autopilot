@@ -103,7 +103,7 @@ if "next_ready" not in envelope:
 
 # Phase-specific required fields
 phase_required = {
-    4: ["test_counts", "dry_run_results", "test_pyramid", "change_coverage"],
+    4: ["test_counts", "sad_path_counts", "dry_run_results", "test_pyramid", "change_coverage"],
     5: ["test_results_path", "tasks_completed", "zero_skip_check"],
     6: ["pass_rate", "report_path", "report_format"],
 }
@@ -172,6 +172,27 @@ if phase_num in (4, 6):
 if phase_num == 4:
     _root = _ep.find_project_root(data)
 
+    # Load routing_overrides from Phase 1 checkpoint (v4.2 requirement routing)
+    _routing_overrides = {}
+    try:
+        _phase_results_dir = os.path.join(_root, "openspec", "changes")
+        _lock_path = os.path.join(_phase_results_dir, ".autopilot-active")
+        if os.path.isfile(_lock_path):
+            with open(_lock_path) as _lf:
+                _lock_data = json.loads(_lf.read())
+                _change_name = _lock_data.get("change", "")
+            if _change_name:
+                import glob as _glob
+                _p1_files = _glob.glob(os.path.join(
+                    _phase_results_dir, _change_name, "context", "phase-results", "phase-1-*.json"
+                ))
+                if _p1_files:
+                    with open(sorted(_p1_files)[-1]) as _p1f:
+                        _p1_data = json.loads(_p1f.read())
+                        _routing_overrides = _p1_data.get("routing_overrides", {})
+    except Exception:
+        pass
+
     def read_hook_floor(key, default):
         val = _ep.read_config_value(_root, f"test_pyramid.hook_floors.{key}", default)
         try:
@@ -183,6 +204,13 @@ if phase_num == 4:
     FLOOR_MAX_E2E_PCT = read_hook_floor("max_e2e_pct", 40)
     FLOOR_MIN_TOTAL_CASES = read_hook_floor("min_total_cases", 10)
     FLOOR_MIN_CHANGE_COV = read_hook_floor("min_change_coverage_pct", 80)
+    # Apply routing_overrides if present (v4.2 requirement routing)
+    _routing_cov = _routing_overrides.get("change_coverage_min_pct")
+    if _routing_cov is not None:
+        try:
+            FLOOR_MIN_CHANGE_COV = max(FLOOR_MIN_CHANGE_COV, int(_routing_cov))
+        except (ValueError, TypeError):
+            pass
 
     pyramid = envelope.get("test_pyramid", {})
     unit_pct = pyramid.get("unit_pct", 0)
@@ -242,6 +270,36 @@ if phase_num == 4:
         output_block(
             f"Phase 4 change_coverage insufficient: {cov_pct}% < {FLOOR_MIN_CHANGE_COV}% threshold. "
             f"Untested: {', '.join(str(p) for p in shown)}. Add targeted tests for each change point."
+        )
+
+    # Phase 4 sad_path_counts validation (v4.2 — TD-3)
+    _routing_sad = _routing_overrides.get("sad_path_min_ratio_pct")
+    FLOOR_MIN_SAD_PATH_RATIO = int(_routing_sad) if _routing_sad is not None else read_hook_floor("min_sad_path_ratio_pct", 20)
+    sad_counts = envelope.get("sad_path_counts", {})
+    if isinstance(sad_counts, dict) and sad_counts:
+        sad_violations = []
+        for test_type, sad_count in sad_counts.items():
+            total_for_type = total.get(test_type, 0)
+            if isinstance(total_for_type, (int, float)) and total_for_type > 0:
+                if isinstance(sad_count, (int, float)):
+                    sad_ratio = (sad_count / total_for_type) * 100
+                    if sad_ratio < FLOOR_MIN_SAD_PATH_RATIO:
+                        sad_violations.append(
+                            f"{test_type}: sad_path={sad_count}/{total_for_type} ({sad_ratio:.0f}%) < {FLOOR_MIN_SAD_PATH_RATIO}%"
+                        )
+        if sad_violations:
+            output_block(
+                f'Phase 4 sad_path coverage insufficient: {"; ".join(sad_violations)}. '
+                f"Each test type must have >= {FLOOR_MIN_SAD_PATH_RATIO}% sad-path (error/exception/boundary) test cases.",
+                fix_suggestion="Add more sad-path test cases covering: invalid input, permission denied, resource not found, timeout, concurrent conflicts. "
+                f"Threshold: config.test_pyramid.hook_floors.min_sad_path_ratio_pct (default {FLOOR_MIN_SAD_PATH_RATIO}%)"
+            )
+    elif isinstance(total, dict) and total_sum > 0:
+        # sad_path_counts is required but empty/missing when test_counts has data
+        output_block(
+            "Phase 4 sad_path_counts is empty or malformed. "
+            "Must include counts of sad-path (error/exception/boundary) test cases per type, "
+            "matching the keys in test_counts."
         )
 
 print(

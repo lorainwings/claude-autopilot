@@ -34,6 +34,48 @@
 
 > **设计意图**: 避免在模糊需求上直接启动三路并行调研，浪费 Token 且调研结果噪音大。
 
+## Step 1.1.6 需求类型分类与路由（v4.2 新增）
+
+对 RAW_REQUIREMENT 执行确定性规则分类（非 AI 判断），将需求路由到差异化流水线：
+
+### 分类规则
+
+| 类别 | 识别规则（按优先级匹配） | 标记 |
+|------|------------------------|------|
+| **Bugfix** | 含"修复/fix/bug/defect/issue/regression/报错/异常/崩溃/闪退"等关键词 | `requirement_type: "bugfix"` |
+| **Refactor** | 含"重构/refactor/优化性能/clean up/migrate/迁移/升级依赖"等关键词 | `requirement_type: "refactor"` |
+| **Chore** | 含"配置/CI/CD/文档/lint/format/依赖更新/版本号/changelog"等关键词 | `requirement_type: "chore"` |
+| **Feature** | 以上均不匹配（默认） | `requirement_type: "feature"` |
+
+### 路由策略（差异化流水线严格度）
+
+| 维度 | Feature | Bugfix | Refactor | Chore |
+|------|---------|--------|----------|-------|
+| **Phase 1 调研深度** | 完整三路并行 | 聚焦复现路径 + 根因分析 | 聚焦影响范围 + 回归风险 | 最小化（仅 Auto-Scan） |
+| **Phase 4 sad_path 最低比例** | 20% | **40%**（必须含复现测试） | 20% | 10% |
+| **Phase 5 change_coverage 阈值** | 80% | **100%**（修复必须完全覆盖） | **100%**（重构不可丢失行为） | 60% |
+| **Phase 6 测试类型要求** | 全量 | 至少含 regression test | 至少含 integration test | typecheck 即可 |
+| **强制附加测试** | 无 | 复现测试（验证 bug 已修复） | 行为保持测试（新旧输出一致） | 无 |
+
+### 路由注入
+
+分类结果写入 Phase 1 JSON 信封的 `requirement_type` 字段，传递给后续所有 Phase：
+
+```json
+{
+  "requirement_type": "bugfix",
+  "routing_overrides": {
+    "sad_path_min_ratio_pct": 40,
+    "change_coverage_min_pct": 100,
+    "required_test_types": ["unit", "api", "regression"]
+  }
+}
+```
+
+后续 Phase 的 dispatch prompt 中注入路由覆盖值，L2 Hook 从 Phase 1 checkpoint 读取 `routing_overrides` 动态调整门禁阈值。
+
+> **向后兼容**: `requirement_type` 和 `routing_overrides` 为可选字段。未分类时等效 `feature` 默认值。
+
 ## 1.2 项目上下文扫描（Auto-Scan）— v3.2.0 并行增强
 
 > **后台执行约束**（v3.4.0）：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。

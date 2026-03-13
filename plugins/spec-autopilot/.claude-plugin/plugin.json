@@ -1,7 +1,7 @@
 {
   "name": "spec-autopilot",
-  "version": "4.0.5",
-  "description": "Spec-driven autopilot with hook preamble deduplication, config validator extraction, skill consolidation (9→7), TDD deterministic RED-GREEN-REFACTOR cycle, 3-layer gate system with checkpoint management, and comprehensive quality assurance pipeline",
+  "version": "4.2.0",
+  "description": "Spec-driven autopilot with banned-pattern/assertion-quality L2 hooks, sad-path quantification, requirement routing intelligence, event bus API, batch scheduler concurrency engine, 3-layer gate system, TDD deterministic RED-GREEN-REFACTOR cycle, and comprehensive quality assurance pipeline",
   "author": {
     "name": "vibeflow-team"
   },
@@ -47,7 +47,13 @@
     "shared-modules",
     "skill-splitting",
     "lockfile-agent",
-    "log-beautification"
+    "log-beautification",
+    "banned-patterns",
+    "assertion-quality",
+    "sad-path-quantification",
+    "requirement-routing",
+    "event-bus",
+    "batch-scheduler"
   ],
   "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
 }
