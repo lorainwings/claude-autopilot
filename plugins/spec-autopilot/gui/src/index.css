@@ -1,0 +1,823 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Color System - Mission Control Palette */
+  --color-void: #0a0e14;
+  --color-deep: #0d1117;
+  --color-surface: #161b22;
+  --color-elevated: #1c2128;
+  --color-border: #21262d;
+  --color-border-bright: #30363d;
+
+  /* Status Colors */
+  --color-cyan: #00d9ff;
+  --color-cyan-dim: #0891b2;
+  --color-amber: #fbbf24;
+  --color-amber-dim: #d97706;
+  --color-emerald: #10b981;
+  --color-emerald-dim: #059669;
+  --color-rose: #f43f5e;
+  --color-rose-dim: #e11d48;
+
+  /* Text Colors */
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-tertiary: #6e7681;
+  --color-text-accent: var(--color-cyan);
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+
+  /* Effects */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-glow-cyan: 0 0 20px rgba(0, 217, 255, 0.3);
+  --shadow-glow-amber: 0 0 20px rgba(251, 191, 36, 0.3);
+  --shadow-glow-emerald: 0 0 20px rgba(16, 185, 129, 0.3);
+  --shadow-glow-rose: 0 0 20px rgba(244, 63, 94, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR - Cyberpunk Style
+   ============================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-deep);
+  border-left: 1px solid var(--color-border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-cyan-dim) 0%, var(--color-border-bright) 100%);
+  border-radius: 6px;
+  border: 2px solid var(--color-deep);
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-cyan) 0%, var(--color-cyan-dim) 100%);
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.5);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-cyan);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-deep);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-cyan-dim) var(--color-deep);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-void);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Subtle scan-line effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    transparent 1px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Technical grid background */
+.app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    linear-gradient(var(--color-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================
+   HEADER - Mission Control Command Bar
+   ============================================ */
+
+.app-header {
+  background: var(--color-deep);
+  border-bottom: 2px solid var(--color-border-bright);
+  padding: var(--space-lg) var(--space-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+
+.app-header::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-cyan) 20%,
+    var(--color-cyan) 80%,
+    transparent 100%
+  );
+  opacity: 0.5;
+  animation: scan 3s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+.app-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  font-size: 1.125rem;
+  letter-spacing: 0.1em;
+}
+
+.header-info {
+  display: flex;
+  gap: var(--space-xl);
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  align-items: center;
+}
+
+.change-name {
+  color: var(--color-cyan);
+  font-weight: 600;
+  padding: var(--space-xs) var(--space-md);
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid rgba(0, 217, 255, 0.3);
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.session-id {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.connection-status {
+  font-weight: 600;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+}
+
+.connection-status.connected {
+  color: var(--color-emerald);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  animation: pulse-connected 2s ease-in-out infinite;
+}
+
+.connection-status.disconnected {
+  color: var(--color-rose);
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+@keyframes pulse-connected {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+/* ============================================
+   MAIN LAYOUT
+   ============================================ */
+
+.app-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  position: relative;
+  z-index: 1;
+}
+
+.section-timeline {
+  grid-column: 1 / -1;
+}
+
+.section-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.section-terminal {
+  grid-column: 1;
+}
+
+/* ============================================
+   PHASE TIMELINE - Hexagonal Mission Phases
+   ============================================ */
+
+.phase-timeline {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 12px;
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.phase-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 10% 20%, rgba(0, 217, 255, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xl);
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-header h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.timeline-header h2::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(180deg, var(--color-cyan), var(--color-cyan-dim));
+  border-radius: 2px;
+}
+
+.mode-badge {
+  background: var(--color-elevated);
+  color: var(--color-amber);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  font-family: var(--font-mono);
+}
+
+.timeline-track {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  padding: var(--space-sm) 0;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.timeline-track::-webkit-scrollbar-track {
+  background: var(--color-deep);
+  border-radius: 3px;
+}
+
+.timeline-track::-webkit-scrollbar-thumb {
+  background: var(--color-border-bright);
+  border-radius: 3px;
+}
+
+.timeline-track::-webkit-scrollbar-thumb:hover {
+  background: var(--color-cyan-dim);
+}
+
+/* Hexagonal Phase Nodes */
+.phase-node {
+  flex: 1;
+  min-width: 140px;
+  background: var(--color-elevated);
+  border: 2px solid var(--color-border-bright);
+  border-radius: 8px;
+  padding: var(--space-lg);
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  clip-path: polygon(
+    8px 0%, calc(100% - 8px) 0%,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0% calc(100% - 8px), 0% 8px
+  );
+}
+
+.phase-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.phase-node:hover::before {
+  opacity: 1;
+}
+
+.phase-node.active {
+  border-color: var(--color-cyan);
+  box-shadow: var(--shadow-glow-cyan), inset 0 0 20px rgba(0, 217, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.phase-node.running {
+  border-color: var(--color-amber);
+  animation: phase-pulse 2s ease-in-out infinite;
+}
+
+.phase-node.ok {
+  border-color: var(--color-emerald);
+  background: linear-gradient(135deg, var(--color-elevated) 0%, rgba(16, 185, 129, 0.05) 100%);
+}
+
+.phase-node.warning {
+  border-color: var(--color-amber-dim);
+  background: linear-gradient(135deg, var(--color-elevated) 0%, rgba(217, 119, 6, 0.05) 100%);
+}
+
+.phase-node.blocked,
+.phase-node.failed {
+  border-color: var(--color-rose);
+  background: linear-gradient(135deg, var(--color-elevated) 0%, rgba(244, 63, 94, 0.05) 100%);
+}
+
+@keyframes phase-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+    border-color: var(--color-amber);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+    border-color: var(--color-amber-dim);
+  }
+}
+
+.phase-number {
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.phase-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: var(--space-sm) 0;
+  min-height: 2.5rem;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.phase-duration {
+  font-size: 0.75rem;
+  color: var(--color-cyan);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  margin-top: var(--space-xs);
+}
+
+.phase-status-dot {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border-bright);
+  transition: all 0.3s ease;
+}
+
+.phase-status-dot.running {
+  background: var(--color-amber);
+  box-shadow: 0 0 10px var(--color-amber);
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+.phase-status-dot.ok {
+  background: var(--color-emerald);
+  box-shadow: 0 0 8px var(--color-emerald);
+}
+
+.phase-status-dot.warning {
+  background: var(--color-amber-dim);
+  box-shadow: 0 0 8px var(--color-amber-dim);
+}
+
+.phase-status-dot.blocked,
+.phase-status-dot.failed {
+  background: var(--color-rose);
+  box-shadow: 0 0 8px var(--color-rose);
+}
+
+@keyframes dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+}
+
+/* ============================================
+   GATE BLOCK CARD - Critical Alert
+   ============================================ */
+
+.gate-block-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-rose);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-glow-rose);
+  animation: alert-flash 2s ease-in-out infinite;
+}
+
+@keyframes alert-flash {
+  0%, 100% {
+    box-shadow: var(--shadow-glow-rose);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.5);
+  }
+}
+
+.card-header {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.2) 0%, rgba(127, 29, 29, 0.3) 100%);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border-bottom: 1px solid var(--color-rose);
+}
+
+.card-header .icon {
+  font-size: 1.25rem;
+  filter: drop-shadow(0 0 4px var(--color-rose));
+}
+
+.card-header h3 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-rose);
+}
+
+.card-body {
+  padding: var(--space-lg);
+}
+
+.block-phase,
+.block-score {
+  font-size: 0.8125rem;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.block-message {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-deep);
+  border-left: 3px solid var(--color-rose);
+  font-size: 0.8125rem;
+  color: #fca5a5;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  border-radius: 4px;
+}
+
+/* ============================================
+   PARALLEL KANBAN - Future Feature
+   ============================================ */
+
+.parallel-kanban {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.kanban-header {
+  background: var(--color-elevated);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-bright);
+}
+
+.kanban-header h3 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-primary);
+}
+
+.badge {
+  background: var(--color-deep);
+  color: var(--color-text-tertiary);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+}
+
+.kanban-placeholder {
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.kanban-placeholder p {
+  margin-bottom: var(--space-sm);
+}
+
+/* ============================================
+   VIRTUAL TERMINAL - Live Event Stream
+   ============================================ */
+
+.virtual-terminal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-bright);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 450px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+
+.virtual-terminal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 90% 10%, rgba(0, 217, 255, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.terminal-header {
+  background: var(--color-elevated);
+  padding: var(--space-md) var(--space-lg);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-border-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  position: relative;
+  z-index: 1;
+}
+
+.terminal-header::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: var(--color-emerald);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--color-emerald);
+  animation: terminal-blink 2s ease-in-out infinite;
+}
+
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.terminal-body {
+  flex: 1;
+  padding: var(--space-md);
+  position: relative;
+  z-index: 1;
+}
+
+/* xterm.js overrides */
+.terminal-body .xterm {
+  height: 100%;
+}
+
+.terminal-body .xterm-viewport {
+  background: transparent !important;
+}
+
+.terminal-body .xterm-screen {
+  font-family: var(--font-mono) !important;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 1280px) {
+  .app-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .section-timeline {
+    grid-column: 1;
+  }
+
+  .section-sidebar {
+    grid-column: 1;
+    flex-direction: row;
+    gap: var(--space-lg);
+  }
+
+  .section-sidebar > * {
+    flex: 1;
+  }
+
+  .section-terminal {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: var(--space-md);
+    align-items: flex-start;
+  }
+
+  .header-info {
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+
+  .app-main {
+    padding: var(--space-md);
+    gap: var(--space-md);
+  }
+
+  .section-sidebar {
+    flex-direction: column;
+  }
+
+  .timeline-track {
+    gap: var(--space-sm);
+  }
+
+  .phase-node {
+    min-width: 120px;
+    padding: var(--space-md);
+  }
+
+  .virtual-terminal {
+    height: 350px;
+  }
+}
+
+/* ============================================
+   UTILITY ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.phase-timeline,
+.gate-block-card,
+.parallel-kanban,
+.virtual-terminal {
+  animation: fadeIn 0.6s ease-out backwards;
+}
+
+.phase-timeline {
+  animation-delay: 0.1s;
+}
+
+.gate-block-card {
+  animation-delay: 0.2s;
+}
+
+.parallel-kanban {
+  animation-delay: 0.3s;
+}
+
+.virtual-terminal {
+  animation-delay: 0.4s;
+}
