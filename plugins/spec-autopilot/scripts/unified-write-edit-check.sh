@@ -60,13 +60,18 @@ elif [ -n "$PHASE3_CP" ] && [ -n "$PHASE1_CP" ]; then
     fi
   fi
 elif [ -n "$PHASE1_CP" ]; then
-  # lite/minimal mode
-  PHASE5_CP=$(find_checkpoint "$PHASE_RESULTS" 5)
-  if [ -z "$PHASE5_CP" ]; then
-    IN_PHASE5="yes"
-  else
-    STATUS=$(read_checkpoint_status "$PHASE5_CP")
-    [ "$STATUS" != "ok" ] && IN_PHASE5="yes"
+  # Only Phase 1 checkpoint exists. Distinguish full vs lite/minimal:
+  # - full mode: we're in Phase 2 or 3, NOT Phase 5 → do not set IN_PHASE5
+  # - lite/minimal: Phase 5 follows directly after Phase 1
+  LOCK_MODE=$(read_lock_json_field "$LOCK_FILE" "mode" "full")
+  if [ "$LOCK_MODE" != "full" ]; then
+    PHASE5_CP=$(find_checkpoint "$PHASE_RESULTS" 5)
+    if [ -z "$PHASE5_CP" ]; then
+      IN_PHASE5="yes"
+    else
+      STATUS=$(read_checkpoint_status "$PHASE5_CP")
+      [ "$STATUS" != "ok" ] && IN_PHASE5="yes"
+    fi
   fi
 fi
 

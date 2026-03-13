@@ -286,7 +286,6 @@ if [ "$TARGET_PHASE" -ge 3 ]; then
 
   # v4.1: minimal mode zero_skip_check warning
   if [ "$EXEC_MODE" = "minimal" ] && [ "$TARGET_PHASE" = "7" ]; then
-    local zsc_passed
     zsc_passed=$(python3 -c "
 import json, sys
 try:

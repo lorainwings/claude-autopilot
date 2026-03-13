@@ -38,7 +38,8 @@ for (let i = 0; i < args.length; i++) {
 const PLUGIN_ROOT = resolve(import.meta.dir, "..");
 const GUI_DIST = join(PLUGIN_ROOT, "gui-dist");
 const EVENTS_FILE = join(projectRoot, "logs", "events.jsonl");
-const DECISION_FILE = join(projectRoot, ".autopilot", "decision.json");
+const CHANGES_DIR = join(projectRoot, "openspec", "changes");
+const LOCK_FILE = join(CHANGES_DIR, ".autopilot-active");
 
 // --- MIME type map ---
 const MIME_TYPES: Record<string, string> = {
@@ -120,12 +121,36 @@ function startEventWatcher() {
   }
 }
 
+// --- Resolve decision file path via .autopilot-active lock file ---
+// Must align with poll-gate-decision.sh: {change_dir}/context/decision.json
+async function resolveDecisionFile(): Promise<string | null> {
+  try {
+    const lockContent = await readFile(LOCK_FILE, "utf-8");
+    let changeName: string;
+    try {
+      const lockData = JSON.parse(lockContent);
+      changeName = lockData.change || "";
+    } catch {
+      changeName = lockContent.trim();
+    }
+    if (!changeName) return null;
+    return join(CHANGES_DIR, changeName, "context", "decision.json");
+  } catch {
+    return null;
+  }
+}
+
 // --- Decision handler ---
 async function handleDecision(decision: { action: string; phase: number; reason?: string }) {
   try {
-    await mkdir(dirname(DECISION_FILE), { recursive: true });
-    await writeFile(DECISION_FILE, JSON.stringify(decision, null, 2));
-    console.log(`  ✅ Decision received: ${decision.action} for Phase ${decision.phase}`);
+    const decisionFile = await resolveDecisionFile();
+    if (!decisionFile) {
+      console.error(`  ❌ Cannot resolve decision path: no active autopilot session found`);
+      return;
+    }
+    await mkdir(dirname(decisionFile), { recursive: true });
+    await writeFile(decisionFile, JSON.stringify(decision, null, 2));
+    console.log(`  ✅ Decision written to ${decisionFile}: ${decision.action} for Phase ${decision.phase}`);
   } catch (error) {
     console.error(`  ❌ Failed to write decision:`, error);
   }

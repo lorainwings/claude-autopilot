@@ -24,10 +24,11 @@ has_phase_marker || exit 0
 # Now: Background tasks are validated (JSON envelope + anti-rationalization) when they
 # complete, since PostToolUse fires after the agent produces output.
 
-# --- Dependency check: python3 required ---
-if ! require_python3; then
-  exit 0
-fi
+# --- Dependency check: python3 required (Fail-Closed) ---
+# require_python3 outputs {"decision":"block",...} to stdout when python3 is missing,
+# then returns 1. The block JSON is consumed by Claude Code hook infrastructure.
+# Without python3, all 5 validators would be silently skipped — this MUST block.
+require_python3 || exit 0
 
 # --- Single python3 call for all validations ---
 echo "$STDIN_DATA" | python3 "$SCRIPT_DIR/_post_task_validator.py"

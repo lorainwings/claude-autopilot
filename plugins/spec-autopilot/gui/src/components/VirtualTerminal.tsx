@@ -13,6 +13,7 @@ export function VirtualTerminal() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const lastRenderedSequence = useRef<number>(-1);
   const { events } = useStore();
 
   useEffect(() => {
@@ -71,15 +72,19 @@ export function VirtualTerminal() {
 
   useEffect(() => {
     const term = xtermRef.current;
-    if (!term) return;
+    if (!term || events.length === 0) return;
 
-    const latest = events[events.length - 1];
-    if (!latest) return;
+    // Render all events with sequence > lastRenderedSequence (incremental)
+    const newEvents = events.filter((e) => e.sequence > lastRenderedSequence.current);
+    if (newEvents.length === 0) return;
 
-    const timestamp = new Date(latest.timestamp).toLocaleTimeString();
-    const line = `[${timestamp}] ${latest.type.toUpperCase()} | Phase ${latest.phase} (${latest.phase_label})\r\n`;
+    for (const event of newEvents) {
+      const timestamp = new Date(event.timestamp).toLocaleTimeString();
+      const line = `[${timestamp}] ${event.type.toUpperCase()} | Phase ${event.phase} (${event.phase_label})\r\n`;
+      term.write(line);
+    }
 
-    term.write(line);
+    lastRenderedSequence.current = newEvents[newEvents.length - 1].sequence;
   }, [events]);
 
   return (

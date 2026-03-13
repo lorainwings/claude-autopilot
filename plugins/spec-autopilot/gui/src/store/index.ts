@@ -41,7 +41,12 @@ export const useStore = create<AppState>((set) => ({
 
   addEvents: (newEvents) =>
     set((state) => {
-      const merged = [...state.events, ...newEvents].sort((a, b) => a.sequence - b.sequence);
+      // Deduplicate by sequence, then cap at 1000 events
+      const seen = new Set(state.events.map((e) => e.sequence));
+      const unique = newEvents.filter((e) => !seen.has(e.sequence));
+      const merged = [...state.events, ...unique]
+        .sort((a, b) => a.sequence - b.sequence)
+        .slice(-1000);
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);
