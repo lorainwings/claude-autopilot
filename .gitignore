@@ -54,5 +54,5 @@ build/
 # Temporary files
 tmp/
 temp/
-*.tmpplugins/spec-autopilot/gui-dist/
+*.tmp
 plugins/spec-autopilot/logs/
