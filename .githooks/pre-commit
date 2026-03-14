@@ -7,11 +7,11 @@ set -uo pipefail
 # Part 1: Hook Test Suite
 # ============================================
 
-# Check if any plugin script files are staged
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/.*\.(sh|json)$' || true)
+# Check if any plugin files are staged (all types, not just sh/json)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/' || true)
 
 if [ -n "$STAGED" ]; then
-  echo "🧪 Plugin files changed — running hook test suite..."
+  echo "🧪 Plugin files changed — running full build + test suite..."
 
   TEST_SCRIPT="plugins/spec-autopilot/tests/run_all.sh"
 

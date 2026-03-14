@@ -65,6 +65,7 @@
 2. **禁止散弹式修改**: 禁止人工或 AI 单独修改 plugin.json / marketplace.json / README.md / CHANGELOG.md 中的版本号
 3. **同步范围**: 脚本一键同步 4 个文件 — plugin.json (version) + marketplace.json (plugins[].version) + README.md (badge) + CHANGELOG.md (header)
 4. **验证闭环**: 脚本执行后自动验证 4 个文件一致性，任一不匹配则 exit 1
+5. **推送前必须完整构建+测试**: `git push` 前必须依次执行 `bash scripts/build-dist.sh`（构建）+ `bash tests/run_all.sh`（全量测试），两者均 exit 0 后才允许推送，禁止跳过
 <!-- DEV-ONLY-END -->
 
 <!-- DEV-ONLY-BEGIN -->
