@@ -156,6 +156,24 @@ claude plugin list
 # 查看 .claude/settings.json 的 hooks 部分应包含 spec-autopilot 相关条目
 ```
 
+### Step 7.5: 启动 GUI 大盘 (v5.0.8, 可选)
+
+GUI 大盘提供实时可视化执行状态和门禁交互界面。
+
+**前置条件**:
+- [Bun](https://bun.sh) 运行时 (`curl -fsSL https://bun.sh/install | bash`)
+
+**启动命令**:
+
+```bash
+# 启动双模服务器 (HTTP:9527 + WebSocket:8765)
+bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+```
+
+打开 `http://localhost:9527` 即可查看三栏布局大盘。当门禁阻断时，GUI 提供 retry / fix / override 决策按钮。
+
+> GUI 为可选组件。不启动 GUI 时，autopilot 完全通过 CLI 交互，功能不受影响。
+
 ---
 
 ## 首次运行
@@ -357,6 +375,50 @@ test_suites:
     allure: playwright
 ```
 
+### 场景 4: 并行执行（大型项目）
+
+适用于模块间依赖清晰的大型项目，Phase 5 按域分组并行执行：
+
+```yaml
+phases:
+  implementation:
+    parallel:
+      enabled: true
+      max_agents: 4           # 最大并行 Agent 数（建议 2-4）
+      dependency_analysis: true  # 自动分析 task 依赖关系
+
+# 域映射（默认自动从 project_context 推导）
+project_context:
+  project_structure:
+    backend_dir: "backend"
+    frontend_dir: "frontend"
+    node_dir: "node"
+```
+
+并行模式核心规则：
+- 每个域严格分配 1 个 Agent，域内串行、跨域并行
+- 文件所有权强制 (`unified-write-edit-check.sh` L2 阻断越权写入)
+- 合并冲突 > 3 文件自动降级为串行模式
+
+### 场景 5: Event Bus 集成
+
+三种消费 autopilot 事件的方式：
+
+```bash
+# 方式 1: 实时监听文件 (最简单)
+tail -f logs/events.jsonl | jq .
+
+# 方式 2: WebSocket 消费 (需安装 wscat)
+npx wscat -c ws://localhost:8765
+
+# 方式 3: HTTP 查询事件 (需 GUI 服务器运行)
+curl http://localhost:9527/api/events
+```
+
+事件类型一览: `phase_start`, `phase_end`, `gate_pass`, `gate_block`, `task_progress`, `decision_ack`。
+
+> 详细事件接口定义见 [Event Bus API](../../skills/autopilot/references/event-bus-api.md)。
+
 ---
 
 ## 项目接入检查清单
@@ -370,15 +432,37 @@ test_suites:
 - [ ] `openspec/` 目录结构已存在
 - [ ] （可选）并行模式已配置（`parallel.enabled: true`）
 - [ ] （可选）`instruction_files` 自定义覆盖已配置
+- [ ] （可选）GUI 大盘已启动（`bun run plugins/spec-autopilot/scripts/autopilot-server.ts`）
+- [ ] （可选）Event Bus 日志目录已创建（`mkdir -p logs`，或由首次运行自动创建）
 - [ ] 首次 `启动autopilot` 或 `/spec-autopilot:autopilot` 测试通过
 
 ---
 
-## 现有项目升级指南（v2.1 → v2.2）
+## 现有项目升级指南
 
 ### 背景
 
-v2.2.0 将 `instruction_files` / `reference_files` 从**必需依赖**降级为**可选覆盖**。项目特定上下文（测试凭据、项目结构、Playwright 登录流程）改为写在 `autopilot.config.yaml` 的 `project_context` 字段中，由 dispatch 动态注入子 Agent prompt。
+spec-autopilot 持续迭代，以下为各版本升级要点。
+
+### v4.2+: 需求路由
+
+- Phase 1 自动分类需求为 Feature / Bugfix / Refactor / Chore
+- 不同类别动态调整门禁阈值（`routing_overrides`）
+- 配置无需修改，路由自动生效
+
+### v5.0+: 并行执行
+
+- 添加 `parallel.enabled: true` 启用 Phase 5 域级并行
+- 需确认 `project_context.project_structure` 域目录配置正确
+- 建议同时调整 `parallel.max_agents`（默认 8，建议 2-4）
+
+### v5.0.8+: GUI V2 大盘
+
+- 安装 Bun 运行时
+- 启动命令: `bun run plugins/spec-autopilot/scripts/autopilot-server.ts`
+- 端口: HTTP 9527 + WebSocket 8765
+
+### v2.2: instruction_files 可选化（历史）
 
 ### 升级步骤
 
@@ -483,4 +567,4 @@ bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/valida
 | Hook 脚本超时 | 项目过大导致扫描慢 | 增加 Hook timeout 或减少扫描范围 |
 | 测试金字塔不通过 | 测试分布不达标 | 调整测试用例数量或放宽 `test_pyramid` 阈值 |
 
-更多故障排查详见 [troubleshooting.md](troubleshooting.md)。
+更多故障排查详见 [troubleshooting.md](../operations/troubleshooting.md)。

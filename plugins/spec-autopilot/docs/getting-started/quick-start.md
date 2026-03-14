@@ -55,6 +55,25 @@ autopilot 会自动：
 /autopilot minimal 修复日期格式 bug  # minimal 模式 — 最精简，适合 bug 修复
 ```
 
+## GUI 实时大盘 (v5.0.8)
+
+启动 GUI 大盘查看实时执行状态：
+
+```bash
+# 启动双模服务器 (HTTP:9527 + WebSocket:8765)
+bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+```
+
+打开浏览器访问 `http://localhost:9527`，可查看：
+
+| 栏位 | 内容 |
+|------|------|
+| 左栏 — Phase 时间轴 | 各阶段进度 + 状态指示灯（ok/warning/blocked） |
+| 中栏 — 事件流 | 实时事件 (phase_start, gate_block, task_progress 等) |
+| 右栏 — 门禁决策 | 门禁阻断时的决策浮层 (retry / fix / override) |
+
+> 门禁阻断时，GUI 提供可视化决策按钮，无需切回 CLI 操作。
+
 ## 常见问题
 
 **Q: 中途崩溃/断开怎么办？**
@@ -83,8 +102,25 @@ phases:
 - `zero_skip_check` → 修复跳过的测试
 - `Anti-rationalization` → 子 Agent 试图跳过工作，会自动重新派发
 
+**Q: 如何查看实时可视化执行状态？**
+启动 GUI 大盘：`bun run plugins/spec-autopilot/scripts/autopilot-server.ts`，然后打开 `http://localhost:9527`。所有 Phase 进度、门禁判定、任务进度实时推送到浏览器。
+
+**Q: 如何启用并行执行？**
+在配置文件中设置：
+```yaml
+phases:
+  implementation:
+    parallel:
+      enabled: true
+      max_agents: 3   # 建议 2-4
+```
+并行模式按域（backend/frontend/node）分组执行，适合全栈 Monorepo 项目。
+
+**Q: Event Bus 事件存储在哪里？**
+事件以 JSON Lines 格式追加到 `logs/events.jsonl`。可通过 `tail -f logs/events.jsonl | jq .` 实时监听，或通过 WebSocket (`ws://localhost:8765`) 消费。
+
 ## 下一步
 
-- [配置调优指南](config-tuning-guide.md) — 按项目类型优化配置
-- [架构总览](architecture-overview.md) — 理解 8 阶段流水线 + 三层门禁
-- [故障排查](troubleshooting-faq.md) — Top 10 常见问题
+- [配置调优指南](../operations/config-tuning-guide.md) — 按项目类型优化配置
+- [架构总览](../architecture/overview.md) — 理解 8 阶段流水线 + 三层门禁 + 事件总线 + GUI V2
+- [故障排查](../operations/troubleshooting.md) — 常见错误与恢复方案

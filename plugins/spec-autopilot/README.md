@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -15,12 +15,18 @@
 - **3-Layer Gate System**: TaskCreate dependencies + Hook checkpoint validation + AI checklist verification
 - **Crash Recovery**: Automatic checkpoint scanning and session resume (with anchor_sha validation)
 - **Context Compaction Resilience**: State persistence across Claude Code context compression
-- **Anti-Rationalization**: Pattern detection to prevent sub-agents from skipping work
+- **Anti-Rationalization**: 16 pattern detection (v5.2: +时间/环境/第三方借口, 中英双语) to prevent sub-agents from skipping work
 - **Test Pyramid Enforcement**: Hook-level validation of test distribution (L2/L3 layered thresholds)
 - **TDD Deterministic Cycle**: RED-GREEN-REFACTOR with L2 `tdd_metrics` validation (v4.1)
+- **Requirements Routing (v4.2)**: Auto-classify requirements as Feature/Bugfix/Refactor/Chore with dynamic gate thresholds
+- **Event Bus (v4.2/v5.0)**: Real-time event streaming via `events.jsonl` + WebSocket for GUI and external tools
+- **GUI V2 Dashboard (v5.0.8)**: Three-column real-time dashboard (Phase timeline / Event stream / Gate decisions) with decision_ack feedback loop
+- **Parallel Execution (v5.0)**: Domain-level parallel agents (backend ‖ frontend ‖ node) with file ownership enforcement
+- **7-Agent Parallel Audit (v5.0.10)**: Comprehensive parallel audit across 7 dimensions
+- **Modular Test Suite**: 53 test files with ~340 assertions covering all hooks and scripts
 - **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
 - **Metrics Collection**: Per-phase timing and retry tracking
-- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions
+- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 非功能需求)
 
 ## Architecture
 
@@ -28,7 +34,7 @@
 graph TB
     subgraph "Main Thread (Orchestrator)"
         P0[Phase 0: Environment Check<br/>+ Crash Recovery]
-        P1[Phase 1: Requirements<br/>Multi-round Decision Loop]
+        P1[Phase 1: Requirements<br/>Multi-round Decision Loop<br/>+ Routing v4.2]
         P7[Phase 7: Summary<br/>+ User-confirmed Archive]
     end
 
@@ -36,8 +42,16 @@ graph TB
         P2[Phase 2: Create OpenSpec]
         P3[Phase 3: FF Generate]
         P4[Phase 4: Test Design]
-        P5[Phase 5: Implementation<br/>Serial Task / Parallel]
+        P5[Phase 5: Implementation<br/>Serial / Parallel / TDD]
         P6[Phase 6: Test Report]
+    end
+
+    subgraph "Event Bus (v4.2/v5.0)"
+        EB[events.jsonl + WebSocket :8765]
+    end
+
+    subgraph "GUI V2 Dashboard (v5.0.8)"
+        GUI[HTTP :9527<br/>PhaseTimeline / EventStream / GatePanel]
     end
 
     P0 --> P1
@@ -47,12 +61,16 @@ graph TB
     P4 -->|Special Gate:<br/>test_counts ≥ N| P5
     P5 -->|Special Gate:<br/>zero_skip_check| P6
     P6 -->|Quality Scans| P7
+    P5 -.->|emit events| EB
+    EB --> GUI
 
     style P0 fill:#e1f5fe
     style P1 fill:#e1f5fe
     style P7 fill:#e1f5fe
     style P4 fill:#fff3e0
     style P5 fill:#fff3e0
+    style EB fill:#e8f5e9
+    style GUI fill:#e8f5e9
 ```
 
 ### 3-Layer Gate System
@@ -122,6 +140,34 @@ sequenceDiagram
     Main->>Main: Read checkpoint files
     Main->>Main: Resume from next phase
 ```
+
+### GUI V2 大盘 (v5.0.8)
+
+实时可视化执行状态和门禁决策交互。
+
+**启动命令**:
+
+```bash
+bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+```
+
+**三栏布局**:
+
+| 栏位 | 组件 | 内容 |
+|------|------|------|
+| 左栏 | PhaseTimeline | Phase 进度时间轴 + 状态指示灯 |
+| 中栏 | EventStream | 实时事件流 (VirtualTerminal 增量渲染) |
+| 右栏 | GatePanel + TelemetryPanel | 门禁决策浮层 + 遥测面板 |
+
+**端口**: HTTP `9527` (静态资源) + WebSocket `8765` (实时推送 + decision_ack)
+
+### 事件发射脚本 (v4.2/v5.0)
+
+| 脚本 | 事件类型 | 触发时机 |
+|------|---------|---------|
+| `emit-phase-event.sh` | `phase_start` / `phase_end` / `error` | 阶段开始和结束 |
+| `emit-gate-event.sh` | `gate_pass` / `gate_block` | 门禁判定后 |
+| `emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
 
 ## Installation
 
@@ -210,7 +256,7 @@ test_suites:
     allure: junit_xml
 ```
 
-> Full configuration reference: [docs/configuration.md](docs/configuration.md)
+> Full configuration reference: [docs/getting-started/configuration.md](docs/getting-started/configuration.md)
 
 ## Components
 
@@ -231,8 +277,8 @@ test_suites:
 | Script | Event | Purpose |
 |--------|-------|---------|
 | `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint + wall-clock timeout + mode-aware gates |
-| `post-task-validator.sh` | PostToolUse(Task) | Unified 5-in-1 validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics |
-| `write-edit-constraint-check.sh` | PostToolUse(Write/Edit) | File-level code constraint checking during Phase 5 |
+| `post-task-validator.sh` | PostToolUse(Task) | Unified validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics (v5.1) |
+| `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | Unified write constraint: banned patterns + assertion quality + checkpoint protection + file ownership (v5.1) |
 | `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints (mode-aware resume suggestion) |
 | `save-state-before-compact.sh` | PreCompact | Persist orchestration state |
 | `reinject-state-after-compact.sh` | SessionStart(compact) | Restore state after compression |
@@ -244,6 +290,11 @@ test_suites:
 | `validate-config.sh` | Validate autopilot.config.yaml schema |
 | `collect-metrics.sh` | Aggregate per-phase execution metrics |
 | `check-allure-install.sh` | Detect Allure toolchain installation |
+| `emit-phase-event.sh` | Emit phase lifecycle events to Event Bus (v4.2) |
+| `emit-gate-event.sh` | Emit gate pass/block events to Event Bus (v4.2) |
+| `emit-task-progress.sh` | Emit Phase 5 task progress events (v5.2) |
+| `autopilot-server.ts` | GUI dual-mode server: HTTP:9527 + WebSocket:8765 (v5.0.8) |
+| `build-dist.sh` | Build distribution package for publishing |
 | `_common.sh` | Shared utility functions |
 
 ## Requirements
@@ -282,19 +333,22 @@ Place project-specific instructions in `.claude/skills/autopilot/phases/` and re
 
 ## Troubleshooting
 
-Common issues and solutions: [docs/troubleshooting.md](docs/troubleshooting.md)
+Common issues and solutions: [docs/operations/troubleshooting.md](docs/operations/troubleshooting.md)
 
 ## Documentation
 
 | Document | Content |
 |----------|---------|
-| [Integration Guide](docs/integration-guide.md) | Step-by-step project onboarding, config examples, checklist |
-| [Architecture](docs/architecture.md) | Layer design, hook execution flow, skill interactions, data flow |
-| [Configuration](docs/configuration.md) | Complete YAML field reference with types and defaults |
-| [Gates](docs/gates.md) | 3-layer gate deep dive, special gates, anti-rationalization |
-| [Phases](docs/phases.md) | Per-phase execution guide, I/O tables, checkpoint formats |
-| [Troubleshooting](docs/troubleshooting.md) | Common errors, debugging hooks, recovery scenarios |
-| [Changelog](../../CHANGELOG.md) | Version history |
+| [Quick Start](docs/getting-started/quick-start.md) | 5-minute quick start guide |
+| [Integration Guide](docs/getting-started/integration-guide.md) | Step-by-step project onboarding, config examples, checklist |
+| [Configuration](docs/getting-started/configuration.md) | Complete YAML field reference with types and defaults |
+| [Architecture](docs/architecture/overview.md) | System architecture, event bus, GUI V2, parallel dispatch, routing |
+| [Phases](docs/architecture/phases.md) | Per-phase execution guide, I/O tables, checkpoint formats, TDD cycle |
+| [Gates](docs/architecture/gates.md) | 3-layer gate deep dive, anti-rationalization, routing_overrides, decision_ack |
+| [Config Tuning](docs/operations/config-tuning-guide.md) | Per-project-type configuration optimization |
+| [Troubleshooting](docs/operations/troubleshooting.md) | Common errors, debugging hooks, recovery scenarios |
+| [Event Bus API](skills/autopilot/references/event-bus-api.md) | Event types, transport layer, consumption examples |
+| [Changelog](CHANGELOG.md) | Version history |
 
 ## Contributing
 

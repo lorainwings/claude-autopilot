@@ -94,7 +94,7 @@ phases:
   implementation:
     tdd_mode: false
     parallel:
-      enabled: false
+      enabled: false           # 快速原型不需要并行
 test_pyramid:
   min_unit_pct: 30
   max_e2e_pct: 40
@@ -185,6 +185,65 @@ phases:
       web_search:
         enabled: false
 ```
+
+### 调优 6: 并行执行优化
+
+```yaml
+phases:
+  implementation:
+    parallel:
+      enabled: true
+      max_agents: 3           # 建议按域数量设置 (backend + frontend + node)
+      dependency_analysis: true  # 自动分析 task 间依赖
+
+# 域映射 — 确保目录划分准确
+project_context:
+  project_structure:
+    backend_dir: "backend"        # 后端源码根目录
+    frontend_dir: "frontend/app"  # 前端源码根目录
+    node_dir: "services/node"     # Node 服务目录
+```
+
+调优建议：
+- `max_agents` 设为项目实际域数量（如 3 个域则设 3）
+- 确保 `project_structure` 目录映射准确，否则文件所有权分配可能不合理
+- 合并冲突频繁时降低 `max_agents` 或切回串行模式
+
+### 调优 7: TDD 模式精细配置
+
+```yaml
+phases:
+  implementation:
+    tdd_mode: true
+    tdd_refactor: true            # 包含 REFACTOR 步骤
+    tdd_test_command: "npm test -- --bail"  # 覆盖默认 test_suites 命令
+
+test_pyramid:
+  min_unit_pct: 70                # TDD 模式建议提高单元测试占比
+```
+
+TDD 行为说明：
+- **RED**: 仅写测试，运行必须失败 (`exit_code ≠ 0`)。L2 Bash 确定性验证
+- **GREEN**: 仅写实现，运行必须通过 (`exit_code = 0`)。L2 Bash 确定性验证
+- **REFACTOR**: 重构后测试必须保持通过。失败 → `git checkout` 自动回滚
+
+> 设置 `tdd_refactor: false` 可跳过 REFACTOR 步骤，适合快速迭代场景。
+
+### 调优 8: Event Bus 与 GUI 调优
+
+```bash
+# 启动 GUI 双模服务器
+bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+
+# 自定义端口
+bun run plugins/spec-autopilot/scripts/autopilot-server.ts --http-port 3000 --ws-port 9000
+```
+
+调优建议：
+- 事件文件默认写入 `logs/events.jsonl`，建议将 `logs/` 加入 `.gitignore`
+- WebSocket 端口冲突时通过 `--ws-port` 更改
+- 大型项目事件量大时，定期清理 `events.jsonl`（每次 autopilot 会话追加，不自动清理）
+- 不使用 GUI 时无需启动服务器，事件仍写入文件可通过 `tail -f` 消费
 
 ## 配置验证
 

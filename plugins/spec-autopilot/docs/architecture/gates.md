@@ -71,6 +71,8 @@ Runs before every `Task` tool call. For autopilot phases:
 
 ### PostToolUse Envelope Validation (`validate-json-envelope.sh`)
 
+> **v5.1 说明**: 实际 Hook 注册使用 `post-task-validator.sh` 作为统一入口，内部调用 `_post_task_validator.py` 执行所有验证（包括信封验证、反合理化、代码约束、TDD 指标等）。`validate-json-envelope.sh` 和 `anti-rationalization-check.sh` 作为独立脚本保留但不再单独注册。
+
 Runs after every `Task` tool call. For autopilot phases:
 
 1. **JSON envelope exists** in sub-agent output (3 extraction strategies)
@@ -96,20 +98,46 @@ Runs after envelope validation. Detects patterns suggesting the sub-agent is rat
 2. Status is `ok` or `warning` (not `blocked`/`failed`)
 3. Output contains rationalization patterns
 
-**10 Detected Patterns**:
+**16 种检测模式 (v5.2)**:
 
-| # | Pattern | Example |
-|---|---------|---------|
-| 1 | `out of scope` | "This feature is out of scope" |
-| 2 | `pre-existing issue/bug` | "This is a pre-existing bug" |
-| 3 | `skip(ped/ping) this test/task` | "Skipped this test" |
-| 4 | `not needed/necessary/required` | "Not needed for this phase" |
-| 5 | `already covered/tested` | "Already covered by other tests" |
-| 6 | `too complex/difficult/risky` | "Too complex to implement now" |
-| 7 | `will be done later/separately` | "Can be done in a future iteration" |
-| 8 | `deferred/postponed` | "Deferred to next sprint" |
-| 9 | `minimal/low impact/priority` | "Low priority item" |
-| 10 | `works/good enough` | "Works enough for now" |
+| # | 模式 | 示例 | 版本 |
+|---|------|------|------|
+| 1 | `out of scope` | "This feature is out of scope" | v1.0 |
+| 2 | `pre-existing issue/bug` | "This is a pre-existing bug" | v1.0 |
+| 3 | `skip(ped/ping) this test/task` | "Skipped this test" | v1.0 |
+| 4 | `not needed/necessary/required` | "Not needed for this phase" | v1.0 |
+| 5 | `already covered/tested` | "Already covered by other tests" | v1.0 |
+| 6 | `too complex/difficult/risky` | "Too complex to implement now" | v1.0 |
+| 7 | `will be done later/separately` | "Can be done in a future iteration" | v1.0 |
+| 8 | `deferred/postponed` | "Deferred to next sprint" | v1.0 |
+| 9 | `minimal/low impact/priority` | "Low priority item" | v1.0 |
+| 10 | `works/good enough` | "Works enough for now" | v1.0 |
+| 11 | `时间不够/来不及` | "时间不够实现这个功能" | v5.2 |
+| 12 | `环境/工具限制` | "当前环境不支持" / "Environment limitation" | v5.2 |
+| 13 | `第三方依赖/API 问题` | "第三方 API 暂不可用" / "Third-party API issue" | v5.2 |
+| 14 | `not enough time` | "Not enough time to complete" | v5.2 |
+| 15 | `environment.*limit` | "Environment limitation prevents this" | v5.2 |
+| 16 | `third.party.*issue` | "Third-party dependency issue" | v5.2 |
+
+### routing_overrides 动态门禁 (v4.2)
+
+L2 Hook 从 Phase 1 checkpoint 的 `routing_overrides` 字段读取需求类型覆盖值，动态调整门禁阈值：
+
+| 字段 | 默认值 | Bugfix 覆盖 | Refactor 覆盖 | Chore 覆盖 |
+|------|--------|------------|--------------|-----------|
+| `sad_path_min_pct` | 20 | 40 | 20 | 0 |
+| `change_coverage_min_pct` | 80 | 100 | 100 | 60 |
+| `require_reproduction_test` | false | true | false | false |
+| `require_behavior_preservation_test` | false | false | true | false |
+
+**读取逻辑**:
+
+1. `post-task-validator.sh` 在 Phase 4/5 验证时定位最新 Phase 1 checkpoint
+2. 解析 `routing_overrides` 字段（不存在则使用默认值）
+3. 将覆盖值注入 `_post_task_validator.py` 的阈值参数
+4. 复合需求 (v5.0.6) 的数组格式自动取 max/union 合并
+
+> 注意：`routing_overrides` 由 Phase 1 主线程写入，子 Agent 无法修改（L2 Hook `unified-write-edit-check.sh` 阻断 checkpoint 写入）。
 
 ## Layer 3: AI Gate (`autopilot-gate` Skill)
 
@@ -146,7 +174,7 @@ Additional verification (thresholds from `config.phases.testing.gate`):
 
 ### Semantic Validation (Optional Layer 3 Extension)
 
-Per-phase content quality checks beyond structural validation. See [architecture.md](architecture.md) for the full checklist per transition.
+Per-phase content quality checks beyond structural validation. See [overview.md](overview.md) for the full checklist per transition.
 
 Key checks by phase:
 - Phase 1→2: Requirements are testable, no contradictory decisions
@@ -166,6 +194,32 @@ When `brownfield_validation.enabled: true`, performs three-way consistency check
 | Phase 5→6 | Implementation-design consistency |
 
 `strict_mode: true` blocks on inconsistency; `false` (default) warns only.
+
+## decision_ack 决策反馈闭环 (v5.0.6)
+
+当门禁阻断时，GUI 大盘提供可视化决策界面，形成完整的人机闭环：
+
+### 7 步闭环流程
+
+```
+Step 1: gate_block → emit-gate-event.sh 发射事件到 events.jsonl
+Step 2: WebSocket 推送 → GUI EventStream 渲染 GateBlockCard
+Step 3: 用户在 GUI 中选择操作: retry / fix / override
+Step 4: GUI 通过 WebSocket 发送 decision_ack 消息
+Step 5: autopilot-server.ts 接收并写入 decision.json
+Step 6: poll-gate-decision.sh 轮询检测 decision.json 文件
+Step 7: 主编排器读取决策 → 执行对应动作 → 发射 ack 事件
+```
+
+### 决策选项
+
+| 选项 | 行为 | 后续流程 |
+|------|------|---------|
+| **retry** | 重新派发当前阶段 | 子 Agent 重新执行 → 门禁重新验证 |
+| **fix** | 暂停，等待用户手动修复 | 用户修复后手动触发继续 |
+| **override** | 强制通过门禁 | 跳过当前阻断，继续下一阶段（记录 audit log） |
+
+> `decision_ack` 事件仅通过 WebSocket 传输，不写入 `events.jsonl`（GUI 闭环事件，无需持久化）。
 
 ## Wall-Clock Timeout
 

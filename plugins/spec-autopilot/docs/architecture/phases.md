@@ -7,11 +7,11 @@
 | Phase | Executor | Key Behavior | Checkpoint |
 |-------|----------|-------------|------------|
 | 0 | Main thread | Environment check + crash recovery | None |
-| 1 | Main thread | Multi-round decision loop with user | `phase-1-requirements.json` |
+| 1 | Main thread | Multi-round decision loop + 需求路由 (routing_overrides, v4.2) | `phase-1-requirements.json` |
 | 2 | Sub-agent | Create OpenSpec change directory | `phase-2-openspec.json` |
 | 3 | Sub-agent | FF generate all artifacts | `phase-3-ff.json` |
 | 4 | Sub-agent | Test case design (mandatory) | `phase-4-testing.json` |
-| 5 | Sub-agent | Implementation via serial Task dispatch | `phase-5-implement.json` |
+| 5 | Sub-agent | Implementation: Serial / Parallel / TDD | `phase-5-implement.json` |
 | 6 | Sub-agent | Test report generation (mandatory) | `phase-6-report.json` |
 | 7 | Main thread | Summary + user-confirmed archive | `phase-7-summary.json` |
 
@@ -59,6 +59,13 @@
 | `structured` (default) | Standard AskUserQuestion flow |
 | `socratic` | Additional challenging questions per the 6-step protocol |
 
+#### Socratic 模式步骤 (v5.0.6 扩展)
+
+| Step | 内容 |
+|------|------|
+| 1-6 | 标准 6 步质询协议 |
+| **7 (v5.0.6)** | 非功能需求质询：性能指标、安全约束、可访问性、国际化需求 |
+
 ### Complexity Routing
 
 | Complexity | Discussion Depth | Socratic Mode | Min QA Rounds |
@@ -78,6 +85,19 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
 | `context/tech-constraints.md` | Hard constraints, dependency constraints, infrastructure constraints |
 | `context/research-findings.md` | Impact analysis, dependency check, feasibility assessment, risks |
 
+### 需求类型路由 (v4.2)
+
+Phase 1 分析结果自动将需求分类为以下类型，并动态调整后续阶段门禁阈值：
+
+| 需求类型 | 分类规则 | 门禁调整 |
+|---------|---------|---------|
+| **Feature** | 新功能、新组件、新 API | 默认阈值 |
+| **Bugfix** | 缺陷修复、行为修正 | sad_path ≥ 40%, coverage = 100%, 必须含复现测试 |
+| **Refactor** | 代码重构、性能优化 | coverage = 100%, 必须含行为保持测试 |
+| **Chore** | CI/CD、文档、依赖升级 | coverage ≥ 60%, typecheck 通过即可 |
+
+分类结果写入 checkpoint 的 `requirement_type` 字段。复合需求 (v5.0.6) 使用数组格式并通过 `routing_overrides` 传递合并后的阈值覆盖。
+
 ### Checkpoint Format
 
 ```json
@@ -93,6 +113,13 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
   "decisions": [{"point": "...", "choice": "..."}],
   "change_name": "<kebab-case-name>",
   "complexity": "small | medium | large",
+  "requirement_type": "feature | bugfix | refactor | chore",
+  "routing_overrides": {
+    "sad_path_min_pct": 20,
+    "change_coverage_min_pct": 80,
+    "require_reproduction_test": false,
+    "require_behavior_preservation_test": false
+  },
   "research": {
     "status": "completed | skipped",
     "impact_files": 0,
@@ -219,6 +246,28 @@ Each completed task writes to `phase-results/phase5-tasks/task-N.json`:
 - Skill-level soft limit: AskUser after 2 hours
 - Options: continue / save & pause / rollback to start tag
 
+### 事件发射 (v4.2/v5.0)
+
+Phase 5 每个 task 完成后通过 `emit-task-progress.sh` 发射 `task_progress` 事件：
+
+```bash
+bash scripts/emit-task-progress.sh <phase> <task_name> <status> <task_index> <task_total> [tdd_step]
+```
+
+事件实时推送到 `logs/events.jsonl` 和 WebSocket (`ws://localhost:8765`)，供 GUI 大盘实时渲染任务进度。
+
+### TDD 确定性循环 (v4.1)
+
+当 `tdd_mode: true` 时，每个 task 按 RED-GREEN-REFACTOR 循环执行：
+
+| 阶段 | 行为 | L2 验证 |
+|------|------|---------|
+| **RED** | 仅写测试，运行必须失败 (`exit_code ≠ 0`) | Bash 确定性验证 |
+| **GREEN** | 仅写实现，运行必须通过 (`exit_code = 0`) | Bash 确定性验证 |
+| **REFACTOR** | 重构，测试必须保持通过 | 失败 → `git checkout` 自动回滚 |
+
+> GREEN 失败时修复实现代码，禁止修改测试文件。
+
 ### Checkpoint Format
 
 ```json
@@ -229,6 +278,12 @@ Each completed task writes to `phase-results/phase5-tasks/task-N.json`:
   "test_results_path": "testreport/test-results.json",
   "tasks_completed": 8,
   "zero_skip_check": { "passed": true },
+  "tdd_metrics": {
+    "red_pass": true,
+    "green_pass": true,
+    "refactor_pass": true,
+    "cycle_count": 8
+  },
   "_metrics": { ... }
 }
 ```

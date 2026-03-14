@@ -195,6 +195,72 @@ Project-specific context auto-detected by `autopilot-init`. Dispatch dynamically
 
 > All `project_context` fields are **optional**. Empty fields are supplemented by Phase 1 Auto-Scan + Research Agent at runtime.
 
+## `routing_overrides` (Phase 1 自动生成, v4.2)
+
+Phase 1 完成后自动写入 checkpoint，供 L2 Hook 在后续阶段读取。**无需手动配置**。
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `requirement_type` | string\|array | `"feature"` | 需求分类: `"feature"`, `"bugfix"`, `"refactor"`, `"chore"`, 或数组 `["feature","bugfix"]` |
+| `sad_path_min_pct` | number | `20` | Sad path 测试最低比例 (bugfix 自动提升至 40) |
+| `change_coverage_min_pct` | number | `80` | 变更覆盖率最低值 (bugfix/refactor 自动提升至 100) |
+| `require_reproduction_test` | boolean | `false` | 是否要求复现测试 (bugfix 自动启用) |
+| `require_behavior_preservation_test` | boolean | `false` | 是否要求行为保持测试 (refactor 自动启用) |
+
+> `routing_overrides` 存储在 Phase 1 checkpoint (`phase-1-requirements.json`) 中，不是 `autopilot.config.yaml` 的字段。记录在此是因为 L2 Hook 的验证逻辑依赖它。
+
+## `code_constraints` (v4.2)
+
+项目级代码约束，由 L2 Hook (`unified-write-edit-check.sh`, v5.1) 在 Write/Edit 时强制执行。
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `forbidden_files` | array | `[]` | 禁止修改的文件路径列表 (支持 glob，如 `["*.lock", "package-lock.json"]`) |
+| `forbidden_patterns` | array | `[]` | 禁止出现的代码模式 (正则，如 `["TODO", "FIXME", "HACK"]`) |
+| `allowed_dirs` | array | `[]` | 允许写入的目录白名单（为空则不限制） |
+
+```yaml
+code_constraints:
+  forbidden_files:
+    - "package-lock.json"
+    - "*.lock"
+  forbidden_patterns:
+    - "TODO"
+    - "FIXME"
+    - "HACK"
+    - "console\\.log"
+  allowed_dirs:
+    - "src/"
+    - "tests/"
+```
+
+> `forbidden_patterns` 中的 `TODO/FIXME/HACK` 由 `unified-write-edit-check.sh` (v5.1) 确定性拦截，不依赖 AI 判断。
+
+## GUI 与事件总线 (v5.0.8)
+
+GUI 大盘通过 `autopilot-server.ts` 提供双模服务，无需在 `autopilot.config.yaml` 中配置。
+
+### 服务器命令行参数
+
+```bash
+bun run scripts/autopilot-server.ts [options]
+```
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--http-port` | `9527` | HTTP 静态资源端口 |
+| `--ws-port` | `8765` | WebSocket 实时推送端口 |
+| `--events-file` | `logs/events.jsonl` | 事件文件路径 |
+
+### 端口映射
+
+| 协议 | 端口 | 用途 |
+|------|------|------|
+| HTTP | 9527 | Vite 构建产出的静态资源 (三栏布局 GUI) |
+| WebSocket | 8765 | 实时事件推送 + decision_ack 回传 |
+
+> GUI 为可选组件，不影响 CLI 模式下的功能。
+
 ## `async_quality_scans`
 
 | Field | Type | Default | Description |
@@ -299,6 +365,9 @@ Output:
 | `test_pyramid.hook_floors.min_total_cases` | number |
 | `test_pyramid.hook_floors.min_change_coverage_pct` | number |
 | `default_mode` | string |
+| `code_constraints.forbidden_files` | array |
+| `code_constraints.forbidden_patterns` | array |
+| `code_constraints.allowed_dirs` | array |
 | `background_agent_timeout_minutes` | number |
 
 ### 范围验证规则
