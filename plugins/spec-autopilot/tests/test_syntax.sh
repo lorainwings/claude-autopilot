@@ -11,7 +11,7 @@ setup_autopilot_fixture
 
 for script in "$SCRIPT_DIR"/*.sh; do
   name=$(basename "$script")
-  [ "$name" = "test-hooks.sh" ] && continue
+
   if bash -n "$script" 2>/dev/null; then
     green "  PASS: $name syntax OK"
     PASS=$((PASS + 1))

@@ -2,7 +2,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.0.6-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.0.7-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -300,7 +300,7 @@ Common issues and solutions: [docs/troubleshooting.md](docs/troubleshooting.md)
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Run tests: `bash plugins/spec-autopilot/scripts/test-hooks.sh`
+3. Run tests: `bash plugins/spec-autopilot/tests/run_all.sh`
 4. Ensure all bash scripts pass syntax check: `bash -n plugins/spec-autopilot/scripts/*.sh`
 5. Ensure JSON files are valid
 6. Submit a pull request

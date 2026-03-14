@@ -25,4 +25,4 @@ jobs:
         run: python3 --version
 
       - name: Run hook test suite
-        run: bash plugins/spec-autopilot/scripts/test-hooks.sh
+        run: bash plugins/spec-autopilot/tests/run_all.sh

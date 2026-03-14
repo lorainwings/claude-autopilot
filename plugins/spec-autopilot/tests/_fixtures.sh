@@ -3,7 +3,7 @@
 # Extracted from test-hooks.sh:55-75
 
 # Resolve repo root from test directory
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 FIXTURE_LOCK_DIR="$REPO_ROOT/openspec/changes"
 FIXTURE_LOCK_FILE="$FIXTURE_LOCK_DIR/.autopilot-active"
 FIXTURE_LOCK_CREATED=false

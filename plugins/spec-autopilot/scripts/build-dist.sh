@@ -2,9 +2,10 @@
 # build-dist.sh — 构建运行时插件发布包
 set -euo pipefail
 
+PLUGIN_NAME="spec-autopilot"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
-DIST_DIR="$REPO_ROOT/dist/plugin"
+DIST_DIR="$REPO_ROOT/dist/$PLUGIN_NAME"
 
 # 1. 清空并重建
 rm -rf "$DIST_DIR"
@@ -18,8 +19,9 @@ cp -r "$PLUGIN_ROOT/gui-dist"       "$DIST_DIR/"
 
 # 3. scripts/ — 排除开发专用脚本
 mkdir -p "$DIST_DIR/scripts"
-EXCLUDE_SCRIPTS="test-hooks.sh|bump-version.sh|build-dist.sh"
+EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh"
 for f in "$PLUGIN_ROOT/scripts/"*; do
+  [ -f "$f" ] || continue  # 跳过子目录
   fname=$(basename "$f")
   if ! echo "$fname" | grep -qE "^($EXCLUDE_SCRIPTS)$"; then
     cp "$f" "$DIST_DIR/scripts/"
@@ -49,7 +51,7 @@ for keyword in "测试纪律" "构建纪律" "发版纪律"; do
 done
 
 # 7. 隔离验证
-for forbidden in "gui" "docs" "tests" "test-hooks.sh" "CHANGELOG.md" "README.md"; do
+for forbidden in "gui" "docs" "tests" "CHANGELOG.md" "README.md"; do
   if [ -e "$DIST_DIR/$forbidden" ]; then
     echo "ERROR: dist contains forbidden path: $forbidden"
     exit 1
@@ -59,4 +61,4 @@ done
 # 8. 大小对比
 SRC_SIZE=$(du -sh "$PLUGIN_ROOT" | cut -f1)
 DIST_SIZE=$(du -sh "$DIST_DIR" | cut -f1)
-echo "✅ dist built: $DIST_SIZE (source: $SRC_SIZE)"
+echo "✅ dist/$PLUGIN_NAME built: $DIST_SIZE (source: $SRC_SIZE)"

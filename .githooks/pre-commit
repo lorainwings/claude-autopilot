@@ -30,7 +30,7 @@ if [ -n "$STAGED" ]; then
   # Part 1.5: Targeted Test Coverage Check
   # ============================================
   # Verify that modified scripts have corresponding test file changes
-  CHANGED_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/scripts/[^/]+\.sh$' | grep -v 'test-hooks\.sh' | grep -v '_common\.sh' || true)
+  CHANGED_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/scripts/[^/]+\.sh$' | grep -v '_common\.sh' || true)
   TESTS_DIR="plugins/spec-autopilot/tests"
   TEST_FILES_DIFF=$(git diff --cached --name-only -- "$TESTS_DIR" 2>/dev/null || true)
 
@@ -62,7 +62,7 @@ if [ -n "$STAGED" ]; then
   # ============================================
   echo "📦 Rebuilding dist/plugin/..."
   if bash plugins/spec-autopilot/scripts/build-dist.sh; then
-    git add dist/plugin/
+    git add dist/spec-autopilot/
   else
     echo "❌ dist build failed. Fix the build before committing."
     exit 1

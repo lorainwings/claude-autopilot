@@ -40,8 +40,8 @@ pnpm-lock.yaml
 logs/
 *.log
 
-# Build outputs (except dist/plugin which is tracked for marketplace install)
-!dist/plugin/
+# Build outputs (except dist/<plugin-name> which is tracked for marketplace install)
+!dist/spec-autopilot/
 build/
 *.tsbuildinfo
 

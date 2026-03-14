@@ -1,6 +1,26 @@
 # Changelog
 
 
+## [5.0.7] - 2026-03-14
+
+### Added
+
+- **模块化测试体系**: 2725 行单文件 `test-hooks.sh` 重构为 49 个独立 `tests/test_*.sh` 模块 (357 tests)
+- **build-dist.sh**: 白名单构建 `dist/spec-autopilot/`，终端用户仅安装运行时文件 (1.1M vs 源码 2.9M)
+- **CLAUDE.md 测试纪律铁律**: 禁止反向适配、弱化断言、删除测试等反模式
+- **CLAUDE.md 构建纪律**: dist 构建规范 + DEV-ONLY 标记裁剪机制
+
+### Changed
+
+- **marketplace.json source**: `./plugins/spec-autopilot` → `./dist/spec-autopilot`，终端用户不再安装 gui 源码/测试/文档
+- **pre-commit hook**: 指向 `tests/run_all.sh` + 自动 rebuild dist + 测试覆盖检查升级
+- **GitHub Actions**: `test.yml` 指向新测试路径
+- **dist 按插件名隔离**: `dist/plugin/` → `dist/<plugin-name>/`，支持多插件市场扩展
+
+### Removed
+
+- **scripts/test-hooks.sh**: 已完整迁移至 `tests/` 目录
+
 ## [5.0.6] - 2026-03-14
 
 ### Added (v5.2 卓越线冲刺 — Sprint to 90+)
