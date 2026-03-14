@@ -115,7 +115,7 @@ interface DecisionAckEvent {
 
 | 脚本 | 事件类型 | 调用时机 |
 |------|---------|---------|
-| `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error` | SKILL.md 统一调度模板 Step 0 / Step 6.5 |
+| `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error` | Phase 0 Step 4.6/10.5 + Phase 1 Step 0/10 + 统一调度模板 Step 0/6.5 (Phase 2-6) + Phase 7 Step -1/6.5 |
 | `scripts/emit-gate-event.sh` | `gate_pass`, `gate_block` | SKILL.md 统一调度模板 Step 1 (Gate 判定后) |
 | `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
 

@@ -48,7 +48,19 @@ user-invocable: false
   - 不匹配 → mode 从 config 读取，整体为需求
 ```
 
-### Step 4: 展示启动 Banner
+### Step 4: 启动 GUI 服务器 + 展示启动 Banner（v5.2 合并）
+
+**先启动 GUI 服务器**，再将地址嵌入 Banner 统一输出，避免分两步展示。
+
+调用 `Bash("bash <plugin_dir>/scripts/start-gui-server.sh <project_root>")`：
+
+- **已存活** → 静默退出（exit 0），GUI 地址仍为 `http://localhost:9527`
+- **未存活** → 后台启动 autopilot-server.ts，GUI 地址为 `http://localhost:9527`
+- **启动失败** → GUI 行显示 `unavailable`，不阻断流程（GUI 为可选增强功能）
+
+> **零侵入保障**: 服务器以守护进程运行，日志重定向到 `/dev/null`，不干扰主线程输出。
+
+**然后渲染 Banner**（将 GUI 地址合并到 Banner 中）：
 
 > **渲染规则**: 使用 markdown 代码块输出。框内宽度（左 `│` 与右 `│` 之间）固定 **50 字符**（纯 ASCII，禁止在框内使用 emoji 避免终端宽度歧义），每行内容不足时用空格右填充至 50 字符，确保右侧 `│` 严格垂直对齐。单字段值超长时截断并追加 `…`，保证不溢出框宽。时间使用本地时间格式 `YYYY-MM-DD HH:mm:ss`。
 
@@ -61,6 +73,7 @@ user-invocable: false
 │   Change    {change_name}                        │
 │   Session   {session_id}                         │
 │   Started   {YYYY-MM-DD HH:mm:ss}               │
+│   GUI       http://localhost:9527                │
 │                                                  │
 ╰──────────────────────────────────────────────────╯
 ```
@@ -68,16 +81,18 @@ user-invocable: false
 - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 9 写入锁文件时复用同一值
 - change_name：此时尚未确定，显示 `pending`（Phase 1 完成后更新锁文件时回填）
 - Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
+- GUI：服务器启动成功时显示 `http://localhost:9527`，启动失败时显示 `unavailable`
 
-### Step 4.5: 启动 GUI 服务器（v5.0）
+### Step 4.5: 初始化事件文件 + 发射 Phase 0 开始事件（v5.2 Event Bus 补全）
 
-调用 `Bash("bash <plugin_dir>/scripts/start-gui-server.sh <project_root>")`：
+确保事件文件存在并发射 Phase 0 开始事件：
 
-- **已存活** → 静默退出（exit 0），无输出
-- **未存活** → 后台启动 autopilot-server.ts，输出一行提示：`✨ 引擎已启动，GUI 大盘见 http://localhost:9527`
-- **启动失败** → 输出 WARN 但不阻断流程（GUI 为可选增强功能）
+```bash
+Bash('mkdir -p <project_root>/logs && touch <project_root>/logs/events.jsonl')
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode}')
+```
 
-> **零侵入保障**: 服务器以守护进程运行，日志重定向到 `/dev/null`，不干扰主线程输出。用户可手动访问 `http://localhost:9527` 查看可视化大盘。
+> **必要性**: Phase 0/1 此前未接入 Event Bus，导致 GUI 在 Phase 2 之前无任何数据。此步骤确保 `events.jsonl` 在 GUI 服务器启动后立即创建，且 Phase 0 生命周期事件对 GUI 可见。
 
 ### Step 5: 检查已启用插件
 
@@ -132,6 +147,14 @@ ANCHOR_SHA=$(git rev-parse HEAD)
 调用锁文件管理（本 Skill 内置操作 2）：将 `ANCHOR_SHA` 写入锁文件的 `anchor_sha` 字段。
 
 > **原子性保障**：如果 Step 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
+
+---
+
+### Step 10.5: 发射 Phase 0 结束事件（v5.2 Event Bus 补全）
+
+```bash
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","artifacts":["lockfile","anchor_commit"]}\'')
+```
 
 ---
 

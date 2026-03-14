@@ -102,6 +102,12 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
 
 **执行前读取**: `references/phase1-requirements.md`（完整的 10 步流程）
 
+**Step 0: 发射 Phase 1 开始事件（v5.2 Event Bus 补全）**
+
+```
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 1 {mode}')
+```
+
 概要流程:
 1. 获取需求来源（$ARGUMENTS 解析）
 2. **并行调研**（v3.2.0 增强, v3.3.7 搜索策略重构）→ 读取 `references/parallel-phase1.md` 并行配置，同时派发：
@@ -160,6 +166,8 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
 8. 写入 `phase-1-requirements.json` checkpoint + git fixup（使用后台 Checkpoint Agent，同统一调度模板 Step 5+7）
    **v5.1**: 写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 9. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`）
+10. **发射 Phase 1 结束事件（v5.2 Event Bus 补全）**:
+    `Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 1 {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":["phase-1-requirements.json"]}\'')`
 
 ---
 

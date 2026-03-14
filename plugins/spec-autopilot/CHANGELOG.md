@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.1.9] - 2026-03-15
+
+### Fixed
+
+- **GUI 无数据反馈**: Phase 0/1/7 补充 `emit-phase-event.sh` 调用，修复 GUI 在 Phase 2 前无任何事件数据的问题
+- **GUI 版本号不同步**: `build-dist.sh` 新增 GUI 自动构建步骤，确保 `__PLUGIN_VERSION__` 与 `plugin.json` 始终一致
+
+### Changed
+
+- **Phase 0 Banner 合并 GUI 地址**: 启动 Banner 新增 `GUI` 行，展示 `http://localhost:9527`，不再单独输出 GUI 启动提示
+- **event-bus-api.md**: 更新 `emit-phase-event.sh` 调用时机，覆盖全部 Phase 0-7
 
 ## [5.1.8] - 2026-03-15
 

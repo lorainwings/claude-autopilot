@@ -11,13 +11,19 @@ DIST_DIR="$REPO_ROOT/dist/$PLUGIN_NAME"
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
-# 2. 白名单复制
+# 2. 重新构建 GUI（确保 __PLUGIN_VERSION__ 与 plugin.json 同步）
+if [ -f "$PLUGIN_ROOT/gui/package.json" ] && command -v bun &>/dev/null; then
+  echo "🔨 Building GUI (syncing version from plugin.json)..."
+  (cd "$PLUGIN_ROOT/gui" && bun run build --mode production 2>&1 | tail -1)
+fi
+
+# 3. 白名单复制
 cp -r "$PLUGIN_ROOT/.claude-plugin" "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/hooks"          "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/skills"         "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/gui-dist"       "$DIST_DIR/"
 
-# 3. scripts/ — 排除开发专用脚本和 node_modules
+# 4. scripts/ — 排除开发专用脚本和 node_modules
 mkdir -p "$DIST_DIR/scripts"
 EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh"
 for f in "$PLUGIN_ROOT/scripts/"*; do
@@ -29,11 +35,11 @@ for f in "$PLUGIN_ROOT/scripts/"*; do
   fi
 done
 
-# 4. CLAUDE.md — 裁剪 dev-only 段落
+# 5. CLAUDE.md — 裁剪 dev-only 段落
 sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' \
   "$PLUGIN_ROOT/CLAUDE.md" > "$DIST_DIR/CLAUDE.md"
 
-# 5. 校验: hooks.json 引用的脚本都存在于 dist
+# 6. 校验: hooks.json 引用的脚本都存在于 dist
 MISSING=0
 for script in $(grep -o 'scripts/[^"]*' "$DIST_DIR/hooks/hooks.json" | sed 's|scripts/||'); do
   if [ ! -f "$DIST_DIR/scripts/$script" ]; then
@@ -43,7 +49,7 @@ for script in $(grep -o 'scripts/[^"]*' "$DIST_DIR/hooks/hooks.json" | sed 's|sc
 done
 [ "$MISSING" -eq 1 ] && exit 1
 
-# 6. CLAUDE.md 裁剪验证
+# 7. CLAUDE.md 裁剪验证
 for keyword in "测试纪律" "构建纪律" "发版纪律"; do
   if grep -q "$keyword" "$DIST_DIR/CLAUDE.md"; then
     echo "ERROR: dist CLAUDE.md still contains dev-only section: $keyword"
@@ -51,7 +57,7 @@ for keyword in "测试纪律" "构建纪律" "发版纪律"; do
   fi
 done
 
-# 7. 隔离验证
+# 8. 隔离验证
 for forbidden in "gui" "docs" "tests" "CHANGELOG.md" "README.md" "scripts/node_modules"; do
   if [ -e "$DIST_DIR/$forbidden" ]; then
     echo "ERROR: dist contains forbidden path: $forbidden"
@@ -59,7 +65,7 @@ for forbidden in "gui" "docs" "tests" "CHANGELOG.md" "README.md" "scripts/node_m
   fi
 done
 
-# 8. 大小对比
+# 9. 大小对比
 SRC_SIZE=$(du -sh "$PLUGIN_ROOT" | cut -f1)
 DIST_SIZE=$(du -sh "$DIST_DIR" | cut -f1)
 echo "✅ dist/$PLUGIN_NAME built: $DIST_SIZE (source: $SRC_SIZE)"

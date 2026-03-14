@@ -12,6 +12,12 @@ user-invocable: false
 
 ## 执行步骤
 
+### Step -1: 发射 Phase 7 开始事件（v5.2 Event Bus 补全）
+
+```bash
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 7 {mode}')
+```
+
 ### Step 0: 写入 Phase 7 Checkpoint（进行中）
 
 调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-7-summary.json`：
@@ -127,6 +133,12 @@ c. **归档**（模式感知）：
 ### Step 6: 需要修改
 
 提示用户修改后可重新触发或手动归档。
+
+### Step 6.5: 发射 Phase 7 结束事件（v5.2 Event Bus 补全）
+
+```bash
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 7 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["phase-7-summary.json"]}\'')
+```
 
 ### Step 7: 清理锁定文件
 
