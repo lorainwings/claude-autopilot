@@ -158,6 +158,12 @@ TYPE_RULES = {
     "test_pyramid.hook_floors.min_change_coverage_pct": (int, float),
 }
 
+ENUM_RULES = {
+    "phases.reporting.format": ["allure", "custom"],
+    "default_mode": ["full", "lite", "minimal"],
+    "phases.implementation.tdd_test_command": None,  # free-form string, no enum
+}
+
 RANGE_RULES = {
     "phases.testing.gate.min_test_count_per_type": (1, 100),
     "phases.implementation.serial_task.max_retries_per_task": (1, 10),
@@ -234,6 +240,18 @@ def validate(config_path):
             if val < min_val or val > max_val:
                 range_errors.append(
                     f"{key_path}: value {val} out of range [{min_val}, {max_val}]"
+                )
+
+    # Enum validation
+    enum_errors = []
+    for key_path, allowed_values in ENUM_RULES.items():
+        if allowed_values is None:
+            continue
+        val = get_value(yaml_data, key_path)
+        if val is not None and isinstance(val, str):
+            if val not in allowed_values:
+                enum_errors.append(
+                    f'{key_path}: "{val}" not in allowed values {allowed_values}'
                 )
 
     # Cross-reference validation
@@ -340,18 +358,15 @@ def validate(config_path):
             "tdd_mode=true: TDD cycle only active in full execution mode"
         )
 
-    dm = get_value(yaml_data, "default_mode")
-    if dm is not None and isinstance(dm, str) and dm not in ("full", "lite", "minimal"):
-        cross_ref_warnings.append(
-            f'default_mode: "{dm}" is not a valid mode (must be full/lite/minimal)'
-        )
+    # default_mode enum validation is now handled by ENUM_RULES
 
-    valid = len(missing) == 0 and len(type_errors) == 0
+    valid = len(missing) == 0 and len(type_errors) == 0 and len(enum_errors) == 0
     return {
         "valid": valid,
         "missing_keys": missing,
         "type_errors": type_errors,
         "range_errors": range_errors,
+        "enum_errors": enum_errors,
         "cross_ref_warnings": cross_ref_warnings,
         "warnings": warnings,
     }

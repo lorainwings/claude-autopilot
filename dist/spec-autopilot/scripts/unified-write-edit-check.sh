@@ -75,6 +75,12 @@ elif [ -n "$PHASE1_CP" ]; then
   fi
 fi
 
+# Delivery phase detection: Phase 4+ (Phase 3 done) or Phase 5 active
+IN_DELIVERY_PHASE="no"
+if [ -n "$PHASE3_CP" ] || [ "$IN_PHASE5" = "yes" ]; then
+  IN_DELIVERY_PHASE="yes"
+fi
+
 # ============================================================
 # SHARED FILE PATH EXTRACTION (run once)
 # ============================================================
@@ -83,6 +89,24 @@ FILE_PATH=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[
 [ -z "$FILE_PATH" ] && exit 0
 
 BASENAME=$(basename "$FILE_PATH")
+
+# ============================================================
+# EARLY EXIT: Skip heavy checks (CHECK 2/3/4) for non-source files
+# Keeps CHECK 0 (state isolation) and CHECK 1 (TDD isolation) active.
+# This avoids Python startup and regex overhead for config/doc files.
+# ============================================================
+
+SKIP_HEAVY_CHECKS="no"
+case "$FILE_PATH" in
+  *.md)
+    [ "$IN_DELIVERY_PHASE" != "yes" ] && SKIP_HEAVY_CHECKS="yes" ;;
+  *.json|*.yaml|*.yml|*.txt|*.csv|*.toml|*.ini|*.cfg|*.conf|*.lock|*.log|*.svg|*.png|*.jpg|*.gif|*.ico)
+    SKIP_HEAVY_CHECKS="yes" ;;
+  */CHANGELOG*|*/changelog*|*/LICENSE*|*/README*)
+    SKIP_HEAVY_CHECKS="yes" ;;
+  *openspec/*|*context/*|*phase-results/*)
+    SKIP_HEAVY_CHECKS="yes" ;;
+esac
 
 # ============================================================
 # CHECK 0: Sub-Agent State Isolation (v5.1 SA-2 fix, pure bash, ~1ms)
@@ -147,6 +171,11 @@ if [ "$IN_PHASE5" = "yes" ]; then
           exit 0
         fi
         ;;
+      refactor)
+        # Track files written during REFACTOR for targeted rollback
+        REFACTOR_FILES="$CHANGES_DIR/$CHANGE_NAME/context/.tdd-refactor-files"
+        echo "$FILE_PATH" >> "$REFACTOR_FILES"
+        ;;
     esac
   fi
 fi
@@ -155,18 +184,7 @@ fi
 # CHECK 2: Banned Patterns — TODO/FIXME/HACK (pure grep, ~2ms)
 # ============================================================
 
-# Skip non-source files
-SKIP_BANNED="no"
-case "$FILE_PATH" in
-  *.md|*.txt|*.json|*.yaml|*.yml|*.toml|*.ini|*.cfg|*.conf|*.lock|*.log)
-    SKIP_BANNED="yes" ;;
-  */CHANGELOG*|*/changelog*|*/LICENSE*|*/README*)
-    SKIP_BANNED="yes" ;;
-  *openspec/*|*context/*|*phase-results/*)
-    SKIP_BANNED="yes" ;;
-esac
-
-if [ "$SKIP_BANNED" = "no" ] && [ -f "$FILE_PATH" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ -f "$FILE_PATH" ]; then
   MATCHES=$(grep -inE '(TODO:|FIXME:|HACK:)' "$FILE_PATH" 2>/dev/null | head -5)
   if [ -n "$MATCHES" ]; then
     MATCH_COUNT=$(grep -cinE '(TODO:|FIXME:|HACK:)' "$FILE_PATH" 2>/dev/null || echo 0)
@@ -192,7 +210,7 @@ case "$FILE_PATH" in
     IS_TEST="yes" ;;
 esac
 
-if [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then
   VIOLATIONS=""
 
   # JavaScript/TypeScript tautologies
@@ -231,7 +249,7 @@ fi
 # CHECK 4: Code Constraints (Phase 5 only, requires python3)
 # ============================================================
 
-if [ "$IN_PHASE5" = "yes" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IN_PHASE5" = "yes" ]; then
   require_python3 || exit 0
 
   python3 -c "

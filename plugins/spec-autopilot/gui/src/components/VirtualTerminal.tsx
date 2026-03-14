@@ -4,7 +4,7 @@
  * 数据源: Zustand Store (events)
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -22,12 +22,14 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   gate_decision_received: "\x1b[35m", // magenta
 };
 
-export function VirtualTerminal() {
+export const VirtualTerminal = memo(function VirtualTerminal() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const lastRenderedSequence = useRef<number>(-1);
-  const { events } = useStore();
+  const writeBufferRef = useRef<string[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+  const events = useStore((s) => s.events);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -84,6 +86,19 @@ export function VirtualTerminal() {
     };
   }, []);
 
+  // Flush buffered lines in a single rAF batch
+  const flushBuffer = useRef(() => {
+    const term = xtermRef.current;
+    if (!term || writeBufferRef.current.length === 0) {
+      rafIdRef.current = null;
+      return;
+    }
+    const batch = writeBufferRef.current.join("");
+    writeBufferRef.current = [];
+    term.write(batch);
+    rafIdRef.current = null;
+  }).current;
+
   useEffect(() => {
     const term = xtermRef.current;
     if (!term || events.length === 0) return;
@@ -123,11 +138,25 @@ export function VirtualTerminal() {
       }
 
       const line = `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}\u2502${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}${detail}\r\n`;
-      term.write(line);
+      writeBufferRef.current.push(line);
     }
 
     lastRenderedSequence.current = newEvents[newEvents.length - 1]!.sequence;
-  }, [events]);
+
+    // Schedule a single rAF flush if not already pending
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(flushBuffer);
+    }
+  }, [events, flushBuffer]);
+
+  // Cleanup pending rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
 
   return (
     <section className="h-full flex flex-col bg-void overflow-hidden">
@@ -147,4 +176,4 @@ export function VirtualTerminal() {
       <div ref={terminalRef} className="terminal-body flex-1 p-1" />
     </section>
   );
-}
+});

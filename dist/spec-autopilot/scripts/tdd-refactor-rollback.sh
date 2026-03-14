@@ -36,37 +36,51 @@ if [ "$CURRENT_STAGE" != "refactor" ]; then
   exit 1
 fi
 
-# --- Step 2: Stash → Checkout → Pop ---
+# --- Step 2: File-level rollback using .tdd-refactor-files ---
+REFACTOR_FILES="$CHANGE_DIR/context/.tdd-refactor-files"
+
+if [ ! -f "$REFACTOR_FILES" ] || [ ! -s "$REFACTOR_FILES" ]; then
+  echo '{"status":"ok","reason":"No refactor files recorded. Nothing to rollback."}'
+  exit 0
+fi
+
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "$PROJECT_ROOT" ]; then
   echo '{"status":"error","reason":"Not inside a git repository."}'
   exit 1
 fi
 
-# Stash any uncommitted changes
-STASH_OUTPUT=$(git -C "$PROJECT_ROOT" stash push -m "tdd-refactor-rollback-temp" 2>&1)
-STASH_CREATED=false
-if echo "$STASH_OUTPUT" | grep -q "Saved working directory"; then
-  STASH_CREATED=true
-fi
+# Deduplicate file list
+FILE_LIST=$(sort -u "$REFACTOR_FILES")
+ROLLED_BACK=0
+ERRORS=""
 
-# Rollback working tree
-if ! git -C "$PROJECT_ROOT" checkout -- . 2>&1; then
-  # Restore stash if checkout failed
-  if [ "$STASH_CREATED" = "true" ]; then
-    git -C "$PROJECT_ROOT" stash pop 2>/dev/null || true
+while IFS= read -r file; do
+  [ -z "$file" ] && continue
+  # Check if the file is tracked by git
+  if git -C "$PROJECT_ROOT" ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+    # Tracked file → restore from HEAD
+    if git -C "$PROJECT_ROOT" checkout -- "$file" 2>/dev/null; then
+      ROLLED_BACK=$((ROLLED_BACK + 1))
+    else
+      ERRORS="${ERRORS}Failed to checkout: ${file}; "
+    fi
+  else
+    # Untracked new file → remove
+    if [ -f "$file" ]; then
+      rm "$file" 2>/dev/null && ROLLED_BACK=$((ROLLED_BACK + 1)) || ERRORS="${ERRORS}Failed to remove: ${file}; "
+    fi
   fi
-  echo '{"status":"error","reason":"git checkout -- . failed. Working tree may be in a conflicted state."}'
-  exit 1
+done <<< "$FILE_LIST"
+
+# Clean up the refactor files list
+rm -f "$REFACTOR_FILES"
+
+if [ -n "$ERRORS" ]; then
+  ERRORS_ESCAPED=$(echo "$ERRORS" | sed 's/"/\\"/g')
+  echo "{\"status\":\"warning\",\"reason\":\"Rolled back ${ROLLED_BACK} file(s) with errors: ${ERRORS_ESCAPED}\"}"
+  exit 0
 fi
 
-# Pop stash if we created one
-if [ "$STASH_CREATED" = "true" ]; then
-  if ! git -C "$PROJECT_ROOT" stash pop 2>&1; then
-    echo '{"status":"warning","reason":"Rollback succeeded but stash pop failed. Manual resolution may be needed. Stash ref: tdd-refactor-rollback-temp"}'
-    exit 0
-  fi
-fi
-
-echo '{"status":"ok","reason":"REFACTOR rollback completed successfully."}'
+echo "{\"status\":\"ok\",\"reason\":\"REFACTOR rollback completed. ${ROLLED_BACK} file(s) restored.\"}"
 exit 0

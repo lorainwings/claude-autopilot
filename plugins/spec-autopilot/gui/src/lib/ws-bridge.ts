@@ -27,6 +27,7 @@ export class WSBridge {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 10000;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(url = "ws://localhost:8765") {
     this.url = url;
@@ -38,7 +39,15 @@ export class WSBridge {
     try {
       this.ws = new WebSocket(this.url);
 
+      // 5s connection timeout: if still CONNECTING, force close → triggers onclose → reconnect
+      this.connectTimeout = setTimeout(() => {
+        if (this.ws?.readyState === WebSocket.CONNECTING) {
+          this.ws.close();
+        }
+      }, 5000);
+
       this.ws.onopen = () => {
+        this.clearConnectTimeout();
         this.reconnectDelay = 1000;
       };
 
@@ -65,6 +74,7 @@ export class WSBridge {
       };
 
       this.ws.onerror = () => {
+        this.clearConnectTimeout();
         this.ws?.close();
       };
     } catch {
@@ -73,6 +83,7 @@ export class WSBridge {
   }
 
   disconnect() {
+    this.clearConnectTimeout();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -105,6 +116,13 @@ export class WSBridge {
   private emit(events: AutopilotEvent[]) {
     for (const handler of this.handlers) {
       handler(events);
+    }
+  }
+
+  private clearConnectTimeout() {
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
     }
   }
 

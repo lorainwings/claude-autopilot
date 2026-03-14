@@ -182,9 +182,12 @@ export const useStore = create<AppState>((set) => ({
       // Deduplicate by sequence, then cap at 1000 events
       const seen = new Set(state.events.map((e) => e.sequence));
       const unique = newEvents.filter((e) => !seen.has(e.sequence));
-      const merged = [...state.events, ...unique]
-        .sort((a, b) => a.sequence - b.sequence)
-        .slice(-1000);
+      const CRITICAL_TYPES = new Set(["phase_start", "phase_end", "gate_block", "gate_pass"]);
+      const allSorted = [...state.events, ...unique].sort((a, b) => a.sequence - b.sequence);
+      const critical = allSorted.filter((e) => CRITICAL_TYPES.has(e.type));
+      const regular = allSorted.filter((e) => !CRITICAL_TYPES.has(e.type));
+      const cappedRegular = regular.slice(-(1000 - critical.length));
+      const merged = [...critical, ...cappedRegular].sort((a, b) => a.sequence - b.sequence);
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);

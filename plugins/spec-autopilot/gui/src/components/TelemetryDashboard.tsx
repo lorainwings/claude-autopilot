@@ -4,7 +4,7 @@
  * 数据源: Zustand Store (events) → derived selectors
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats, selectActivePhaseIndices } from "../store";
 
 function formatDuration(ms: number): string {
@@ -24,10 +24,10 @@ function formatShortDuration(ms: number): string {
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
-export function TelemetryDashboard() {
+export const TelemetryDashboard = memo(function TelemetryDashboard() {
   const events = useStore((s) => s.events);
-  const phaseDurations = selectPhaseDurations(events);
-  const totalElapsedMs = selectTotalElapsedMs(events);
+  const phaseDurations = useMemo(() => selectPhaseDurations(events), [events]);
+  const totalElapsedMs = useMemo(() => selectTotalElapsedMs(events), [events]);
   const gateStats = useMemo(() => selectGateStats(events), [events]);
 
   // G9: Force re-render every second when a phase is running
@@ -39,14 +39,17 @@ export function TelemetryDashboard() {
     return () => clearInterval(timer);
   }, [hasRunning]);
 
-  const activePhaseIndices = selectActivePhaseIndices(events);
+  const activePhaseIndices = useMemo(() => selectActivePhaseIndices(events), [events]);
   const totalPhaseCount = activePhaseIndices.length;
   const completedPhases = phaseDurations.filter(
     (p) => p.status === "ok" || p.status === "warning"
   ).length;
-  const totalRetries = events.filter(
-    (e) => e.type === "task_progress" && (e.payload as Record<string, unknown>).status === "retrying"
-  ).length;
+  const totalRetries = useMemo(
+    () => events.filter(
+      (e) => e.type === "task_progress" && (e.payload as Record<string, unknown>).status === "retrying"
+    ).length,
+    [events]
+  );
 
   // SVG ring chart computation
   const circumference = 2 * Math.PI * 58; // r=58
@@ -147,4 +150,4 @@ export function TelemetryDashboard() {
       </section>
     </aside>
   );
-}
+});

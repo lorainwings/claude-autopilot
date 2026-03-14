@@ -1,6 +1,20 @@
 # Changelog
 
 
+## [5.1.7] - 2026-03-15
+
+### Fixed
+
+- **P0-1 REFACTOR 文件级回滚**: unified-write-edit-check.sh 新增 refactor case 追踪写入文件至 `.tdd-refactor-files`；tdd-refactor-rollback.sh 替换 `git stash/checkout --./pop` 为逐文件 `git checkout`/`rm`，避免误回滚无关文件
+- **P0-4 WebSocket 5s 连接超时**: ws-bridge.ts 新增 connectTimeout 定时器，CONNECTING 状态超时自动 close 触发重连
+- **P1-5 TODO 检测全局化**: Phase 4/5/6 交付阶段 `.md` 文件启用 TODO/FIXME/HACK 检测（非交付阶段仍跳过）
+- **P1-6 关键事件防截断**: store addEvents 分区保留 phase_start/phase_end/gate_block/gate_pass 事件，常规事件填充剩余 1000 配额
+
+### Added
+
+- **v5.1.6 评测报告**: v1/v2/v3 全维度评测报告 + 修复路线图
+- **新增测试**: REFACTOR 文件追踪、交付阶段 .md TODO 阻断、文件级回滚验证
+
 ## [5.1.5] - 2026-03-14
 
 ### Fixed

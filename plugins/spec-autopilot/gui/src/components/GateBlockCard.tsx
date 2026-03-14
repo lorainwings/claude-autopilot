@@ -5,7 +5,7 @@
  * 数据源: Zustand Store (events, decisionAcked)
  */
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useStore } from "../store";
 import { AlertTriangle, RotateCcw, Wrench, Zap } from "lucide-react";
 
@@ -14,10 +14,11 @@ interface GateBlockCardProps {
 }
 
 export function GateBlockCard({ onDecision }: GateBlockCardProps) {
-  const { events, decisionAcked } = useStore();
+  const { events, decisionAcked, connected } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
   const [fixInstructions, setFixInstructions] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const blockEvents = events.filter((e) => e.type === "gate_block");
   if (blockEvents.length === 0) return null;
@@ -34,6 +35,14 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   const { phase, phase_label, payload } = latest;
 
   const handleDecision = async (action: "retry" | "fix" | "override") => {
+    // Abort any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // 30s timeout guard
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     setLoading(action);
     setError(null);
     try {
@@ -43,9 +52,15 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
       await onDecision?.(action, phase, reason);
       setLoading(null);
     } catch (err) {
-      console.error("Decision failed:", err);
-      setError("决策发送失败，请检查网络连接后重试");
+      if (controller.signal.aborted) {
+        setError("请求超时，请检查网络连接后重试");
+      } else {
+        console.error("Decision failed:", err);
+        setError("决策发送失败，请检查网络连接后重试");
+      }
       setLoading(null);
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
@@ -93,11 +108,19 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
           />
         </div>
 
+        {/* Disconnected Warning */}
+        {!connected && (
+          <div className="flex items-center space-x-2 text-[11px] text-rose bg-rose/10 border border-rose/40 rounded p-2 font-bold">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>网络已断开，请等待重连后操作</span>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => handleDecision("retry")}
-            disabled={loading !== null}
+            disabled={loading !== null || !connected}
             className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-cyan/10 border border-cyan/30 text-cyan text-[10px] font-bold uppercase tracking-wider rounded hover:bg-cyan/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <RotateCcw className="w-3 h-3" />
@@ -105,7 +128,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
           </button>
           <button
             onClick={() => handleDecision("fix")}
-            disabled={loading !== null}
+            disabled={loading !== null || !connected}
             className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-amber/10 border border-amber/30 text-amber text-[10px] font-bold uppercase tracking-wider rounded hover:bg-amber/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <Wrench className="w-3 h-3" />
@@ -113,7 +136,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
           </button>
           <button
             onClick={() => handleDecision("override")}
-            disabled={loading !== null}
+            disabled={loading !== null || !connected}
             className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-rose/10 border border-rose/30 text-rose text-[10px] font-bold uppercase tracking-wider rounded hover:bg-rose/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <Zap className="w-3 h-3" />

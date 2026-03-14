@@ -81,6 +81,83 @@ assert_contains "validate-config missing keys include services" "$missing" "serv
 output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/nonexistent" 2>/dev/null)
 assert_contains "validate-config no file → file_not_found" "$output" "file_not_found"
 
+# === Enum validation tests ===
+
+# 21e. Invalid default_mode enum → enum_errors non-empty
+mkdir -p "$CONFIG_TEST_DIR/bad_enum/.claude"
+cat > "$CONFIG_TEST_DIR/bad_enum/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+default_mode: "turbo"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/bad_enum" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21e. invalid enum value → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21e. invalid enum value (got valid='$valid', output='$output')"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "21e. enum_errors mentions turbo" "$output" "turbo"
+
+# 21f. Valid default_mode enum → no enum_errors
+mkdir -p "$CONFIG_TEST_DIR/good_enum/.claude"
+cat > "$CONFIG_TEST_DIR/good_enum/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+default_mode: "lite"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, ui]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/good_enum" 2>/dev/null)
+enum_errors=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('enum_errors',[]))" 2>/dev/null || echo "[]")
+if [ "$enum_errors" = "[]" ]; then
+  green "  PASS: 21f. valid enum value → no enum_errors"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21f. valid enum value (enum_errors='$enum_errors')"
+  FAIL=$((FAIL + 1))
+fi
+
 rm -rf "$CONFIG_TEST_DIR"
 
 teardown_autopilot_fixture

@@ -17,11 +17,12 @@ cp -r "$PLUGIN_ROOT/hooks"          "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/skills"         "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/gui-dist"       "$DIST_DIR/"
 
-# 3. scripts/ — 排除开发专用脚本
+# 3. scripts/ — 排除开发专用脚本和 node_modules
 mkdir -p "$DIST_DIR/scripts"
 EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh"
 for f in "$PLUGIN_ROOT/scripts/"*; do
-  [ -f "$f" ] || continue  # 跳过子目录
+  # Skip subdirectories (including node_modules/)
+  [ -f "$f" ] || continue
   fname=$(basename "$f")
   if ! echo "$fname" | grep -qE "^($EXCLUDE_SCRIPTS)$"; then
     cp "$f" "$DIST_DIR/scripts/"
@@ -51,7 +52,7 @@ for keyword in "测试纪律" "构建纪律" "发版纪律"; do
 done
 
 # 7. 隔离验证
-for forbidden in "gui" "docs" "tests" "CHANGELOG.md" "README.md"; do
+for forbidden in "gui" "docs" "tests" "CHANGELOG.md" "README.md" "scripts/node_modules"; do
   if [ -e "$DIST_DIR/$forbidden" ]; then
     echo "ERROR: dist contains forbidden path: $forbidden"
     exit 1

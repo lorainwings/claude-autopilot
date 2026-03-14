@@ -293,13 +293,17 @@ next_event_sequence() {
   local lock_file="$project_root/logs/.event_sequence.lock"
   mkdir -p "$(dirname "$seq_file")" 2>/dev/null || true
 
-  local next
   (
-    flock -x 200
+    if ! flock -x -w 5 200 2>/dev/null; then
+      # Lock acquisition timed out — fallback to timestamp-based sequence
+      echo "WARNING: flock timeout after 5s, using fallback sequence" >&2
+      echo "$(date +%s)$(date +%N 2>/dev/null || echo $RANDOM)"
+      exit 0
+    fi
     local current=0
     [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
     [ -z "$current" ] && current=0
-    next=$((current + 1))
+    local next=$((current + 1))
     echo "$next" > "$seq_file"
     echo "$next"
   ) 200>"$lock_file"
