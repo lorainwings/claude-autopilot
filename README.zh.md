@@ -121,8 +121,7 @@ claude-autopilot/
 ├── README.zh.md             # 本文件
 ├── LICENSE                  # MIT 许可证
 ├── CONTRIBUTING.md          # 贡献指南
-├── SECURITY.md              # 安全策略
-└── CODE_OF_CONDUCT.md       # 社区行为准则
+└── SECURITY.md              # 安全策略
 ```
 
 ## 贡献

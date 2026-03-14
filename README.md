@@ -120,8 +120,7 @@ claude-autopilot/
 ├── README.md                # This file
 ├── LICENSE                  # MIT License
 ├── CONTRIBUTING.md          # Contribution guidelines
-├── SECURITY.md              # Security policy
-└── CODE_OF_CONDUCT.md       # Community standards
+└── SECURITY.md              # Security policy
 ```
 
 ## Contributing

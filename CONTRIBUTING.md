@@ -120,10 +120,6 @@ chore: maintenance tasks
 - Include: steps to reproduce, expected behavior, actual behavior
 - For hook-related issues: include stderr output (Ctrl+O in Claude Code)
 
-## Code of Conduct
-
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
-
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
