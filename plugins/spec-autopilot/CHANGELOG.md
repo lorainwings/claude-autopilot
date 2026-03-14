@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [5.1.4] - 2026-03-14
+
+### Changed
+
+- **gitignore gui-dist/**: 构建产物从 git 跟踪中移除，减少二进制 diff 噪声
+
 ## [5.1.3] - 2026-03-14
 
 ### Added
