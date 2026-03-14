@@ -99,7 +99,30 @@ export function VirtualTerminal() {
       const reset = "\x1b[0m";
       const dimGray = "\x1b[90m";
 
-      const line = `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}\u2502${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}\r\n`;
+      // G7: Append key payload fields based on event type
+      let detail = "";
+      const p = event.payload;
+      switch (event.type) {
+        case "gate_block":
+          detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
+          if (typeof p.error_message === "string") detail += ` ${dimGray}err=${reset}${p.error_message.slice(0, 80)}`;
+          break;
+        case "gate_pass":
+          detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
+          break;
+        case "phase_end":
+          detail = ` ${dimGray}status=${reset}${String(p.status ?? "--")} ${dimGray}duration=${reset}${String(p.duration_ms ?? "--")}ms`;
+          break;
+        case "task_progress":
+          detail = ` ${dimGray}task=${reset}${String(p.task_name ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
+          if (p.tdd_step) detail += ` ${dimGray}tdd=${reset}${String(p.tdd_step)}`;
+          break;
+        case "error":
+          if (typeof p.error_message === "string") detail = ` ${p.error_message.slice(0, 120)}`;
+          break;
+      }
+
+      const line = `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}\u2502${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}${detail}\r\n`;
       term.write(line);
     }
 

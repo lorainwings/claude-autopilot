@@ -13,10 +13,13 @@ import { VirtualTerminal } from "./components/VirtualTerminal";
 import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
 
+declare const __PLUGIN_VERSION__: string;
+
 const wsBridge = new WSBridge();
 
 export function App() {
-  const { connected, setConnected, addEvents, setDecisionAcked, changeName, sessionId, mode } = useStore();
+  const { connected, setConnected, addEvents, setDecisionAcked, setLastAckedBlockSequence, changeName, sessionId, mode } = useStore();
+  const hasEvents = useStore((s) => s.events.length > 0);
 
   useEffect(() => {
     wsBridge.connect();
@@ -25,10 +28,15 @@ export function App() {
       addEvents(events);
     });
 
-    // v5.2: Listen for decision_ack to dismiss GateBlockCard
+    // v5.2: Listen for decision_ack to dismiss GateBlockCard (event-driven, no timer)
     const unsubscribeAck = wsBridge.onDecisionAck(() => {
+      // Record the sequence of the latest gate_block being acked
+      const state = useStore.getState();
+      const blockEvents = state.events.filter((e) => e.type === "gate_block");
+      if (blockEvents.length > 0) {
+        setLastAckedBlockSequence(blockEvents[blockEvents.length - 1]!.sequence);
+      }
       setDecisionAcked(true);
-      setTimeout(() => setDecisionAcked(false), 500);
     });
 
     const checkConnection = setInterval(() => {
@@ -41,7 +49,7 @@ export function App() {
       unsubscribeAck();
       wsBridge.disconnect();
     };
-  }, [addEvents, setConnected, setDecisionAcked]);
+  }, [addEvents, setConnected, setDecisionAcked, setLastAckedBlockSequence]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {
@@ -64,7 +72,7 @@ export function App() {
           <div className="flex items-center space-x-2">
             <span className="text-cyan text-xl">&hexmark;</span>
             <h1 className="font-display font-bold text-sm tracking-widest text-text-bright uppercase">
-              Autopilot <span className="text-cyan">v5.3.0</span>
+              Autopilot <span className="text-cyan">v{__PLUGIN_VERSION__}</span>
             </h1>
           </div>
           <div className="h-4 w-px bg-border"></div>
@@ -105,15 +113,31 @@ export function App() {
             </div>
           </div>
 
-          {/* ParallelKanban (Top) */}
-          <div className="h-[45%]">
-            <ParallelKanban />
-          </div>
+          {/* Empty state placeholder when no events yet */}
+          {!hasEvents && (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center space-y-3">
+                <div className="w-8 h-8 border-2 border-cyan/40 border-t-cyan rounded-full animate-spin mx-auto"></div>
+                <div className="font-mono text-sm text-text-muted">
+                  {connected ? "等待事件流..." : "正在连接引擎..."}
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* HackerTerminal (Bottom) */}
-          <div className="h-[55%]">
-            <VirtualTerminal />
-          </div>
+          {hasEvents && (
+            <>
+              {/* ParallelKanban (Top) */}
+              <div className="h-[45%]">
+                <ParallelKanban />
+              </div>
+
+              {/* HackerTerminal (Bottom) */}
+              <div className="h-[55%]">
+                <VirtualTerminal />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right Panel: Telemetry Dashboard */}

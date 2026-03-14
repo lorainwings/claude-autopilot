@@ -16,6 +16,20 @@ interface TaskProgress {
   timestamp: string;
 }
 
+interface TaskProgressPayload {
+  task_name: string;
+  status: "running" | "passed" | "failed" | "retrying";
+  tdd_step?: "red" | "green" | "refactor";
+  retry_count?: number;
+  task_index: number;
+  task_total: number;
+}
+
+function isTaskProgressPayload(p: unknown): p is TaskProgressPayload {
+  const obj = p as Record<string, unknown>;
+  return typeof obj.task_name === "string" && typeof obj.status === "string" && typeof obj.task_index === "number";
+}
+
 interface AppState {
   events: AutopilotEvent[];
   connected: boolean;
@@ -29,6 +43,8 @@ interface AppState {
   addEvents: (events: AutopilotEvent[]) => void;
   setConnected: (connected: boolean) => void;
   setDecisionAcked: (acked: boolean) => void;
+  lastAckedBlockSequence: number;
+  setLastAckedBlockSequence: (seq: number) => void;
   reset: () => void;
 }
 
@@ -50,30 +66,57 @@ export interface GateStats {
   passRate: number;
 }
 
+const ALL_LABELS = [
+  "环境初始化", "需求理解", "OpenSpec 创建", "快速生成",
+  "测试设计", "代码实施", "测试报告", "归档清理",
+];
+
+// lite mode only uses phases 0,1,5,6,7; minimal uses 0,1,5,7
+const MODE_PHASES: Record<string, number[]> = {
+  full: [0, 1, 2, 3, 4, 5, 6, 7],
+  lite: [0, 1, 5, 6, 7],
+  minimal: [0, 1, 5, 7],
+};
+
+/** Get actual total phases count from events or fallback */
+export function selectTotalPhases(events: AutopilotEvent[]): number {
+  const latest = [...events].reverse().find((e) => e.total_phases > 0);
+  return latest?.total_phases ?? 8;
+}
+
+/** Get active phase indices based on mode from events */
+export function selectActivePhaseIndices(events: AutopilotEvent[]): number[] {
+  const latest = [...events].reverse().find((e) => e.mode);
+  const mode = latest?.mode ?? "full";
+  return MODE_PHASES[mode] ?? MODE_PHASES.full!;
+}
+
 /** Compute per-phase duration from events */
 export function selectPhaseDurations(events: AutopilotEvent[]): PhaseDuration[] {
-  const LABELS = [
-    "环境初始化", "需求理解", "OpenSpec 创建", "快速生成",
-    "测试设计", "代码实施", "测试报告", "归档清理",
-  ];
+  const activeIndices = selectActivePhaseIndices(events);
 
-  return LABELS.map((label, idx) => {
+  return activeIndices.map((idx) => {
+    const label = ALL_LABELS[idx] ?? `Phase ${idx}`;
     const phaseEvents = events.filter((e) => e.phase === idx);
     const startEvent = phaseEvents.find((e) => e.type === "phase_start");
     const endEvent = phaseEvents.find((e) => e.type === "phase_end");
-    const gateBlock = phaseEvents.find((e) => e.type === "gate_block");
+    const gateBlock = phaseEvents.findLast((e) => e.type === "gate_block");
+    const gatePass = phaseEvents.findLast((e) => e.type === "gate_pass");
 
     let status: PhaseDuration["status"] = "pending";
     let durationMs = 0;
 
-    if (gateBlock && !endEvent) {
-      status = "blocked";
-    } else if (endEvent) {
+    if (endEvent) {
       status = (endEvent.payload.status as PhaseDuration["status"]) || "ok";
       durationMs = (endEvent.payload.duration_ms as number) || 0;
+    } else if (gateBlock && (!gatePass || gateBlock.sequence > gatePass.sequence)) {
+      // Only show blocked if the latest gate_block is not resolved by a gate_pass
+      status = "blocked";
+      if (startEvent) {
+        durationMs = Date.now() - new Date(startEvent.timestamp).getTime();
+      }
     } else if (startEvent) {
       status = "running";
-      // Compute elapsed since start for running phases
       durationMs = Date.now() - new Date(startEvent.timestamp).getTime();
     }
 
@@ -129,6 +172,7 @@ export const useStore = create<AppState>((set) => ({
   mode: null,
   taskProgress: new Map(),
   decisionAcked: false,
+  lastAckedBlockSequence: -1,
 
   addEvents: (newEvents) =>
     set((state) => {
@@ -143,17 +187,28 @@ export const useStore = create<AppState>((set) => ({
       const newTaskProgress = new Map(state.taskProgress);
 
       for (const event of newEvents) {
-        if (event.type === "task_progress" && event.phase === 5) {
-          const payload = event.payload as any;
-          newTaskProgress.set(payload.task_name, {
-            task_name: payload.task_name,
-            status: payload.status,
-            tdd_step: payload.tdd_step,
-            retry_count: payload.retry_count,
-            task_index: payload.task_index,
-            task_total: payload.task_total,
+        if (event.type === "task_progress" && event.phase === 5 && isTaskProgressPayload(event.payload)) {
+          const p = event.payload;
+          newTaskProgress.set(p.task_name, {
+            task_name: p.task_name,
+            status: p.status,
+            tdd_step: p.tdd_step,
+            retry_count: p.retry_count,
+            task_index: p.task_index,
+            task_total: p.task_total,
             timestamp: event.timestamp,
           });
+        }
+      }
+
+      // G2 fix: Auto-reset decisionAcked when a new gate_block arrives after the acked one
+      let newDecisionAcked = state.decisionAcked;
+      if (state.decisionAcked) {
+        const hasNewBlock = newEvents.some(
+          (e) => e.type === "gate_block" && e.sequence > state.lastAckedBlockSequence
+        );
+        if (hasNewBlock) {
+          newDecisionAcked = false;
         }
       }
 
@@ -164,12 +219,15 @@ export const useStore = create<AppState>((set) => ({
         changeName: latest?.change_name ?? state.changeName,
         mode: latest?.mode ?? state.mode,
         taskProgress: newTaskProgress,
+        decisionAcked: newDecisionAcked,
       };
     }),
 
   setConnected: (connected) => set({ connected }),
 
   setDecisionAcked: (acked) => set({ decisionAcked: acked }),
+
+  setLastAckedBlockSequence: (seq) => set({ lastAckedBlockSequence: seq }),
 
   reset: () =>
     set({
@@ -181,5 +239,6 @@ export const useStore = create<AppState>((set) => ({
       mode: null,
       taskProgress: new Map(),
       decisionAcked: false,
+      lastAckedBlockSequence: -1,
     }),
 }));

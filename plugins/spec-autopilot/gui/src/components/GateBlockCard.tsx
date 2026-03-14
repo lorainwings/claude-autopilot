@@ -21,10 +21,15 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   const blockEvents = events.filter((e) => e.type === "gate_block");
   if (blockEvents.length === 0) return null;
 
+  const latest = blockEvents[blockEvents.length - 1]!;
+
+  // G1 fix: Check if this block has been resolved by a subsequent gate_pass on the same phase
+  const passEvents = events.filter((e) => e.type === "gate_pass" && e.phase === latest.phase);
+  const latestPass = passEvents.length > 0 ? passEvents[passEvents.length - 1]! : null;
+  if (latestPass && latestPass.sequence > latest.sequence) return null;
+
   // v5.2: Decision ACK received — hide the card immediately
   if (decisionAcked) return null;
-
-  const latest = blockEvents[blockEvents.length - 1]!;
   const { phase, phase_label, payload } = latest;
 
   const handleDecision = async (action: "retry" | "fix" | "override") => {
@@ -34,6 +39,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
         ? fixInstructions.trim()
         : undefined;
       await onDecision?.(action, phase, reason);
+      setLoading(null);
     } catch (error) {
       console.error("Decision failed:", error);
       setLoading(null);

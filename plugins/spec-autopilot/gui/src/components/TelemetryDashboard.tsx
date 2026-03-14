@@ -4,7 +4,8 @@
  * 数据源: Zustand Store (events) → derived selectors
  */
 
-import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats } from "../store";
+import { useState, useEffect } from "react";
+import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats, selectActivePhaseIndices } from "../store";
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -29,6 +30,17 @@ export function TelemetryDashboard() {
   const totalElapsedMs = selectTotalElapsedMs(events);
   const gateStats = selectGateStats(events);
 
+  // G9: Force re-render every second when a phase is running
+  const [, setTick] = useState(0);
+  const hasRunning = phaseDurations.some((p) => p.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [hasRunning]);
+
+  const activePhaseIndices = selectActivePhaseIndices(events);
+  const totalPhaseCount = activePhaseIndices.length;
   const completedPhases = phaseDurations.filter(
     (p) => p.status === "ok" || p.status === "warning"
   ).length;
@@ -38,7 +50,7 @@ export function TelemetryDashboard() {
 
   // SVG ring chart computation
   const circumference = 2 * Math.PI * 58; // r=58
-  const completionRatio = completedPhases / 8;
+  const completionRatio = totalPhaseCount > 0 ? completedPhases / totalPhaseCount : 0;
   const strokeDashoffset = circumference * (1 - completionRatio);
 
   // Max duration for bar chart scaling
@@ -54,10 +66,10 @@ export function TelemetryDashboard() {
         <div className="flex justify-center mb-4 relative">
           {/* Circular Ring Chart (SVG) */}
           <svg className="w-32 h-32 transform -rotate-90">
-            <circle cx="64" cy="64" fill="transparent" r="58" stroke="#161b22" strokeWidth="8"></circle>
+            <circle cx="64" cy="64" fill="transparent" r="58" style={{ stroke: "var(--color-surface)" }} strokeWidth="8"></circle>
             <circle
               cx="64" cy="64" fill="transparent" r="58"
-              stroke="#00d9ff" strokeWidth="8"
+              style={{ stroke: "var(--color-cyan)" }} strokeWidth="8"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
@@ -71,7 +83,7 @@ export function TelemetryDashboard() {
         </div>
         <div className="grid grid-cols-2 gap-y-3 text-[11px] font-mono">
           <div className="text-text-muted">已完成阶段</div>
-          <div className="text-right text-text-bright">{completedPhases} / 8</div>
+          <div className="text-right text-text-bright">{completedPhases} / {totalPhaseCount}</div>
           <div className="text-text-muted">总重试次数</div>
           <div className="text-right text-amber font-bold">{totalRetries}</div>
           <div className="text-text-muted">通过门禁</div>

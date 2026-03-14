@@ -14,9 +14,25 @@
 ### Changed
 
 - **GateBlockCard**: 赛博朋克风格重构 + fix_instructions 输入框
-- **VirtualTerminal**: xterm.js 极客外壳 + ANSI 彩色事件类型标签
+- **VirtualTerminal**: xterm.js 极客外壳 + ANSI 彩色事件类型标签 + payload 详情展示
 - **PhaseTimeline**: 垂直左侧栏 hex 节点 + 连接线 + 底部统计面板
 - **ParallelKanban**: 水平可滚动卡片流 + TDD 步骤指示
+
+### Fixed (GUI 完整性审计迭代)
+
+- **G1 GateBlockCard 幽灵复现**: 对比 gate_block/gate_pass sequence，已消解的 block 不再显示
+- **G2 decision_ack 竞态**: 改为事件驱动重置，新 gate_block 到达自动清除 ack 状态
+- **G3 loading 状态不复位**: 发送成功后显式 setLoading(null)
+- **G4 PhaseTimeline blocked 不解除**: gate_pass.sequence > gate_block.sequence 时状态恢复为 running
+- **G5 硬编码 8 阶段**: 根据 mode (full/lite/minimal) 动态选择活跃阶段
+- **G6 ParallelKanban 硬编码标签**: 从 events 推断并行/TDD 模式，条件渲染
+- **G7 VirtualTerminal 无 payload**: 根据事件类型追加 gate_score/error_message/task_name 等关键字段
+- **G8 无初始空状态**: 添加连接中 spinner + "等待事件流" 占位符
+- **G9 Running 计时器不刷新**: 添加 1s setInterval 强制重渲染
+- **G10 `as any` 类型不安全**: 定义 TaskProgressPayload + isTaskProgressPayload 类型守卫
+- **G11 无 Error Boundary**: 新增 ErrorBoundary 组件包裹 App，显示降级 UI
+- **G12 版本号硬编码**: 通过 vite define 从 plugin.json 动态注入
+- **G13 SVG 颜色硬编码**: 改用 CSS 变量 var(--color-surface)/var(--color-cyan)
 
 ## [5.0.7] - 2026-03-14
 

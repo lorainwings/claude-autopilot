@@ -29,6 +29,11 @@ export function ParallelKanban() {
   const tasks = Array.from(taskProgress.values()).sort((a, b) => a.task_index - b.task_index);
   const passedCount = tasks.filter((t) => t.status === "passed").length;
 
+  // G6: Infer parallel mode from concurrent running tasks, TDD from tdd_step fields
+  const runningTasks = tasks.filter((t) => t.status === "running");
+  const isParallel = runningTasks.length > 1 || tasks.some((t) => t.task_total > 1);
+  const hasTdd = tasks.some((t) => t.tdd_step !== undefined);
+
   return (
     <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
       {/* Header */}
@@ -39,8 +44,12 @@ export function ParallelKanban() {
           <div className="text-[10px] font-mono text-cyan">{passedCount}/{tasks.length} 任务已完成</div>
         </div>
         <div className="flex space-x-2">
-          <span className="px-2 py-0.5 bg-violet/20 text-violet border border-violet/30 text-[9px] font-bold rounded">并行</span>
-          <span className="px-2 py-0.5 bg-cyan/20 text-cyan border border-cyan/30 text-[9px] font-bold rounded">TDD 已开启</span>
+          {isParallel && (
+            <span className="px-2 py-0.5 bg-violet/20 text-violet border border-violet/30 text-[9px] font-bold rounded">并行</span>
+          )}
+          {hasTdd && (
+            <span className="px-2 py-0.5 bg-cyan/20 text-cyan border border-cyan/30 text-[9px] font-bold rounded">TDD 已开启</span>
+          )}
         </div>
       </div>
 

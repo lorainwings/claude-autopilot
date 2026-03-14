@@ -4,18 +4,8 @@
  * 数据源: Zustand Store (events, currentPhase, mode)
  */
 
+import { useState, useEffect } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats } from "../store";
-
-const PHASE_LABELS = [
-  "环境初始化",
-  "需求理解",
-  "OpenSpec 创建",
-  "快速生成",
-  "测试设计",
-  "代码实施",
-  "测试报告",
-  "归档清理",
-];
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -31,6 +21,15 @@ export function PhaseTimeline() {
   const phaseDurations = selectPhaseDurations(events);
   const totalElapsedMs = selectTotalElapsedMs(events);
   const gateStats = selectGateStats(events);
+
+  // G9: Force re-render every second when a phase is running
+  const [, setTick] = useState(0);
+  const hasRunning = phaseDurations.some((p) => p.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [hasRunning]);
 
   const completedPhases = phaseDurations.filter(
     (p) => p.status === "ok" || p.status === "warning"
@@ -106,7 +105,7 @@ export function PhaseTimeline() {
         <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
           <div className="bg-surface p-2 rounded">
             <div className="text-text-muted mb-1">阶段</div>
-            <div>{completedPhases} / {PHASE_LABELS.length}</div>
+            <div>{completedPhases} / {phaseDurations.length}</div>
           </div>
           <div className="bg-surface p-2 rounded">
             <div className="text-text-muted mb-1">门禁</div>
