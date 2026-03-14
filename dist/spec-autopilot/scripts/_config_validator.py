@@ -81,7 +81,21 @@ def parse_yaml(config_path):
                 path.append(key)
                 indent_stack.append(indent)
                 full_key = ".".join(path)
-                yaml_data[full_key] = key_match.group(2).strip() or True
+                raw = key_match.group(2).strip()
+                if not raw:
+                    yaml_data[full_key] = True
+                elif raw.lower() == "true":
+                    yaml_data[full_key] = True
+                elif raw.lower() == "false":
+                    yaml_data[full_key] = False
+                else:
+                    try:
+                        yaml_data[full_key] = int(raw)
+                    except ValueError:
+                        try:
+                            yaml_data[full_key] = float(raw)
+                        except ValueError:
+                            yaml_data[full_key] = raw.strip('"').strip("'")
     except Exception as e:
         return None, [f"parse_error: {e}"]
 

@@ -1,7 +1,11 @@
 # Changelog
 
 
-## [5.1.4] - 2026-03-14
+## [5.1.5] - 2026-03-14
+
+### Fixed
+
+- **_config_validator.py fallback parser**: 无 PyYAML 时数值/布尔值类型转换，修复 CI range validation 跳过问题
 
 ### Changed
 
