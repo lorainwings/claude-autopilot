@@ -17,6 +17,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   const { events, decisionAcked } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
   const [fixInstructions, setFixInstructions] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const blockEvents = events.filter((e) => e.type === "gate_block");
   if (blockEvents.length === 0) return null;
@@ -34,14 +35,16 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
 
   const handleDecision = async (action: "retry" | "fix" | "override") => {
     setLoading(action);
+    setError(null);
     try {
       const reason = action === "fix" && fixInstructions.trim()
         ? fixInstructions.trim()
         : undefined;
       await onDecision?.(action, phase, reason);
       setLoading(null);
-    } catch (error) {
-      console.error("Decision failed:", error);
+    } catch (err) {
+      console.error("Decision failed:", err);
+      setError("决策发送失败，请检查网络连接后重试");
       setLoading(null);
     }
   };
@@ -69,6 +72,13 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
         {typeof payload.error_message === "string" && (
           <div className="text-[11px] text-rose/80 bg-rose/5 border-l-2 border-rose/40 p-2 font-mono leading-relaxed">
             {payload.error_message}
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center space-x-2 text-[11px] text-rose bg-rose/10 border border-rose/40 rounded p-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 

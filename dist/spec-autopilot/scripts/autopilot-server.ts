@@ -61,13 +61,25 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 // --- WebSocket clients ---
-const wsClients = new Set<any>();
+import type { ServerWebSocket } from "bun";
+const wsClients = new Set<ServerWebSocket<unknown>>();
 
 // --- Event file watcher state ---
-let lastLineCount = 0;
+let lastByteOffset = 0;
 let watcherActive = false;
 
-async function getEventLines(): Promise<string[]> {
+/** Safely parse a JSON line, returning null on failure */
+function safeJsonParse(line: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(line);
+  } catch {
+    console.error(`  ⚠ Skipping corrupted event line: ${line.slice(0, 80)}...`);
+    return null;
+  }
+}
+
+/** Read ALL event lines from the file (for snapshot / REST API) */
+async function getAllEventLines(): Promise<string[]> {
   try {
     const content = await readFile(EVENTS_FILE, "utf-8");
     return content.split("\n").filter(Boolean);
@@ -76,17 +88,42 @@ async function getEventLines(): Promise<string[]> {
   }
 }
 
+/** Read only NEW event lines since lastByteOffset (incremental I/O) */
+async function getNewEventLines(): Promise<string[]> {
+  try {
+    const file = Bun.file(EVENTS_FILE);
+    const fileSize = file.size;
+    if (fileSize <= lastByteOffset) return [];
+
+    const slice = file.slice(lastByteOffset, fileSize);
+    const chunk = await slice.text();
+    if (!chunk) return [];
+
+    // Handle partial line: only consume complete lines
+    const lastNewline = chunk.lastIndexOf("\n");
+    if (lastNewline === -1) {
+      // No complete line yet — don't advance offset
+      return [];
+    }
+
+    const completeChunk = chunk.slice(0, lastNewline + 1);
+    lastByteOffset += new TextEncoder().encode(completeChunk).byteLength;
+    return completeChunk.split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 async function broadcastNewEvents() {
   if (wsClients.size === 0) return;
 
-  const lines = await getEventLines();
-  if (lines.length <= lastLineCount) return;
-
-  const newLines = lines.slice(lastLineCount);
-  lastLineCount = lines.length;
+  const newLines = await getNewEventLines();
+  if (newLines.length === 0) return;
 
   for (const line of newLines) {
-    const message = JSON.stringify({ type: "event", data: JSON.parse(line) });
+    const parsed = safeJsonParse(line);
+    if (parsed === null) continue;
+    const message = JSON.stringify({ type: "event", data: parsed });
     for (const ws of wsClients) {
       try {
         ws.send(message);
@@ -100,10 +137,13 @@ async function broadcastNewEvents() {
 function startEventWatcher() {
   if (watcherActive) return;
 
-  // Initial line count
-  getEventLines().then((lines) => {
-    lastLineCount = lines.length;
-  });
+  // Initialize byte offset to current file size (skip existing events)
+  try {
+    const file = Bun.file(EVENTS_FILE);
+    lastByteOffset = file.size;
+  } catch {
+    lastByteOffset = 0;
+  }
 
   // Watch for file changes
   try {
@@ -197,19 +237,20 @@ const wsServer = Bun.serve({
     return new Response("WebSocket server. Connect via ws://", { status: 200 });
   },
   websocket: {
-    open(ws) {
+    open(ws: ServerWebSocket<unknown>) {
       wsClients.add(ws);
       // Send all existing events as initial snapshot
-      getEventLines().then((lines) => {
+      getAllEventLines().then((lines) => {
+        const events = lines.map(safeJsonParse).filter((e): e is Record<string, unknown> => e !== null);
         ws.send(
           JSON.stringify({
             type: "snapshot",
-            data: lines.map((l) => JSON.parse(l)),
+            data: events,
           })
         );
       });
     },
-    message(ws, message) {
+    message(ws: ServerWebSocket<unknown>, message: string | Buffer) {
       try {
         const msg = JSON.parse(String(message));
         if (msg.type === "ping") {
@@ -221,7 +262,7 @@ const wsServer = Bun.serve({
         // Ignore malformed messages
       }
     },
-    close(ws) {
+    close(ws: ServerWebSocket<unknown>) {
       wsClients.delete(ws);
     },
   },
@@ -266,11 +307,12 @@ const httpServer = Bun.serve({
 
     // API: list events (REST fallback for non-WS consumers)
     if (url.pathname === "/api/events") {
-      const lines = await getEventLines();
+      const lines = await getAllEventLines();
       const offset = parseInt(url.searchParams.get("offset") || "0");
+      const events = lines.slice(offset).map(safeJsonParse).filter((e): e is Record<string, unknown> => e !== null);
       return new Response(
         JSON.stringify({
-          events: lines.slice(offset).map((l) => JSON.parse(l)),
+          events,
           total: lines.length,
         }),
         {

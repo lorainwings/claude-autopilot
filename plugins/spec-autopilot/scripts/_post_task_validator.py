@@ -639,5 +639,19 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
                 file=sys.stderr,
             )
 
+    # min_qa_rounds L2 hard block: ensure sufficient QA decision rounds
+    root = _ep.find_project_root(data)
+    min_qa_rounds = _ep.read_config_value(root, "phases.requirements.min_qa_rounds", None)
+    if min_qa_rounds is not None:
+        try:
+            min_qa_rounds = int(min_qa_rounds)
+        except (ValueError, TypeError):
+            min_qa_rounds = None
+    if min_qa_rounds is not None and isinstance(decisions, list) and len(decisions) < min_qa_rounds:
+        output_block(
+            f"Phase 1 decisions count ({len(decisions)}) is less than min_qa_rounds ({min_qa_rounds}). "
+            f"At least {min_qa_rounds} decision rounds are required by configuration."
+        )
+
 # All validations passed
 sys.exit(0)

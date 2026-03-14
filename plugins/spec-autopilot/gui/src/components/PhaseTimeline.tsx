@@ -4,7 +4,7 @@
  * 数据源: Zustand Store (events, currentPhase, mode)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats } from "../store";
 
 function formatDuration(ms: number): string {
@@ -17,10 +17,12 @@ function formatDuration(ms: number): string {
 }
 
 export function PhaseTimeline() {
-  const { events, currentPhase, mode } = useStore();
+  const events = useStore((s) => s.events);
+  const currentPhase = useStore((s) => s.currentPhase);
+  const mode = useStore((s) => s.mode);
   const phaseDurations = selectPhaseDurations(events);
   const totalElapsedMs = selectTotalElapsedMs(events);
-  const gateStats = selectGateStats(events);
+  const gateStats = useMemo(() => selectGateStats(events), [events]);
 
   // G9: Force re-render every second when a phase is running
   const [, setTick] = useState(0);

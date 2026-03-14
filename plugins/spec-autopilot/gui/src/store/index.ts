@@ -150,13 +150,16 @@ export function selectTotalElapsedMs(events: AutopilotEvent[]): number {
   return Date.now() - firstStart;
 }
 
-/** Compute gate pass/block/pending statistics */
+/** Compute gate pass/block/pending statistics (single-pass) */
 export function selectGateStats(events: AutopilotEvent[]): GateStats {
-  const passed = events.filter((e) => e.type === "gate_pass").length;
-  const blocked = events.filter((e) => e.type === "gate_block").length;
-  const pending = events.filter(
-    (e) => e.type === "gate_decision_pending"
-  ).length;
+  let passed = 0;
+  let blocked = 0;
+  let pending = 0;
+  for (const e of events) {
+    if (e.type === "gate_pass") passed++;
+    else if (e.type === "gate_block") blocked++;
+    else if (e.type === "gate_decision_pending") pending++;
+  }
   const total = passed + blocked;
   const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 

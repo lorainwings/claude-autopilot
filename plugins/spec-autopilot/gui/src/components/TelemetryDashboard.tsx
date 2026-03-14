@@ -4,7 +4,7 @@
  * 数据源: Zustand Store (events) → derived selectors
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats, selectActivePhaseIndices } from "../store";
 
 function formatDuration(ms: number): string {
@@ -25,10 +25,10 @@ function formatShortDuration(ms: number): string {
 }
 
 export function TelemetryDashboard() {
-  const { events } = useStore();
+  const events = useStore((s) => s.events);
   const phaseDurations = selectPhaseDurations(events);
   const totalElapsedMs = selectTotalElapsedMs(events);
-  const gateStats = selectGateStats(events);
+  const gateStats = useMemo(() => selectGateStats(events), [events]);
 
   // G9: Force re-render every second when a phase is running
   const [, setTick] = useState(0);

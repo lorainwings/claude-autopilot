@@ -53,6 +53,16 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# 9d. unified-write-edit-check.sh uses require_python3 (not raw command -v python3)
+if grep -q 'require_python3' "$SCRIPT_DIR/unified-write-edit-check.sh" && \
+   ! grep -q 'command -v python3.*exit 0' "$SCRIPT_DIR/unified-write-edit-check.sh"; then
+  green "  PASS: unified-write-edit-check.sh uses require_python3 fail-closed pattern"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: unified-write-edit-check.sh still uses raw command -v python3 (silent exit)"
+  FAIL=$((FAIL + 1))
+fi
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

@@ -161,6 +161,7 @@ RANGE_RULES = {
     "phases.requirements.auto_scan.max_depth": (1, 5),
     "phases.requirements.complexity_routing.thresholds.small": (1, 20),
     "phases.requirements.complexity_routing.thresholds.medium": (2, 50),
+    "phases.requirements.min_qa_rounds": (1, 10),
 }
 
 

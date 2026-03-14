@@ -1,6 +1,28 @@
 # Changelog
 
 
+## [5.1.3] - 2026-03-14
+
+### Added
+
+- **tdd-refactor-rollback.sh**: TDD REFACTOR 阶段确定性 3 步回滚脚本 (stash → checkout → pop)
+- **min_qa_rounds L2 硬阻断**: 配置校验 (1-10 范围) + Phase 1 decisions 数量 < min_qa_rounds 时 block
+- **scripts/tsconfig.json + package.json**: IDE 类型支持 (bun-types)，`tsc --noEmit --strict` 零报错
+- **GateBlockCard 决策失败 UI 报警**: error state + 红色 AlertTriangle banner
+- **3 个新测试文件**: test_tdd_rollback.sh, test_min_qa_rounds.sh, test_fail_closed.sh 9d case
+
+### Changed
+
+- **autopilot-server.ts I/O 增量化**: lastLineCount → lastByteOffset，getNewEventLines 字节偏移读取
+- **selectGateStats 单次遍历**: 3×filter → 1×for 循环
+- **TelemetryDashboard/PhaseTimeline**: useStore selector 精细化 + gateStats useMemo
+- **WebSocket 类型标注**: ServerWebSocket\<unknown\>，消除 implicit any
+
+### Fixed
+
+- **autopilot-server.ts JSON.parse 3 处防崩溃**: safeJsonParse + filter type predicate，损坏行 skip 不 crash
+- **Python3 缺失 fail-closed**: unified-write-edit-check.sh `command -v python3 || exit 0` → `require_python3 || exit 0`
+
 ## [5.1.2] - 2026-03-14
 
 ### Added

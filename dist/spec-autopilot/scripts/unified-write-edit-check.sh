@@ -232,7 +232,7 @@ fi
 # ============================================================
 
 if [ "$IN_PHASE5" = "yes" ]; then
-  command -v python3 &>/dev/null || exit 0
+  require_python3 || exit 0
 
   python3 -c "
 import importlib.util, json, os, sys
