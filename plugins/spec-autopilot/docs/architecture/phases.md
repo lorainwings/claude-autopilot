@@ -1,3 +1,5 @@
+> **[中文版](phases.zh.md)** | English (default)
+
 # Phases
 
 > Per-phase execution guide with inputs, outputs, checkpoint formats, and key behaviors.
@@ -7,7 +9,7 @@
 | Phase | Executor | Key Behavior | Checkpoint |
 |-------|----------|-------------|------------|
 | 0 | Main thread | Environment check + crash recovery | None |
-| 1 | Main thread | Multi-round decision loop + 需求路由 (routing_overrides, v4.2) | `phase-1-requirements.json` |
+| 1 | Main thread | Multi-round decision loop + requirements routing (routing_overrides, v4.2) | `phase-1-requirements.json` |
 | 2 | Sub-agent | Create OpenSpec change directory | `phase-2-openspec.json` |
 | 3 | Sub-agent | FF generate all artifacts | `phase-3-ff.json` |
 | 4 | Sub-agent | Test case design (mandatory) | `phase-4-testing.json` |
@@ -59,12 +61,12 @@
 | `structured` (default) | Standard AskUserQuestion flow |
 | `socratic` | Additional challenging questions per the 6-step protocol |
 
-#### Socratic 模式步骤 (v5.0.6 扩展)
+#### Socratic Mode Steps (v5.0.6 Extension)
 
-| Step | 内容 |
-|------|------|
-| 1-6 | 标准 6 步质询协议 |
-| **7 (v5.0.6)** | 非功能需求质询：性能指标、安全约束、可访问性、国际化需求 |
+| Step | Content |
+|------|---------|
+| 1-6 | Standard 6-step challenge protocol |
+| **7 (v5.0.6)** | Non-functional requirements challenge: performance metrics, security constraints, accessibility, internationalization requirements |
 
 ### Complexity Routing
 
@@ -85,18 +87,18 @@ Auto-upgrade to `large` when: feasibility score is low, high-severity risks exis
 | `context/tech-constraints.md` | Hard constraints, dependency constraints, infrastructure constraints |
 | `context/research-findings.md` | Impact analysis, dependency check, feasibility assessment, risks |
 
-### 需求类型路由 (v4.2)
+### Requirements Type Routing (v4.2)
 
-Phase 1 分析结果自动将需求分类为以下类型，并动态调整后续阶段门禁阈值：
+Phase 1 analysis results automatically classify requirements into the following types, dynamically adjusting subsequent phase gate thresholds:
 
-| 需求类型 | 分类规则 | 门禁调整 |
+| Requirement Type | Classification Rule | Gate Adjustment |
 |---------|---------|---------|
-| **Feature** | 新功能、新组件、新 API | 默认阈值 |
-| **Bugfix** | 缺陷修复、行为修正 | sad_path ≥ 40%, coverage = 100%, 必须含复现测试 |
-| **Refactor** | 代码重构、性能优化 | coverage = 100%, 必须含行为保持测试 |
-| **Chore** | CI/CD、文档、依赖升级 | coverage ≥ 60%, typecheck 通过即可 |
+| **Feature** | New functionality, new components, new APIs | Default thresholds |
+| **Bugfix** | Defect fixes, behavior corrections | sad_path ≥ 40%, coverage = 100%, must include reproduction test |
+| **Refactor** | Code refactoring, performance optimization | coverage = 100%, must include behavior preservation test |
+| **Chore** | CI/CD, documentation, dependency upgrades | coverage ≥ 60%, typecheck pass is sufficient |
 
-分类结果写入 checkpoint 的 `requirement_type` 字段。复合需求 (v5.0.6) 使用数组格式并通过 `routing_overrides` 传递合并后的阈值覆盖。
+Classification results are written to the checkpoint's `requirement_type` field. Compound requirements (v5.0.6) use an array format and pass merged threshold overrides via `routing_overrides`.
 
 ### Checkpoint Format
 
@@ -222,7 +224,7 @@ Phase 1 分析结果自动将需求分类为以下类型，并动态调整后续
 | Priority | Mode | Condition |
 |----------|------|-----------|
 | 1 | Parallel (worktree) | `config.phases.implementation.parallel.enabled = true` |
-| 2 | Serial (foreground Task) | `config.phases.implementation.parallel.enabled = false`（默认） |
+| 2 | Serial (foreground Task) | `config.phases.implementation.parallel.enabled = false` (default) |
 
 ### Task-Level Checkpoints
 
@@ -246,27 +248,27 @@ Each completed task writes to `phase-results/phase5-tasks/task-N.json`:
 - Skill-level soft limit: AskUser after 2 hours
 - Options: continue / save & pause / rollback to start tag
 
-### 事件发射 (v4.2/v5.0)
+### Event Emission (v4.2/v5.0)
 
-Phase 5 每个 task 完成后通过 `emit-task-progress.sh` 发射 `task_progress` 事件：
+After each task completes in Phase 5, a `task_progress` event is emitted via `emit-task-progress.sh`:
 
 ```bash
 bash scripts/emit-task-progress.sh <phase> <task_name> <status> <task_index> <task_total> [tdd_step]
 ```
 
-事件实时推送到 `logs/events.jsonl` 和 WebSocket (`ws://localhost:8765`)，供 GUI 大盘实时渲染任务进度。
+Events are pushed in real-time to `logs/events.jsonl` and WebSocket (`ws://localhost:8765`), enabling the GUI dashboard to render task progress live.
 
-### TDD 确定性循环 (v4.1)
+### TDD Deterministic Cycle (v4.1)
 
-当 `tdd_mode: true` 时，每个 task 按 RED-GREEN-REFACTOR 循环执行：
+When `tdd_mode: true`, each task executes in a RED-GREEN-REFACTOR cycle:
 
-| 阶段 | 行为 | L2 验证 |
-|------|------|---------|
-| **RED** | 仅写测试，运行必须失败 (`exit_code ≠ 0`) | Bash 确定性验证 |
-| **GREEN** | 仅写实现，运行必须通过 (`exit_code = 0`) | Bash 确定性验证 |
-| **REFACTOR** | 重构，测试必须保持通过 | 失败 → `git checkout` 自动回滚 |
+| Stage | Behavior | L2 Verification |
+|-------|----------|-----------------|
+| **RED** | Write tests only, run must fail (`exit_code != 0`) | Bash deterministic verification |
+| **GREEN** | Write implementation only, run must pass (`exit_code = 0`) | Bash deterministic verification |
+| **REFACTOR** | Refactor, tests must remain passing | Failure → `git checkout` auto-rollback |
 
-> GREEN 失败时修复实现代码，禁止修改测试文件。
+> When GREEN fails, fix implementation code; modifying test files is prohibited.
 
 ### Checkpoint Format
 

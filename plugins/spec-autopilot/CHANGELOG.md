@@ -1,6 +1,12 @@
 # Changelog
 
 
+## [5.1.2] - 2026-03-14
+
+### Added
+
+- **Bilingual documentation (i18n)**: All 10 technical docs now have English (default) + Chinese (.zh.md) versions with language switcher links at top (20 files total)
+
 ## [5.1.0] - 2026-03-14
 
 ## [5.0.10] - 2026-03-14

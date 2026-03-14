@@ -1,8 +1,10 @@
+> **[中文版](README.zh.md)** | English (default)
+
 # spec-autopilot
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.2-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -15,7 +17,7 @@
 - **3-Layer Gate System**: TaskCreate dependencies + Hook checkpoint validation + AI checklist verification
 - **Crash Recovery**: Automatic checkpoint scanning and session resume (with anchor_sha validation)
 - **Context Compaction Resilience**: State persistence across Claude Code context compression
-- **Anti-Rationalization**: 16 pattern detection (v5.2: +时间/环境/第三方借口, 中英双语) to prevent sub-agents from skipping work
+- **Anti-Rationalization**: 16 pattern detection (v5.2: +time/environment/third-party excuses, bilingual CN/EN) to prevent sub-agents from skipping work
 - **Test Pyramid Enforcement**: Hook-level validation of test distribution (L2/L3 layered thresholds)
 - **TDD Deterministic Cycle**: RED-GREEN-REFACTOR with L2 `tdd_metrics` validation (v4.1)
 - **Requirements Routing (v4.2)**: Auto-classify requirements as Feature/Bugfix/Refactor/Chore with dynamic gate thresholds
@@ -26,7 +28,7 @@
 - **Modular Test Suite**: 53 test files with ~340 assertions covering all hooks and scripts
 - **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
 - **Metrics Collection**: Per-phase timing and retry tracking
-- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 非功能需求)
+- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 non-functional requirements)
 
 ## Architecture
 
@@ -141,44 +143,44 @@ sequenceDiagram
     Main->>Main: Resume from next phase
 ```
 
-### GUI V2 大盘 (v5.0.8)
+### GUI V2 Dashboard (v5.0.8)
 
-实时可视化执行状态和门禁决策交互。
+Real-time visualization of execution status and gate decision interaction.
 
-**启动命令**:
+**Launch command**:
 
 ```bash
 bun run plugins/spec-autopilot/scripts/autopilot-server.ts
 ```
 
-**三栏布局**:
+**Three-column layout**:
 
-| 栏位 | 组件 | 内容 |
-|------|------|------|
-| 左栏 | PhaseTimeline | Phase 进度时间轴 + 状态指示灯 |
-| 中栏 | EventStream | 实时事件流 (VirtualTerminal 增量渲染) |
-| 右栏 | GatePanel + TelemetryPanel | 门禁决策浮层 + 遥测面板 |
+| Column | Component | Content |
+|--------|-----------|---------|
+| Left | PhaseTimeline | Phase progress timeline + status indicators |
+| Center | EventStream | Real-time event stream (VirtualTerminal incremental rendering) |
+| Right | GatePanel + TelemetryPanel | Gate decision overlay + telemetry panel |
 
-**端口**: HTTP `9527` (静态资源) + WebSocket `8765` (实时推送 + decision_ack)
+**Ports**: HTTP `9527` (static assets) + WebSocket `8765` (real-time push + decision_ack)
 
-### 事件发射脚本 (v4.2/v5.0)
+### Event Emission Scripts (v4.2/v5.0)
 
-| 脚本 | 事件类型 | 触发时机 |
-|------|---------|---------|
-| `emit-phase-event.sh` | `phase_start` / `phase_end` / `error` | 阶段开始和结束 |
-| `emit-gate-event.sh` | `gate_pass` / `gate_block` | 门禁判定后 |
-| `emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
+| Script | Event Type | Trigger |
+|--------|-----------|---------|
+| `emit-phase-event.sh` | `phase_start` / `phase_end` / `error` | Phase start and end |
+| `emit-gate-event.sh` | `gate_pass` / `gate_block` | After gate decision |
+| `emit-task-progress.sh` | `task_progress` | After each Phase 5 task completes (v5.2) |
 
 ## Installation
 
-### 零配置接入（v3.0）
+### Zero-Config Onboarding (v3.0)
 
-新项目只需一个配置文件即可运行 autopilot：
+New projects only need a single configuration file to run autopilot:
 
-1. 安装插件: `claude plugin add lorainwings/claude-autopilot`
-2. 运行 `启动autopilot [需求描述]`
-3. 插件自动检测项目结构，生成 `.claude/autopilot.config.yaml`
-4. 内置模板自动处理所有阶段 — 无需创建额外文件
+1. Install plugin: `claude plugin add lorainwings/claude-autopilot`
+2. Run `Start autopilot [requirement description]`
+3. The plugin auto-detects project structure and generates `.claude/autopilot.config.yaml`
+4. Built-in templates handle all phases automatically — no additional files needed
 
 ### Step 1: Add marketplace
 
@@ -321,10 +323,10 @@ Create `.claude/skills/autopilot/SKILL.md`:
 ---
 name: autopilot
 description: "Full autopilot orchestrator"
-argument-hint: "[需求描述或 PRD 文件路径]"
+argument-hint: "[requirement description or PRD file path]"
 ---
 
-调用 Skill("spec-autopilot:autopilot", args="$ARGUMENTS") 启动编排器。
+Invoke Skill("spec-autopilot:autopilot", args="$ARGUMENTS") to start the orchestrator.
 ```
 
 ### 3. Add phase instruction files
@@ -337,18 +339,18 @@ Common issues and solutions: [docs/operations/troubleshooting.md](docs/operation
 
 ## Documentation
 
-| Document | Content |
-|----------|---------|
-| [Quick Start](docs/getting-started/quick-start.md) | 5-minute quick start guide |
-| [Integration Guide](docs/getting-started/integration-guide.md) | Step-by-step project onboarding, config examples, checklist |
-| [Configuration](docs/getting-started/configuration.md) | Complete YAML field reference with types and defaults |
-| [Architecture](docs/architecture/overview.md) | System architecture, event bus, GUI V2, parallel dispatch, routing |
-| [Phases](docs/architecture/phases.md) | Per-phase execution guide, I/O tables, checkpoint formats, TDD cycle |
-| [Gates](docs/architecture/gates.md) | 3-layer gate deep dive, anti-rationalization, routing_overrides, decision_ack |
-| [Config Tuning](docs/operations/config-tuning-guide.md) | Per-project-type configuration optimization |
-| [Troubleshooting](docs/operations/troubleshooting.md) | Common errors, debugging hooks, recovery scenarios |
-| [Event Bus API](skills/autopilot/references/event-bus-api.md) | Event types, transport layer, consumption examples |
-| [Changelog](CHANGELOG.md) | Version history |
+| Document | Content | Chinese |
+|----------|---------|---------|
+| [Quick Start](docs/getting-started/quick-start.md) | 5-minute quick start guide | [中文](docs/getting-started/quick-start.zh.md) |
+| [Integration Guide](docs/getting-started/integration-guide.md) | Step-by-step project onboarding, config examples, checklist | [中文](docs/getting-started/integration-guide.zh.md) |
+| [Configuration](docs/getting-started/configuration.md) | Complete YAML field reference with types and defaults | [中文](docs/getting-started/configuration.zh.md) |
+| [Architecture](docs/architecture/overview.md) | System architecture, event bus, GUI V2, parallel dispatch, routing | [中文](docs/architecture/overview.zh.md) |
+| [Phases](docs/architecture/phases.md) | Per-phase execution guide, I/O tables, checkpoint formats, TDD cycle | [中文](docs/architecture/phases.zh.md) |
+| [Gates](docs/architecture/gates.md) | 3-layer gate deep dive, anti-rationalization, routing_overrides, decision_ack | [中文](docs/architecture/gates.zh.md) |
+| [Config Tuning](docs/operations/config-tuning-guide.md) | Per-project-type configuration optimization | [中文](docs/operations/config-tuning-guide.zh.md) |
+| [Troubleshooting](docs/operations/troubleshooting.md) | Common errors, debugging hooks, recovery scenarios | [中文](docs/operations/troubleshooting.zh.md) |
+| [Event Bus API](skills/autopilot/references/event-bus-api.md) | Event types, transport layer, consumption examples | [中文](skills/autopilot/references/event-bus-api.zh.md) |
+| [Changelog](CHANGELOG.md) | Version history | — |
 
 ## Contributing
 

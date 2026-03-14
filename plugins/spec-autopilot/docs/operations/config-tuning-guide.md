@@ -1,18 +1,20 @@
-# 配置调优指南
+> **[中文版](config-tuning-guide.zh.md)** | English (default)
 
-> 按项目类型和团队需求优化 `.claude/autopilot.config.yaml`。
+# Configuration Tuning Guide
 
-## 配置分层概念
+> Optimize `.claude/autopilot.config.yaml` based on project type and team needs.
 
-spec-autopilot 的 60+ 配置字段分为三层，大多数场景只需关注 Level 1：
+## Configuration Layering Concept
 
-| 层级 | 字段数 | 适用场景 |
-|------|--------|---------|
-| **Level 1 — 核心** | ~5 | 首次使用、快速开始 |
-| **Level 2 — 团队** | ~15 | 团队级定制、流程调优 |
-| **Level 3 — 专家** | ~40 | 深度定制、Hook 阈值微调 |
+The 60+ configuration fields in spec-autopilot are organized into three layers. Most scenarios only require Level 1:
 
-## Level 1: 核心配置（必须设置）
+| Layer | Fields | Use Case |
+|-------|--------|----------|
+| **Level 1 — Core** | ~5 | First-time setup, quick start |
+| **Level 2 — Team** | ~15 | Team-level customization, workflow tuning |
+| **Level 3 — Expert** | ~40 | Deep customization, Hook threshold fine-tuning |
+
+## Level 1: Core Configuration (Required)
 
 ```yaml
 version: "1.0"
@@ -20,7 +22,7 @@ default_mode: "full"        # full | lite | minimal
 
 services:
   backend:
-    name: "后端服务"
+    name: "Backend service"
     health_url: "http://localhost:3000/health"
 
 test_suites:
@@ -29,9 +31,9 @@ test_suites:
     type: "unit"
 ```
 
-## 按项目类型推荐配置
+## Recommended Configuration by Project Type
 
-### 场景 A: 大型企业项目（Strict）
+### Scenario A: Large Enterprise Project (Strict)
 
 ```yaml
 default_mode: "full"
@@ -57,7 +59,7 @@ brownfield_validation:
   strict_mode: true
 ```
 
-### 场景 B: 中型团队项目（Moderate，推荐）
+### Scenario B: Medium Team Project (Moderate, Recommended)
 
 ```yaml
 default_mode: "full"
@@ -81,7 +83,7 @@ brownfield_validation:
   strict_mode: false
 ```
 
-### 场景 C: 快速原型 / 小项目（Relaxed）
+### Scenario C: Rapid Prototype / Small Project (Relaxed)
 
 ```yaml
 default_mode: "lite"
@@ -94,7 +96,7 @@ phases:
   implementation:
     tdd_mode: false
     parallel:
-      enabled: false           # 快速原型不需要并行
+      enabled: false           # No parallelism needed for rapid prototypes
 test_pyramid:
   min_unit_pct: 30
   max_e2e_pct: 40
@@ -106,7 +108,7 @@ brownfield_validation:
   enabled: false
 ```
 
-### 场景 D: TDD 驱动开发
+### Scenario D: TDD-Driven Development
 
 ```yaml
 default_mode: "full"
@@ -120,21 +122,21 @@ test_pyramid:
   traceability_floor: 90
 ```
 
-TDD 模式下 Phase 4 自动跳过（测试在 Phase 5 per-task 创建），Phase 5 执行 RED-GREEN-REFACTOR 循环。
+In TDD mode, Phase 4 is automatically skipped (tests are created per-task in Phase 5), and Phase 5 executes the RED-GREEN-REFACTOR cycle.
 
-## 常见调优场景
+## Common Tuning Scenarios
 
-### 调优 1: 减少不必要的用户确认
+### Tuning 1: Reduce Unnecessary User Confirmations
 
 ```yaml
 gates:
   user_confirmation:
-    after_phase_1: false   # 跳过需求确认（适合已明确的需求）
+    after_phase_1: false   # Skip requirements confirmation (for well-defined requirements)
     after_phase_3: false
     after_phase_4: false
 ```
 
-### 调优 2: 大型项目增加超时
+### Tuning 2: Increase Timeouts for Large Projects
 
 ```yaml
 phases:
@@ -145,7 +147,7 @@ async_quality_scans:
   timeout_minutes: 20
 ```
 
-### 调优 3: 接入真实静态分析工具（v4.0）
+### Tuning 3: Integrate Real Static Analysis Tools (v4.0)
 
 ```yaml
 quality_scans:
@@ -161,22 +163,22 @@ quality_scans:
       blocking: true
 ```
 
-### 调优 4: 放宽 Hook 底线阈值
+### Tuning 4: Relax Hook Floor Thresholds
 
-当 Hook 频繁阻断且确认为误报时：
+When Hooks block frequently and the blocks are confirmed to be false positives:
 
 ```yaml
 test_pyramid:
   hook_floors:
-    min_unit_pct: 20       # 从 30 降到 20
-    max_e2e_pct: 50        # 从 40 升到 50
-    min_total_cases: 5     # 从 10 降到 5
-    min_change_coverage_pct: 60  # 从 80 降到 60
+    min_unit_pct: 20       # Lowered from 30 to 20
+    max_e2e_pct: 50        # Raised from 40 to 50
+    min_total_cases: 5     # Lowered from 10 to 5
+    min_change_coverage_pct: 60  # Lowered from 80 to 60
 ```
 
-> 注意：`hook_floors` 是 Layer 2 宽松底线，不应比 `test_pyramid` 顶级阈值更严格。配置验证器会自动检查交叉一致性。
+> Note: `hook_floors` is the Layer 2 relaxed floor and should not be stricter than the top-level `test_pyramid` thresholds. The configuration validator automatically checks cross-consistency.
 
-### 调优 5: 禁用联网搜索
+### Tuning 5: Disable Web Search
 
 ```yaml
 phases:
@@ -186,76 +188,76 @@ phases:
         enabled: false
 ```
 
-### 调优 6: 并行执行优化
+### Tuning 6: Parallel Execution Optimization
 
 ```yaml
 phases:
   implementation:
     parallel:
       enabled: true
-      max_agents: 3           # 建议按域数量设置 (backend + frontend + node)
-      dependency_analysis: true  # 自动分析 task 间依赖
+      max_agents: 3           # Recommended: set to number of domains (backend + frontend + node)
+      dependency_analysis: true  # Automatically analyze inter-task dependencies
 
-# 域映射 — 确保目录划分准确
+# Domain mapping — ensure directory assignments are accurate
 project_context:
   project_structure:
-    backend_dir: "backend"        # 后端源码根目录
-    frontend_dir: "frontend/app"  # 前端源码根目录
-    node_dir: "services/node"     # Node 服务目录
+    backend_dir: "backend"        # Backend source root directory
+    frontend_dir: "frontend/app"  # Frontend source root directory
+    node_dir: "services/node"     # Node service directory
 ```
 
-调优建议：
-- `max_agents` 设为项目实际域数量（如 3 个域则设 3）
-- 确保 `project_structure` 目录映射准确，否则文件所有权分配可能不合理
-- 合并冲突频繁时降低 `max_agents` 或切回串行模式
+Tuning tips:
+- Set `max_agents` to the actual number of project domains (e.g., 3 domains = 3 agents)
+- Ensure `project_structure` directory mappings are accurate; otherwise file ownership assignment may be incorrect
+- If merge conflicts are frequent, reduce `max_agents` or switch back to serial mode
 
-### 调优 7: TDD 模式精细配置
+### Tuning 7: TDD Mode Fine-Tuning
 
 ```yaml
 phases:
   implementation:
     tdd_mode: true
-    tdd_refactor: true            # 包含 REFACTOR 步骤
-    tdd_test_command: "npm test -- --bail"  # 覆盖默认 test_suites 命令
+    tdd_refactor: true            # Include REFACTOR step
+    tdd_test_command: "npm test -- --bail"  # Override default test_suites command
 
 test_pyramid:
-  min_unit_pct: 70                # TDD 模式建议提高单元测试占比
+  min_unit_pct: 70                # Recommended: raise unit test percentage in TDD mode
 ```
 
-TDD 行为说明：
-- **RED**: 仅写测试，运行必须失败 (`exit_code ≠ 0`)。L2 Bash 确定性验证
-- **GREEN**: 仅写实现，运行必须通过 (`exit_code = 0`)。L2 Bash 确定性验证
-- **REFACTOR**: 重构后测试必须保持通过。失败 → `git checkout` 自动回滚
+TDD behavior details:
+- **RED**: Write tests only; execution must fail (`exit_code != 0`). L2 Bash deterministic verification
+- **GREEN**: Write implementation only; execution must pass (`exit_code = 0`). L2 Bash deterministic verification
+- **REFACTOR**: Tests must remain passing after refactoring. Failure triggers automatic `git checkout` rollback
 
-> 设置 `tdd_refactor: false` 可跳过 REFACTOR 步骤，适合快速迭代场景。
+> Set `tdd_refactor: false` to skip the REFACTOR step, suitable for rapid iteration scenarios.
 
-### 调优 8: Event Bus 与 GUI 调优
+### Tuning 8: Event Bus & GUI Tuning
 
 ```bash
-# 启动 GUI 双模服务器
+# Start the GUI dual-mode server
 bun run plugins/spec-autopilot/scripts/autopilot-server.ts
 
-# 自定义端口
+# Custom ports
 bun run plugins/spec-autopilot/scripts/autopilot-server.ts --http-port 3000 --ws-port 9000
 ```
 
-调优建议：
-- 事件文件默认写入 `logs/events.jsonl`，建议将 `logs/` 加入 `.gitignore`
-- WebSocket 端口冲突时通过 `--ws-port` 更改
-- 大型项目事件量大时，定期清理 `events.jsonl`（每次 autopilot 会话追加，不自动清理）
-- 不使用 GUI 时无需启动服务器，事件仍写入文件可通过 `tail -f` 消费
+Tuning tips:
+- Event files are written to `logs/events.jsonl` by default; consider adding `logs/` to `.gitignore`
+- Use `--ws-port` to change the port if there is a WebSocket port conflict
+- For large projects with high event volume, periodically clean up `events.jsonl` (each autopilot session appends; no automatic cleanup)
+- If not using the GUI, there is no need to start the server; events are still written to the file and can be consumed via `tail -f`
 
-## 配置验证
+## Configuration Validation
 
-修改配置后运行验证：
+Run validation after modifying the configuration:
 
 ```bash
 bash plugins/spec-autopilot/scripts/validate-config.sh
 ```
 
-输出 JSON 包含：
-- `valid`: 是否通过
-- `missing_keys`: 缺失的必填字段
-- `type_errors`: 类型错误
-- `range_errors`: 范围错误
-- `cross_ref_warnings`: 交叉引用警告（如 hook_floors 比 gate 更严格）
+The output JSON includes:
+- `valid`: Whether validation passed
+- `missing_keys`: Missing required fields
+- `type_errors`: Type errors
+- `range_errors`: Range errors
+- `cross_ref_warnings`: Cross-reference warnings (e.g., hook_floors stricter than gate thresholds)
