@@ -13,10 +13,10 @@ STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/.*\
 if [ -n "$STAGED" ]; then
   echo "🧪 Plugin files changed — running hook test suite..."
 
-  TEST_SCRIPT="plugins/spec-autopilot/scripts/test-hooks.sh"
+  TEST_SCRIPT="plugins/spec-autopilot/tests/run_all.sh"
 
   if [ ! -f "$TEST_SCRIPT" ]; then
-    echo "WARNING: test-hooks.sh not found, skipping" >&2
+    echo "WARNING: tests/run_all.sh not found, skipping" >&2
   else
     if ! bash "$TEST_SCRIPT"; then
       echo ""
@@ -29,31 +29,43 @@ if [ -n "$STAGED" ]; then
   # ============================================
   # Part 1.5: Targeted Test Coverage Check
   # ============================================
-  # Verify that modified scripts have corresponding test additions in test-hooks.sh
+  # Verify that modified scripts have corresponding test file changes
   CHANGED_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/scripts/[^/]+\.sh$' | grep -v 'test-hooks\.sh' | grep -v '_common\.sh' || true)
-  TEST_DIFF=$(git diff --cached -- "$TEST_SCRIPT" 2>/dev/null || true)
+  TESTS_DIR="plugins/spec-autopilot/tests"
+  TEST_FILES_DIFF=$(git diff --cached --name-only -- "$TESTS_DIR" 2>/dev/null || true)
 
   if [ -n "$CHANGED_SCRIPTS" ]; then
     MISSING_TESTS=""
     for script in $CHANGED_SCRIPTS; do
-      script_basename=$(basename "$script")
-      # Check if test-hooks.sh diff references this script
-      if [ -n "$TEST_DIFF" ]; then
-        if ! echo "$TEST_DIFF" | grep -q "$script_basename"; then
-          MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}\n"
+      script_basename=$(basename "$script" .sh)
+      # Check if any test file in tests/ dir was also modified
+      if [ -n "$TEST_FILES_DIFF" ]; then
+        if ! echo "$TEST_FILES_DIFF" | grep -q "test_.*${script_basename}"; then
+          MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}.sh\n"
         fi
       else
-        MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}\n"
+        MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}.sh\n"
       fi
     done
 
     if [ -n "$MISSING_TESTS" ]; then
       echo ""
-      echo "⚠️  Scripts modified without targeted test updates in test-hooks.sh:"
+      echo "⚠️  Scripts modified without corresponding test updates in tests/:"
       printf "$MISSING_TESTS"
       echo "   Each script change should include targeted test cases."
       echo ""
     fi
+  fi
+
+  # ============================================
+  # Part 1.8: Rebuild dist
+  # ============================================
+  echo "📦 Rebuilding dist/plugin/..."
+  if bash plugins/spec-autopilot/scripts/build-dist.sh; then
+    git add dist/plugin/
+  else
+    echo "❌ dist build failed. Fix the build before committing."
+    exit 1
   fi
   echo ""
 fi

@@ -142,3 +142,8 @@ else
   echo "❌ Verification FAILED — some files were not updated correctly"
   exit 1
 fi
+
+# 重新构建 dist 以同步版本号
+echo ""
+echo "📦 Rebuilding dist/plugin/..."
+bash "$SCRIPT_DIR/build-dist.sh"

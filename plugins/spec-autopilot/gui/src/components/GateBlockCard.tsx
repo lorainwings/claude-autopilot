@@ -1,6 +1,7 @@
 /**
  * GateBlockCard — 门禁阻断卡片
  * 显示最近的 gate_block 事件详情，并提供决策按钮
+ * v5.2: 收到 decision_ack 后立即隐藏卡片
  */
 
 import { useState } from "react";
@@ -11,11 +12,14 @@ interface GateBlockCardProps {
 }
 
 export function GateBlockCard({ onDecision }: GateBlockCardProps) {
-  const { events } = useStore();
+  const { events, decisionAcked } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
 
   const blockEvents = events.filter((e) => e.type === "gate_block");
   if (blockEvents.length === 0) return null;
+
+  // v5.2: Decision ACK received — hide the card immediately
+  if (decisionAcked) return null;
 
   const latest = blockEvents[blockEvents.length - 1];
   const { phase, phase_label, payload } = latest;
@@ -24,7 +28,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
     setLoading(action);
     try {
       await onDecision?.(action, phase);
-      setTimeout(() => setLoading(null), 2000);
+      // Note: Card will be dismissed by decision_ack, not by timeout
     } catch (error) {
       console.error("Decision failed:", error);
       setLoading(null);

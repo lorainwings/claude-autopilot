@@ -14,13 +14,20 @@ import { ParallelKanban } from "./components/ParallelKanban";
 const wsBridge = new WSBridge();
 
 export function App() {
-  const { connected, setConnected, addEvents, changeName, sessionId } = useStore();
+  const { connected, setConnected, addEvents, setDecisionAcked, changeName, sessionId } = useStore();
 
   useEffect(() => {
     wsBridge.connect();
 
     const unsubscribe = wsBridge.onEvents((events) => {
       addEvents(events);
+    });
+
+    // v5.2: Listen for decision_ack to dismiss GateBlockCard
+    const unsubscribeAck = wsBridge.onDecisionAck(() => {
+      setDecisionAcked(true);
+      // Reset after a new gate_block event may arrive
+      setTimeout(() => setDecisionAcked(false), 500);
     });
 
     const checkConnection = setInterval(() => {
@@ -30,9 +37,10 @@ export function App() {
     return () => {
       clearInterval(checkConnection);
       unsubscribe();
+      unsubscribeAck();
       wsBridge.disconnect();
     };
-  }, [addEvents, setConnected]);
+  }, [addEvents, setConnected, setDecisionAcked]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number) => {
     try {

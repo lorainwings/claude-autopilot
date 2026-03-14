@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# poll-gate-decision.sh
+# v5.1 双向反控: Gate 阻断后轮询 GUI 决策响应
+# Purpose: 在 gate_block 事件发射后，写入 decision-request.json 并轮询 decision.json
+#          直到收到合法的 Override/Retry/Fix 指令或超时
+#
+# Usage:
+#   poll-gate-decision.sh <change_dir> <phase> <mode> <block_reason_json>
+#   change_dir: openspec/changes/<name>/ (with trailing slash)
+#   phase: 0-7
+#   mode: full | lite | minimal
+#   block_reason_json: JSON with blocked_step, error_message etc.
+#
+# Output:
+#   On decision found: prints decision JSON to stdout, exit 0
+#   On timeout: prints timeout JSON to stdout, exit 1
+#   On error: prints error to stderr, exit 2
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
+CHANGE_DIR="${1:-}"
+PHASE="${2:-}"
+MODE="${3:-full}"
+BLOCK_REASON_JSON="${4:-'{}'}"
+
+if [ -z "$CHANGE_DIR" ] || [ -z "$PHASE" ]; then
+  echo "Usage: poll-gate-decision.sh <change_dir> <phase> <mode> <block_reason_json>" >&2
+  exit 2
+fi
+
+# --- Configuration ---
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+POLL_TIMEOUT=$(read_config_value "$PROJECT_ROOT" "gui.decision_poll_timeout" "300")
+POLL_INTERVAL=1
+
+CONTEXT_DIR="${CHANGE_DIR}context"
+DECISION_REQUEST_FILE="${CONTEXT_DIR}/decision-request.json"
+DECISION_FILE="${CONTEXT_DIR}/decision.json"
+
+# --- Step 1: Write decision-request.json ---
+TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+mkdir -p "$CONTEXT_DIR" 2>/dev/null || true
+
+python3 -c "
+import json, sys
+
+request = {
+    'phase': int(sys.argv[1]),
+    'mode': sys.argv[2],
+    'gate_result': 'blocked',
+    'timestamp': sys.argv[3],
+    'awaiting_decision': True
+}
+
+# Merge block reason payload
+try:
+    reason = json.loads(sys.argv[4]) if sys.argv[4] else {}
+    if isinstance(reason, dict):
+        request.update(reason)
+except (json.JSONDecodeError, ValueError):
+    request['error_message'] = sys.argv[4]
+
+with open(sys.argv[5], 'w') as f:
+    json.dump(request, f, ensure_ascii=False, indent=2)
+" "$PHASE" "$MODE" "$TIMESTAMP" "$BLOCK_REASON_JSON" "$DECISION_REQUEST_FILE" 2>/dev/null
+
+if [ $? -ne 0 ]; then
+  echo "ERROR: Failed to write decision-request.json" >&2
+  exit 2
+fi
+
+# --- Step 2: Emit decision_pending event to event bus ---
+bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_pending" "$PHASE" "$MODE" \
+  "{\"awaiting_decision\":true,\"timeout_seconds\":$POLL_TIMEOUT}" 2>/dev/null || true
+
+# --- Step 3: Poll for decision.json ---
+ELAPSED=0
+
+while [ "$ELAPSED" -lt "$POLL_TIMEOUT" ]; do
+  if [ -f "$DECISION_FILE" ]; then
+    # Validate decision format
+    DECISION=$(python3 -c "
+import json, sys
+
+try:
+    with open(sys.argv[1]) as f:
+        decision = json.load(f)
+
+    action = decision.get('action', '').lower()
+    if action not in ('override', 'retry', 'fix'):
+        print(json.dumps({'error': f'Invalid action: {action}. Must be: override, retry, fix'}))
+        sys.exit(1)
+
+    # Normalize
+    decision['action'] = action
+    decision.setdefault('phase', int(sys.argv[2]))
+    decision.setdefault('timestamp', '')
+    decision.setdefault('reason', '')
+
+    print(json.dumps(decision, ensure_ascii=False))
+except json.JSONDecodeError as e:
+    print(json.dumps({'error': f'Invalid JSON in decision.json: {e}'}))
+    sys.exit(1)
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+    sys.exit(1)
+" "$DECISION_FILE" "$PHASE" 2>/dev/null)
+
+    VALIDATE_EXIT=$?
+
+    if [ $VALIDATE_EXIT -eq 0 ] && [ -n "$DECISION" ]; then
+      # Clean up decision files (atomic: remove response first, then request)
+      rm -f "$DECISION_FILE" 2>/dev/null || true
+      rm -f "$DECISION_REQUEST_FILE" 2>/dev/null || true
+
+      # Emit decision_received event
+      ACTION=$(echo "$DECISION" | python3 -c "import json,sys; print(json.load(sys.stdin).get('action','unknown'))" 2>/dev/null || echo "unknown")
+      bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_received" "$PHASE" "$MODE" \
+        "{\"action\":\"$ACTION\",\"elapsed_seconds\":$ELAPSED}" 2>/dev/null || true
+
+      # Output decision to stdout
+      echo "$DECISION"
+      exit 0
+    fi
+
+    # Invalid decision file — remove and keep polling (GUI may be mid-write)
+    rm -f "$DECISION_FILE" 2>/dev/null || true
+  fi
+
+  sleep "$POLL_INTERVAL"
+  ELAPSED=$((ELAPSED + POLL_INTERVAL))
+done
+
+# --- Timeout ---
+rm -f "$DECISION_REQUEST_FILE" 2>/dev/null || true
+
+echo "{\"action\":\"timeout\",\"phase\":$PHASE,\"elapsed_seconds\":$ELAPSED}"
+exit 1

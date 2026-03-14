@@ -17,11 +17,13 @@ export interface AutopilotEvent {
 }
 
 type EventHandler = (events: AutopilotEvent[]) => void;
+type AckHandler = (data: { action: string; phase: number; timestamp: string }) => void;
 
 export class WSBridge {
   private ws: WebSocket | null = null;
   private url: string;
   private handlers = new Set<EventHandler>();
+  private ackHandlers = new Set<AckHandler>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 10000;
@@ -47,6 +49,11 @@ export class WSBridge {
             this.emit(msg.data as AutopilotEvent[]);
           } else if (msg.type === "event") {
             this.emit([msg.data as AutopilotEvent]);
+          } else if (msg.type === "decision_ack") {
+            // v5.2: Decision ACK — notify listeners for UI dismissal
+            for (const handler of this.ackHandlers) {
+              handler(msg.data);
+            }
           }
         } catch {
           // Ignore malformed messages
@@ -77,6 +84,11 @@ export class WSBridge {
   onEvents(handler: EventHandler) {
     this.handlers.add(handler);
     return () => this.handlers.delete(handler);
+  }
+
+  onDecisionAck(handler: AckHandler) {
+    this.ackHandlers.add(handler);
+    return () => this.ackHandlers.delete(handler);
   }
 
   get connected() {

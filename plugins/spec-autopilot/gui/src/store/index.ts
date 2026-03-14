@@ -24,9 +24,11 @@ interface AppState {
   changeName: string | null;
   mode: "full" | "lite" | "minimal" | null;
   taskProgress: Map<string, TaskProgress>;
+  decisionAcked: boolean;
 
   addEvents: (events: AutopilotEvent[]) => void;
   setConnected: (connected: boolean) => void;
+  setDecisionAcked: (acked: boolean) => void;
   reset: () => void;
 }
 
@@ -38,6 +40,7 @@ export const useStore = create<AppState>((set) => ({
   changeName: null,
   mode: null,
   taskProgress: new Map(),
+  decisionAcked: false,
 
   addEvents: (newEvents) =>
     set((state) => {
@@ -78,6 +81,8 @@ export const useStore = create<AppState>((set) => ({
 
   setConnected: (connected) => set({ connected }),
 
+  setDecisionAcked: (acked) => set({ decisionAcked: acked }),
+
   reset: () =>
     set({
       events: [],
@@ -87,5 +92,6 @@ export const useStore = create<AppState>((set) => ({
       changeName: null,
       mode: null,
       taskProgress: new Map(),
+      decisionAcked: false,
     }),
 }));

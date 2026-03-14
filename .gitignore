@@ -9,7 +9,6 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
-dist/
 build/
 .pytest_cache/
 .coverage
@@ -41,8 +40,8 @@ pnpm-lock.yaml
 logs/
 *.log
 
-# Build outputs
-dist/
+# Build outputs (except dist/plugin which is tracked for marketplace install)
+!dist/plugin/
 build/
 *.tsbuildinfo
 

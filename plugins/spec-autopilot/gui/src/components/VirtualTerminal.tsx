@@ -9,6 +9,18 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
 
+// v5.2: ANSI color codes for event type labels in terminal
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  phase_start: "\x1b[34m",     // blue
+  phase_end: "\x1b[32m",       // green
+  gate_pass: "\x1b[32m",       // green
+  gate_block: "\x1b[31m",      // red (bold)
+  error: "\x1b[1;31m",         // bright red
+  task_progress: "\x1b[36m",   // cyan
+  gate_decision_pending: "\x1b[33m",  // yellow
+  gate_decision_received: "\x1b[35m", // magenta
+};
+
 export function VirtualTerminal() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -80,7 +92,14 @@ export function VirtualTerminal() {
 
     for (const event of newEvents) {
       const timestamp = new Date(event.timestamp).toLocaleTimeString();
-      const line = `[${timestamp}] ${event.type.toUpperCase()} | Phase ${event.phase} (${event.phase_label})\r\n`;
+      const typeUpper = event.type.toUpperCase();
+
+      // v5.2: ANSI color codes per event type
+      const color = EVENT_TYPE_COLORS[event.type] || "\x1b[37m"; // default white
+      const reset = "\x1b[0m";
+      const dimGray = "\x1b[90m";
+
+      const line = `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}|${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}\r\n`;
       term.write(line);
     }
 

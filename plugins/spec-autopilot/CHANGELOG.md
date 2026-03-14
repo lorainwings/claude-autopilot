@@ -1,6 +1,25 @@
 # Changelog
 
 
+## [5.0.6] - 2026-03-14
+
+### Added (v5.2 卓越线冲刺 — Sprint to 90+)
+
+- **按需加载并行协议**: `parallel-dispatch.md` 拆分为 `parallel-phase{1,4,5,6}.md`，各阶段按需加载 (63.7% Token 瘦身)
+- **`emit-task-progress.sh`**: Phase 5 细粒度 `task_progress` 事件发射脚本，GUI 并发看板实时跳动
+- **`decision_ack` WebSocket 事件**: server 写入决策后即时广播，前端 GateBlockCard 秒级消失
+- **VirtualTerminal ANSI 着色**: 终端按事件类型上色 (gate_block=红, gate_pass=绿, task_progress=青, error=亮红)
+- **复合需求路由**: `requirement_type` 支持数组 (如 `["refactor","feature"]`)，`routing_overrides` 取 max() 合并最严阈值
+- **苏格拉底第 7 步**: 非功能需求质询 (SLA/性能/可靠性)，并发/分布式关键词触发
+- **`min_qa_rounds` 消费**: Step 1.6 决策循环读取 `config.phases.requirements.min_qa_rounds` 作为强制最低轮数
+
+### Changed
+
+- **hooks.json**: `post-task-validator` timeout 150s → 60s
+- **TDD-5 回滚升级**: REFACTOR 失败时 `git checkout -- .` 全文件回滚 (原为仅回滚 modified 文件)
+- **反合理化扩展**: +6 模式 — 时间/Deadline 借口、环境配置借口、第三方依赖阻塞借口 (中英双语)
+- **崩溃恢复增强**: `autopilot-recovery` 清理步骤新增 `rm -f .tdd-stage` 防止状态残留
+
 ## [5.0.5] - 2026-03-14
 
 ### Added
