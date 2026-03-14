@@ -16,13 +16,15 @@ def get_value(data, key_path):
     """Get nested dict value by dotted key path. Returns None if not found."""
     if not isinstance(data, dict):
         return None
+    # Try nested traversal first (PyYAML produces nested dicts)
     parts = key_path.split(".")
     current = data
     for part in parts:
         if isinstance(current, dict) and part in current:
             current = current[part]
         else:
-            return None
+            # Fallback: flat dotted key (regex fallback parser)
+            return data.get(key_path)
     return current
 
 

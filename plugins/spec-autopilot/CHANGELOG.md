@@ -5,7 +5,7 @@
 
 ### Fixed
 
-- **_config_validator.py fallback parser**: 无 PyYAML 时数值/布尔值类型转换，修复 CI range validation 跳过问题
+- **_config_validator.py fallback parser**: 无 PyYAML 时数值/布尔值类型转换 + get_value() flat key fallback，修复 CI range validation 跳过问题
 
 ### Changed
 
