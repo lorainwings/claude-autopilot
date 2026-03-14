@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [5.0.8] - 2026-03-14
+
+### Added
+
+- **GUI V2 视觉升维**: Tailwind CSS v4 @theme 设计系统 + motion 动画库
+- **三栏布局**: 左侧 PhaseTimeline 垂直时间轴 + 中心 Kanban/Terminal + 右侧 TelemetryDashboard
+- **本地字体**: JetBrains Mono / Space Grotesk / Orbitron (10 个 woff2)
+- **TelemetryDashboard 组件**: SVG 环形图 + 阶段耗时条 + 门禁统计面板
+- **Store derived selectors**: selectPhaseDurations / selectGateStats / selectTotalElapsedMs
+
+### Changed
+
+- **GateBlockCard**: 赛博朋克风格重构 + fix_instructions 输入框
+- **VirtualTerminal**: xterm.js 极客外壳 + ANSI 彩色事件类型标签
+- **PhaseTimeline**: 垂直左侧栏 hex 节点 + 连接线 + 底部统计面板
+- **ParallelKanban**: 水平可滚动卡片流 + TDD 步骤指示
+
 ## [5.0.7] - 2026-03-14
 
 ### Added

@@ -99,6 +99,7 @@
 ### 新功能测试清单
 
 每个新功能必须包含:
+
 - 对应 `tests/test_*.sh` 中至少 3 个 test case（正常 + 边界 + 错误路径）
 - 描述性名称（如 "3a. valid Phase 4 envelope → exit 0"）
 - 无实现时确认 RED，实现后确认 GREEN

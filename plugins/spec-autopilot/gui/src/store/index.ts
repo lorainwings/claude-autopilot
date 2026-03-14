@@ -32,6 +32,94 @@ interface AppState {
   reset: () => void;
 }
 
+// ============================================
+// Derived selectors for V2 Telemetry Dashboard
+// ============================================
+
+export interface PhaseDuration {
+  phase: number;
+  label: string;
+  durationMs: number;
+  status: "pending" | "running" | "ok" | "warning" | "blocked" | "failed";
+}
+
+export interface GateStats {
+  passed: number;
+  blocked: number;
+  pending: number;
+  passRate: number;
+}
+
+/** Compute per-phase duration from events */
+export function selectPhaseDurations(events: AutopilotEvent[]): PhaseDuration[] {
+  const LABELS = [
+    "环境初始化", "需求理解", "OpenSpec 创建", "快速生成",
+    "测试设计", "代码实施", "测试报告", "归档清理",
+  ];
+
+  return LABELS.map((label, idx) => {
+    const phaseEvents = events.filter((e) => e.phase === idx);
+    const startEvent = phaseEvents.find((e) => e.type === "phase_start");
+    const endEvent = phaseEvents.find((e) => e.type === "phase_end");
+    const gateBlock = phaseEvents.find((e) => e.type === "gate_block");
+
+    let status: PhaseDuration["status"] = "pending";
+    let durationMs = 0;
+
+    if (gateBlock && !endEvent) {
+      status = "blocked";
+    } else if (endEvent) {
+      status = (endEvent.payload.status as PhaseDuration["status"]) || "ok";
+      durationMs = (endEvent.payload.duration_ms as number) || 0;
+    } else if (startEvent) {
+      status = "running";
+      // Compute elapsed since start for running phases
+      durationMs = Date.now() - new Date(startEvent.timestamp).getTime();
+    }
+
+    return { phase: idx, label, durationMs, status };
+  });
+}
+
+/** Compute total session elapsed time */
+export function selectTotalElapsedMs(events: AutopilotEvent[]): number {
+  const starts = events.filter((e) => e.type === "phase_start");
+  const ends = events.filter((e) => e.type === "phase_end");
+  if (starts.length === 0) return 0;
+
+  const firstStart = new Date(starts[0]!.timestamp).getTime();
+  if (ends.length > 0) {
+    // Sum all completed phase durations
+    let total = 0;
+    for (const e of ends) {
+      total += (e.payload.duration_ms as number) || 0;
+    }
+    // If there's a running phase, add elapsed time
+    const runningStart = starts.find(
+      (s) => !ends.some((e) => e.phase === s.phase)
+    );
+    if (runningStart) {
+      total += Date.now() - new Date(runningStart.timestamp).getTime();
+    }
+    return total || (Date.now() - firstStart);
+  }
+
+  return Date.now() - firstStart;
+}
+
+/** Compute gate pass/block/pending statistics */
+export function selectGateStats(events: AutopilotEvent[]): GateStats {
+  const passed = events.filter((e) => e.type === "gate_pass").length;
+  const blocked = events.filter((e) => e.type === "gate_block").length;
+  const pending = events.filter(
+    (e) => e.type === "gate_decision_pending"
+  ).length;
+  const total = passed + blocked;
+  const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+  return { passed, blocked, pending, passRate };
+}
+
 export const useStore = create<AppState>((set) => ({
   events: [],
   connected: false,
