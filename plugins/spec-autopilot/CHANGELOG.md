@@ -1,6 +1,15 @@
 # Changelog
 
 
+## [5.0.10] - 2026-03-14
+
+### Added
+
+- **v5.3 全量审计报告**: 7-Agent 并行全自动评估，总分 87.3/100 (Delta +2.9)
+- **总控仪表盘**: `docs/reports/v5.3/v5.3-evaluation-dashboard.md`
+- **7 份专项报告**: 基建/路由/遥测/竞品/规约/GUI交互/全链路仿真
+- **v5.3 审计 roadmap**: `docs/roadmap/v5.3-analysis-report.md`
+
 ## [5.0.8] - 2026-03-14
 
 ### Added
