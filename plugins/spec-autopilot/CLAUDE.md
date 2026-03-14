@@ -112,4 +112,10 @@
 2. **dist/plugin/ 禁止手动修改**: 所有修改在源码中进行，通过构建同步
 3. **新增运行时脚本须加入白名单**: 确认不在 build-dist.sh 的 EXCLUDE_SCRIPTS 列表中
 4. **测试文件永不进入 dist**: `tests/` 目录不在构建白名单中
+
+## TypeScript 配置纪律
+
+1. **禁止 `"types": ["bun-types"]`**: 会报 `Cannot find type definition file for 'bun-types'`
+2. **Bun 类型由 `@types/bun` 提供**: 项目已安装此包，TypeScript 自动发现，tsconfig.json 中**无需**在 `types` 字段显式指定
+3. **若必须显式声明**: 正确写法为 `"types": ["bun"]`（`types` 数组中不含 `@types/` 前缀）
 <!-- DEV-ONLY-END -->

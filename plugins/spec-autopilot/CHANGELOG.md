@@ -1,6 +1,17 @@
 # Changelog
 
 
+## [5.1.8] - 2026-03-15
+
+### Fixed
+
+- **tsconfig.json bun-types 声明错误**: 移除 `"types": ["bun-types"]`，`@types/bun` 已安装无需显式指定
+
+### Added
+
+- **TypeScript 配置纪律**: CLAUDE.md 新增 TypeScript 配置规范章节
+- **v5.1.7 全维度评测报告**: 六维度全栈深度评测（总评 87.3/100）+ 14 条静默盲点清单
+
 ## [5.1.7] - 2026-03-15
 
 ### Fixed
