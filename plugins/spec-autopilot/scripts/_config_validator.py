@@ -360,22 +360,38 @@ def validate(config_path):
 
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
+    # Handle both PyYAML list and regex-fallback string "[unit, api, ...]"
+    if isinstance(req_types, str) and req_types.startswith("["):
+        req_types = [t.strip().strip("'\"") for t in req_types.strip("[]").split(",") if t.strip()]
     if isinstance(req_types, list) and req_types:
         suites = get_value(yaml_data, "test_suites")
+        # Regex fallback stores nested dicts as True; collect child keys instead
         if isinstance(suites, dict):
-            for rt in req_types:
-                if isinstance(rt, str) and rt not in suites:
-                    cross_ref_warnings.append(
-                        f'required_test_types contains "{rt}" but no matching test_suites.{rt} definition found'
-                    )
+            suite_keys = set(suites.keys())
+        elif suites is True:
+            suite_keys = {
+                k.split(".")[-1] if k.startswith("test_suites.") and k.count(".") == 1 else k.split(".")[1]
+                for k in yaml_data
+                if k.startswith("test_suites.") and k != "test_suites"
+            }
+        else:
+            suite_keys = set()
+        for rt in req_types:
+            if isinstance(rt, str) and rt not in suite_keys:
+                cross_ref_warnings.append(
+                    f'required_test_types contains "{rt}" but no matching test_suites.{rt} definition found'
+                )
 
     # Cross-ref: domain_agents non-empty but parallel.enabled=false → warning
     domain_agents = get_value(yaml_data, "phases.implementation.parallel.domain_agents")
-    if domain_agents and isinstance(domain_agents, dict) and len(domain_agents) > 0:
-        if not par_enabled:
-            cross_ref_warnings.append(
-                "domain_agents configured but parallel.enabled=false, domain_agents will be ignored in serial mode"
-            )
+    # Regex fallback stores nested dicts as True (meaning children exist)
+    has_domain_agents = (isinstance(domain_agents, dict) and len(domain_agents) > 0) or (
+        domain_agents is True and any(k.startswith("phases.implementation.parallel.domain_agents.") for k in yaml_data)
+    )
+    if has_domain_agents and not par_enabled:
+        cross_ref_warnings.append(
+            "domain_agents configured but parallel.enabled=false, domain_agents will be ignored in serial mode"
+        )
 
     # Cross-ref: instruction_files path format validation
     for phase_key in ("requirements", "testing", "implementation", "reporting"):

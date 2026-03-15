@@ -15,6 +15,10 @@
 - **_config_validator.py 扩展**: 交叉验证规则扩展，覆盖更多配置边界
 - **SKILL.md 编排优化**: autopilot/dispatch/gate/recovery 四大 Skill 文档更新
 
+### Fixed
+
+- **_config_validator.py regex fallback 兼容**: 修复无 PyYAML 环境下 `required_test_types` YAML 列表解析为字符串、`domain_agents` 嵌套字典解析为 True 导致交叉验证跳过的问题
+
 ## [5.1.13] - 2026-03-15
 
 ### Added
