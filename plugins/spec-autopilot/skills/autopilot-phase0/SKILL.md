@@ -19,7 +19,7 @@ user-invocable: false
 
 ### Step 1: 读取插件版本（最优先）
 
-从 `plugin.json` 读取版本号：`Bash("cat <plugin_dir>/.claude-plugin/plugin.json")`
+从 `plugin.json` 读取版本号：`Bash("cat ${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json")`
 
 提取 `version` 字段，**立即输出初始化提示**（先于一切其他操作让用户看到版本号）：
 
@@ -31,7 +31,7 @@ user-invocable: false
 
 检查 `.claude/autopilot.config.yaml` 是否存在：
 - **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
-- **存在** → 直接读取并解析所有配置节，然后调用 `bash scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
+- **存在** → 直接读取并解析所有配置节，然后调用 `bash ${CLAUDE_PLUGIN_ROOT}/scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
 - **python3 可用性检查**: 执行 `Bash("command -v python3")`
   - 如果退出码 != 0 → 输出 `[FATAL] python3 is required for autopilot Hook constraint checking. Install: brew install python3 / apt install python3`，设置 `status: "blocked"`，终止流程
   - 如果可用 → 继续
@@ -52,7 +52,7 @@ user-invocable: false
 
 **先启动 GUI 服务器**，再将地址嵌入 Banner 统一输出，避免分两步展示。
 
-调用 `Bash("bash <plugin_dir>/scripts/start-gui-server.sh <project_root>")`：
+调用 `Bash("bash ${CLAUDE_PLUGIN_ROOT}/scripts/start-gui-server.sh <project_root>")`：
 
 - **已存活** → 静默退出（exit 0），GUI 地址仍为 `http://localhost:9527`
 - **未存活** → 后台启动 autopilot-server.ts，GUI 地址为 `http://localhost:9527`
@@ -89,7 +89,7 @@ user-invocable: false
 
 ```bash
 Bash('mkdir -p <project_root>/logs && touch <project_root>/logs/events.jsonl')
-Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode}')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode}')
 ```
 
 > **必要性**: Phase 0/1 此前未接入 Event Bus，导致 GUI 在 Phase 2 之前无任何数据。此步骤确保 `events.jsonl` 在 GUI 服务器启动后立即创建，且 Phase 0 生命周期事件对 GUI 可见。
@@ -155,7 +155,7 @@ ANCHOR_SHA=$(git rev-parse HEAD)
 ### Step 10.5: 发射 Phase 0 结束事件（v5.2 Event Bus 补全）
 
 ```bash
-Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}\'')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}\'')
 ```
 
 ---

@@ -18,6 +18,7 @@
 ### Fixed
 
 - **_config_validator.py regex fallback 兼容**: 修复无 PyYAML 环境下 `required_test_types` YAML 列表解析为字符串、`domain_agents` 嵌套字典解析为 True 导致交叉验证跳过的问题
+- **SKILL.md 脚本路径修复**: 将所有 `${PLUGIN_ROOT}` 统一为 `${CLAUDE_PLUGIN_ROOT}`（Claude Code 平台注入的环境变量），修复 Phase 0 validate-config.sh / start-gui-server.sh / emit-phase-event.sh 等脚本 "No such file or directory" 错误
 
 ## [5.1.13] - 2026-03-15
 
