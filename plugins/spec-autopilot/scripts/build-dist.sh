@@ -27,7 +27,7 @@ cp -r "$PLUGIN_ROOT/gui-dist"       "$DIST_DIR/"
 
 # 4. scripts/ — 排除开发专用脚本和 node_modules
 mkdir -p "$DIST_DIR/scripts"
-EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh"
+EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh|collect-metrics.sh"
 for f in "$PLUGIN_ROOT/scripts/"*; do
   # Skip subdirectories (including node_modules/)
   [ -f "$f" ] || continue

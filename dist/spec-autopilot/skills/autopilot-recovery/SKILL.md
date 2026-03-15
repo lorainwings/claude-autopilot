@@ -10,6 +10,20 @@ user-invocable: false
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 
+### 共享基础设施依赖
+
+本 Skill 依赖 `scripts/_common.sh` 提供的以下共享函数，**不重复实现** checkpoint/锁文件扫描逻辑：
+
+| 函数 | 用途 |
+|------|------|
+| `scan_all_checkpoints(phase_results_dir, mode)` | 按阶段顺序扫描全部 checkpoint，返回 JSON 结果 |
+| `get_last_valid_phase(phase_results_dir, mode)` | 返回最后一个 status=ok/warning 的阶段编号 |
+| `read_lock_json_field(lock_file, field, default)` | 提取锁文件 JSON 字段（mode、anchor_sha 等） |
+| `find_active_change(changes_dir, trailing_slash)` | 按优先级查找活跃 change 目录 |
+| `validate_checkpoint_integrity(checkpoint_file)` | 验证 checkpoint JSON 完整性 |
+
+> 上述函数的实现和参数说明详见 `scripts/_common.sh`。
+
 ## 恢复流程
 
 ### 1. 扫描 Checkpoint

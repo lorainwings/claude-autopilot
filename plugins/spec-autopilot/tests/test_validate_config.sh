@@ -160,6 +160,138 @@ fi
 
 rm -rf "$CONFIG_TEST_DIR"
 
+# === Cross-reference validation tests ===
+
+XREF_TEST_DIR=$(mktemp -d)
+
+# 21g. required_test_types without matching test_suites → cross_ref_warning
+mkdir -p "$XREF_TEST_DIR/type_mismatch/.claude"
+cat > "$XREF_TEST_DIR/type_mismatch/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit, api, e2e, visual]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+  api:
+    command: "npm run test:api"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/type_mismatch" 2>/dev/null)
+assert_contains "21g. required_test_types mismatch warns about visual" "$output" "visual"
+
+# 21h. domain_agents with parallel.enabled=false → warning
+mkdir -p "$XREF_TEST_DIR/domain_no_par/.claude"
+cat > "$XREF_TEST_DIR/domain_no_par/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+    parallel:
+      enabled: false
+      domain_agents:
+        frontend:
+          agent: "ui-expert"
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/domain_no_par" 2>/dev/null)
+assert_contains "21h. domain_agents+parallel.enabled=false" "$output" "domain_agents"
+
+# 21i. tdd_mode=true with empty test_suites → warning
+mkdir -p "$XREF_TEST_DIR/tdd_no_suites/.claude"
+cat > "$XREF_TEST_DIR/tdd_no_suites/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+    tdd_mode: true
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites: {}
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/tdd_no_suites" 2>/dev/null)
+assert_contains "21i. tdd_mode with empty test_suites" "$output" "tdd_mode"
+
+# 21j. hook_floors.min_change_coverage_pct > coverage_target → warning
+mkdir -p "$XREF_TEST_DIR/floor_cov/.claude"
+cat > "$XREF_TEST_DIR/floor_cov/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+test_pyramid:
+  min_unit_pct: 30
+  hook_floors:
+    min_change_coverage_pct: 95
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/floor_cov" 2>/dev/null)
+assert_contains "21j. hook_floors coverage > gate coverage" "$output" "min_change_coverage_pct"
+
+rm -rf "$XREF_TEST_DIR"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

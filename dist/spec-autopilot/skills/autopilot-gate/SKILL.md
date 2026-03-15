@@ -12,6 +12,22 @@ user-invocable: false
 
 > JSON 信封契约、状态规则、特殊门禁阈值等详见：`autopilot/references/protocol.md`
 
+### 共享基础设施依赖
+
+本 Skill 依赖 `scripts/_common.sh` 提供的以下共享函数，**不重复实现**配置/锁文件/checkpoint 逻辑：
+
+| 函数 | 用途 |
+|------|------|
+| `read_config_value(project_root, key_path, default)` | 读取 `autopilot.config.yaml` 标量配置值 |
+| `read_lock_json_field(lock_file, field, default)` | 提取锁文件 JSON 字段（用于执行模式感知） |
+| `read_checkpoint_status(file_path)` | 提取 checkpoint JSON 的 status 字段 |
+| `find_checkpoint(phase_results_dir, phase_number)` | 查找指定阶段的最新 checkpoint 文件 |
+| `validate_checkpoint_integrity(checkpoint_file)` | 验证 checkpoint JSON 完整性（自动清理损坏文件） |
+| `scan_all_checkpoints(phase_results_dir, mode)` | 按阶段顺序扫描全部 checkpoint（崩溃恢复用） |
+| `get_last_valid_phase(phase_results_dir, mode)` | 返回最后一个 status=ok/warning 的阶段编号 |
+
+> 上述函数的实现和参数说明详见 `scripts/_common.sh`。
+
 **执行前读取**: `autopilot/references/log-format.md`（日志格式规范）
 
 ## 三层门禁架构
@@ -226,7 +242,7 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 
 ## 执行模式感知
 
-本 Skill 在执行门禁检查时，需感知当前执行模式（从锁文件 `${session_cwd}/openspec/changes/.autopilot-active` 的 `mode` 字段读取，注意使用绝对路径）。
+本 Skill 在执行门禁检查时，需感知当前执行模式。通过共享函数 `read_lock_json_field()` 从锁文件读取 `mode` 字段（注意使用绝对路径 `${session_cwd}/openspec/changes/.autopilot-active`）。
 
 ### 模式对门禁的影响
 
@@ -303,27 +319,10 @@ Read phase-{N}-{slug}.json → parse JSON → confirm status field exists
 
 #### JSON 格式
 
-```json
-{
-  "status": "ok | warning | blocked | failed",
-  "summary": "单行决策级摘要",
-  "artifacts": ["文件路径列表"],
-  "risks": ["风险列表"],
-  "next_ready": true,
-  "timestamp": "ISO-8601",
-  "phase": 2,
-  "_metrics": {
-    "start_time": "ISO-8601",
-    "end_time": "ISO-8601",
-    "duration_seconds": 0,
-    "retry_count": 0
-  }
-}
-```
+> 完整的 JSON 信封格式定义详见 `autopilot/references/protocol.md`。
 
-`_metrics` 字段为可选，由主线程在写入 checkpoint 时附加。详见 `autopilot/references/metrics-collection.md`。
-
-写入时自动追加 `timestamp` 和 `phase` 字段。
+核心字段：`status`（ok/warning/blocked/failed）、`summary`、`artifacts`、`risks`、`next_ready`。
+`_metrics` 和 `timestamp` 由主线程写入时附加。
 
 #### 写入确认输出
 
@@ -368,4 +367,4 @@ phase-results/phase5-tasks/
 
 ### 扫描所有 Checkpoint
 
-用于崩溃恢复，按阶段顺序扫描 phase-1 → phase-7，找到最后一个 `status: "ok"` 或 `"warning"` 的文件返回该阶段编号。
+用于崩溃恢复，调用 `scan_all_checkpoints(phase_results_dir, mode)` 按阶段顺序扫描 phase-1 → phase-7。调用 `get_last_valid_phase(phase_results_dir, mode)` 返回最后一个 `status: "ok"` 或 `"warning"` 的阶段编号。

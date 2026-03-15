@@ -231,8 +231,11 @@ export const useStore = create<AppState>((set) => ({
       const allSorted = [...state.events, ...unique].sort((a, b) => a.sequence - b.sequence);
       const critical = allSorted.filter((e) => CRITICAL_TYPES.has(e.type));
       const regular = allSorted.filter((e) => !CRITICAL_TYPES.has(e.type));
-      const cappedRegular = regular.slice(-(1000 - critical.length));
-      const merged = [...critical, ...cappedRegular].sort((a, b) => a.sequence - b.sequence);
+      const regularBudget = Math.max(0, 1000 - critical.length);
+      const cappedRegular = regularBudget === 0 ? [] : regular.slice(-regularBudget);
+      // Build keep-set from capped regular, then filter allSorted (already sorted) in one pass
+      const keepSeqs = new Set(cappedRegular.map((e) => e.sequence));
+      const merged = allSorted.filter((e) => CRITICAL_TYPES.has(e.type) || keepSeqs.has(e.sequence));
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);

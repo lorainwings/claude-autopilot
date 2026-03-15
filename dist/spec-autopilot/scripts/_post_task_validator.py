@@ -112,6 +112,26 @@ phase_recommended = {
     6: ["suite_results", "anomaly_alerts"],
 }
 
+# P0-1: When TDD mode is enabled, tdd_metrics becomes required for Phase 5
+if phase_num == 5:
+    _tdd_required = False
+    try:
+        _root_p01 = _ep.find_project_root(data)
+        _lock_path_p01 = os.path.join(_root_p01, "openspec", "changes", ".autopilot-active")
+        if os.path.isfile(_lock_path_p01):
+            with open(_lock_path_p01) as _lf_p01:
+                _lock_data_p01 = json.loads(_lf_p01.read())
+                _tdd_required = _lock_data_p01.get("tdd_mode", False) is True
+        if not _tdd_required:
+            _tdd_cfg = _ep.read_config_value(_root_p01, "phases.implementation.tdd_mode", "false")
+            _tdd_required = str(_tdd_cfg).lower() == "true"
+    except Exception:
+        pass
+    if _tdd_required:
+        phase_required.setdefault(5, [])
+        if "tdd_metrics" not in phase_required[5]:
+            phase_required[5].append("tdd_metrics")
+
 if phase_num in phase_required:
     missing_phase = [f for f in phase_required[phase_num] if f not in envelope]
     if missing_phase:

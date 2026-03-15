@@ -246,10 +246,10 @@ EOF
 fi
 
 # ============================================================
-# CHECK 4: Code Constraints (Phase 5 only, requires python3)
+# CHECK 4: Code Constraints (Delivery phases 4/5/6, requires python3)
 # ============================================================
 
-if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IN_PHASE5" = "yes" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IN_DELIVERY_PHASE" = "yes" ]; then
   require_python3 || exit 0
 
   python3 -c "

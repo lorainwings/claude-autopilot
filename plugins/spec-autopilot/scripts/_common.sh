@@ -147,6 +147,117 @@ find_checkpoint() {
   fi
 }
 
+# --- Validate checkpoint JSON integrity ---
+# Usage: validate_checkpoint_integrity <checkpoint_file>
+# Returns: 0 if valid JSON with required "status" field, 1 if corrupted
+# Side effect: removes corrupted checkpoint files and any leftover .tmp files
+validate_checkpoint_integrity() {
+  local file="$1"
+  [ -f "$file" ] || return 1
+
+  # Clean up any leftover .tmp files alongside this checkpoint
+  local tmp_file="${file%.json}.tmp"
+  [ -f "$tmp_file" ] && rm -f "$tmp_file"
+
+  # Validate JSON structure and required "status" field
+  python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    if 'status' not in data:
+        sys.exit(1)
+    sys.exit(0)
+except (json.JSONDecodeError, ValueError, OSError):
+    sys.exit(1)
+" "$file" 2>/dev/null
+  local rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "WARNING: Corrupted checkpoint removed: $file" >&2
+    rm -f "$file"
+    return 1
+  fi
+  return 0
+}
+
+# --- Scan all checkpoints by phase order ---
+# Usage: scan_all_checkpoints <phase_results_dir> [mode]
+# Returns: JSON array on stdout with each phase's checkpoint status
+# Example output: [{"phase":1,"file":"phase-1-requirements.json","status":"ok"},...]
+scan_all_checkpoints() {
+  local dir="$1"
+  local mode="${2:-full}"
+
+  # Determine which phases to scan based on mode
+  local phases
+  case "$mode" in
+    lite)    phases="1 5 6 7" ;;
+    minimal) phases="1 5 7" ;;
+    *)       phases="1 2 3 4 5 6 7" ;;
+  esac
+
+  python3 -c "
+import json, sys, os, glob
+phase_results_dir = sys.argv[1]
+phases = [int(p) for p in sys.argv[2].split()]
+results = []
+for p in phases:
+    pattern = os.path.join(phase_results_dir, f'phase-{p}-*.json')
+    files = sorted(glob.glob(pattern), key=lambda f: os.path.getmtime(f), reverse=True)
+    # Exclude .tmp files
+    files = [f for f in files if not f.endswith('.tmp') and not f.endswith('-progress.json') and not f.endswith('-interim.json')]
+    if files:
+        try:
+            with open(files[0]) as fh:
+                data = json.load(fh)
+            results.append({
+                'phase': p,
+                'file': os.path.basename(files[0]),
+                'status': data.get('status', 'unknown')
+            })
+        except (json.JSONDecodeError, OSError):
+            results.append({'phase': p, 'file': os.path.basename(files[0]), 'status': 'error'})
+    else:
+        results.append({'phase': p, 'file': None, 'status': 'missing'})
+print(json.dumps(results))
+" "$dir" "$phases" 2>/dev/null || echo "[]"
+}
+
+# --- Get last valid phase number ---
+# Usage: get_last_valid_phase <phase_results_dir> [mode]
+# Returns: last phase number with status ok/warning on stdout, or 0 if none found
+get_last_valid_phase() {
+  local dir="$1"
+  local mode="${2:-full}"
+
+  local phases
+  case "$mode" in
+    lite)    phases="1 5 6 7" ;;
+    minimal) phases="1 5 7" ;;
+    *)       phases="1 2 3 4 5 6 7" ;;
+  esac
+
+  python3 -c "
+import json, sys, os, glob
+phase_results_dir = sys.argv[1]
+phases = [int(p) for p in sys.argv[2].split()]
+last_valid = 0
+for p in phases:
+    pattern = os.path.join(phase_results_dir, f'phase-{p}-*.json')
+    files = sorted(glob.glob(pattern), key=lambda f: os.path.getmtime(f), reverse=True)
+    files = [f for f in files if not f.endswith('.tmp') and not f.endswith('-progress.json') and not f.endswith('-interim.json')]
+    if files:
+        try:
+            with open(files[0]) as fh:
+                data = json.load(fh)
+            if data.get('status') in ('ok', 'warning'):
+                last_valid = p
+        except (json.JSONDecodeError, OSError):
+            pass
+print(last_valid)
+" "$dir" "$phases" 2>/dev/null || echo "0"
+}
+
 # --- Read config value from autopilot.config.yaml ---
 # Usage: read_config_value <project_root> <dotted.key.path> [default]
 # Returns: config value on stdout, or default if not found
@@ -286,37 +397,30 @@ get_total_phases() {
 # --- Auto-increment event sequence counter ---
 # Usage: next_event_sequence <project_root>
 # Returns: next sequence number on stdout (1-based)
-# Thread-safe via mkdir atomic lock (works on both Linux and macOS)
+# Thread-safe via mkdir atomic lock — single attempt + immediate fallback (no blocking)
 next_event_sequence() {
   local project_root="$1"
   local seq_file="$project_root/logs/.event_sequence"
   local lock_dir="$project_root/logs/.event_sequence.lk"
   mkdir -p "$(dirname "$seq_file")" 2>/dev/null || true
 
-  # mkdir is atomic on all POSIX systems — use as a spinlock
-  local attempts=0
-  while ! mkdir "$lock_dir" 2>/dev/null; do
-    attempts=$((attempts + 1))
-    if [ $attempts -ge 50 ]; then
-      # 5s timeout (50 × 0.1s) — fallback to timestamp-based sequence
-      echo "WARNING: lock timeout after 5s, using fallback sequence" >&2
-      local ns; ns=$(date +%N 2>/dev/null)
-      case "$ns" in *[!0-9]*|'') ns=$RANDOM ;; esac
-      echo "$(date +%s)${ns}"
-      return 0
-    fi
-    sleep 0.1
-  done
+  # Single mkdir attempt — no spinning, no blocking
+  if mkdir "$lock_dir" 2>/dev/null; then
+    local current=0
+    [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
+    [ -z "$current" ] && current=0
+    local next=$((current + 1))
+    echo "$next" > "$seq_file"
+    echo "$next"
+    # Release lock
+    rmdir "$lock_dir" 2>/dev/null
+    return 0
+  fi
 
-  local current=0
-  [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
-  [ -z "$current" ] && current=0
-  local next=$((current + 1))
-  echo "$next" > "$seq_file"
-  echo "$next"
-
-  # Release lock
-  rmdir "$lock_dir" 2>/dev/null
+  # Lock contention: immediate fallback to timestamp+PID unique sequence
+  local ns; ns=$(date +%N 2>/dev/null)
+  case "$ns" in *[!0-9]*|'') ns=$RANDOM ;; esac
+  echo "$(date +%s)${ns}$$"
 }
 
 # --- Check if current Task is a background agent ---

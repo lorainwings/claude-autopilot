@@ -69,6 +69,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 **参考文档**:
 | 文档 | 用途 |
 |------|------|
+| `references/mode-routing-table.md` | 三种模式的阶段序列、跳过规则、路径选择（声明式表格） |
 | `references/parallel-dispatch.md` | 跨阶段通用并行编排协议（核心协议） |
 | `references/parallel-phase{1,4,5,6}.md` | 各 Phase 按需加载的并行配置与 dispatch 模板（v5.2 拆分） |
 | `references/log-format.md` | 统一日志格式规范 |
@@ -259,97 +260,48 @@ Step 8: 等待 Step 5+7 后台 Agent 完成通知
 **执行前读取**: `references/parallel-phase4.md` 并行配置 + `references/protocol.md` 特殊门禁
 
 **TDD 模式跳过**（当 `config.phases.implementation.tdd_mode: true` 且模式为 `full`）：
-Phase 4 标记为 `skipped_tdd`。测试在 Phase 5 per-task TDD RED step 创建。写入 `phase-4-tdd-override.json` checkpoint：
-```json
-{"status": "ok", "summary": "Phase 4 skipped: TDD mode active, tests created per-task in Phase 5", "tdd_mode_override": true}
-```
-直接跳转 Phase 5（Phase 2/3 OpenSpec 保留，Phase 4 不执行）。
+Phase 4 标记为 `skipped_tdd`，写入 `phase-4-tdd-override.json` checkpoint（`{"status":"ok","tdd_mode_override":true}`），直接跳转 Phase 5。
 
-**非 TDD 模式**（正常流程）：
-
-**并行模式**（当 `config.phases.testing.parallel.enabled = true`）：按测试类型（unit/api/e2e/ui）并行派发子 Agent，每个注入 Phase 1 需求追溯 + 对应 test_suites 配置。详见 `references/parallel-phase4.md` 模板。
-
-**Phase 4 门禁与阻断规则**（详见 `references/protocol.md`）：
-- Phase 4 **只接受 ok 或 blocked**，warning 由 Hook 确定性阻断
-- `test_counts` 每字段 ≥ `min_test_count_per_type`、`artifacts` 非空、`dry_run_results` 全 0
-- `test_traceability` 覆盖率 ≥ 80%
-- warning 且未满足门禁 → 强制覆盖为 blocked → 重新 dispatch
+**非 TDD 模式**：正常 dispatch，并行模式按测试类型分组。
+**门禁规则**: Phase 4 **只接受 ok 或 blocked**（warning 由 Hook 确定性阻断）。详见 `references/protocol.md`。
 
 ### Phase 5 特殊处理
 
-> **HARD CONSTRAINT — 路径选择由配置决定，禁止 AI 自主判断**
-> 1. 读取 `config.phases.implementation.parallel.enabled`
-> 2. 立即确定路径（在任何代码调研之前）：`true` → 路径 A，`false` → 路径 B
-> 3. 此选择不可更改。禁止以"共享文件多"、"跨层依赖"、"安全性"等任何理由自行降级
-> 4. 合法降级仅限：路径 A 执行后合并失败 > 3 文件
+> **路径选择由配置决定，详见 `references/mode-routing-table.md` § 4。**
 
-**执行前读取**: `references/phase5-implementation.md`（安全准备、超时机制、无 tasks.md 场景）+ `references/parallel-phase5.md`（Phase 5 并行编排协议）
+**执行前读取**: `references/phase5-implementation.md` + `references/parallel-phase5.md` + `references/mode-routing-table.md`
 
 #### 任务来源（模式感知）
 
-| 模式 | 任务来源 |
-|------|---------|
-| **full** | `openspec/changes/<name>/tasks.md`（Phase 3 生成） |
-| **lite/minimal** | Phase 5 启动时从 `phase-1-requirements.json` 自动拆分 → `context/phase5-task-breakdown.md` |
+> 详见 `references/mode-routing-table.md` § 3。
 
 #### 执行模式决策（互斥分支）
 
-读取 `config.phases.implementation.parallel.enabled`，进入**互斥**的两条路径：
+读取 `config.phases.implementation.parallel.enabled` + `tdd_mode`，按 `references/mode-routing-table.md` § 4 确定路径：
 
 **【路径 A — 并行模式】**（`parallel.enabled = true`）：
-读取 `references/phase5-implementation.md` 并行模式章节 + `references/parallel-phase5.md` 模板。
-解析任务清单 → 按顶级目录分区 → 生成 owned_files → 并行派发 `Task(isolation: "worktree", run_in_background: true)` → 按编号合并 worktree → 批量 review → 全量测试。
-**禁止**进入路径 B 或使用串行模式。降级条件：合并失败 > 3 文件 → 切换路径 B。
+解析任务 → 分区 → worktree 并行 → 按编号合并 → 全量测试。详见 `references/parallel-phase5.md`。
 
-**【路径 B — 串行模式】**（`parallel.enabled = false` 或从路径 A 降级）：
-主线程逐个派发前台 Task 实施每个 task，实现上下文隔离。
-流程：解析任务清单 → 对每个 task 构造 prompt → `Task(subagent_type: "general-purpose", prompt: "...")` 同步等待 → 解析 JSON 信封 → 写入 task checkpoint → 继续下一个 task。
-详见 `references/phase5-implementation.md` 串行模式章节。
+**【路径 B — 串行模式】**（`parallel.enabled = false` 或降级）：
+逐个前台 Task → JSON 信封 → task checkpoint。详见 `references/phase5-implementation.md` 串行模式章节。
 
 **【路径 C — TDD 模式】**（`tdd_mode: true` 且模式为 `full`）：
-主线程执行 RED-GREEN-REFACTOR 确定性循环。**优先于路径 A/B，与 parallel.enabled 配合使用。**
+**优先于路径 A/B，与 parallel.enabled 配合使用。**
+**执行前读取**: `references/tdd-cycle.md` + `references/testing-anti-patterns.md`
 
-**执行前读取**: `references/tdd-cycle.md`（完整 TDD 协议）+ `references/testing-anti-patterns.md`（反模式指南）
+- **串行 TDD**（`parallel.enabled: false`）：每个 task 3 个 sequential Task (RED→GREEN→REFACTOR)。主线程写入 `.tdd-stage` 文件供 L2 Hook 确定性拦截。详见 `references/tdd-cycle.md` 串行 TDD 章节。
+- **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律。合并后主线程执行全量测试验证。详见 `references/tdd-cycle.md` 并行 TDD 章节。
 
-- **串行 TDD**（`parallel.enabled: false` + `tdd_mode: true`）：
-  每个 task 派发 3 个 sequential Task (RED → GREEN → REFACTOR)，主线程 Bash() 执行 L2 确定性验证。
-  **v5.1 TDD 阶段状态文件**：每个 TDD 步骤派发前，主线程必须写入 `.tdd-stage` 文件，供 L2 Write/Edit Hook 确定性拦截：
-  ```
-  RED 派发前:   Bash('echo "red" > ${change_dir}/context/.tdd-stage')
-  GREEN 派发前: Bash('echo "green" > ${change_dir}/context/.tdd-stage')
-  REFACTOR 派发前: Bash('echo "refactor" > ${change_dir}/context/.tdd-stage')
-  task 全部完成后: Bash('rm -f ${change_dir}/context/.tdd-stage')
-  ```
-  Hook 行为：RED 阶段硬阻断实现文件写入，GREEN 阶段硬阻断测试文件修改。
-  详见 `references/tdd-cycle.md` 串行 TDD 章节。
-
-- **并行 TDD**（`parallel.enabled: true` + `tdd_mode: true`）：
-  域 Agent prompt 注入完整 TDD 纪律文档，Agent 内部执行 RED-GREEN-REFACTOR。
-  **合并后 L2 后置验证**：所有域 Agent 完成并合并后，主线程执行 `Bash(full_test_command)` 验证所有测试通过。失败则阻断，要求修复。
-  详见 `references/tdd-cycle.md` 并行 TDD + L2 后置验证章节。
-
-TDD 护栏约束（Phase 5 专属）：
-
-| 约束 | 规则 |
-|------|------|
-| TDD Iron Law | 先测试后实现，违反即删除（Superpowers 原则） |
-| TDD 确定性验证 | 主线程 Bash() 运行测试验证 RED 失败/GREEN 通过 |
-| TDD 测试不可变 | GREEN 阶段测试失败 → 修复实现，禁止修改测试 |
-| TDD 回滚保护 | REFACTOR 破坏测试 → 强制 `git checkout -- .` 全文件回滚 (v5.2) |
+TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试不可变 | REFACTOR 回归保护
 
 > **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造详见 `references/protocol.md`。
 
 ### Phase 6 特殊处理（v3.2.0 Allure + 并行增强）
 
-**执行前读取**: `references/parallel-phase6.md` 配置 + `references/phase6-code-review.md` + `references/quality-scans.md`
+**执行前读取**: `references/parallel-phase6.md` + `references/phase6-code-review.md` + `references/quality-scans.md`
 
-**并行测试执行**：按 `config.test_suites` 分套件并行派发（详见 `references/parallel-phase6.md` 模板）。
-
-**Allure 统一报告**（当 `config.phases.reporting.format === "allure"`）：
-1. 检测 Allure 安装: `bash scripts/check-allure-install.sh`
-2. 所有套件输出到 `allure-results/{suite_name}/`（并行避免冲突）
-3. 生成统一报告: `npx allure generate allure-results/ -o allure-report/ --clean`
-4. 降级: Allure 不可用 → 使用 `config.phases.reporting.report_commands`
+并行测试执行按 `config.test_suites` 分套件派发（详见 `references/parallel-phase6.md`）。
+Allure 报告（`config.phases.reporting.format === "allure"`）：检测安装 → 统一输出 → 生成报告 → 降级兜底。
 
 ### Phase 5→6 特殊门禁
 
@@ -361,16 +313,9 @@ autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.pass
 
 ## Phase 6 三路并行（v3.2.2 增强）
 
-Phase 5→6 Gate 通过后，主线程**在同一条消息中**同时派发三路后台任务：
+> 详见 `references/mode-routing-table.md` § 7。
 
-| 路径 | 内容 | 参考文档 |
-|------|------|---------|
-| A | Phase 6 测试执行 | `references/parallel-phase6.md` 模板 |
-| B | Phase 6.5 代码审查（可选） | `references/phase6-code-review.md` |
-| C | 质量扫描（多个后台 Task） | `references/quality-scans.md` |
-
-全部使用 `run_in_background: true`。路径 B/C 不含 `autopilot-phase` 标记，不受 Hook 门禁。
-路径 B/C 失败不阻断路径 A。**Phase 7 步骤 2 统一收集所有结果。**
+Phase 5→6 Gate 通过后，主线程**在同一条消息中**同时派发路径 A（测试）/ B（代码审查）/ C（质量扫描），全部 `run_in_background: true`。路径 B/C 不阻断路径 A。**Phase 7 步骤 2 统一收集。**
 
 ---
 

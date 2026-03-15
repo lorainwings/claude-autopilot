@@ -47,6 +47,10 @@ process_change_dir() {
     checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
 
     if [ -n "$checkpoint_file" ] && [ -f "$checkpoint_file" ]; then
+      # P0-4: Validate JSON integrity before using checkpoint
+      if ! validate_checkpoint_integrity "$checkpoint_file"; then
+        continue
+      fi
       local status
       status=$(read_checkpoint_status "$checkpoint_file")
 

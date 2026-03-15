@@ -358,6 +358,59 @@ def validate(config_path):
             "tdd_mode=true: TDD cycle only active in full execution mode"
         )
 
+    # Cross-ref: required_test_types entries must have corresponding test_suites definitions
+    req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
+    if isinstance(req_types, list) and req_types:
+        suites = get_value(yaml_data, "test_suites")
+        if isinstance(suites, dict):
+            for rt in req_types:
+                if isinstance(rt, str) and rt not in suites:
+                    cross_ref_warnings.append(
+                        f'required_test_types contains "{rt}" but no matching test_suites.{rt} definition found'
+                    )
+
+    # Cross-ref: domain_agents non-empty but parallel.enabled=false → warning
+    domain_agents = get_value(yaml_data, "phases.implementation.parallel.domain_agents")
+    if domain_agents and isinstance(domain_agents, dict) and len(domain_agents) > 0:
+        if not par_enabled:
+            cross_ref_warnings.append(
+                "domain_agents configured but parallel.enabled=false, domain_agents will be ignored in serial mode"
+            )
+
+    # Cross-ref: instruction_files path format validation
+    for phase_key in ("requirements", "testing", "implementation", "reporting"):
+        inst_files = get_value(yaml_data, f"phases.{phase_key}.instruction_files")
+        if isinstance(inst_files, list):
+            for path in inst_files:
+                if isinstance(path, str) and (
+                    path.startswith("/") or ".." in path or path.startswith("~")
+                ):
+                    cross_ref_warnings.append(
+                        f"phases.{phase_key}.instruction_files: path '{path}' uses absolute/relative/home notation, should be project-relative"
+                    )
+
+    # Cross-ref: hook_floors.min_change_coverage_pct vs reporting.coverage_target
+    hf_cov = get_value(yaml_data, "test_pyramid.hook_floors.min_change_coverage_pct")
+    gate_cov = get_value(yaml_data, "phases.reporting.coverage_target")
+    if (
+        hf_cov is not None
+        and gate_cov is not None
+        and isinstance(hf_cov, (int, float))
+        and isinstance(gate_cov, (int, float))
+    ):
+        if hf_cov > gate_cov:
+            cross_ref_warnings.append(
+                f"hook_floors.min_change_coverage_pct ({hf_cov}) > reporting.coverage_target ({gate_cov}), floor stricter than gate"
+            )
+
+    # Cross-ref: tdd_mode=true requires non-empty test_suites
+    if tdd_mode is True:
+        suites_for_tdd = get_value(yaml_data, "test_suites")
+        if not suites_for_tdd or (isinstance(suites_for_tdd, dict) and len(suites_for_tdd) == 0):
+            cross_ref_warnings.append(
+                "tdd_mode=true but test_suites is empty, TDD cycle requires at least one test suite"
+            )
+
     # default_mode enum validation is now handled by ENUM_RULES
 
     valid = len(missing) == 0 and len(type_errors) == 0 and len(enum_errors) == 0

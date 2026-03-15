@@ -21,7 +21,7 @@ TOTAL_FAIL=0
 FAILED_FILES=()
 RAN=0
 
-for test_file in "$TEST_DIR"/test_*.sh; do
+for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
   [ -f "$test_file" ] || continue
   test_name=$(basename "$test_file" .sh)
 

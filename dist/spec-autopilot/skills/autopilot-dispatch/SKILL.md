@@ -10,6 +10,21 @@ user-invocable: false
 
 从 `autopilot.config.yaml` 读取项目配置，构造标准化 Task prompt 分派子 Agent。
 
+### 共享基础设施依赖
+
+本 Skill 依赖 `scripts/_common.sh` 提供的以下共享函数，**不重复实现**配置/锁文件解析：
+
+| 函数 | 用途 |
+|------|------|
+| `read_config_value(project_root, key_path, default)` | 读取 `autopilot.config.yaml` 标量配置值（PyYAML → regex 自动降级） |
+| `read_lock_json_field(lock_file, field, default)` | 提取锁文件 JSON 字段（mode、change、anchor_sha 等） |
+| `parse_lock_file(lock_file_path)` | 解析锁文件获取 change 名称（JSON/legacy 自动兼容） |
+| `find_active_change(changes_dir, trailing_slash)` | 按优先级查找活跃 change 目录（锁文件 → checkpoint → mtime） |
+| `find_checkpoint(phase_results_dir, phase_number)` | 查找指定阶段的最新 checkpoint 文件 |
+| `scan_all_checkpoints(phase_results_dir, mode)` | 按阶段顺序扫描全部 checkpoint，返回 JSON 结果 |
+
+> 上述函数的实现和参数说明详见 `scripts/_common.sh`。
+
 ## 共享协议
 
 > JSON 信封契约、阶段额外字段、状态解析规则、结构化标记等公共定义详见：`autopilot/references/protocol.md`。
@@ -292,21 +307,8 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
   - 路径 C：质量扫描（多个 `run_in_background: true`，不含 autopilot-phase 标记）
   - Phase 7 统一收集三路结果
 - **Allure 统一报告**（当 `config.phases.reporting.format === "allure"` 时）：
-  - **前置检查**：子 Agent prompt 中注入 Allure 安装检测指令：
-    ```
-    运行 Allure 安装检查: bash <plugin_scripts>/check-allure-install.sh "$(pwd)"
-    如果 all_required_installed === false → 按 install_commands 逐个安装
-    安装后重新运行检查 → 仍失败 → 降级为 report_format: "custom"
-    ```
-  - 所有测试套件使用 `ALLURE_RESULTS_DIR="$(pwd)/allure-results"` 环境变量统一输出
-  - pytest: `--alluredir="$ALLURE_RESULTS_DIR"`
-  - Playwright: `ALLURE_RESULTS_DIR="$ALLURE_RESULTS_DIR" --reporter=list,allure-playwright`
-  - JUnit/Gradle: 手动复制 `backend/build/test-results/test/*.xml` 到 `$ALLURE_RESULTS_DIR/`
-  - 生成统一报告: `npx allure generate "$ALLURE_RESULTS_DIR" -o allure-report --clean`
-  - 返回 `report_format: "allure"` 和 `allure_results_dir` 路径
-- **降级模式**（Allure 安装失败时）：
-  - 使用 config.phases.reporting.report_commands 中的 html/markdown 命令
-  - 返回 `report_format: "custom"`
+  > 详见 `autopilot/references/protocol.md` Allure 报告章节。
+  前置检查 Allure 安装 → 统一 `ALLURE_RESULTS_DIR` 输出 → 生成报告 → 降级为 `report_format: "custom"`。
 
 ## 并行调度协议（v3.2.0 新增）
 

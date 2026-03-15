@@ -27,6 +27,12 @@
 | [config-tuning-guide.md](operations/config-tuning-guide.md) | Configuration tuning: optimize config by project type |
 | [troubleshooting.md](operations/troubleshooting.md) | Troubleshooting: common errors, debugging tips, recovery scenarios |
 
+## Migration Guide (`migration/`)
+
+| Document | Description |
+|----------|-------------|
+| [v4-to-v5.md](migration/v4-to-v5.md) | v4 → v5 migration: config schema changes, hook protocol, Event Bus, compatibility matrix |
+
 ## Audit Reports (`reports/`)
 
 > Organized by plugin version in subdirectories, reverse chronological order (newest first).

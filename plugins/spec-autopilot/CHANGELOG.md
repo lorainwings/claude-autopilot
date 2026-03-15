@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.1.14] - 2026-03-15
+
+### Added
+
+- **全维度工业级仿真评测报告**: 六维度并行评估 (编排架构/效能并行/TDD引擎/GUI鲁棒/DX成熟度/竞品对比)，综合评分 85/100 (A-)
+- **模式路由表**: 新增 `mode-routing-table.md` 声明式配置 Full/Lite/Minimal 三种模式的阶段序列
+- **迁移文档**: 新增 `docs/migration/v4-to-v5.md` 中英文迁移指南
+- **新增测试**: `test_hook_preamble.sh` / `test_post_task_validator.sh` / 集成测试 (`test_e2e_checkpoint_recovery.sh`, `test_e2e_hook_chain.sh`)
+
+### Changed
+
+- **_common.sh 增强**: mkdir 原子锁替代 flock / date +%N fallback / 新增工具函数
+- **_config_validator.py 扩展**: 交叉验证规则扩展，覆盖更多配置边界
+- **SKILL.md 编排优化**: autopilot/dispatch/gate/recovery 四大 Skill 文档更新
+
 ## [5.1.13] - 2026-03-15
 
 ### Added

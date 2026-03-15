@@ -27,6 +27,12 @@
 | [config-tuning-guide.zh.md](operations/config-tuning-guide.zh.md) | 配置调优：按项目类型优化配置 |
 | [troubleshooting.zh.md](operations/troubleshooting.zh.md) | 故障排查：常见错误、调试技巧、恢复方案 |
 
+## 迁移指南 (`migration/`)
+
+| 文档 | 说明 |
+|------|------|
+| [v4-to-v5.zh.md](migration/v4-to-v5.zh.md) | v4 → v5 迁移：配置 Schema 变更、Hook 协议、Event Bus、兼容性矩阵 |
+
 ## 审计报告 (`reports/`)
 
 > 按插件版本分子目录存放，逆序排列（最新版本在上）。
