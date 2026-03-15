@@ -286,27 +286,37 @@ get_total_phases() {
 # --- Auto-increment event sequence counter ---
 # Usage: next_event_sequence <project_root>
 # Returns: next sequence number on stdout (1-based)
-# Thread-safe via flock file lock
+# Thread-safe via mkdir atomic lock (works on both Linux and macOS)
 next_event_sequence() {
   local project_root="$1"
   local seq_file="$project_root/logs/.event_sequence"
-  local lock_file="$project_root/logs/.event_sequence.lock"
+  local lock_dir="$project_root/logs/.event_sequence.lk"
   mkdir -p "$(dirname "$seq_file")" 2>/dev/null || true
 
-  (
-    if ! flock -x -w 5 200 2>/dev/null; then
-      # Lock acquisition timed out — fallback to timestamp-based sequence
-      echo "WARNING: flock timeout after 5s, using fallback sequence" >&2
-      echo "$(date +%s)$(date +%N 2>/dev/null || echo $RANDOM)"
-      exit 0
+  # mkdir is atomic on all POSIX systems — use as a spinlock
+  local attempts=0
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ $attempts -ge 50 ]; then
+      # 5s timeout (50 × 0.1s) — fallback to timestamp-based sequence
+      echo "WARNING: lock timeout after 5s, using fallback sequence" >&2
+      local ns; ns=$(date +%N 2>/dev/null)
+      case "$ns" in *[!0-9]*|'') ns=$RANDOM ;; esac
+      echo "$(date +%s)${ns}"
+      return 0
     fi
-    local current=0
-    [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
-    [ -z "$current" ] && current=0
-    local next=$((current + 1))
-    echo "$next" > "$seq_file"
-    echo "$next"
-  ) 200>"$lock_file"
+    sleep 0.1
+  done
+
+  local current=0
+  [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
+  [ -z "$current" ] && current=0
+  local next=$((current + 1))
+  echo "$next" > "$seq_file"
+  echo "$next"
+
+  # Release lock
+  rmdir "$lock_dir" 2>/dev/null
 }
 
 # --- Check if current Task is a background agent ---

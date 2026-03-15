@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.1.11] - 2026-03-15
+
+### Fixed
+
+- **macOS Event Bus 崩溃**: `flock` 命令 macOS 不存在导致 `next_event_sequence` 永远走 fallback，`date +%N` 在 BSD date 输出字面量 `N`（exit 0 不报错）导致 sequence 含非数字字符，Python `int()` 转换失败 → 事件发射全部崩溃
+- **GUI 不可用**: Event Bus 崩溃的级联后果，修复后 GUI 可正常启动
+
+### Changed
+
+- **跨平台原子锁**: `flock` 替换为 `mkdir` 原子锁（POSIX 标准，Linux/macOS 均可用）
+- **`date +%N` 安全回退**: 检测输出是否为纯数字，非数字时使用 `$RANDOM`
+
 ## [5.1.9] - 2026-03-15
 
 ### Fixed
