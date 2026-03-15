@@ -81,6 +81,44 @@ rm -f openspec/changes/*/context/.tdd-stage 2>/dev/null
 - "重新开始 Phase 1（清空调研缓存）"
 ```
 
+### 2.2 子步骤进度恢复（v5.3 新增）
+
+当 `phase-{N}-progress.json` 存在时，可实现比 checkpoint 更细粒度的恢复。扫描逻辑：
+
+```bash
+ls openspec/changes/<name>/context/phase-results/phase-*-progress.json 2>/dev/null
+```
+
+| `step` 字段 | 恢复行为 |
+|-------------|---------|
+| `research_dispatched` | 检查 `context/project-context.md` + `context/research-findings.md` 存在性 → 都存在则跳过调研 → 至少一个缺失重新派发全部 |
+| `research_complete` | 跳过调研（同 Phase 1 interim） |
+| `ba_dispatched` | 检查 `context/requirements-analysis.md` 存在性 → 存在则跳过 BA → 不存在重新派发 |
+| `ba_complete` | 跳过 BA |
+| `gate_passed` | 跳过 Gate 验证 |
+| `agent_dispatched` | 检查 `phase-results/phase-{N}-*.json` checkpoint 文件 → 存在视为完成跳过 → 不存在重新派发 |
+| `agent_complete` | 跳过 Agent → 直接写 checkpoint |
+| `task_N_merged` | Phase 5 并行模式：从下一未合并 task 继续 |
+
+Progress 文件优先级**低于** checkpoint。当 checkpoint 已存在时，忽略 progress 文件直接使用 checkpoint 恢复。
+
+恢复完成并写入新 checkpoint 后，清理旧 progress 文件：`rm -f phase-{N}-progress.json`
+
+### 2.3 Git Rebase 中间态检测（v5.3 新增）
+
+恢复时检查 git rebase 中间状态：
+```bash
+[ -d .git/rebase-merge ] && git rebase --abort
+```
+
+### 2.4 Worktree 残留检测（v5.3 新增）
+
+恢复时检查 Phase 5 并行模式的 worktree 残留：
+```bash
+git worktree list | grep autopilot-task
+```
+如有残留，输出警告信息并建议用户手动清理。
+
 ### 3. 用户决策
 
 **无 checkpoint**：从 Phase 1 正常开始。
@@ -104,6 +142,27 @@ rm -f openspec/changes/*/context/.tdd-stage 2>/dev/null
 **从断点继续**：
 - 返回起始阶段号 N+1
 - 编排主线程在 TaskCreate 时将已完成阶段标记为 completed
+
+**上下文重建协议（v5.3 新增）**：
+恢复时读取所有已完成 Phase 的上下文快照，拼接为恢复上下文摘要：
+
+```bash
+ls openspec/changes/<name>/context/phase-context-snapshots/phase-*-context.md 2>/dev/null
+```
+
+对每个存在的 `phase-{N}-context.md`：
+1. 读取文件内容
+2. 提取 "关键决策摘要" 和 "下阶段所需上下文" 段落
+3. 拼接为恢复上下文摘要，注入主线程
+
+恢复时输出格式：
+```
+=== Phase Context Recovery ===
+Phase 1: [摘要...]
+Phase 2: [摘要...]
+...
+=== End Context Recovery ===
+```
 
 **从头开始**：
 - 删除 `phase-results/` 目录

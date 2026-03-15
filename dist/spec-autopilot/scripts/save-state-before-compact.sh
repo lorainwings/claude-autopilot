@@ -85,7 +85,7 @@ if ! command -v python3 &>/dev/null; then
 fi
 
 python3 -c "
-import json, os, sys, glob
+import json, os, sys, glob, re
 from datetime import datetime
 
 change_dir = sys.argv[1]
@@ -120,6 +120,24 @@ if not phases:
     sys.exit(0)
 
 next_phase = last_completed + 1 if last_completed < 7 else 7
+
+# v5.3: Read phase context snapshots
+context_snapshots = {}
+snapshots_dir = os.path.join(change_dir, 'context', 'phase-context-snapshots')
+if os.path.isdir(snapshots_dir):
+    for snap_file in sorted(glob.glob(os.path.join(snapshots_dir, 'phase-*-context.md'))):
+        try:
+            fname = os.path.basename(snap_file)
+            # Extract phase number from filename
+            m = re.search(r'phase-(\d+)-context\.md', fname)
+            if m:
+                snap_phase = int(m.group(1))
+                with open(snap_file) as f:
+                    content = f.read()
+                # Extract summary section (first 500 chars)
+                context_snapshots[snap_phase] = content[:500]
+        except Exception:
+            pass
 
 # Read tasks file (phase5-task-breakdown.md for lite/minimal, tasks.md for full)
 tasks_summary = ''
@@ -227,6 +245,24 @@ lines.extend([
     f'4. All completed phase checkpoints are in \`openspec/changes/{change_name}/context/phase-results/\`',
     f'',
 ])
+
+# v5.3: Include context snapshots for reasoning continuity
+if context_snapshots:
+    lines.extend([
+        f'',
+        f'## Phase Context Snapshots (v5.3)',
+        f'',
+        f'Key decisions and context from completed phases:',
+        f'',
+    ])
+    for snap_phase in sorted(context_snapshots.keys()):
+        snap_content = context_snapshots[snap_phase]
+        lines.extend([
+            f'### Phase {snap_phase}',
+            f'',
+            snap_content,
+            f'',
+        ])
 
 # Write state file
 os.makedirs(os.path.dirname(state_file), exist_ok=True)

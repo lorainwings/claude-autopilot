@@ -83,6 +83,13 @@ if [ -f "$EVENTS_FILE" ]; then
   fi
 fi
 
+# --- Read active agent_id from marker file (WS4.A: tool_use ↔ agent correlation) ---
+CURRENT_AGENT_ID=""
+ACTIVE_AGENT_FILE="$PROJECT_ROOT/logs/.active-agent-id"
+if [ -f "$ACTIVE_AGENT_FILE" ]; then
+  CURRENT_AGENT_ID=$(head -1 "$ACTIVE_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
+fi
+
 # --- Resolve context fields (pure bash fast path — avoid python3 forks) ---
 LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -150,8 +157,12 @@ output_preview = sys.argv[12]
 if output_preview:
     event['payload']['output_preview'] = output_preview[:200]
 
+agent_id = sys.argv[13] if len(sys.argv) > 13 else ''
+if agent_id:
+    event['payload']['agent_id'] = agent_id
+
 print(json.dumps(event, ensure_ascii=False))
-" "$CURRENT_PHASE" "$MODE_VAL" "$TIMESTAMP" "$CHANGE_NAME" "$SESSION_ID" "$PHASE_LABEL" "$TOTAL_PHASES" "$SEQUENCE" "$TOOL_NAME" "$KEY_PARAM" "$EXIT_CODE" "$OUTPUT_PREVIEW" 2>/dev/null)
+" "$CURRENT_PHASE" "$MODE_VAL" "$TIMESTAMP" "$CHANGE_NAME" "$SESSION_ID" "$PHASE_LABEL" "$TOTAL_PHASES" "$SEQUENCE" "$TOOL_NAME" "$KEY_PARAM" "$EXIT_CODE" "$OUTPUT_PREVIEW" "$CURRENT_AGENT_ID" 2>/dev/null)
 
 if [ -z "$EVENT_JSON" ]; then
   exit 0

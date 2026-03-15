@@ -100,7 +100,9 @@ Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode}')
 
 ### Step 6: 崩溃恢复
 
-调用 Skill(`spec-autopilot:autopilot-recovery`)：扫描 checkpoint，决定起始阶段
+调用 Skill(`spec-autopilot:autopilot-recovery`)：扫描 checkpoint + progress 文件，决定起始阶段和子步骤恢复点
+
+> **v5.3**: Recovery 同时扫描 `phase-{N}-progress.json` 实现子步骤粒度恢复
 
 ### Step 7: 创建阶段任务
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.1.13] - 2026-03-15
+
+### Added
+
+- **Agent 生命周期自动事件**: 新增 `auto-emit-agent-dispatch.sh` / `auto-emit-agent-complete.sh` Hook，自动为 autopilot Task 发射 agent_dispatch/complete 事件（无需手动调用 emit-agent-event.sh）
+- **子步骤进度追踪**: 新增 `write-phase-progress.sh`，写入 `phase-{N}-progress.json` 实现比 checkpoint 更细粒度的崩溃恢复
+- **阶段上下文快照**: 新增 `save-phase-context.sh`，每个 Phase 结束时保存关键决策/约束/产出摘要到 `phase-context-snapshots/`
+- **GUI ParallelKanban 可展开 Agent 卡片**: 点击展开显示耗时、产出文件、工具调用列表（最近 20 条）
+- **GUI VirtualTerminal Agent ID 筛选**: 新增"指定 Agent"过滤器，支持按 Agent ID 查看关联事件
+- **tool_use ↔ Agent 关联**: `emit-tool-event.sh` 读取 `.active-agent-id` marker，为 tool_use 事件注入 agent_id 字段
+
+### Changed
+
+- **Recovery 子步骤恢复**: `autopilot-recovery` SKILL 新增 progress.json 扫描，支持 step 级恢复（research_dispatched、ba_complete、gate_passed 等）
+- **Recovery Git 检测**: 扫描时检测 `.git/rebase-merge` 中间态和 autopilot worktree 残留
+- **Compact 上下文保护**: `save-state-before-compact.sh` 包含 phase context snapshots；`reinject-state-after-compact.sh` 恢复最新快照
+- **Store AgentInfo 扩展**: 新增 `output_files` 字段，`selectAgentIds` selector
+
 ## [5.1.12] - 2026-03-15
 
 ### Added

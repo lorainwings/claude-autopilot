@@ -125,6 +125,34 @@ except: print('full')
     for cp in "${checkpoints[@]}"; do
       echo "$cp"
     done
+
+    # v5.3: Scan progress files inline (avoid double loop)
+    for progress_file in "$phase_results_dir"/phase-*-progress.json; do
+      [ -f "$progress_file" ] || continue
+      local pg_name pg_step pg_status
+      pg_name=$(basename "$progress_file")
+      pg_step=""
+      pg_status=""
+      if command -v python3 &>/dev/null; then
+        pg_step=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f: d = json.load(f)
+    print(d.get('step',''))
+except: pass
+" "$progress_file" 2>/dev/null || true)
+        pg_status=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f: d = json.load(f)
+    print(d.get('status',''))
+except: pass
+" "$progress_file" 2>/dev/null || true)
+      fi
+      if [ -n "$pg_step" ]; then
+        echo "  Sub-step progress: $pg_name → step=$pg_step status=$pg_status"
+      fi
+    done
   fi
 }
 
@@ -135,6 +163,24 @@ for change_dir in "$CHANGES_DIR"/*/; do
 done
 
 if [ "$found_any" = true ]; then
+  echo ""
+
+  # v5.3: Git rebase intermediate state detection
+  if [ -d "$PROJECT_ROOT/.git/rebase-merge" ]; then
+    echo "WARNING: Git rebase in progress detected (.git/rebase-merge exists)."
+    echo "  Recovery will abort rebase before resuming."
+    echo ""
+  fi
+
+  # v5.3: Worktree residual detection
+  WORKTREE_RESIDUAL=$(git -C "$PROJECT_ROOT" worktree list 2>/dev/null | grep "autopilot-task" || true)
+  if [ -n "$WORKTREE_RESIDUAL" ]; then
+    echo "WARNING: Residual autopilot worktrees detected:"
+    echo "$WORKTREE_RESIDUAL" | sed 's/^/  /'
+    echo "  Consider cleaning up with: git worktree remove <path>"
+    echo ""
+  fi
+
   echo ""
   echo "Use autopilot to resume from the last checkpoint."
   echo "================================="

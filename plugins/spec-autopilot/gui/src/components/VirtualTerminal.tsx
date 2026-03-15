@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { useStore } from "../store";
+import { useStore, selectAgentIds } from "../store";
 import type { AutopilotEvent } from "../lib/ws-bridge";
 
 // ANSI color codes for event type labels
@@ -27,13 +27,14 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
 };
 
 // Filter categories
-type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error";
+type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error" | "agent_by_id";
 
 const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "all", label: "全部" },
   { value: "lifecycle", label: "阶段生命周期" },
   { value: "gate", label: "门禁" },
   { value: "agent", label: "Agent" },
+  { value: "agent_by_id", label: "指定 Agent" },
   { value: "tool", label: "工具调用" },
   { value: "task", label: "任务进度" },
   { value: "error", label: "错误" },
@@ -44,12 +45,19 @@ const FILTER_MATCH: Record<FilterType, Set<string> | null> = {
   lifecycle: new Set(["phase_start", "phase_end"]),
   gate: new Set(["gate_pass", "gate_block", "gate_decision_pending", "gate_decision_received"]),
   agent: new Set(["agent_dispatch", "agent_complete"]),
+  agent_by_id: new Set(["tool_use", "agent_dispatch", "agent_complete"]),
   tool: new Set(["tool_use"]),
   task: new Set(["task_progress"]),
   error: new Set(["error"]),
 };
 
-function matchesFilter(eventType: string, filter: FilterType): boolean {
+function matchesFilter(eventType: string, filter: FilterType, selectedAgentId?: string, event?: AutopilotEvent): boolean {
+  if (filter === "agent_by_id" && selectedAgentId) {
+    const allowed = FILTER_MATCH[filter];
+    if (allowed && !allowed.has(eventType)) return false;
+    const agentId = event?.payload ? (event.payload as Record<string, unknown>).agent_id : undefined;
+    return agentId === selectedAgentId;
+  }
   const allowed = FILTER_MATCH[filter];
   return allowed === null || allowed.has(eventType);
 }
@@ -126,7 +134,11 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [agentSubMenuOpen, setAgentSubMenuOpen] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgentRef = useRef<string | null>(null);
   const events = useStore((s) => s.events);
+  const agentMap = useStore((s) => s.agentMap);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -209,12 +221,12 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
   }).current;
 
   // Replay all events matching filter into terminal
-  const replayFiltered = useCallback((filter: FilterType) => {
+  const replayFiltered = useCallback((filter: FilterType, agentId?: string | null) => {
     const term = xtermRef.current;
     if (!term) return;
     term.clear();
     writeBufferRef.current = [];
-    const filtered = events.filter((e) => matchesFilter(e.type, filter));
+    const filtered = events.filter((e) => matchesFilter(e.type, filter, agentId || undefined, e));
     for (const event of filtered) {
       writeBufferRef.current.push(formatEventLine(event, events));
     }
@@ -229,7 +241,22 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     filterRef.current = newFilter;
     setFilterType(newFilter);
     setDropdownOpen(false);
-    replayFiltered(newFilter);
+    setAgentSubMenuOpen(false);
+    if (newFilter !== "agent_by_id") {
+      setSelectedAgentId(null);
+      selectedAgentRef.current = null;
+    }
+    replayFiltered(newFilter, selectedAgentRef.current);
+  }, [replayFiltered]);
+
+  // Handle agent sub-filter selection
+  const handleAgentSelect = useCallback((agentId: string) => {
+    setSelectedAgentId(agentId);
+    selectedAgentRef.current = agentId;
+    filterRef.current = "agent_by_id";
+    setFilterType("agent_by_id");
+    setDropdownOpen(false);
+    replayFiltered("agent_by_id", agentId);
   }, [replayFiltered]);
 
   useEffect(() => {
@@ -241,7 +268,7 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
 
     const currentFilter = filterRef.current;
     for (const event of newEvents) {
-      if (!matchesFilter(event.type, currentFilter)) continue;
+      if (!matchesFilter(event.type, currentFilter, selectedAgentRef.current || undefined, event)) continue;
       writeBufferRef.current.push(formatEventLine(event, events));
     }
 
@@ -262,7 +289,11 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     };
   }, []);
 
-  const currentLabel = FILTER_OPTIONS.find((o) => o.value === filterType)?.label ?? "全部";
+  const currentLabel = filterType === "agent_by_id" && selectedAgentId
+    ? `Agent: ${agentMap.get(selectedAgentId)?.agent_label || selectedAgentId}`
+    : FILTER_OPTIONS.find((o) => o.value === filterType)?.label ?? "全部";
+
+  const agentOptions = selectAgentIds(agentMap);
 
   return (
     <section className="h-full flex flex-col bg-void overflow-hidden">
@@ -284,15 +315,39 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
             {dropdownOpen && (
               <div className="absolute right-0 top-full mt-1 bg-surface border border-border z-50 min-w-[140px] shadow-lg">
                 {FILTER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleFilterChange(opt.value)}
-                    className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-elevated transition-colors ${
-                      filterType === opt.value ? "text-cyan" : "text-text-muted"
-                    }`}
-                  >
-                    {filterType === opt.value ? "> " : "  "}{opt.label}
-                  </button>
+                  <div key={opt.value} className="relative">
+                    <button
+                      onClick={() => {
+                        if (opt.value === "agent_by_id" && agentOptions.length > 0) {
+                          setAgentSubMenuOpen((prev) => !prev);
+                        } else {
+                          handleFilterChange(opt.value);
+                        }
+                      }}
+                      className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-elevated transition-colors ${
+                        filterType === opt.value ? "text-cyan" : "text-text-muted"
+                      }`}
+                    >
+                      {filterType === opt.value ? "> " : "  "}{opt.label}
+                      {opt.value === "agent_by_id" && agentOptions.length > 0 && " >"}
+                    </button>
+                    {/* Agent sub-filter dropdown (click-driven) */}
+                    {opt.value === "agent_by_id" && agentSubMenuOpen && agentOptions.length > 0 && (
+                      <div className="absolute right-full top-0 bg-surface border border-border z-50 min-w-[160px] shadow-lg">
+                        {agentOptions.map((a) => (
+                          <button
+                            key={a.id}
+                            onClick={() => handleAgentSelect(a.id)}
+                            className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-elevated transition-colors ${
+                              selectedAgentId === a.id ? "text-cyan" : "text-text-muted"
+                            }`}
+                          >
+                            {selectedAgentId === a.id ? "> " : "  "}{a.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

@@ -97,6 +97,8 @@
 
 > **后台执行约束**（v3.4.0）：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
 
+> **v5.3 Agent 事件（Belt & Suspenders）**：Hook 自动发射 agent_dispatch/complete 事件。SKILL.md 中的手动发射为双重保障，任一机制工作即可驱动 GUI ParallelKanban 显示 Agent 卡片。
+
 Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `references/parallel-phase1.md` 配置）。
 
 → 详见 `phase1-requirements-detail.md`（持久化上下文检查、扫描范围、Steering Documents 模板、历史知识注入、返回信封格式）

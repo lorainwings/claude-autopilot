@@ -1,11 +1,14 @@
 /**
  * ParallelKanban — V2 水平可滚动任务卡片流
  * 显示 Phase 5 并行任务执行状态 + Agent 生命周期卡片
- * 数据源: Zustand Store (taskProgress, agentMap, currentPhase)
+ * v5.3: 可展开 Agent 卡片 + 工具调用计数
+ * 数据源: Zustand Store (taskProgress, agentMap, currentPhase, events)
  */
 
+import { useState, useMemo } from "react";
 import { useStore } from "../store";
 import type { AgentInfo } from "../store";
+import type { AutopilotEvent } from "../lib/ws-bridge";
 
 const TDD_STEP_CONFIG = {
   red: { icon: "\uD83D\uDD34", label: "失败测试", color: "text-rose", borderColor: "border-rose", bgPulse: "bg-rose/5" },
@@ -36,8 +39,32 @@ function formatDuration(ms?: number): string {
   return `${Math.floor(s / 60)}m${s % 60}s`;
 }
 
+function ToolEventRow({ event }: { event: AutopilotEvent }) {
+  const p = event.payload as Record<string, unknown>;
+  const toolName = (p.tool_name as string) || "--";
+  const keyParam = (p.key_param as string) || "";
+  const exitCode = p.exit_code as number | undefined;
+  const ts = new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  return (
+    <div className="flex items-center justify-between text-[9px] font-mono text-text-muted py-0.5 border-b border-border/30 last:border-0">
+      <div className="flex items-center space-x-2 truncate flex-1">
+        <span className="text-cyan font-bold shrink-0">{toolName}</span>
+        {keyParam && <span className="truncate text-text-muted/70">{keyParam.slice(0, 60)}</span>}
+      </div>
+      <div className="flex items-center space-x-2 shrink-0 ml-2">
+        {exitCode != null && (
+          <span className={exitCode === 0 ? "text-emerald" : "text-rose"}>exit={exitCode}</span>
+        )}
+        <span>{ts}</span>
+      </div>
+    </div>
+  );
+}
+
 export function ParallelKanban() {
-  const { taskProgress, agentMap } = useStore();
+  const { taskProgress, agentMap, events } = useStore();
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
 
   if (taskProgress.size === 0 && agentMap.size === 0) {
     return null;
@@ -52,6 +79,22 @@ export function ParallelKanban() {
   const isParallel = runningTasks.length > 1 || tasks.some((t) => t.task_total > 1);
   const hasTdd = tasks.some((t) => t.tdd_step !== undefined);
   const hasAgents = agents.length > 0;
+
+  // Memoize per-agent tool counts and events to avoid O(agents * events) per render
+  const agentToolData = useMemo(() => {
+    const counts = new Map<string, number>();
+    const eventsMap = new Map<string, AutopilotEvent[]>();
+    for (const e of events) {
+      if (e.type !== "tool_use") continue;
+      const agentId = (e.payload as Record<string, unknown>).agent_id as string | undefined;
+      if (!agentId) continue;
+      counts.set(agentId, (counts.get(agentId) || 0) + 1);
+      const list = eventsMap.get(agentId);
+      if (list) list.push(e);
+      else eventsMap.set(agentId, [e]);
+    }
+    return { counts, eventsMap };
+  }, [events]);
 
   return (
     <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
@@ -89,11 +132,15 @@ export function ParallelKanban() {
             const badge = AGENT_STATUS_BADGE[agent.status];
             const isActive = agent.status === "dispatched";
             const borderColor = isActive ? "border-violet" : agent.status === "ok" ? "border-emerald" : agent.status === "failed" || agent.status === "blocked" ? "border-rose" : "border-amber";
+            const isExpanded = expandedAgentId === agent.agent_id;
+            const toolCount = agentToolData.counts.get(agent.agent_id) || 0;
+            const toolEvents = isExpanded ? (agentToolData.eventsMap.get(agent.agent_id) || []) : [];
 
             return (
               <div
                 key={agent.agent_id}
-                className={`w-64 shrink-0 ${isActive ? "bg-elevated" : "bg-deep"} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden`}
+                className={`${isExpanded ? "w-96" : "w-64"} shrink-0 ${isActive ? "bg-elevated" : "bg-deep"} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden cursor-pointer transition-all duration-200`}
+                onClick={() => setExpandedAgentId(isExpanded ? null : agent.agent_id)}
               >
                 {isActive && (
                   <div className="absolute inset-0 bg-violet/5 animate-pulse-soft"></div>
@@ -104,9 +151,16 @@ export function ParallelKanban() {
                     <span className={`text-[11px] font-mono font-bold ${isActive ? "text-white" : badge.color}`}>
                       {agent.agent_label}
                     </span>
-                    <span className={`text-[9px] ${badge.color} font-bold`}>
-                      {badge.icon} {badge.label}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      {isActive && toolCount > 0 && (
+                        <span className="text-[9px] bg-violet/20 text-violet px-1 rounded font-mono">
+                          {toolCount} 工具调用
+                        </span>
+                      )}
+                      <span className={`text-[9px] ${badge.color} font-bold`}>
+                        {badge.icon} {badge.label}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="text-[9px] font-mono text-text-muted mb-2">
@@ -114,8 +168,51 @@ export function ParallelKanban() {
                   </div>
 
                   {agent.summary && (
-                    <div className="text-[9px] font-mono text-text-muted truncate">
-                      {agent.summary.slice(0, 80)}
+                    <div className={`text-[9px] font-mono text-text-muted ${isExpanded ? "" : "truncate"}`}>
+                      {isExpanded ? agent.summary : agent.summary.slice(0, 80)}
+                    </div>
+                  )}
+
+                  {/* Expanded panel */}
+                  {isExpanded && (
+                    <div className="mt-3 border-t border-border/50 pt-2 space-y-2">
+                      {/* Duration breakdown */}
+                      {agent.duration_ms != null && (
+                        <div className="text-[9px] font-mono text-text-muted">
+                          耗时: {formatDuration(agent.duration_ms)}
+                        </div>
+                      )}
+
+                      {/* Output files */}
+                      {agent.output_files && agent.output_files.length > 0 && (
+                        <div>
+                          <div className="text-[9px] font-mono text-cyan mb-1">产出文件:</div>
+                          {agent.output_files.map((f, i) => (
+                            <div key={i} className="text-[9px] font-mono text-text-muted truncate pl-2">
+                              {f}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Related tool_use events */}
+                      {toolEvents.length > 0 && (
+                        <div>
+                          <div className="text-[9px] font-mono text-cyan mb-1">
+                            工具调用 ({toolEvents.length}):
+                          </div>
+                          <div className="max-h-32 overflow-y-auto">
+                            {toolEvents.slice(-20).map((ev, i) => (
+                              <ToolEventRow key={i} event={ev} />
+                            ))}
+                            {toolEvents.length > 20 && (
+                              <div className="text-[9px] font-mono text-text-muted/50 text-center py-1">
+                                ...{toolEvents.length - 20} 条更早记录已折叠
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

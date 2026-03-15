@@ -60,6 +60,36 @@ echo ""
 echo "=== AUTOPILOT STATE RESTORED AFTER CONTEXT COMPACTION ==="
 echo ""
 cat "$STATE_FILE"
+
+# v5.3: Output most recent phase context snapshot for reasoning continuity
+SNAPSHOTS_DIR="$(dirname "$STATE_FILE")/phase-context-snapshots"
+if [ -d "$SNAPSHOTS_DIR" ]; then
+  LATEST_SNAPSHOT=""
+  LATEST_SNAP_MTIME=0
+  for snap in "$SNAPSHOTS_DIR"/phase-*-context.md; do
+    [ -f "$snap" ] || continue
+    snap_mtime=$(stat -f "%m" "$snap" 2>/dev/null || stat -c "%Y" "$snap" 2>/dev/null || echo 0)
+    if [ "$snap_mtime" -gt "$LATEST_SNAP_MTIME" ]; then
+      LATEST_SNAP_MTIME=$snap_mtime
+      LATEST_SNAPSHOT="$snap"
+    fi
+  done
+  if [ -n "$LATEST_SNAPSHOT" ] && [ -f "$LATEST_SNAPSHOT" ]; then
+    echo ""
+    echo "--- Latest Phase Context Snapshot ---"
+    echo ""
+    # Limit snapshot output to 2000 chars to avoid context bloat
+    head -c 2000 "$LATEST_SNAPSHOT"
+    SNAP_SIZE=$(wc -c < "$LATEST_SNAPSHOT" 2>/dev/null || echo 0)
+    if [ "$SNAP_SIZE" -gt 2000 ]; then
+      echo ""
+      echo "... (truncated, full snapshot: $(basename "$LATEST_SNAPSHOT"))"
+    fi
+    echo ""
+    echo "--- End Phase Context Snapshot ---"
+  fi
+fi
+
 echo ""
 echo "=== END AUTOPILOT STATE ==="
 echo ""

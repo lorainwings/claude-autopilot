@@ -8,6 +8,11 @@
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-predecessor-checkpoint.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/auto-emit-agent-dispatch.sh",
+            "timeout": 5
           }
         ]
       }
@@ -30,6 +35,11 @@
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/post-task-validator.sh",
             "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/auto-emit-agent-complete.sh",
+            "timeout": 5
           }
         ]
       },

@@ -39,6 +39,7 @@ export interface AgentInfo {
   complete_time?: string;
   summary?: string;
   duration_ms?: number;
+  output_files?: string[];
 }
 
 interface AppState {
@@ -174,6 +175,25 @@ export function selectTotalElapsedMs(events: AutopilotEvent[]): number {
   return Date.now() - firstStart;
 }
 
+/** Count tool_use events associated with a specific agent (v5.3 WS4.D) */
+export function selectAgentToolCount(events: AutopilotEvent[], agentId: string): number {
+  return events.filter(
+    (e) => e.type === "tool_use" && (e.payload as Record<string, unknown>).agent_id === agentId
+  ).length;
+}
+
+/** Get tool_use events associated with a specific agent (v5.3 WS4.B) */
+export function selectAgentToolEvents(events: AutopilotEvent[], agentId: string): AutopilotEvent[] {
+  return events.filter(
+    (e) => e.type === "tool_use" && (e.payload as Record<string, unknown>).agent_id === agentId
+  );
+}
+
+/** Get unique agent IDs from events (v5.3 WS4.C) */
+export function selectAgentIds(agentMap: Map<string, AgentInfo>): { id: string; label: string }[] {
+  return Array.from(agentMap.values()).map((a) => ({ id: a.agent_id, label: a.agent_label }));
+}
+
 /** Compute gate pass/block/pending statistics (single-pass) */
 export function selectGateStats(events: AutopilotEvent[]): GateStats {
   let passed = 0;
@@ -249,6 +269,7 @@ export const useStore = create<AppState>((set) => ({
             complete_time: event.timestamp,
             summary: event.payload.summary as string | undefined,
             duration_ms: event.payload.duration_ms as number | undefined,
+            output_files: (event.payload.output_files as string[] | undefined) || existing?.output_files,
           });
         } else if (event.type === "phase_end" || event.type === "error") {
           // When a phase ends or errors, mark any still-dispatched agents in that phase as failed
