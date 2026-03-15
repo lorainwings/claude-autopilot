@@ -93,6 +93,9 @@ async function getNewEventLines(): Promise<string[]> {
   try {
     const file = Bun.file(EVENTS_FILE);
     const fileSize = file.size;
+    if (fileSize < lastByteOffset) {
+      lastByteOffset = 0;
+    }
     if (fileSize <= lastByteOffset) return [];
 
     const slice = file.slice(lastByteOffset, fileSize);
@@ -115,6 +118,20 @@ async function getNewEventLines(): Promise<string[]> {
 }
 
 async function broadcastNewEvents() {
+  // 截断检测：文件被清空（重新开始场景）
+  // 放在 wsClients 检查之前，确保即使无客户端也更新 lastByteOffset
+  try {
+    const fileSize = Bun.file(EVENTS_FILE).size;
+    if (fileSize < lastByteOffset) {
+      lastByteOffset = 0;
+      // 广播 reset 信号，通知 GUI 清空状态
+      const resetMsg = JSON.stringify({ type: "reset" });
+      for (const ws of wsClients) {
+        try { ws.send(resetMsg); } catch { wsClients.delete(ws); }
+      }
+    }
+  } catch { /* ignore */ }
+
   if (wsClients.size === 0) return;
 
   const newLines = await getNewEventLines();

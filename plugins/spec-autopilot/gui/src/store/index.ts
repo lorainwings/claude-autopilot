@@ -111,30 +111,33 @@ export function selectPhaseDurations(events: AutopilotEvent[]): PhaseDuration[] 
   return activeIndices.map((idx) => {
     const label = ALL_LABELS[idx] ?? `Phase ${idx}`;
     const phaseEvents = events.filter((e) => e.phase === idx);
-    const startEvent = phaseEvents.find((e) => e.type === "phase_start");
-    const endEvent = phaseEvents.find((e) => e.type === "phase_end");
+    // findLast: 同一 phase 有多个 start/end 时取最新的（崩溃恢复场景）
+    const startEvent = phaseEvents.findLast((e) => e.type === "phase_start");
+    const endEvent = phaseEvents.findLast((e) => e.type === "phase_end");
     const gateBlock = phaseEvents.findLast((e) => e.type === "gate_block");
     const gatePass = phaseEvents.findLast((e) => e.type === "gate_pass");
 
     let status: PhaseDuration["status"] = "pending";
     let durationMs = 0;
 
-    if (endEvent) {
+    const startTime = startEvent ? new Date(startEvent.timestamp).getTime() : 0;
+    const endTime = endEvent ? new Date(endEvent.timestamp).getTime() : 0;
+
+    // 时间顺序校验：end 必须在 start 之后才算完成
+    if (endEvent && endTime > startTime) {
       status = (endEvent.payload.status as PhaseDuration["status"]) || "ok";
       durationMs = (endEvent.payload.duration_ms as number) || 0;
-      // Fallback: when duration_ms is missing (e.g. Phase 0), compute from timestamps
       if (durationMs === 0 && startEvent) {
-        durationMs = new Date(endEvent.timestamp).getTime() - new Date(startEvent.timestamp).getTime();
+        durationMs = endTime - startTime;
       }
     } else if (gateBlock && (!gatePass || gateBlock.sequence > gatePass.sequence)) {
-      // Only show blocked if the latest gate_block is not resolved by a gate_pass
       status = "blocked";
       if (startEvent) {
-        durationMs = Date.now() - new Date(startEvent.timestamp).getTime();
+        durationMs = Date.now() - startTime;
       }
     } else if (startEvent) {
       status = "running";
-      durationMs = Date.now() - new Date(startEvent.timestamp).getTime();
+      durationMs = Date.now() - startTime;
     }
 
     return { phase: idx, label, durationMs, status };
@@ -147,32 +150,33 @@ export function selectTotalElapsedMs(events: AutopilotEvent[]): number {
   const ends = events.filter((e) => e.type === "phase_end");
   if (starts.length === 0) return 0;
 
-  const firstStart = new Date(starts[0]!.timestamp).getTime();
-  if (ends.length > 0) {
-    // Sum all completed phase durations
-    let total = 0;
-    for (const e of ends) {
-      let dur = (e.payload.duration_ms as number) || 0;
-      // Fallback: compute from timestamps when duration_ms missing
+  let total = 0;
+
+  // 收集每个 phase 的最新 start 和 end（崩溃恢复场景下取最新事件）
+  const phaseSet = new Set(starts.map((s) => s.phase));
+
+  for (const phase of phaseSet) {
+    const latestStart = starts.findLast((s) => s.phase === phase);
+    const latestEnd = ends.findLast((e) => e.phase === phase);
+
+    if (!latestStart) continue;
+
+    const startTime = new Date(latestStart.timestamp).getTime();
+
+    if (latestEnd && new Date(latestEnd.timestamp).getTime() > startTime) {
+      // 已完成：使用 duration_ms 或 fallback 计算
+      let dur = (latestEnd.payload.duration_ms as number) || 0;
       if (dur === 0) {
-        const matchingStart = starts.find((s) => s.phase === e.phase);
-        if (matchingStart) {
-          dur = new Date(e.timestamp).getTime() - new Date(matchingStart.timestamp).getTime();
-        }
+        dur = new Date(latestEnd.timestamp).getTime() - startTime;
       }
       total += dur;
+    } else {
+      // 正在运行：使用 Date.now()
+      total += Date.now() - startTime;
     }
-    // If there's a running phase, add elapsed time
-    const runningStart = starts.find(
-      (s) => !ends.some((e) => e.phase === s.phase)
-    );
-    if (runningStart) {
-      total += Date.now() - new Date(runningStart.timestamp).getTime();
-    }
-    return total || (Date.now() - firstStart);
   }
 
-  return Date.now() - firstStart;
+  return total;
 }
 
 /** Count tool_use events associated with a specific agent (v5.3 WS4.D) */
@@ -316,7 +320,7 @@ export const useStore = create<AppState>((set) => ({
   reset: () =>
     set({
       events: [],
-      connected: false,
+      // 注意：不重置 connected — reset 由 WS 消息触发，连接仍然活跃
       currentPhase: null,
       sessionId: null,
       changeName: null,

@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.1.15] - 2026-03-16
+
+### Added
+
+- **GUI Reset 信号**: autopilot-server 检测 events.jsonl 截断（重新开始场景），广播 `reset` 消息通知 GUI 清空状态
+- **WSBridge onReset**: ws-bridge 新增 `resetHandlers` + `onReset()` 方法处理 reset 消息类型
+- **SKILL.md Step 6.1**: Phase 0 崩溃恢复新增事件文件清理协议（从头开始 → 清空 events.jsonl + 重发 phase_start）
+
+### Fixed
+
+- **崩溃恢复时间线错乱**: `selectPhaseDurations` / `selectTotalElapsedMs` 使用 `findLast` 取最新 start/end 事件，修复同一 Phase 多次 start 导致的时间计算错误
+- **时间顺序校验**: end 事件必须在 start 之后才算完成，避免旧 end 覆盖新 start
+- **reset 不断连**: `store.reset()` 不再重置 `connected` 状态（reset 由 WS 消息触发，连接仍然活跃）
+- **autopilot-server lastByteOffset 回退**: 文件大小小于偏移量时重置为 0，避免截断后读取失败
+
 ## [5.1.14] - 2026-03-15
 
 ### Added

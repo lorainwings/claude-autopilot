@@ -104,6 +104,21 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode
 
 > **v5.3**: Recovery 同时扫描 `phase-{N}-progress.json` 实现子步骤粒度恢复
 
+### Step 6.1: 事件文件恢复清理（v5.4 新增）
+
+根据崩溃恢复决策清理事件文件：
+
+**从头开始** → 清空事件文件和序列计数器，让 GUI 从零状态重新开始：
+
+```bash
+Bash(': > <project_root>/logs/events.jsonl && rm -f <project_root>/logs/.event_sequence')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode}')
+```
+
+> Step 4.5 已发射的 phase_start 0 事件在截断时被清除，此处重新发射。
+
+**从断点继续** → 不清理事件文件（保留历史事件供 GUI 展示已完成 Phase）。
+
 ### Step 7: 创建阶段任务
 
 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链：

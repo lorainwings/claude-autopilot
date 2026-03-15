@@ -24,6 +24,7 @@ export class WSBridge {
   private url: string;
   private handlers = new Set<EventHandler>();
   private ackHandlers = new Set<AckHandler>();
+  private resetHandlers = new Set<() => void>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 10000;
@@ -63,6 +64,10 @@ export class WSBridge {
             for (const handler of this.ackHandlers) {
               handler(msg.data);
             }
+          } else if (msg.type === "reset") {
+            for (const handler of this.resetHandlers) {
+              handler();
+            }
           }
         } catch {
           // Ignore malformed messages
@@ -100,6 +105,11 @@ export class WSBridge {
   onDecisionAck(handler: AckHandler) {
     this.ackHandlers.add(handler);
     return () => this.ackHandlers.delete(handler);
+  }
+
+  onReset(handler: () => void) {
+    this.resetHandlers.add(handler);
+    return () => this.resetHandlers.delete(handler);
   }
 
   get connected() {

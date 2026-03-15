@@ -28,6 +28,11 @@ export function App() {
       addEvents(events);
     });
 
+    // v5.4: Listen for reset signal (restart scenario) → clear all GUI state
+    const unsubscribeReset = wsBridge.onReset(() => {
+      useStore.getState().reset();
+    });
+
     // v5.2: Listen for decision_ack to dismiss GateBlockCard (event-driven, no timer)
     const unsubscribeAck = wsBridge.onDecisionAck(() => {
       // Record the sequence of the latest gate_block being acked
@@ -46,6 +51,7 @@ export function App() {
     return () => {
       clearInterval(checkConnection);
       unsubscribe();
+      unsubscribeReset();
       unsubscribeAck();
       wsBridge.disconnect();
     };
