@@ -111,6 +111,72 @@ interface DecisionAckEvent {
 
 > **注意**: `decision_ack` 仅通过 WebSocket 推送，不追加到 `events.jsonl`，因为它是 GUI 闭环事件。
 
+### ToolUseEvent (v5.3 新增)
+
+工具调用事件。由 PostToolUse catch-all hook (`emit-tool-event.sh`) 在每次工具调用后自动发射。
+
+```typescript
+interface ToolUseEvent {
+  type: 'tool_use';
+  phase: number;               // 从 events.jsonl 最后一条 phase_start 推断
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;         // v5.0: 变更名称
+  session_id: string;          // v5.0: 会话 ID
+  phase_label: string;         // v5.0: Phase 标签
+  total_phases: number;        // v5.0: 8 | 5 | 4
+  sequence: number;            // v5.0: 全局自增序号
+  payload: {
+    tool_name: string;         // "Bash" | "Read" | "Write" | "Edit" | "Glob" | "Grep" | "Agent"
+    key_param?: string;        // Bash→command前80字符, Read/Write/Edit→file_path, Glob/Grep→pattern
+    exit_code?: number;        // Bash only
+    output_preview?: string;   // 截取前200字符
+  };
+}
+```
+
+### AgentDispatchEvent / AgentCompleteEvent (v5.3 新增)
+
+Agent 生命周期事件。由 `emit-agent-event.sh` 在 Agent 派发和完成时发射。
+
+```typescript
+interface AgentDispatchEvent {
+  type: 'agent_dispatch';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    agent_id: string;          // "phase2-openspec", "phase5-task-3-auth"
+    agent_label: string;       // "OpenSpec 生成"
+    background: boolean;
+  };
+}
+
+interface AgentCompleteEvent {
+  type: 'agent_complete';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    agent_id: string;
+    agent_label: string;
+    status: 'ok' | 'warning' | 'blocked' | 'failed';
+    summary?: string;          // JSON 信封摘要（前 120 字符）
+    duration_ms?: number;
+  };
+}
+```
+
 ## 事件发射脚本
 
 | 脚本 | 事件类型 | 调用时机 |
@@ -118,6 +184,8 @@ interface DecisionAckEvent {
 | `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error` | Phase 0 Step 4.6/10.5 + Phase 1 Step 0/10 + 统一调度模板 Step 0/6.5 (Phase 2-6) + Phase 7 Step -1/6.5 |
 | `scripts/emit-gate-event.sh` | `gate_pass`, `gate_block` | SKILL.md 统一调度模板 Step 1 (Gate 判定后) |
 | `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
+| `scripts/emit-tool-event.sh` | `tool_use` | PostToolUse catch-all hook 自动触发 (v5.3) |
+| `scripts/emit-agent-event.sh` | `agent_dispatch`, `agent_complete` | 统一调度模板 Step 2.5/4.5 Agent 派发前/完成后 (v5.3) |
 
 ## 使用示例
 

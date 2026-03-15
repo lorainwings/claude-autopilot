@@ -20,12 +20,15 @@ export const PhaseTimeline = memo(function PhaseTimeline() {
   const events = useStore((s) => s.events);
   const currentPhase = useStore((s) => s.currentPhase);
   const mode = useStore((s) => s.mode);
-  const phaseDurations = useMemo(() => selectPhaseDurations(events), [events]);
-  const totalElapsedMs = useMemo(() => selectTotalElapsedMs(events), [events]);
-  const gateStats = useMemo(() => selectGateStats(events), [events]);
 
   // G9: Force re-render every second when a phase is running
-  const [, setTick] = useState(0);
+  // tick is included in useMemo deps so Date.now()-based selectors recompute
+  const [tick, setTick] = useState(0);
+
+  const phaseDurations = useMemo(() => selectPhaseDurations(events), [events, tick]);
+  const totalElapsedMs = useMemo(() => selectTotalElapsedMs(events), [events, tick]);
+  const gateStats = useMemo(() => selectGateStats(events), [events]);
+
   const hasRunning = phaseDurations.some((p) => p.status === "running");
   useEffect(() => {
     if (!hasRunning) return;

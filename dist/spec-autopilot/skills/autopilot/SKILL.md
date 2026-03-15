@@ -194,6 +194,8 @@ Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
         → 按协议构造 Task prompt
         → 从 config.phases[当前阶段].instruction_files 注入指令文件路径
         → 从 config.phases[当前阶段].reference_files 注入参考文件路径
+Step 2.5: 发射 Agent 派发事件（v5.3 Agent 生命周期）
+        → Bash('bash ${PLUGIN_ROOT}/scripts/emit-agent-event.sh agent_dispatch {N} {mode} "phase{N}-{slug}" "{agent_label}" \'{"background":{is_background}}\'')
 Step 3: 使用 Task 工具派发子 Agent
         → prompt 开头必须包含 <!-- autopilot-phase:N --> 标记
         → Hook 脚本自动校验前置 checkpoint 和返回 JSON
@@ -208,6 +210,8 @@ Step 4: 解析子 Agent 返回的 JSON 信封
         → ok → 继续
         → warning → **Phase 4 特殊处理**（见下方）
         → blocked/failed → 暂停展示给用户
+Step 4.5: 发射 Agent 完成事件（v5.3 Agent 生命周期）
+        → Bash('bash ${PLUGIN_ROOT}/scripts/emit-agent-event.sh agent_complete {N} {mode} "phase{N}-{slug}" "{agent_label}" \'{"status":"{envelope.status}","summary":"{envelope.summary前120字符}","duration_ms":{agent_elapsed}}\'')
 Step 5+7: 派发后台 Checkpoint Agent（v3.4.3 上下文保护增强, v5.1 原子写入 + 状态隔离）
         → 将 checkpoint 写入 + git fixup commit 合并为一个后台 Agent，避免 Write/Bash 输出污染主窗口上下文
         → **v5.1 重要**: Checkpoint 写入**必须使用 Bash 工具**（非 Write 工具），以绕过 Write/Edit Hook 的状态隔离检查

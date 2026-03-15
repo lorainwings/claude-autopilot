@@ -30,6 +30,17 @@ function isTaskProgressPayload(p: unknown): p is TaskProgressPayload {
   return typeof obj.task_name === "string" && typeof obj.status === "string" && typeof obj.task_index === "number";
 }
 
+export interface AgentInfo {
+  agent_id: string;
+  agent_label: string;
+  phase: number;
+  status: "dispatched" | "ok" | "warning" | "blocked" | "failed";
+  dispatch_time: string;
+  complete_time?: string;
+  summary?: string;
+  duration_ms?: number;
+}
+
 interface AppState {
   events: AutopilotEvent[];
   connected: boolean;
@@ -38,6 +49,7 @@ interface AppState {
   changeName: string | null;
   mode: "full" | "lite" | "minimal" | null;
   taskProgress: Map<string, TaskProgress>;
+  agentMap: Map<string, AgentInfo>;
   decisionAcked: boolean;
 
   addEvents: (events: AutopilotEvent[]) => void;
@@ -109,6 +121,10 @@ export function selectPhaseDurations(events: AutopilotEvent[]): PhaseDuration[] 
     if (endEvent) {
       status = (endEvent.payload.status as PhaseDuration["status"]) || "ok";
       durationMs = (endEvent.payload.duration_ms as number) || 0;
+      // Fallback: when duration_ms is missing (e.g. Phase 0), compute from timestamps
+      if (durationMs === 0 && startEvent) {
+        durationMs = new Date(endEvent.timestamp).getTime() - new Date(startEvent.timestamp).getTime();
+      }
     } else if (gateBlock && (!gatePass || gateBlock.sequence > gatePass.sequence)) {
       // Only show blocked if the latest gate_block is not resolved by a gate_pass
       status = "blocked";
@@ -135,7 +151,15 @@ export function selectTotalElapsedMs(events: AutopilotEvent[]): number {
     // Sum all completed phase durations
     let total = 0;
     for (const e of ends) {
-      total += (e.payload.duration_ms as number) || 0;
+      let dur = (e.payload.duration_ms as number) || 0;
+      // Fallback: compute from timestamps when duration_ms missing
+      if (dur === 0) {
+        const matchingStart = starts.find((s) => s.phase === e.phase);
+        if (matchingStart) {
+          dur = new Date(e.timestamp).getTime() - new Date(matchingStart.timestamp).getTime();
+        }
+      }
+      total += dur;
     }
     // If there's a running phase, add elapsed time
     const runningStart = starts.find(
@@ -174,6 +198,7 @@ export const useStore = create<AppState>((set) => ({
   changeName: null,
   mode: null,
   taskProgress: new Map(),
+  agentMap: new Map(),
   decisionAcked: false,
   lastAckedBlockSequence: -1,
 
@@ -182,7 +207,7 @@ export const useStore = create<AppState>((set) => ({
       // Deduplicate by sequence, then cap at 1000 events
       const seen = new Set(state.events.map((e) => e.sequence));
       const unique = newEvents.filter((e) => !seen.has(e.sequence));
-      const CRITICAL_TYPES = new Set(["phase_start", "phase_end", "gate_block", "gate_pass"]);
+      const CRITICAL_TYPES = new Set(["phase_start", "phase_end", "gate_block", "gate_pass", "agent_dispatch", "agent_complete"]);
       const allSorted = [...state.events, ...unique].sort((a, b) => a.sequence - b.sequence);
       const critical = allSorted.filter((e) => CRITICAL_TYPES.has(e.type));
       const regular = allSorted.filter((e) => !CRITICAL_TYPES.has(e.type));
@@ -191,6 +216,7 @@ export const useStore = create<AppState>((set) => ({
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);
+      const newAgentMap = new Map(state.agentMap);
 
       for (const event of newEvents) {
         if (event.type === "task_progress" && event.phase === 5 && isTaskProgressPayload(event.payload)) {
@@ -204,6 +230,33 @@ export const useStore = create<AppState>((set) => ({
             task_total: p.task_total,
             timestamp: event.timestamp,
           });
+        } else if (event.type === "agent_dispatch" && typeof event.payload.agent_id === "string") {
+          newAgentMap.set(event.payload.agent_id as string, {
+            agent_id: event.payload.agent_id as string,
+            agent_label: (event.payload.agent_label as string) || event.payload.agent_id as string,
+            phase: event.phase,
+            status: "dispatched",
+            dispatch_time: event.timestamp,
+          });
+        } else if (event.type === "agent_complete" && typeof event.payload.agent_id === "string") {
+          const existing = newAgentMap.get(event.payload.agent_id as string);
+          newAgentMap.set(event.payload.agent_id as string, {
+            agent_id: event.payload.agent_id as string,
+            agent_label: (event.payload.agent_label as string) || existing?.agent_label || event.payload.agent_id as string,
+            phase: event.phase,
+            status: (event.payload.status as AgentInfo["status"]) || "ok",
+            dispatch_time: existing?.dispatch_time || event.timestamp,
+            complete_time: event.timestamp,
+            summary: event.payload.summary as string | undefined,
+            duration_ms: event.payload.duration_ms as number | undefined,
+          });
+        } else if (event.type === "phase_end" || event.type === "error") {
+          // When a phase ends or errors, mark any still-dispatched agents in that phase as failed
+          for (const [id, info] of newAgentMap) {
+            if (info.phase === event.phase && info.status === "dispatched") {
+              newAgentMap.set(id, { ...info, status: "failed", complete_time: event.timestamp });
+            }
+          }
         }
       }
 
@@ -225,6 +278,7 @@ export const useStore = create<AppState>((set) => ({
         changeName: latest?.change_name ?? state.changeName,
         mode: latest?.mode ?? state.mode,
         taskProgress: newTaskProgress,
+        agentMap: newAgentMap,
         decisionAcked: newDecisionAcked,
       };
     }),
@@ -244,6 +298,7 @@ export const useStore = create<AppState>((set) => ({
       changeName: null,
       mode: null,
       taskProgress: new Map(),
+      agentMap: new Map(),
       decisionAcked: false,
       lastAckedBlockSequence: -1,
     }),

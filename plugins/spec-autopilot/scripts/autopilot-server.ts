@@ -275,10 +275,16 @@ async function serveStaticFile(filePath: string): Promise<Response> {
     if (await file.exists()) {
       const ext = extname(filePath);
       const contentType = MIME_TYPES[ext] || "application/octet-stream";
+      // HTML: no-store to always fetch latest (version may change between builds)
+      // Hashed assets (JS/CSS with content hash in filename): immutable long cache
+      const isHtml = ext === ".html";
+      const cacheControl = isHtml
+        ? "no-store, no-cache, must-revalidate"
+        : "public, max-age=31536000, immutable";
       return new Response(file, {
         headers: {
           "Content-Type": contentType,
-          "Cache-Control": "no-cache",
+          "Cache-Control": cacheControl,
           "Access-Control-Allow-Origin": "*",
         },
       });

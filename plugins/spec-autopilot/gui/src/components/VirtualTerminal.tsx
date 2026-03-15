@@ -4,11 +4,12 @@
  * 数据源: Zustand Store (events)
  */
 
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useStore } from "../store";
+import type { AutopilotEvent } from "../lib/ws-bridge";
 
 // ANSI color codes for event type labels
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -20,7 +21,99 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   task_progress: "\x1b[36m",        // cyan
   gate_decision_pending: "\x1b[33m", // yellow
   gate_decision_received: "\x1b[35m", // magenta
+  agent_dispatch: "\x1b[35m",       // magenta
+  agent_complete: "\x1b[32m",       // green
+  tool_use: "\x1b[2;36m",           // dim cyan
 };
+
+// Filter categories
+type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error";
+
+const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
+  { value: "all", label: "全部" },
+  { value: "lifecycle", label: "阶段生命周期" },
+  { value: "gate", label: "门禁" },
+  { value: "agent", label: "Agent" },
+  { value: "tool", label: "工具调用" },
+  { value: "task", label: "任务进度" },
+  { value: "error", label: "错误" },
+];
+
+const FILTER_MATCH: Record<FilterType, Set<string> | null> = {
+  all: null,
+  lifecycle: new Set(["phase_start", "phase_end"]),
+  gate: new Set(["gate_pass", "gate_block", "gate_decision_pending", "gate_decision_received"]),
+  agent: new Set(["agent_dispatch", "agent_complete"]),
+  tool: new Set(["tool_use"]),
+  task: new Set(["task_progress"]),
+  error: new Set(["error"]),
+};
+
+function matchesFilter(eventType: string, filter: FilterType): boolean {
+  const allowed = FILTER_MATCH[filter];
+  return allowed === null || allowed.has(eventType);
+}
+
+function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): string {
+  const timestamp = new Date(event.timestamp).toLocaleTimeString();
+  const typeUpper = event.type.toUpperCase();
+  const color = EVENT_TYPE_COLORS[event.type] || "\x1b[37m";
+  const reset = "\x1b[0m";
+  const dimGray = "\x1b[90m";
+
+  let detail = "";
+  const p = event.payload;
+  switch (event.type) {
+    case "gate_block":
+      detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
+      if (typeof p.error_message === "string") detail += ` ${dimGray}err=${reset}${p.error_message.slice(0, 80)}`;
+      break;
+    case "gate_pass":
+      detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
+      break;
+    case "phase_end": {
+      let dur = p.duration_ms;
+      if (dur == null || dur === 0) {
+        const phaseStart = allEvents.findLast(
+          (ev) => ev.type === "phase_start" && ev.phase === event.phase
+        );
+        if (phaseStart) {
+          dur = new Date(event.timestamp).getTime() - new Date(phaseStart.timestamp).getTime();
+        }
+      }
+      detail = ` ${dimGray}status=${reset}${String(p.status ?? "--")} ${dimGray}duration=${reset}${String(dur ?? "--")}ms`;
+      break;
+    }
+    case "task_progress":
+      detail = ` ${dimGray}task=${reset}${String(p.task_name ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
+      if (p.tdd_step) detail += ` ${dimGray}tdd=${reset}${String(p.tdd_step)}`;
+      break;
+    case "error":
+      if (typeof p.error_message === "string") detail = ` ${p.error_message.slice(0, 120)}`;
+      break;
+    case "tool_use": {
+      detail = ` ${dimGray}tool=${reset}${String(p.tool_name ?? "--")}`;
+      if (typeof p.key_param === "string") {
+        const labelMap: Record<string, string> = { Bash: "cmd", Glob: "pattern", Grep: "pattern", Agent: "desc" };
+        const lbl = labelMap[p.tool_name as string] ?? "file";
+        detail += ` ${dimGray}${lbl}="${p.key_param}"${reset}`;
+      }
+      if (p.exit_code != null) detail += ` ${dimGray}exit=${reset}${String(p.exit_code)}`;
+      break;
+    }
+    case "agent_dispatch":
+      detail = ` ${dimGray}id=${reset}${String(p.agent_id ?? "--")} ${dimGray}label=${reset}${String(p.agent_label ?? "--")}`;
+      if (p.background) detail += ` ${dimGray}[background]${reset}`;
+      break;
+    case "agent_complete":
+      detail = ` ${dimGray}id=${reset}${String(p.agent_id ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
+      if (p.duration_ms != null) detail += ` ${dimGray}duration=${reset}${String(p.duration_ms)}ms`;
+      if (typeof p.summary === "string") detail += ` ${dimGray}${p.summary.slice(0, 80)}${reset}`;
+      break;
+  }
+
+  return `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}\u2502${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}${detail}\r\n`;
+}
 
 export const VirtualTerminal = memo(function VirtualTerminal() {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -29,7 +122,23 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
   const lastRenderedSequence = useRef<number>(-1);
   const writeBufferRef = useRef<string[]>([]);
   const rafIdRef = useRef<number | null>(null);
+  const filterRef = useRef<FilterType>("all");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const events = useStore((s) => s.events);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownOpen]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -99,6 +208,30 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     rafIdRef.current = null;
   }).current;
 
+  // Replay all events matching filter into terminal
+  const replayFiltered = useCallback((filter: FilterType) => {
+    const term = xtermRef.current;
+    if (!term) return;
+    term.clear();
+    writeBufferRef.current = [];
+    const filtered = events.filter((e) => matchesFilter(e.type, filter));
+    for (const event of filtered) {
+      writeBufferRef.current.push(formatEventLine(event, events));
+    }
+    lastRenderedSequence.current = events.length > 0 ? events[events.length - 1]!.sequence : -1;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(flushBuffer);
+    }
+  }, [events, flushBuffer]);
+
+  // Handle filter change: clear terminal and replay matching events
+  const handleFilterChange = useCallback((newFilter: FilterType) => {
+    filterRef.current = newFilter;
+    setFilterType(newFilter);
+    setDropdownOpen(false);
+    replayFiltered(newFilter);
+  }, [replayFiltered]);
+
   useEffect(() => {
     const term = xtermRef.current;
     if (!term || events.length === 0) return;
@@ -106,39 +239,10 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     const newEvents = events.filter((e) => e.sequence > lastRenderedSequence.current);
     if (newEvents.length === 0) return;
 
+    const currentFilter = filterRef.current;
     for (const event of newEvents) {
-      const timestamp = new Date(event.timestamp).toLocaleTimeString();
-      const typeUpper = event.type.toUpperCase();
-
-      const color = EVENT_TYPE_COLORS[event.type] || "\x1b[37m";
-      const reset = "\x1b[0m";
-      const dimGray = "\x1b[90m";
-
-      // G7: Append key payload fields based on event type
-      let detail = "";
-      const p = event.payload;
-      switch (event.type) {
-        case "gate_block":
-          detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
-          if (typeof p.error_message === "string") detail += ` ${dimGray}err=${reset}${p.error_message.slice(0, 80)}`;
-          break;
-        case "gate_pass":
-          detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
-          break;
-        case "phase_end":
-          detail = ` ${dimGray}status=${reset}${String(p.status ?? "--")} ${dimGray}duration=${reset}${String(p.duration_ms ?? "--")}ms`;
-          break;
-        case "task_progress":
-          detail = ` ${dimGray}task=${reset}${String(p.task_name ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
-          if (p.tdd_step) detail += ` ${dimGray}tdd=${reset}${String(p.tdd_step)}`;
-          break;
-        case "error":
-          if (typeof p.error_message === "string") detail = ` ${p.error_message.slice(0, 120)}`;
-          break;
-      }
-
-      const line = `${dimGray}[${timestamp}]${reset} ${color}${typeUpper}${reset} ${dimGray}\u2502${reset} Phase ${event.phase} ${dimGray}(${event.phase_label})${reset}${detail}\r\n`;
-      writeBufferRef.current.push(line);
+      if (!matchesFilter(event.type, currentFilter)) continue;
+      writeBufferRef.current.push(formatEventLine(event, events));
     }
 
     lastRenderedSequence.current = newEvents[newEvents.length - 1]!.sequence;
@@ -158,6 +262,8 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     };
   }, []);
 
+  const currentLabel = FILTER_OPTIONS.find((o) => o.value === filterType)?.label ?? "全部";
+
   return (
     <section className="h-full flex flex-col bg-void overflow-hidden">
       {/* V2 Terminal Header Bar */}
@@ -168,7 +274,29 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
         </div>
         <div className="flex items-center space-x-4 text-[10px] font-mono text-text-muted">
           <div>事件数: {events.length}</div>
-          <div className="bg-void px-2 border border-border">过滤器: [全部]</div>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((o) => !o)}
+              className="bg-void px-2 py-0.5 border border-border hover:border-cyan/50 transition-colors cursor-pointer"
+            >
+              过滤器: [{currentLabel}]
+            </button>
+            {dropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 bg-surface border border-border z-50 min-w-[140px] shadow-lg">
+                {FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleFilterChange(opt.value)}
+                    className={`block w-full text-left px-3 py-1.5 text-[10px] font-mono hover:bg-elevated transition-colors ${
+                      filterType === opt.value ? "text-cyan" : "text-text-muted"
+                    }`}
+                  >
+                    {filterType === opt.value ? "> " : "  "}{opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

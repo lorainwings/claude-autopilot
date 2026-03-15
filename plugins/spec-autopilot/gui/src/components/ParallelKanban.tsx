@@ -1,10 +1,11 @@
 /**
  * ParallelKanban — V2 水平可滚动任务卡片流
- * 显示 Phase 5 并行任务执行状态
- * 数据源: Zustand Store (taskProgress, currentPhase)
+ * 显示 Phase 5 并行任务执行状态 + Agent 生命周期卡片
+ * 数据源: Zustand Store (taskProgress, agentMap, currentPhase)
  */
 
 import { useStore } from "../store";
+import type { AgentInfo } from "../store";
 
 const TDD_STEP_CONFIG = {
   red: { icon: "\uD83D\uDD34", label: "失败测试", color: "text-rose", borderColor: "border-rose", bgPulse: "bg-rose/5" },
@@ -19,20 +20,38 @@ const STATUS_CONFIG = {
   retrying: { label: "重试中", color: "text-amber", bgColor: "bg-deep", dot: false },
 } as const;
 
-export function ParallelKanban() {
-  const { taskProgress, currentPhase } = useStore();
+const AGENT_STATUS_BADGE: Record<AgentInfo["status"], { icon: string; color: string; label: string }> = {
+  dispatched: { icon: "\u25CF", color: "text-violet animate-pulse", label: "运行中" },
+  ok: { icon: "\u2713", color: "text-emerald", label: "完成" },
+  warning: { icon: "\u26A0", color: "text-amber", label: "警告" },
+  blocked: { icon: "\u2716", color: "text-rose", label: "阻断" },
+  failed: { icon: "\u2716", color: "text-rose", label: "失败" },
+};
 
-  if (currentPhase !== 5 && taskProgress.size === 0) {
+function formatDuration(ms?: number): string {
+  if (ms == null) return "--";
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${s % 60}s`;
+}
+
+export function ParallelKanban() {
+  const { taskProgress, agentMap } = useStore();
+
+  if (taskProgress.size === 0 && agentMap.size === 0) {
     return null;
   }
 
   const tasks = Array.from(taskProgress.values()).sort((a, b) => a.task_index - b.task_index);
+  const agents = Array.from(agentMap.values());
   const passedCount = tasks.filter((t) => t.status === "passed").length;
 
   // G6: Infer parallel mode from concurrent running tasks, TDD from tdd_step fields
   const runningTasks = tasks.filter((t) => t.status === "running");
   const isParallel = runningTasks.length > 1 || tasks.some((t) => t.task_total > 1);
   const hasTdd = tasks.some((t) => t.tdd_step !== undefined);
+  const hasAgents = agents.length > 0;
 
   return (
     <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
@@ -41,7 +60,9 @@ export function ParallelKanban() {
         <div className="flex items-center space-x-3">
           <div className="font-display text-xs font-bold uppercase tracking-widest text-text-bright">执行流水线</div>
           <div className="h-4 w-px bg-border"></div>
-          <div className="text-[10px] font-mono text-cyan">{passedCount}/{tasks.length} 任务已完成</div>
+          <div className="text-[10px] font-mono text-cyan">
+            {tasks.length > 0 ? `${passedCount}/${tasks.length} 任务已完成` : `${agents.length} Agent`}
+          </div>
         </div>
         <div className="flex space-x-2">
           {isParallel && (
@@ -50,16 +71,66 @@ export function ParallelKanban() {
           {hasTdd && (
             <span className="px-2 py-0.5 bg-cyan/20 text-cyan border border-cyan/30 text-[9px] font-bold rounded">TDD 已开启</span>
           )}
+          {hasAgents && (
+            <span className="px-2 py-0.5 bg-violet/20 text-violet border border-violet/30 text-[9px] font-bold rounded">Agent</span>
+          )}
         </div>
       </div>
 
-      {/* Task Cards — Horizontal Scroll */}
-      {tasks.length === 0 ? (
+      {/* Task + Agent Cards — Horizontal Scroll */}
+      {tasks.length === 0 && agents.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm font-mono">
           等待任务分配...
         </div>
       ) : (
         <div className="flex-1 overflow-x-auto overflow-y-hidden flex space-x-4 pb-2">
+          {/* Agent Cards */}
+          {agents.map((agent) => {
+            const badge = AGENT_STATUS_BADGE[agent.status];
+            const isActive = agent.status === "dispatched";
+            const borderColor = isActive ? "border-violet" : agent.status === "ok" ? "border-emerald" : agent.status === "failed" || agent.status === "blocked" ? "border-rose" : "border-amber";
+
+            return (
+              <div
+                key={agent.agent_id}
+                className={`w-64 shrink-0 ${isActive ? "bg-elevated" : "bg-deep"} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden`}
+              >
+                {isActive && (
+                  <div className="absolute inset-0 bg-violet/5 animate-pulse-soft"></div>
+                )}
+
+                <div className="relative z-10">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className={`text-[11px] font-mono font-bold ${isActive ? "text-white" : badge.color}`}>
+                      {agent.agent_label}
+                    </span>
+                    <span className={`text-[9px] ${badge.color} font-bold`}>
+                      {badge.icon} {badge.label}
+                    </span>
+                  </div>
+
+                  <div className="text-[9px] font-mono text-text-muted mb-2">
+                    Phase {agent.phase} | {agent.agent_id}
+                  </div>
+
+                  {agent.summary && (
+                    <div className="text-[9px] font-mono text-text-muted truncate">
+                      {agent.summary.slice(0, 80)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between text-[9px] font-mono text-text-muted mt-2">
+                  <span>{formatDuration(agent.duration_ms)}</span>
+                  <span>
+                    {new Date(agent.complete_time || agent.dispatch_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Task Cards */}
           {tasks.map((task) => {
             const statusCfg = STATUS_CONFIG[task.status];
             const tddCfg = task.tdd_step ? TDD_STEP_CONFIG[task.tdd_step] : null;

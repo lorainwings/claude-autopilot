@@ -70,7 +70,7 @@ export function App() {
       <header className="h-12 border-b border-border bg-abyss flex items-center justify-between px-4 z-50 shrink-0">
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-2">
-            <span className="text-cyan text-xl">&hexmark;</span>
+            <span className="text-cyan text-xl">{"\u2B21"}</span>
             <h1 className="font-display font-bold text-sm tracking-widest text-text-bright uppercase">
               Autopilot <span className="text-cyan">v{__PLUGIN_VERSION__}</span>
             </h1>

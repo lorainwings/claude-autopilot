@@ -15,6 +15,8 @@ mkdir -p "$DIST_DIR"
 if [ -f "$PLUGIN_ROOT/gui/package.json" ] && command -v bun &>/dev/null; then
   echo "🔨 Building GUI (syncing version from plugin.json)..."
   (cd "$PLUGIN_ROOT/gui" && bun run build --mode production 2>&1 | tail -1)
+  # Kill running autopilot-server so next access starts fresh with new assets
+  pkill -f "bun.*autopilot-server.ts.*--project-root" 2>/dev/null || true
 fi
 
 # 3. 白名单复制

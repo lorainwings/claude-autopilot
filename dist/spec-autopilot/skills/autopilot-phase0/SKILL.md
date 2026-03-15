@@ -153,7 +153,7 @@ ANCHOR_SHA=$(git rev-parse HEAD)
 ### Step 10.5: 发射 Phase 0 结束事件（v5.2 Event Bus 补全）
 
 ```bash
-Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","artifacts":["lockfile","anchor_commit"]}\'')
+Bash('bash ${PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}\'')
 ```
 
 ---

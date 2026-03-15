@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.1.12] - 2026-03-15
+
+### Added
+
+- **全量工具调用日志**: 新增 `emit-tool-event.sh` PostToolUse catch-all hook，每次工具调用自动记录 `tool_use` 事件到 events.jsonl（纯 bash 快速路径，无 autopilot 会话时 0 开销）
+- **Agent 生命周期事件**: 新增 `emit-agent-event.sh`，发射 `agent_dispatch` / `agent_complete` 事件；SKILL.md 统一调度模板新增 Step 2.5 + Step 4.5
+- **VirtualTerminal 下拉过滤器**: 7 类别（全部/阶段生命周期/门禁/Agent/工具调用/任务进度/错误），替换原 `[全部]` 占位文字
+- **ParallelKanban Agent 卡片**: 显示 agent_label、状态徽章（spinner/checkmark/x）、耗时、摘要
+- **Store agentMap 状态管理**: 处理 agent_dispatch/agent_complete 事件，phase_end/error 自动清理残留 dispatched Agent
+- **Event Bus API 文档**: 新增 `tool_use`、`agent_dispatch`、`agent_complete` 类型定义
+
+### Fixed
+
+- **Phase 0 耗时显示 "--ms"**: store selectPhaseDurations/selectTotalElapsedMs 新增时间戳差值 fallback；SKILL.md phase0 补充 `duration_ms` 到 phase_end payload
+- **总累计耗时不动态更新**: TelemetryDashboard/PhaseTimeline 的 tick 加入 useMemo deps，使 Date.now() 基于的计算每秒重算
+- **Logo 显示 &hexmark;**: `&hexmark;` 非合法 HTML entity，改为 Unicode ⬡ (U+2B21)
+- **版本号缓存不更新**: autopilot-server.ts index.html Cache-Control 改 `no-store`；build-dist.sh 构建后自动 pkill 旧 server 进程
+
 ## [5.1.11] - 2026-03-15
 
 ### Fixed
