@@ -300,6 +300,37 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# 19y. get_last_valid_phase gap detection — Phase 3 missing, Phase 4 ok → returns 2
+GAP_TEST_DIR=$(mktemp -d)
+mkdir -p "$GAP_TEST_DIR/phase-results"
+echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-1-requirements.json"
+echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-2-openspec.json"
+# Phase 3 deliberately missing
+echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-4-testing.json"
+result=$(get_last_valid_phase "$GAP_TEST_DIR/phase-results" "full")
+if [ "$result" = "2" ]; then
+  green "  PASS: 19y. gap detection — returns 2 (stops at missing Phase 3)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19y. gap detection (got '$result', expected '2')"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$GAP_TEST_DIR"
+
+# 19z. validate_checkpoint_integrity creates .corrupted-backups/
+CORRUPT_TEST_DIR=$(mktemp -d)
+mkdir -p "$CORRUPT_TEST_DIR/phase-results"
+echo "not valid json" > "$CORRUPT_TEST_DIR/phase-results/bad-checkpoint.json"
+validate_checkpoint_integrity "$CORRUPT_TEST_DIR/phase-results/bad-checkpoint.json" 2>/dev/null
+if [ -d "$CORRUPT_TEST_DIR/phase-results/.corrupted-backups" ]; then
+  green "  PASS: 19z. corrupted checkpoint backed up to .corrupted-backups/"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19z. .corrupted-backups/ not created"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$CORRUPT_TEST_DIR"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

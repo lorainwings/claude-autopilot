@@ -130,4 +130,101 @@ else
 fi
 
 echo "Results: $PASS passed, $FAIL failed"
+
+echo ""
+echo "--- E2E-2 (v5.5). New utility function tests ---"
+
+# E2E-2k. get_phase_sequence returns correct sequences
+full_seq=$(get_phase_sequence "full")
+lite_seq=$(get_phase_sequence "lite")
+minimal_seq=$(get_phase_sequence "minimal")
+if [ "$full_seq" = "1 2 3 4 5 6 7" ]; then
+  green "  PASS: E2E-2k-1. full mode sequence correct"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2k-1. full sequence (got '$full_seq')"
+  FAIL=$((FAIL + 1))
+fi
+if [ "$lite_seq" = "1 5 6 7" ]; then
+  green "  PASS: E2E-2k-2. lite mode sequence correct"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2k-2. lite sequence (got '$lite_seq')"
+  FAIL=$((FAIL + 1))
+fi
+if [ "$minimal_seq" = "1 5 7" ]; then
+  green "  PASS: E2E-2k-3. minimal mode sequence correct"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2k-3. minimal sequence (got '$minimal_seq')"
+  FAIL=$((FAIL + 1))
+fi
+
+# E2E-2l. get_next_phase_in_sequence returns correct next phase
+next=$(get_next_phase_in_sequence 1 "full")
+if [ "$next" = "2" ]; then
+  green "  PASS: E2E-2l-1. full: after 1 → 2"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2l-1. full: after 1 (got '$next')"
+  FAIL=$((FAIL + 1))
+fi
+next=$(get_next_phase_in_sequence 1 "lite")
+if [ "$next" = "5" ]; then
+  green "  PASS: E2E-2l-2. lite: after 1 → 5"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2l-2. lite: after 1 (got '$next')"
+  FAIL=$((FAIL + 1))
+fi
+next=$(get_next_phase_in_sequence 7 "full")
+if [ "$next" = "done" ]; then
+  green "  PASS: E2E-2l-3. full: after 7 → done"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2l-3. full: after 7 (got '$next')"
+  FAIL=$((FAIL + 1))
+fi
+next=$(get_next_phase_in_sequence 5 "minimal")
+if [ "$next" = "7" ]; then
+  green "  PASS: E2E-2l-4. minimal: after 5 → 7"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2l-4. minimal: after 5 (got '$next')"
+  FAIL=$((FAIL + 1))
+fi
+
+# E2E-2m. read_phase_commit_sha returns empty for non-git dirs
+SHA_DIR=$(mktemp -d)
+result=$(read_phase_commit_sha "$SHA_DIR" 1 "test-feature")
+if [ -z "$result" ]; then
+  green "  PASS: E2E-2m. non-git dir returns empty SHA"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2m. non-git dir (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$SHA_DIR"
+
+# E2E-2n. get_phase_sequence default is full
+default_seq=$(get_phase_sequence)
+if [ "$default_seq" = "1 2 3 4 5 6 7" ]; then
+  green "  PASS: E2E-2n. default mode sequence = full"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2n. default sequence (got '$default_seq')"
+  FAIL=$((FAIL + 1))
+fi
+
+# E2E-2o. get_next_phase_in_sequence with non-existent phase returns done
+next=$(get_next_phase_in_sequence 99 "full")
+if [ "$next" = "done" ]; then
+  green "  PASS: E2E-2o. non-existent phase → done"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: E2E-2o. non-existent phase (got '$next')"
+  FAIL=$((FAIL + 1))
+fi
+
+echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

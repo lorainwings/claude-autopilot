@@ -119,13 +119,21 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 0 {mode
 
 **从断点继续** → 不清理事件文件（保留历史事件供 GUI 展示已完成 Phase）。
 
-### Step 7: 创建阶段任务
+### Step 7: 创建阶段任务（v5.5 恢复状态增强）
 
 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链：
 - **full 模式**: 创建 Phase 1-7（7 个任务）
 - **lite 模式**: 创建 Phase 1, 5, 6, 7（4 个任务），Phase 5 blockedBy Phase 1，Phase 6 blockedBy Phase 5
 - **minimal 模式**: 创建 Phase 1, 5, 7（3 个任务），Phase 5 blockedBy Phase 1
-- 崩溃恢复时：已完成阶段直接标记 completed
+
+**崩溃恢复时的任务状态标记**（基于 `recovery_phase`）：
+
+对 `get_phase_sequence(mode)` 返回的每个阶段 P：
+- **P < recovery_phase** → TaskCreate 后立即 TaskUpdate status = `completed`
+- **P == recovery_phase** → TaskCreate 后立即 TaskUpdate status = `in_progress`
+- **P > recovery_phase** → 保持默认 `pending` 状态
+
+> **v5.5 变更**: 之前仅将 P < recovery 标记为 completed。现在额外将 P == recovery 标记为 in_progress，使 GUI 和任务列表准确反映当前工作阶段。
 
 ### Step 8: 确保锁文件被 gitignore
 
@@ -137,22 +145,70 @@ echo '.autopilot-active' >> .gitignore
 
 > 此文件是会话级运行时锁，包含 PID/session_id 等本机信息，禁止提交到 git。
 
-### Step 9: 创建锁文件
+### Step 9: 创建锁文件（v5.6 确定性脚本）
 
-调用锁文件管理（本 Skill 内置操作 1，见下方「锁文件管理」章节）：
+直接通过 Bash 调用 python3 内联脚本创建锁文件（替代原有后台 Agent）：
 
-传入参数（由主线程构造 JSON 字符串）：
-```json
-{"change":"pending","pid":"<PID>","started":"<ISO-8601>","session_cwd":"<abs_path>","anchor_sha":"","session_id":"<ms_timestamp>","mode":"<mode>"}
+```bash
+Bash('python3 -c "
+import json, os, sys, tempfile
+
+session_cwd = sys.argv[1]
+lock_data = json.loads(sys.argv[2])
+
+lock_dir = os.path.join(session_cwd, \"openspec/changes\")
+os.makedirs(lock_dir, exist_ok=True)
+lock_path = os.path.join(lock_dir, \".autopilot-active\")
+
+# PID conflict detection
+result = {\"status\": \"ok\", \"action\": \"created\"}
+if os.path.exists(lock_path):
+    try:
+        with open(lock_path) as f:
+            old = json.load(f)
+        old_pid = int(old.get(\"pid\", 0))
+        old_sid = old.get(\"session_id\", \"\")
+        # Check if PID is alive
+        try:
+            os.kill(old_pid, 0)
+            pid_alive = True
+        except (ProcessLookupError, PermissionError, OSError):
+            pid_alive = False
+        if pid_alive and old_sid == lock_data.get(\"session_id\"):
+            result = {\"status\": \"conflict\", \"action\": \"none\", \"message\": f\"PID {old_pid} still alive with same session\"}
+            print(json.dumps(result))
+            sys.exit(0)
+        result[\"action\"] = \"overwritten\"
+    except Exception:
+        result[\"action\"] = \"overwritten\"
+
+# Atomic write: tempfile + os.replace
+tmp_fd, tmp_path = tempfile.mkstemp(dir=lock_dir, suffix=\".tmp\")
+try:
+    with os.fdopen(tmp_fd, \"w\") as f:
+        json.dump(lock_data, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, lock_path)
+except Exception as e:
+    try: os.unlink(tmp_path)
+    except: pass
+    result = {\"status\": \"error\", \"message\": str(e)}
+
+# Verify
+if result[\"status\"] != \"error\":
+    with open(lock_path) as f:
+        json.load(f)  # validate JSON
+
+print(json.dumps(result))
+" "${session_cwd}" '"'"'${lock_json}'"'"'')
 ```
 
-等待后台 Agent 返回：
+解析返回的 JSON：
 - `status: ok` → 继续 Step 10
-- `status: conflict` → AskUserQuestion 由用户决定覆盖/中止（见 lockfile Skill 冲突处理）
+- `status: conflict` → AskUserQuestion 由用户决定覆盖/中止
 
 > **原子性**：初次写入时 `anchor_sha` 设为空字符串，Step 10 创建 commit 后更新。
 
-### Step 10: 创建锚定 Commit
+### Step 10: 创建锚定 Commit（v5.6 确定性更新）
 
 为后续 fixup + autosquash 策略创建空锚定 commit：
 
@@ -161,7 +217,30 @@ git commit --allow-empty -m "autopilot: start <change_name>"
 ANCHOR_SHA=$(git rev-parse HEAD)
 ```
 
-调用锁文件管理（本 Skill 内置操作 2）：将 `ANCHOR_SHA` 写入锁文件的 `anchor_sha` 字段。
+直接通过 Bash 调用 python3 更新锁文件中的 `anchor_sha` 字段（替代原有后台 Agent）：
+
+```bash
+Bash('python3 -c "
+import json, os, sys, tempfile
+
+lock_path = sys.argv[1]
+anchor_sha = sys.argv[2]
+
+with open(lock_path) as f:
+    data = json.load(f)
+data[\"anchor_sha\"] = anchor_sha
+
+tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(lock_path), suffix=\".tmp\")
+try:
+    with os.fdopen(tmp_fd, \"w\") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    os.replace(tmp_path, lock_path)
+    print(json.dumps({\"status\": \"ok\", \"anchor_sha\": anchor_sha}))
+except Exception as e:
+    try: os.unlink(tmp_path)
+    except: pass
+    print(json.dumps({\"status\": \"error\", \"message\": str(e)}))
+" "${session_cwd}/openspec/changes/.autopilot-active" "${ANCHOR_SHA}"')
 
 > **原子性保障**：如果 Step 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
 
@@ -192,9 +271,9 @@ Phase 0 完成后，主编排器获得：
 
 ---
 
-## 锁文件管理（原 autopilot-lockfile，v4.0 合入）
+## 锁文件管理（v5.6 确定性脚本重构）
 
-管理 `${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期。通过后台 Agent 封装 Read→Write→Verify 流程，从根本上解决 Write 工具的前置 Read 要求。
+管理 `${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期。通过 python3 内联脚本 + 原子写入（tempfile + os.replace）确保确定性。
 
 ### 锁文件路径
 
@@ -218,23 +297,7 @@ ${session_cwd}/openspec/changes/.autopilot-active
 
 ### 操作 1: 创建锁文件（Step 9）
 
-使用后台 Agent 创建锁文件：
-
-```
-Agent(subagent_type: "general-purpose", run_in_background: true, prompt: "
-  <!-- lockfile-writer -->
-  你是 autopilot 锁文件管理 Agent。执行以下步骤：
-
-  1. 确保目录存在：Bash('mkdir -p ${session_cwd}/openspec/changes/')
-  2. 检查锁文件是否已存在：Bash('test -f ... && echo exists || echo new')
-     - exists → Read 锁文件，执行 PID 冲突检测
-     - new → 跳过检测
-  3. Write 锁文件 JSON 内容
-  4. Read 验证写入成功
-
-  返回: {\"status\": \"ok|conflict\", \"action\": \"created|overwritten\", \"message\": \"...\"}
-")
-```
+直接 Bash 调用 python3 内联脚本，含 PID 冲突检测 + 原子写入。详见 Step 9。
 
 #### PID 冲突检测逻辑
 
@@ -244,11 +307,9 @@ Agent(subagent_type: "general-purpose", run_in_background: true, prompt: "
 | PID 存活 + session_id 不匹配 | PID 被系统回收 | 自动覆盖，返回 `overwritten` |
 | PID 不存在 | 崩溃残留 | 自动覆盖，返回 `overwritten` |
 
-PID 存活检测：`Bash('kill -0 ${pid} 2>/dev/null && echo alive || echo dead')`
-
 ### 操作 2: 更新 anchor_sha（Step 10）
 
-使用后台 Agent 更新锁文件中的 `anchor_sha` 字段。Read → 更新 JSON → Write → Read 验证。
+直接 Bash 调用 python3 内联脚本，原子更新 JSON + 验证。详见 Step 10。
 
 ### 操作 3: 删除锁文件（Phase 7 Step 7）
 

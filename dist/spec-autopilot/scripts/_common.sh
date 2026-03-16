@@ -173,8 +173,15 @@ except (json.JSONDecodeError, ValueError, OSError):
 " "$file" 2>/dev/null
   local rc=$?
   if [ $rc -ne 0 ]; then
-    echo "WARNING: Corrupted checkpoint removed: $file" >&2
-    rm -f "$file"
+    local backup_dir="$(dirname "$file")/.corrupted-backups"
+    mkdir -p "$backup_dir" 2>/dev/null || true
+    local ts=$(date +%Y%m%d_%H%M%S 2>/dev/null || echo "unknown")
+    if mv "$file" "$backup_dir/$(basename "$file").corrupted.${ts}" 2>/dev/null; then
+      echo "WARNING: Corrupted checkpoint backed up: $file → $backup_dir/" >&2
+    else
+      rm -f "$file"
+      echo "WARNING: Corrupted checkpoint removed: $file" >&2
+    fi
     return 1
   fi
   return 0
@@ -252,8 +259,13 @@ for p in phases:
                 data = json.load(fh)
             if data.get('status') in ('ok', 'warning'):
                 last_valid = p
+            else:
+                break  # failed/blocked/error = gap, stop scanning
         except (json.JSONDecodeError, OSError):
-            pass
+            break  # corrupted = gap, stop scanning
+    else:
+        if last_valid > 0:
+            break  # missing after valid = gap, stop scanning
 print(last_valid)
 " "$dir" "$phases" 2>/dev/null || echo "0"
 }
@@ -417,10 +429,108 @@ next_event_sequence() {
     return 0
   fi
 
-  # Lock contention: immediate fallback to timestamp+PID unique sequence
-  local ns; ns=$(date +%N 2>/dev/null)
-  case "$ns" in *[!0-9]*|'') ns=$RANDOM ;; esac
-  echo "$(date +%s)${ns}$$"
+  # Lock contention: monotonic fallback — read current + PID-derived offset
+  local current_approx=0
+  [ -f "$seq_file" ] && current_approx=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
+  [ -z "$current_approx" ] && current_approx=0
+  echo $(( current_approx + 1000 + ($$ % 100) ))
+}
+
+# --- Get gap phases (missing/failed between valid checkpoints) ---
+# Usage: get_gap_phases <phase_results_dir> [mode]
+# Returns: JSON array of gap phase numbers on stdout, e.g. [3, 4]
+# A gap is a phase that is missing/failed/error after the first valid phase
+get_gap_phases() {
+  local dir="$1"
+  local mode="${2:-full}"
+
+  local phases
+  case "$mode" in
+    lite)    phases="1 5 6 7" ;;
+    minimal) phases="1 5 7" ;;
+    *)       phases="1 2 3 4 5 6 7" ;;
+  esac
+
+  python3 -c "
+import json, sys, os, glob
+phase_results_dir = sys.argv[1]
+phases = [int(p) for p in sys.argv[2].split()]
+gaps = []
+first_valid_seen = False
+for p in phases:
+    pattern = os.path.join(phase_results_dir, f'phase-{p}-*.json')
+    files = sorted(glob.glob(pattern), key=lambda f: os.path.getmtime(f), reverse=True)
+    files = [f for f in files if not f.endswith('.tmp') and not f.endswith('-progress.json') and not f.endswith('-interim.json')]
+    if files:
+        try:
+            with open(files[0]) as fh:
+                data = json.load(fh)
+            if data.get('status') in ('ok', 'warning'):
+                first_valid_seen = True
+            elif first_valid_seen:
+                gaps.append(p)
+        except (json.JSONDecodeError, OSError):
+            if first_valid_seen:
+                gaps.append(p)
+    else:
+        if first_valid_seen:
+            gaps.append(p)
+print(json.dumps(gaps))
+" "$dir" "$phases" 2>/dev/null || echo "[]"
+}
+
+# --- Get phase sequence for a given mode ---
+# Usage: get_phase_sequence <mode>
+# Returns: space-separated phase numbers (e.g. "1 2 3 4 5 6 7")
+get_phase_sequence() {
+  case "${1:-full}" in
+    lite)    echo "1 5 6 7" ;;
+    minimal) echo "1 5 7" ;;
+    *)       echo "1 2 3 4 5 6 7" ;;
+  esac
+}
+
+# --- Get next phase in sequence ---
+# Usage: get_next_phase_in_sequence <current_phase> <mode>
+# Returns: next phase number, or "done" if current is the last phase
+get_next_phase_in_sequence() {
+  local current="$1"
+  local mode="${2:-full}"
+  local seq
+  seq=$(get_phase_sequence "$mode")
+
+  local found=false
+  for p in $seq; do
+    if [ "$found" = "true" ]; then
+      echo "$p"
+      return 0
+    fi
+    [ "$p" = "$current" ] && found=true
+  done
+  echo "done"
+}
+
+# --- Read phase commit SHA from git history ---
+# Usage: read_phase_commit_sha <project_root> <phase> <change_name>
+# Returns: commit SHA on stdout, or empty string if not found
+# Uses git log --grep to find the checkpoint commit (backward compatible)
+read_phase_commit_sha() {
+  local project_root="$1"
+  local phase="$2"
+  local change_name="$3"
+
+  local sha
+  # Tier 1: exact autopilot commit format (current branch)
+  sha=$(git -C "$project_root" log --grep="^autopilot:.*Phase ${phase}\b" --grep="${change_name}" --all-match --format="%H" -1 2>/dev/null) || true
+  # Tier 2: fixup commit with change_name (current branch)
+  if [ -z "$sha" ]; then
+    sha=$(git -C "$project_root" log --grep="^fixup!.*${change_name}.*Phase ${phase}\b" --format="%H" -1 2>/dev/null) || true
+  fi
+  # Tier 3: broad --all (backward compatible with old commits)
+  if [ -z "$sha" ]; then
+    sha=$(git -C "$project_root" log --all --grep="Phase ${phase}" --grep="autopilot.*${change_name}" --all-match --format="%H" -1 2>/dev/null) || true
+  fi
+  echo "$sha"
 }
 
 # --- Check if current Task is a background agent ---

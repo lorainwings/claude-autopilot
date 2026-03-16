@@ -1,5 +1,33 @@
 # Changelog
 
+## [5.1.18] - 2026-03-17
+
+### Added
+
+- **recovery-decision.sh**: 确定性恢复扫描脚本（纯只读 JSON 输出），提供完整的 checkpoint/interim/progress/git 状态扫描
+- **clean-phase-artifacts.sh**: 统一制品清理脚本（文件清理 + 事件过滤 + git 回退），支持 `--dry-run` 和 `--git-target-sha`
+- **_common.sh 新增函数**: `get_phase_sequence()` / `get_next_phase_in_sequence()` / `read_phase_commit_sha()` / `get_gap_phases()`
+- **三选项恢复**: autopilot-recovery SKILL 重构为（断点继续 / 指定阶段恢复 / 从头开始）
+- **Phase 跳过机制**: Phase 1 跳过规则 + Phases 2-6 Step -1 前置检查
+- **新增测试**: `test_clean_phase_artifacts.sh` (27 cases) + `test_recovery_decision.sh` (24 cases) + e2e 扩展 (10 cases)
+
+### Fixed
+
+- **Gap 感知**: `last_valid_phase` 在首个缺口处停止，`continue.phase` 指向缺口而非跳过
+- **Mode 一致性**: lockfile mode 优先于 CLI 入参用于扫描序列
+- **Interim/progress 驱动决策**: `has_checkpoints` 含 interim/progress，`sub_step` 注入到 recovery_options
+- **Git 操作归属检查**: rebase/merge abort 仅限 autopilot 相关操作
+- **Stash 安全**: `-u` 含 untracked + count 验证 + 失败跳过 reset + 自动 restore
+- **Worktree 清理**: 限定 change_name 范围，不影响其他会话
+- **read_phase_commit_sha Tier 2**: 加入 change_name 限制，避免多 change 场景匹配错误
+- **顶层 local**: 移除函数外 local 声明
+- **specify_range**: 仅含实际完成阶段（排除 gap 阶段）
+- **progress-only 恢复**: 用 max(progress_phase) 而非硬编码 Phase 1
+
+### Changed
+
+- **autopilot-phase0 Step 7**: 任务标记改为 P < recovery → completed, P == recovery → in_progress, P > recovery → pending
+
 ## [5.1.15] - 2026-03-16
 
 ### Added

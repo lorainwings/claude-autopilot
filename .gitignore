@@ -56,3 +56,4 @@ tmp/
 temp/
 *.tmp
 plugins/spec-autopilot/logs/
+.tmp-review-*/

@@ -101,6 +101,8 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
 
 **核心原则**: 绝不假设，始终列出选项由用户决策。
 
+**v5.5 跳过规则**: 当 `recovery_phase > 1` 时，Phase 1 已完成，跳过整个 Phase 1 流程。直接从 `recovery_phase` 对应的阶段继续。跳过时不发射 Phase 1 事件。
+
 **执行前读取**: `references/phase1-requirements.md`（完整的 10 步流程）
 
 **Step 0: 发射 Phase 1 开始事件（v5.2 Event Bus 补全）**
@@ -183,6 +185,13 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start 1 {mode
 对于每个 Phase N（2 ≤ N ≤ 6），在**主线程**中执行：
 
 ```
+Step -1: 恢复跳过前置检查（v5.5 新增）
+        → 当 recovery_phase 已设定时，检查当前 Phase N 是否需要跳过：
+          - N < recovery_phase → 该阶段已在之前会话完成，**跳过整个 Phase N**（不执行 Step 0-8）
+          - N == recovery_phase → 从该阶段开始恢复执行（进入 Step 0）
+          - N > recovery_phase → 正常执行（进入 Step 0）
+        → 跳过的 Phase 不发射 phase_start/phase_end 事件
+        → 跳过的 Phase 的 Task 已在 Phase 0 Step 7 中标记为 completed
 Step 0: 发射 Phase 开始事件（v4.2 Event Bus）
         → Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-phase-event.sh phase_start {N} {mode}')
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")

@@ -4,167 +4,151 @@ description: "[ONLY for autopilot orchestrator] Crash recovery protocol for auto
 user-invocable: false
 ---
 
-# Autopilot Recovery — 崩溃恢复协议
+# Autopilot Recovery — 崩溃恢复协议（v5.6）
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 
+### 脚本依赖
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/recovery-decision.sh` | 确定性恢复扫描（纯只读，JSON 输出） |
+| `scripts/clean-phase-artifacts.sh` | 统一清理阶段制品 + 事件过滤 + git 状态回退 |
+
 ### 共享基础设施依赖
 
-本 Skill 依赖 `scripts/_common.sh` 提供的以下共享函数，**不重复实现** checkpoint/锁文件扫描逻辑：
+本 Skill 通过 `recovery-decision.sh` 间接使用 `scripts/_common.sh` 提供的以下共享函数：
 
 | 函数 | 用途 |
 |------|------|
 | `scan_all_checkpoints(phase_results_dir, mode)` | 按阶段顺序扫描全部 checkpoint，返回 JSON 结果 |
-| `get_last_valid_phase(phase_results_dir, mode)` | 返回最后一个 status=ok/warning 的阶段编号 |
+| `get_last_valid_phase(phase_results_dir, mode)` | 返回最后一个 status=ok/warning 的阶段编号（含 gap 检测） |
+| `get_gap_phases(phase_results_dir, mode)` | 返回 gap 阶段列表（v5.6 新增） |
+| `get_phase_sequence(mode)` | 返回模式对应的阶段序列 |
+| `get_next_phase_in_sequence(current, mode)` | 返回序列中下一阶段编号 |
+| `read_phase_commit_sha(project_root, phase, change_name)` | 从 git 历史查找阶段 commit SHA（三级 fallback） |
 | `read_lock_json_field(lock_file, field, default)` | 提取锁文件 JSON 字段（mode、anchor_sha 等） |
-| `find_active_change(changes_dir, trailing_slash)` | 按优先级查找活跃 change 目录 |
-| `validate_checkpoint_integrity(checkpoint_file)` | 验证 checkpoint JSON 完整性 |
-
-> 上述函数的实现和参数说明详见 `scripts/_common.sh`。
 
 ## 恢复流程
 
-### 1. 扫描 Checkpoint
+### Step 1: 调用确定性扫描
 
-扫描 `openspec/changes/` 目录，找到所有含 checkpoint 的 change：
+执行 `recovery-decision.sh`，获取完整的恢复决策数据：
 
 ```bash
-ls openspec/changes/*/context/phase-results/*.json 2>/dev/null
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/recovery-decision.sh "${session_cwd}/openspec/changes" "${mode}" --change "${change_name_if_known}"')
 ```
 
-**v5.1 原子写入残留清理**：扫描并删除所有 `.tmp` 残留文件（崩溃时未完成的原子写入）：
-```bash
-rm -f openspec/changes/*/context/phase-results/*.json.tmp 2>/dev/null
+解析 JSON 输出，后续**所有决策基于此数据**，不再执行任何内联 bash 扫描命令。
+
+JSON 输出包含：
+- `has_checkpoints`: 是否存在 checkpoint
+- `changes[]`: 每个 change 的完整扫描结果（last_valid_phase、gap 检测、interim、progress）
+- `selected_change`: 预选的 change 名称（可能为 null）
+- `recommended_recovery_phase`: 推荐恢复起始阶段
+- `recovery_options`: 三种恢复路径选项
+- `git_state`: git rebase/merge/worktree 状态
+- `lock_file`: 锁文件状态
+
+### Step 2: 多 Change 选择（如需）
+
+若 `selected_change == null` 且 `changes.length > 1`：
+
 ```
-
-**v5.2 TDD 状态残留清理**：删除崩溃时遗留的 `.tdd-stage` 文件，防止恢复后 Hook 误判 TDD 阶段：
-```bash
-rm -f openspec/changes/*/context/.tdd-stage 2>/dev/null
-```
-
-### 2. 选择目标 Change
-
-**仅一个 change** → 自动选中。
-
-**多个 change 有 checkpoint** → 通过 AskUserQuestion 让用户明确选择：
-```
+AskUserQuestion:
 "检测到多个活跃 change，请选择要恢复的："
-选项:（按最近修改时间排序，最新在前）
-- "feature-a（Phase 4 已完成）(Recommended)"
-- "feature-b（Phase 2 已完成）"
+选项:（按 total_checkpoints 降序排列）
+- "{name}（Phase {last_valid_phase} 已完成：{last_valid_label}）(Recommended)"
+- "{name}（Phase {last_valid_phase} 已完成）"
 - "从头开始新 change"
 ```
 
-**`$ARGUMENTS` 包含 change 名称** → 直接匹配该 change，跳过选择。
+若 `selected_change` 已确定（--change 指定或仅一个 change）→ 跳过此步骤。
 
-### 2. 确定最后完成阶段
+### Step 3: 用户决策
 
-按顺序检查 checkpoint 文件：
+基于扫描结果中的 `has_checkpoints`：
 
-| 文件 | 含义 |
-|------|------|
-| phase-1-interim.json | Phase 1 中间态（v5.1：调研完成或决策轮次 N 完成） |
-| phase-1-requirements.json | Phase 1 完成（需求已确认） |
-| phase-2-openspec.json | Phase 2 完成（仅 full 模式） |
-| phase-3-ff.json | Phase 3 完成（仅 full 模式） |
-| phase-4-testing.json | Phase 4 完成（仅 full 模式） |
-| phase-5-implement.json | Phase 5 完成 |
-| phase-6-report.json | Phase 6 完成（仅 full/lite 模式） |
-| phase-7-summary.json | Phase 7 完成（归档完毕） |
+**无 checkpoint**（`has_checkpoints == false`）→ `recovery_phase = 1`，直接开始。
 
-对每个文件：读取 JSON → 验证 `status` 为 `ok` 或 `warning`（中间态 `in_progress` 也视为有效恢复点）。
+**Phase 7 已完成**（`phase7_status == "ok"`）→ 提示用户 change 已完全完成（含归档），可清理 change 目录或开始新 change。
 
-找到最后一个有效 checkpoint → 记录阶段号 N。
+**Phase 7 进行中**（`phase7_status == "in_progress"`）→ 归档未完成，提示用户手动执行 `/opsx:archive` 完成归档。
 
-### 2.1 Phase 1 中间态恢复（v5.1 新增）
+**有 checkpoint（Phase 1-6）**→ 使用 `recovery_options` 展示三选项：
 
-当 `phase-1-interim.json` 存在但 `phase-1-requirements.json` 不存在时，Phase 1 部分完成：
-
-| `stage` 字段 | 恢复行为 |
-|--------------|---------|
-| `research_complete` | 跳过三路调研（Step 1.2-1.3），从复杂度评估（Step 1.4）继续 |
-| `decision_round_N` | 跳过调研和已完成决策轮，从第 N+1 轮决策继续。从 `decisions_resolved` 恢复已确认的决策 |
-
-恢复时向用户展示：
 ```
-"检测到 Phase 1 中间进度：{stage}。是否从断点继续？"
+AskUserQuestion:
+"检测到 change '{selected_change}' 的阶段 {last_valid_phase} 已完成（{last_valid_label}）。请选择恢复方式："
 选项：
-- "从断点继续 (Recommended)"
-- "重新开始 Phase 1（清空调研缓存）"
+- "从断点继续（Phase {recovery_options.continue.phase}: {recovery_options.continue.label}）(Recommended)"
+- "从指定阶段恢复"
+- "从头开始（清空所有历史）"
 ```
 
-### 2.2 子步骤进度恢复（v5.3 新增）
-
-当 `phase-{N}-progress.json` 存在时，可实现比 checkpoint 更细粒度的恢复。扫描逻辑：
-
-```bash
-ls openspec/changes/<name>/context/phase-results/phase-*-progress.json 2>/dev/null
-```
-
-| `step` 字段 | 恢复行为 |
-|-------------|---------|
-| `research_dispatched` | 检查 `context/project-context.md` + `context/research-findings.md` 存在性 → 都存在则跳过调研 → 至少一个缺失重新派发全部 |
-| `research_complete` | 跳过调研（同 Phase 1 interim） |
-| `ba_dispatched` | 检查 `context/requirements-analysis.md` 存在性 → 存在则跳过 BA → 不存在重新派发 |
-| `ba_complete` | 跳过 BA |
-| `gate_passed` | 跳过 Gate 验证 |
-| `agent_dispatched` | 检查 `phase-results/phase-{N}-*.json` checkpoint 文件 → 存在视为完成跳过 → 不存在重新派发 |
-| `agent_complete` | 跳过 Agent → 直接写 checkpoint |
-| `task_N_merged` | Phase 5 并行模式：从下一未合并 task 继续 |
-
-Progress 文件优先级**低于** checkpoint。当 checkpoint 已存在时，忽略 progress 文件直接使用 checkpoint 恢复。
-
-恢复完成并写入新 checkpoint 后，清理旧 progress 文件：`rm -f phase-{N}-progress.json`
-
-### 2.3 Git Rebase 中间态检测（v5.3 新增）
-
-恢复时检查 git rebase 中间状态：
-```bash
-[ -d .git/rebase-merge ] && git rebase --abort
-```
-
-### 2.4 Worktree 残留检测（v5.3 新增）
-
-恢复时检查 Phase 5 并行模式的 worktree 残留：
-```bash
-git worktree list | grep autopilot-task
-```
-如有残留，输出警告信息并建议用户手动清理。
-
-### 3. 用户决策
-
-**无 checkpoint**：从 Phase 1 正常开始。
-
-**有 checkpoint（Phase 1-6）**：展示恢复信息，通过 AskUserQuestion 询问：
+**选择「从指定阶段恢复」时** → 追加第二轮 AskUserQuestion：
 
 ```
-"检测到 change '{name}' 的阶段 {N} 已完成。是否从阶段 {N+1} 继续？"
-选项：
-- "从断点继续 (Recommended)"
-- "从头开始（清空历史）"
+"请选择要恢复到的阶段（该阶段之后的所有制品将被清理）："
+选项:（仅展示 recovery_options.specify_range 中的阶段）
+- "Phase 1: Requirements"
+- "Phase 2: OpenSpec"
+- ...
 ```
 
-**Phase 7 checkpoint 存在**：
+**Gap 检测警告**：当 `has_gaps == true` 时，在展示恢复选项前输出警告：
+```
+⚠️ 检测到 checkpoint 断裂（gap phases: {gap_phases}）。建议从断点继续或从头开始。
+```
 
-- `status === "in_progress"` → 归档未完成，提示用户手动执行 `/opsx:archive` 完成归档
-- `status === "ok"` → change 已完全完成（含归档），提示用户可清理 change 目录或开始新 change
+### Step 4: 执行恢复路径
 
-### 4. 执行恢复
+#### 路径 A：从断点继续
 
-**从断点继续**：
-- 返回起始阶段号 N+1
+- `recovery_phase = recovery_options.continue.phase`
 - 编排主线程在 TaskCreate 时将已完成阶段标记为 completed
+- 不清理任何制品
 
-**上下文重建协议（v5.3 新增）**：
-恢复时读取所有已完成 Phase 的上下文快照，拼接为恢复上下文摘要：
+#### 路径 B：从指定阶段恢复
+
+- 用户选择的目标阶段为 `target_phase`
+- `recovery_phase = target_phase`
+- **Git SHA 查找**：
+  ```bash
+  TARGET_SHA=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/_common.sh && read_phase_commit_sha "${session_cwd}" ${target_phase} "${change_name}")
+  ```
+  - **找到 SHA** → 传递给 clean-phase-artifacts.sh 的 `--git-target-sha` 参数
+  - **未找到 SHA**（旧版 commit 无标记） → 跳过 git 回退，仅清理文件制品，输出警告
+- **调用清理脚本**：
+  ```bash
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/clean-phase-artifacts.sh ${target_phase} ${mode} "${change_dir}" --git-target-sha ${TARGET_SHA}')
+  ```
+  清理脚本自动处理：git 回退 → 文件清理 → 事件过滤（事务性顺序）
+- 解析清理脚本的 JSON 输出，向用户展示清理摘要
+
+#### 路径 C：从头开始
+
+- `recovery_phase = 1`
+- **调用清理脚本**：
+  ```bash
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/clean-phase-artifacts.sh 1 ${mode} "${change_dir}"')
+  ```
+  不传 `--git-target-sha`（不回退 git 状态，仅清理文件）
+- 返回起始阶段号 1
+
+### Step 5: 上下文重建 + Anchor SHA 验证
+
+#### 上下文重建协议
+
+恢复时读取 **phase < recovery_phase** 的上下文快照，拼接为恢复上下文摘要：
 
 ```bash
 ls openspec/changes/<name>/context/phase-context-snapshots/phase-*-context.md 2>/dev/null
 ```
 
-对每个存在的 `phase-{N}-context.md`：
+对每个存在的 `phase-{P}-context.md`（其中 P < recovery_phase）：
 1. 读取文件内容
 2. 提取 "关键决策摘要" 和 "下阶段所需上下文" 段落
 3. 拼接为恢复上下文摘要，注入主线程
@@ -178,26 +162,27 @@ Phase 2: [摘要...]
 === End Context Recovery ===
 ```
 
-**从头开始**：
-- 删除 `phase-results/` 目录
-- 返回起始阶段号 1
+> **路径 B 注意**: 仅注入 target_phase 之前的上下文快照，不注入被清理阶段的上下文。
 
-### 5. Mode 恢复
+#### Anchor SHA 验证
 
-从锁文件 `${session_cwd}/openspec/changes/.autopilot-active` 读取 `mode` 字段（full/lite/minimal）。注意使用绝对路径。
-
-- **mode 字段存在** → 使用锁文件中的 mode
-- **mode 字段不存在**（旧版兼容） → 默认 "full"
-
-恢复后的 mode 传递给主线程，用于 Task 系统重建时的阶段选择。
-
-### Step 6: Anchor SHA 验证
-
-从锁文件读取 `anchor_sha` 字段：
+从锁文件 `lock_file.anchor_sha` 字段（由 Step 1 JSON 提供）：
 
 1. **空字符串** → 创建新锚定 commit：`Bash("git commit --allow-empty -m 'autopilot: anchor (recovery)'")`，将新 SHA 写回锁文件的 `anchor_sha` 字段
 2. **非空但 `git rev-parse ${anchor_sha}^{commit}` 失败** → 同上，创建新锚定 commit 并更新锁文件
 3. **有效** → 继续使用现有 anchor_sha，输出 `Anchor SHA verified: ${anchor_sha}`
+
+### 5. Mode 恢复
+
+从 `effective_mode` 字段（由 Step 1 JSON 提供）获取实际扫描使用的模式。`recovery-decision.sh` 自动解析锁文件 `${session_cwd}/openspec/changes/.autopilot-active` 中的 mode 并优先使用：
+
+- **锁文件 mode 非空** → 使用锁文件中的 mode（确保与上次会话一致）
+- **锁文件 mode 为空或不存在** → 使用 CLI 传入的 mode
+- **CLI 也未指定** → 默认 "full"
+
+恢复后的 mode 传递给主线程，用于 Task 系统重建时的阶段选择。
+
+> **v5.6.1 变更**: 之前 mode 仅从 CLI 入参获取，可能与锁文件中记录的 mode 不一致。现在 `recovery-decision.sh` 自动以锁文件 mode 为准。
 
 ## Task 系统重建
 
@@ -208,10 +193,6 @@ Phase 2: [摘要...]
 | full | Phase 1-7（7 个任务） |
 | lite | Phase 1, 5, 6, 7（4 个任务） |
 | minimal | Phase 1, 5, 7（3 个任务） |
-
-## SessionStart Hook 集成
-
-`scan-checkpoints-on-start.sh` Hook 在会话启动时自动扫描 checkpoint 目录，输出摘要信息。本 Skill 在此基础上提供交互式恢复决策。
 
 ## TDD 恢复逻辑
 
@@ -233,3 +214,7 @@ Phase 2: [摘要...]
    - 验证测试文件存在（GREEN/REFACTOR 恢复时）
    - 验证测试当前状态（运行测试命令确认）
    - 从正确的 TDD step 继续
+
+## SessionStart Hook 集成
+
+`scan-checkpoints-on-start.sh` Hook 在会话启动时自动扫描 checkpoint 目录，输出摘要信息。本 Skill 在此基础上提供交互式恢复决策。
