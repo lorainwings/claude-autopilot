@@ -13,6 +13,23 @@ interface GateBlockCardProps {
   onDecision?: (action: "retry" | "fix" | "override", phase: number, reason?: string) => void;
 }
 
+function isOverrideAllowed(
+  phase: number,
+  mode: "full" | "lite" | "minimal",
+  payload: Record<string, unknown>
+) {
+  if (typeof payload.override_allowed === "boolean") {
+    return payload.override_allowed;
+  }
+  if (phase === 5 && mode === "full") {
+    return false;
+  }
+  if (phase === 6 && (mode === "full" || mode === "lite")) {
+    return false;
+  }
+  return true;
+}
+
 export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   const { events, decisionAcked, connected } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
@@ -33,8 +50,19 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   // v5.2: Decision ACK received — hide the card immediately
   if (decisionAcked) return null;
   const { phase, phase_label, payload } = latest;
+  const overrideAllowed = isOverrideAllowed(phase, latest.mode, payload);
+  const overrideBlockedReason = phase === 5 && latest.mode === "full"
+    ? "Phase 4 -> 5 门禁禁止强制通过"
+    : phase === 6 && (latest.mode === "full" || latest.mode === "lite")
+      ? "Phase 5 -> 6 门禁禁止强制通过"
+      : "当前门禁禁止强制通过";
 
   const handleDecision = async (action: "retry" | "fix" | "override") => {
+    if (action === "override" && !overrideAllowed) {
+      setError(overrideBlockedReason);
+      return;
+    }
+
     // Abort any in-flight request
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -90,6 +118,13 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
           </div>
         )}
 
+        {!overrideAllowed && (
+          <div className="flex items-center space-x-2 text-[11px] text-amber bg-amber/10 border border-amber/40 rounded p-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{overrideBlockedReason}</span>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-center space-x-2 text-[11px] text-rose bg-rose/10 border border-rose/40 rounded p-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -136,7 +171,7 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
           </button>
           <button
             onClick={() => handleDecision("override")}
-            disabled={loading !== null || !connected}
+            disabled={loading !== null || !connected || !overrideAllowed}
             className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-rose/10 border border-rose/30 text-rose text-[10px] font-bold uppercase tracking-wider rounded hover:bg-rose/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             <Zap className="w-3 h-3" />

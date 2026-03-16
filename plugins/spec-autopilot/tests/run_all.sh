@@ -41,15 +41,19 @@ for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
 
   # Run in subshell for isolation
   if output=$(bash "$test_file" 2>&1); then
-    # Extract pass/fail counts from output
-    pass=$(echo "$output" | grep -o 'PASS:' | wc -l | tr -d ' ')
-    fail=0
-    TOTAL_PASS=$((TOTAL_PASS + pass))
+    exit_code=0
   else
-    # Extract counts even on failure
-    pass=$(echo "$output" | grep -o 'PASS:' | wc -l | tr -d ' ')
-    fail=$(echo "$output" | grep -o 'FAIL:' | wc -l | tr -d ' ')
-    TOTAL_PASS=$((TOTAL_PASS + pass))
+    exit_code=$?
+  fi
+
+  pass=$(echo "$output" | grep -o 'PASS:' | wc -l | tr -d ' ')
+  fail=$(echo "$output" | grep -o 'FAIL:' | wc -l | tr -d ' ')
+  TOTAL_PASS=$((TOTAL_PASS + pass))
+
+  if [ "$exit_code" -ne 0 ] || [ "$fail" -gt 0 ]; then
+    if [ "$fail" -eq 0 ]; then
+      fail=1
+    fi
     TOTAL_FAIL=$((TOTAL_FAIL + fail))
     FAILED_FILES+=("$test_name")
   fi

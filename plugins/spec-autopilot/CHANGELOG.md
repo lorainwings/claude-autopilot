@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.1.19] - 2026-03-17
+
+### Added
+
+- **新增定向回归测试**: `test_build_dist.sh`、`test_collect_metrics.sh`、`test_poll_gate_decision.sh`、`test_run_all.sh`，覆盖分发完整性、最新 checkpoint 选择、override 安全限制和测试聚合器误报场景
+- **全维度评测报告**: 新增 `docs/reports/v5.1.18/holistic-evaluation-report-v5.1.18.md`
+
+### Fixed
+
+- **Phase 7 运行时缺脚本**: `build-dist.sh` 现在会将 `collect-metrics.sh` 一并打包进 dist，修复运行时缺失
+- **测试总控假绿**: `tests/run_all.sh` 现在会识别测试脚本输出中的 `FAIL:` 行，即使退出码错误地为 0 也会判定失败
+- **危险 override 通道**: `poll-gate-decision.sh` 对 full Phase 5、full/lite Phase 6 禁止 override，并在请求 JSON 中显式输出 `override_allowed`
+- **GUI 门禁误导**: `GateBlockCard.tsx` 在禁止 override 的门禁场景下禁用按钮并显示警示信息
+- **指标采集读取旧 checkpoint**: `collect-metrics.sh` 改为按文件修改时间选择最新 checkpoint，而非按文件名排序
+- **macOS Bash 3.2 兼容性**: `clean-phase-artifacts.sh` 移除 `mapfile` 依赖，修复 preserve-path stdin 读取和 stash 输出污染问题
+
 ## [5.1.18] - 2026-03-17
 
 ### Added

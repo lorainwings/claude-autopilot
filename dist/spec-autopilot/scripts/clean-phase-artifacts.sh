@@ -101,63 +101,61 @@ case "$EVENTS_FILE" in
 esac
 
 collect_preserve_paths() {
-  python3 - "$CHANGE_REL" "$FROM_PHASE" "$EVENTS_REL" <<'PY'
+  python3 -c "
 import sys
 
-change_rel = sys.argv[1].strip("/")
+change_rel = sys.argv[1].strip('/')
 from_phase = int(sys.argv[2])
-events_rel = sys.argv[3].strip("/")
-raw_paths = sys.stdin.buffer.read().split(b"\0")
+events_rel = sys.argv[3].strip('/')
+raw_paths = sys.stdin.buffer.read().split(b'\0')
 
 seen = set()
 paths = []
 for raw in raw_paths:
     if not raw:
         continue
-    path = raw.decode("utf-8", "surrogateescape")
+    path = raw.decode('utf-8', 'surrogateescape')
     if path in seen:
         continue
     seen.add(path)
     paths.append(path)
 
-
 def is_cleanup_path(path: str) -> bool:
     if events_rel and path == events_rel:
         return True
 
-    phase_results_prefix = f"{change_rel}/context/phase-results/"
-    snapshots_prefix = f"{change_rel}/context/phase-context-snapshots/"
+    phase_results_prefix = f'{change_rel}/context/phase-results/'
+    snapshots_prefix = f'{change_rel}/context/phase-context-snapshots/'
 
-    if from_phase <= 5 and path == f"{change_rel}/context/.tdd-stage":
+    if from_phase <= 5 and path == f'{change_rel}/context/.tdd-stage':
         return True
 
     if path.startswith(phase_results_prefix):
         name = path[len(phase_results_prefix):]
-        if from_phase <= 5 and (name == "phase5-tasks" or name.startswith("phase5-tasks/")):
+        if from_phase <= 5 and (name == 'phase5-tasks' or name.startswith('phase5-tasks/')):
             return True
-        if from_phase <= 6 and name.startswith("phase-6.5-") and (
-            name.endswith(".json") or name.endswith(".json.tmp")
+        if from_phase <= 6 and name.startswith('phase-6.5-') and (
+            name.endswith('.json') or name.endswith('.json.tmp')
         ):
             return True
         for phase in range(from_phase, 8):
-            if name.startswith(f"phase-{phase}-") and (
-                name.endswith(".json") or name.endswith(".json.tmp")
+            if name.startswith(f'phase-{phase}-') and (
+                name.endswith('.json') or name.endswith('.json.tmp')
             ):
                 return True
 
     if path.startswith(snapshots_prefix):
         name = path[len(snapshots_prefix):]
         for phase in range(from_phase, 8):
-            if name == f"phase-{phase}-context.md":
+            if name == f'phase-{phase}-context.md':
                 return True
 
     return False
 
-
 for path in paths:
     if not is_cleanup_path(path):
         print(path)
-PY
+" "$CHANGE_REL" "$FROM_PHASE" "$EVENTS_REL"
 }
 
 # --- Step 1: Git state rollback (before file cleanup for transactional safety) ---
@@ -213,7 +211,10 @@ if [ -n "$GIT_TARGET_SHA" ]; then
 
     # Preserve only non-cleanup working changes so restoring them does not reintroduce cleaned artifacts.
     if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet HEAD 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
-      mapfile -t PRESERVE_PATHS < <(
+      PRESERVE_PATHS=()
+      while IFS= read -r preserve_path; do
+        PRESERVE_PATHS+=("$preserve_path")
+      done < <(
         {
           git diff --name-only -z
           git diff --cached --name-only -z
@@ -223,7 +224,7 @@ if [ -n "$GIT_TARGET_SHA" ]; then
 
       if [ "${#PRESERVE_PATHS[@]}" -gt 0 ]; then
         stash_count_before=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
-        git stash push -u -m "autopilot-recovery-$(date +%s)" -- "${PRESERVE_PATHS[@]}" 2>/dev/null
+        git stash push -u -m "autopilot-recovery-$(date +%s)" -- "${PRESERVE_PATHS[@]}" >/dev/null 2>/dev/null
         stash_count_after=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
         if [ "$stash_count_after" -gt "$stash_count_before" ]; then
           STASH_CREATED=true

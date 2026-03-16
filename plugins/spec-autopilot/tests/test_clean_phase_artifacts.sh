@@ -291,76 +291,76 @@ REPO="$TMPDIR/repo"
 CHANGE="$REPO/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
 mkdir -p "$PR" "$REPO/logs"
-(
-  cd "$REPO" || exit 1
-  git init -q
-  git config user.email test@example.com
-  git config user.name test
-  echo "base" > tracked.txt
-  git add tracked.txt
-  git commit -q -m init
-  echo "user-change" > tracked.txt
-  echo '{"status":"ok"}' > "$PR/phase-5-implement.json"
-  OUTPUT=$(bash "$CLEAN_SCRIPT" 5 full "$CHANGE" --git-target-sha HEAD 2>/dev/null)
-  STATUS=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])" 2>/dev/null)
-  STASH_RESTORED=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['stash_restored'])" 2>/dev/null)
-  STASH_REF=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['stash_ref'])" 2>/dev/null)
-  STASH_COUNT=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
-  TRACKED_CONTENT=$(cat tracked.txt)
-  if [ -f "$PR/phase-5-implement.json" ]; then
-    PHASE_EXISTS=yes
-  else
-    PHASE_EXISTS=no
-  fi
+ORIG_PWD=$(pwd)
+cd "$REPO" || exit 1
+git init -q
+git config user.email test@example.com
+git config user.name test
+echo "base" > tracked.txt
+git add tracked.txt
+git commit -q -m init
+echo "user-change" > tracked.txt
+echo '{"status":"ok"}' > "$PR/phase-5-implement.json"
+OUTPUT=$(bash "$CLEAN_SCRIPT" 5 full "$CHANGE" --git-target-sha HEAD 2>/dev/null)
+STATUS=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])" 2>/dev/null)
+STASH_RESTORED=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['stash_restored'])" 2>/dev/null)
+STASH_REF=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['stash_ref'])" 2>/dev/null)
+STASH_COUNT=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
+TRACKED_CONTENT=$(cat tracked.txt)
+if [ -f "$PR/phase-5-implement.json" ]; then
+  PHASE_EXISTS=yes
+else
+  PHASE_EXISTS=no
+fi
+cd "$ORIG_PWD" || exit 1
 
-  if [ "$STATUS" = "ok" ]; then
-    green "  PASS: 14a. script status ok after restore"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14a. script status (got '$STATUS')"
-    FAIL=$((FAIL + 1))
-  fi
+if [ "$STATUS" = "ok" ]; then
+  green "  PASS: 14a. script status ok after restore"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14a. script status (got '$STATUS')"
+  FAIL=$((FAIL + 1))
+fi
 
-  if [ "$STASH_RESTORED" = "True" ] || [ "$STASH_RESTORED" = "true" ]; then
-    green "  PASS: 14b. preserved stash restored automatically"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14b. stash_restored (got '$STASH_RESTORED')"
-    FAIL=$((FAIL + 1))
-  fi
+if [ "$STASH_RESTORED" = "True" ] || [ "$STASH_RESTORED" = "true" ]; then
+  green "  PASS: 14b. preserved stash restored automatically"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14b. stash_restored (got '$STASH_RESTORED')"
+  FAIL=$((FAIL + 1))
+fi
 
-  if [ -z "$STASH_REF" ]; then
-    green "  PASS: 14c. no stash_ref left after successful restore"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14c. stash_ref still set (got '$STASH_REF')"
-    FAIL=$((FAIL + 1))
-  fi
+if [ -z "$STASH_REF" ]; then
+  green "  PASS: 14c. no stash_ref left after successful restore"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14c. stash_ref still set (got '$STASH_REF')"
+  FAIL=$((FAIL + 1))
+fi
 
-  if [ "$STASH_COUNT" = "0" ]; then
-    green "  PASS: 14d. no stash entries left behind"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14d. stash entries remaining ($STASH_COUNT)"
-    FAIL=$((FAIL + 1))
-  fi
+if [ "$STASH_COUNT" = "0" ]; then
+  green "  PASS: 14d. no stash entries left behind"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14d. stash entries remaining ($STASH_COUNT)"
+  FAIL=$((FAIL + 1))
+fi
 
-  if [ "$TRACKED_CONTENT" = "user-change" ]; then
-    green "  PASS: 14e. tracked user change restored"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14e. tracked content (got '$TRACKED_CONTENT')"
-    FAIL=$((FAIL + 1))
-  fi
+if [ "$TRACKED_CONTENT" = "user-change" ]; then
+  green "  PASS: 14e. tracked user change restored"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14e. tracked content (got '$TRACKED_CONTENT')"
+  FAIL=$((FAIL + 1))
+fi
 
-  if [ "$PHASE_EXISTS" = "no" ]; then
-    green "  PASS: 14f. cleaned phase artifact not restored"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 14f. phase artifact restored unexpectedly"
-    FAIL=$((FAIL + 1))
-  fi
-)
+if [ "$PHASE_EXISTS" = "no" ]; then
+  green "  PASS: 14f. cleaned phase artifact not restored"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 14f. phase artifact restored unexpectedly"
+  FAIL=$((FAIL + 1))
+fi
 rm -rf "$TMPDIR"
 
 echo "Results: $PASS passed, $FAIL failed"

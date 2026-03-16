@@ -40,6 +40,29 @@ CONTEXT_DIR="${CHANGE_DIR}context"
 DECISION_REQUEST_FILE="${CONTEXT_DIR}/decision-request.json"
 DECISION_FILE="${CONTEXT_DIR}/decision.json"
 
+OVERRIDE_ALLOWED=$(python3 -c "
+import json, sys
+
+phase = int(sys.argv[1])
+mode = sys.argv[2]
+raw_reason = sys.argv[3]
+
+allowed = True
+if phase == 5 and mode == 'full':
+    allowed = False
+elif phase == 6 and mode in ('full', 'lite'):
+    allowed = False
+
+try:
+    payload = json.loads(raw_reason) if raw_reason else {}
+    if isinstance(payload, dict) and isinstance(payload.get('override_allowed'), bool):
+        allowed = payload['override_allowed']
+except Exception:
+    pass
+
+print('true' if allowed else 'false')
+" "$PHASE" "$MODE" "$BLOCK_REASON_JSON" 2>/dev/null || echo "true")
+
 # --- Step 1: Write decision-request.json ---
 TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -53,7 +76,8 @@ request = {
     'mode': sys.argv[2],
     'gate_result': 'blocked',
     'timestamp': sys.argv[3],
-    'awaiting_decision': True
+    'awaiting_decision': True,
+    'override_allowed': sys.argv[5].lower() == 'true',
 }
 
 # Merge block reason payload
@@ -64,9 +88,9 @@ try:
 except (json.JSONDecodeError, ValueError):
     request['error_message'] = sys.argv[4]
 
-with open(sys.argv[5], 'w') as f:
+with open(sys.argv[6], 'w') as f:
     json.dump(request, f, ensure_ascii=False, indent=2)
-" "$PHASE" "$MODE" "$TIMESTAMP" "$BLOCK_REASON_JSON" "$DECISION_REQUEST_FILE" 2>/dev/null
+" "$PHASE" "$MODE" "$TIMESTAMP" "$BLOCK_REASON_JSON" "$OVERRIDE_ALLOWED" "$DECISION_REQUEST_FILE" 2>/dev/null
 
 if [ $? -ne 0 ]; then
   echo "ERROR: Failed to write decision-request.json" >&2
@@ -94,6 +118,9 @@ try:
     if action not in ('override', 'retry', 'fix'):
         print(json.dumps({'error': f'Invalid action: {action}. Must be: override, retry, fix'}))
         sys.exit(1)
+    if action == 'override' and sys.argv[3].lower() != 'true':
+        print(json.dumps({'error': 'Override is forbidden for this gate. Use retry or fix instead.'}))
+        sys.exit(1)
 
     # Normalize
     decision['action'] = action
@@ -108,7 +135,7 @@ except json.JSONDecodeError as e:
 except Exception as e:
     print(json.dumps({'error': str(e)}))
     sys.exit(1)
-" "$DECISION_FILE" "$PHASE" 2>/dev/null)
+" "$DECISION_FILE" "$PHASE" "$OVERRIDE_ALLOWED" 2>/dev/null)
 
     VALIDATE_EXIT=$?
 
