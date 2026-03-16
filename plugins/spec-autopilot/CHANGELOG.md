@@ -10,6 +10,7 @@
 ### Fixed
 
 - **Phase 7 运行时缺脚本**: `build-dist.sh` 现在会将 `collect-metrics.sh` 一并打包进 dist，修复运行时缺失
+- **CI GUI 构建脆弱性**: `build-dist.sh` 仅在 `bun` 和 `gui/node_modules` 同时存在时才重建 GUI；无依赖环境回退到已提交的 `gui-dist`
 - **测试总控假绿**: `tests/run_all.sh` 现在会识别测试脚本输出中的 `FAIL:` 行，即使退出码错误地为 0 也会判定失败
 - **危险 override 通道**: `poll-gate-decision.sh` 对 full Phase 5、full/lite Phase 6 禁止 override，并在请求 JSON 中显式输出 `override_allowed`
 - **GUI 门禁误导**: `GateBlockCard.tsx` 在禁止 override 的门禁场景下禁用按钮并显示警示信息

@@ -6,24 +6,38 @@ PLUGIN_NAME="spec-autopilot"
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 DIST_DIR="$REPO_ROOT/dist/$PLUGIN_NAME"
+GUI_ROOT="$PLUGIN_ROOT/gui"
+GUI_DIST_DIR="$PLUGIN_ROOT/gui-dist"
 
 # 1. 清空并重建
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # 2. 重新构建 GUI（确保 __PLUGIN_VERSION__ 与 plugin.json 同步）
-if [ -f "$PLUGIN_ROOT/gui/package.json" ] && command -v bun &>/dev/null; then
-  echo "🔨 Building GUI (syncing version from plugin.json)..."
-  (cd "$PLUGIN_ROOT/gui" && bun run build --mode production 2>&1 | tail -1)
-  # Kill running autopilot-server so next access starts fresh with new assets
-  pkill -f "bun.*autopilot-server.ts.*--project-root" 2>/dev/null || true
+if [ -f "$GUI_ROOT/package.json" ]; then
+  if command -v bun >/dev/null 2>&1 && [ -d "$GUI_ROOT/node_modules" ]; then
+    echo "🔨 Building GUI (syncing version from plugin.json)..."
+    (cd "$GUI_ROOT" && bun run build --mode production 2>&1 | tail -1)
+    # Kill running autopilot-server so next access starts fresh with new assets
+    pkill -f "bun.*autopilot-server.ts.*--project-root" 2>/dev/null || true
+  elif [ -d "$GUI_DIST_DIR" ]; then
+    echo "ℹ️ Skipping GUI rebuild; using checked-in gui-dist"
+  else
+    echo "ERROR: gui-dist missing and GUI rebuild is unavailable (bun + gui/node_modules required)"
+    exit 1
+  fi
+fi
+
+if [ ! -d "$GUI_DIST_DIR" ]; then
+  echo "ERROR: gui-dist directory is missing: $GUI_DIST_DIR"
+  exit 1
 fi
 
 # 3. 白名单复制
 cp -r "$PLUGIN_ROOT/.claude-plugin" "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/hooks"          "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/skills"         "$DIST_DIR/"
-cp -r "$PLUGIN_ROOT/gui-dist"       "$DIST_DIR/"
+cp -r "$GUI_DIST_DIR"               "$DIST_DIR/"
 
 # 4. scripts/ — 排除开发专用脚本和 node_modules
 mkdir -p "$DIST_DIR/scripts"
