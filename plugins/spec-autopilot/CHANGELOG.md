@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.21] - 2026-03-17
+
+### Added
+
+- **补充 v5.1.18 评测文档集**: 新增 `architecture-and-workflow-evolution.md`、`competitive-analysis.md`、`performance-benchmark.md`、`phase1-benchmark.md`、`phase5-codegen-audit.md`、`phase6-tdd-audit.md`、`stability-audit.md`
+
 ## [5.1.19] - 2026-03-17
 
 ### Added
