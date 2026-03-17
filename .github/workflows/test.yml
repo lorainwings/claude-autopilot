@@ -24,5 +24,10 @@ jobs:
       - name: Verify python3 available
         run: python3 --version
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install GUI dependencies
+        run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
+
       - name: Run hook test suite
         run: bash plugins/spec-autopilot/tests/run_all.sh
