@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
       - 'plugins/**'
+      - '.github/workflows/**'
 
 jobs:
   test-hooks:
