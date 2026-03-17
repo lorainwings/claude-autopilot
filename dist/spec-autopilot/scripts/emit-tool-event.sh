@@ -85,8 +85,24 @@ fi
 
 # --- Read active agent_id from marker file (WS4.A: tool_use ↔ agent correlation) ---
 CURRENT_AGENT_ID=""
+CURRENT_SESSION_ID=""
+if [[ "$STDIN_DATA" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+  CURRENT_SESSION_ID="${BASH_REMATCH[1]}"
+fi
+if [ -z "$CURRENT_SESSION_ID" ]; then
+  CURRENT_SESSION_ID="${AUTOPILOT_SESSION_ID:-}"
+fi
+if [ -z "$CURRENT_SESSION_ID" ] && [ -f "$PROJECT_ROOT/openspec/changes/.autopilot-active" ]; then
+  CURRENT_SESSION_ID=$(read_lock_json_field "$PROJECT_ROOT/openspec/changes/.autopilot-active" "session_id" "")
+fi
 ACTIVE_AGENT_FILE="$PROJECT_ROOT/logs/.active-agent-id"
-if [ -f "$ACTIVE_AGENT_FILE" ]; then
+if [ -n "$CURRENT_SESSION_ID" ]; then
+  SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$CURRENT_SESSION_ID")
+  if [ -f "$SESSION_AGENT_FILE" ]; then
+    CURRENT_AGENT_ID=$(head -1 "$SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
+  fi
+fi
+if [ -z "$CURRENT_AGENT_ID" ] && [ -f "$ACTIVE_AGENT_FILE" ]; then
   CURRENT_AGENT_ID=$(head -1 "$ACTIVE_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
 fi
 

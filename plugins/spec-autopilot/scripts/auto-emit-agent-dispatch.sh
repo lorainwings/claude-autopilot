@@ -65,11 +65,19 @@ fi
 PROJECT_ROOT="$PROJECT_ROOT_QUICK"
 LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"
 MODE="full"
+SESSION_ID=""
 if [ -f "$LOCK_FILE" ]; then
-  # Pure bash JSON field extraction for speed
-  if [[ "$(cat "$LOCK_FILE" 2>/dev/null)" =~ \"mode\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+  # Read lock file once to avoid TOCTOU
+  _LOCK_CONTENT=$(cat "$LOCK_FILE" 2>/dev/null) || _LOCK_CONTENT=""
+  if [[ "$_LOCK_CONTENT" =~ \"mode\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
     MODE="${BASH_REMATCH[1]}"
   fi
+  if [[ "$_LOCK_CONTENT" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+    SESSION_ID="${BASH_REMATCH[1]}"
+  fi
+fi
+if [ -z "$SESSION_ID" ] && [[ "$STDIN_DATA" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+  SESSION_ID="${BASH_REMATCH[1]}"
 fi
 
 # --- Extract agent label from Task description ---
@@ -122,6 +130,10 @@ ACTIVE_AGENT_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$ACTIVE_AGENT_DIR" 2>/dev/null || true
 echo "$AGENT_ID" > "$ACTIVE_AGENT_DIR/.active-agent-id" 2>/dev/null || true
 echo "$AGENT_ID" > "$ACTIVE_AGENT_DIR/.active-agent-phase-${PHASE}" 2>/dev/null || true
+if [ -n "$SESSION_ID" ]; then
+  SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$SESSION_ID")
+  echo "$AGENT_ID" > "$SESSION_AGENT_FILE" 2>/dev/null || true
+fi
 
 # --- Record dispatch timestamp for duration calculation (millisecond precision) ---
 DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"

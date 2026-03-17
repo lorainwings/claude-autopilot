@@ -26,6 +26,7 @@ function formatShortDuration(ms: number): string {
 
 export const TelemetryDashboard = memo(function TelemetryDashboard() {
   const events = useStore((s) => s.events);
+  const latestStatus = useStore((s) => s.latestStatus);
 
   // G9: Force re-render every second when a phase is running
   // tick is included in useMemo deps so Date.now()-based selectors recompute
@@ -64,6 +65,37 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
 
   return (
     <aside className="w-[360px] bg-abyss border-l border-border flex flex-col p-4 space-y-4 overflow-y-auto shrink-0">
+      {/* Card 0: Runtime Telemetry */}
+      <section className="bg-deep border border-border p-4 rounded-lg">
+        <h3 className="font-display text-[10px] font-bold text-text-bright uppercase mb-4 flex items-center">
+          <span className="w-2 h-2 rounded-full bg-cyan mr-2"></span> 运行遥测
+        </h3>
+        {latestStatus ? (
+          <div className="space-y-2 text-[11px] font-mono">
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">模型</span>
+              <span className="text-text-bright truncate">{latestStatus.model || "--"}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">目录</span>
+              <span className="text-text-bright truncate">{latestStatus.cwd || "--"}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">成本</span>
+              <span className="text-text-bright truncate">{latestStatus.cost || "--"}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">Worktree</span>
+              <span className="text-text-bright truncate">{latestStatus.worktree || "--"}</span>
+            </div>
+            <div className="text-text-muted">Transcript</div>
+            <div className="text-text-bright break-all text-[10px]">{latestStatus.transcript_path || "--"}</div>
+          </div>
+        ) : (
+          <div className="text-[11px] font-mono text-text-muted">未接入 statusLine 或当前会话暂无遥测</div>
+        )}
+      </section>
+
       {/* Card 1: Session Metrics */}
       <section className="bg-deep border border-border p-4 rounded-lg">
         <h3 className="font-display text-[10px] font-bold text-text-bright uppercase mb-4 flex items-center">

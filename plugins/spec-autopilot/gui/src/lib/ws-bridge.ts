@@ -14,6 +14,10 @@ export interface AutopilotEvent {
   total_phases: number;
   sequence: number;
   payload: Record<string, unknown>;
+  event_id?: string;
+  ingest_seq?: number;
+  source?: "legacy" | "hook" | "statusline" | "transcript";
+  raw_ref?: string;
 }
 
 type EventHandler = (events: AutopilotEvent[]) => void;

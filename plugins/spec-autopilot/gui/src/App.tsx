@@ -9,9 +9,9 @@ import { WSBridge } from "./lib/ws-bridge";
 import { useStore } from "./store";
 import { PhaseTimeline } from "./components/PhaseTimeline";
 import { GateBlockCard } from "./components/GateBlockCard";
-import { VirtualTerminal } from "./components/VirtualTerminal";
 import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
+import { LogWorkbench } from "./components/LogWorkbench";
 
 declare const __PLUGIN_VERSION__: string;
 
@@ -110,8 +110,8 @@ export function App() {
         {/* Left Panel: Phase Timeline */}
         <PhaseTimeline />
 
-        {/* Center Panel: Kanban (top 45%) + Terminal (bottom 55%) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-void">
+          {/* Center Panel: Kanban (top 42%) + LogWorkbench (bottom 58%) */}
+          <div className="flex-1 flex flex-col min-w-0 bg-void">
           {/* Gate Block Card — Floating overlay when active */}
           <div className="relative">
             <div className="absolute top-4 left-4 right-4 z-30">
@@ -134,13 +134,13 @@ export function App() {
           {hasEvents && (
             <>
               {/* ParallelKanban (Top) */}
-              <div className="h-[45%]">
+              <div className="h-[42%]">
                 <ParallelKanban />
               </div>
 
-              {/* HackerTerminal (Bottom) */}
-              <div className="h-[55%]">
-                <VirtualTerminal />
+              {/* Log Workbench (Bottom) */}
+              <div className="h-[58%]">
+                <LogWorkbench />
               </div>
             </>
           )}

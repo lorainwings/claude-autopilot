@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gui_store_cap.sh — Regression test for GUI store event cap limits
-# Verifies: critical events capped at 200, regular events capped at 800
+# Verifies: critical events capped at 400, regular events capped at 2400
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
@@ -46,15 +46,15 @@ function makeEvents(count: number, type: string, startSeq: number) {
 
 const store = useStore;
 
-// Test 1: 250 critical events should be capped to 200
-store.getState().addEvents(makeEvents(250, "phase_start", 1));
+// Test 1: 450 critical events should be capped to 400
+store.getState().addEvents(makeEvents(450, "phase_start", 1));
 const afterCritical = store.getState().events;
 const critCount = afterCritical.filter((e) => e.type === "phase_start").length;
 
-// Test 2: Reset and add 900 regular + 50 critical
+// Test 2: Reset and add 2600 regular + 50 critical
 store.getState().reset();
 store.getState().addEvents(makeEvents(50, "gate_block", 1));
-store.getState().addEvents(makeEvents(900, "tool_use", 100));
+store.getState().addEvents(makeEvents(2600, "tool_use", 100));
 const afterMixed = store.getState().events;
 const mixedCrit = afterMixed.filter((e) => e.type === "gate_block").length;
 const mixedReg = afterMixed.filter((e) => e.type === "tool_use").length;
@@ -80,12 +80,12 @@ MIXED_CRIT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.s
 MIXED_REG=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['mixedReg'])" 2>/dev/null || echo "")
 TOTAL=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['total'])" 2>/dev/null || echo "")
 
-# Test 1: 250 critical → capped to 200
-if [ "$CRIT_COUNT" = "200" ]; then
-  green "  PASS: 1. critical events capped at 200 (250 → 200)"
+# Test 1: 450 critical → capped to 400
+if [ "$CRIT_COUNT" = "400" ]; then
+  green "  PASS: 1. critical events capped at 400 (450 → 400)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 1. critical events cap (expected 200, got '$CRIT_COUNT')"
+  red "  FAIL: 1. critical events cap (expected 400, got '$CRIT_COUNT')"
   FAIL=$((FAIL + 1))
 fi
 
@@ -98,19 +98,19 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-if [ "$MIXED_REG" = "800" ]; then
-  green "  PASS: 2b. regular events capped at 800 (900 → 800)"
+if [ "$MIXED_REG" = "2400" ]; then
+  green "  PASS: 2b. regular events capped at 2400 (2600 → 2400)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 2b. regular events cap (expected 800, got '$MIXED_REG')"
+  red "  FAIL: 2b. regular events cap (expected 2400, got '$MIXED_REG')"
   FAIL=$((FAIL + 1))
 fi
 
-if [ "$TOTAL" = "850" ]; then
-  green "  PASS: 2c. total events = 850 (50 critical + 800 regular)"
+if [ "$TOTAL" = "2450" ]; then
+  green "  PASS: 2c. total events = 2450 (50 critical + 2400 regular)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 2c. total events (expected 850, got '$TOTAL')"
+  red "  FAIL: 2c. total events (expected 2450, got '$TOTAL')"
   FAIL=$((FAIL + 1))
 fi
 

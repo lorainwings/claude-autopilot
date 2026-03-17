@@ -441,34 +441,75 @@ get_total_phases() {
   esac
 }
 
+# --- Sanitize session identifiers for filesystem-safe marker paths ---
+# Usage: sanitize_session_key <session_id>
+# Returns: sanitized key on stdout
+sanitize_session_key() {
+  local raw="${1:-unknown}"
+  local sanitized
+  sanitized=$(printf "%s" "$raw" | tr -c '[:alnum:]._-' '_' | sed 's/^_//; s/_$//')
+  [ -n "$sanitized" ] && echo "$sanitized" || echo "unknown"
+}
+
+# --- Get session-scoped active agent marker path ---
+# Usage: get_session_agent_marker_file <project_root> <session_id>
+# Returns: marker file path on stdout
+get_session_agent_marker_file() {
+  local project_root="$1"
+  local session_id="${2:-unknown}"
+  local session_key
+  session_key=$(sanitize_session_key "$session_id")
+  echo "$project_root/logs/.active-agent-session-${session_key}"
+}
+
 # --- Auto-increment event sequence counter ---
 # Usage: next_event_sequence <project_root>
 # Returns: next sequence number on stdout (1-based)
-# Thread-safe via mkdir atomic lock — single attempt + immediate fallback (no blocking)
+# Thread-safe via mkdir atomic lock with bounded retry
 next_event_sequence() {
   local project_root="$1"
   local seq_file="$project_root/logs/.event_sequence"
   local lock_dir="$project_root/logs/.event_sequence.lk"
+  local max_attempts="${AUTOPILOT_EVENT_SEQ_RETRIES:-200}"
+  local attempt=0
+  local acquired=0
   mkdir -p "$(dirname "$seq_file")" 2>/dev/null || true
 
-  # Single mkdir attempt — no spinning, no blocking
-  if mkdir "$lock_dir" 2>/dev/null; then
+  while [ "$attempt" -lt "$max_attempts" ]; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      acquired=1
+      break
+    fi
+    # Stale lock detection: if lock dir older than 30s, force remove
+    if [ "$attempt" -eq 10 ] && [ -d "$lock_dir" ]; then
+      local lock_age=0
+      if [[ "$(uname)" == "Darwin" ]]; then
+        lock_age=$(( $(date +%s) - $(stat -f "%m" "$lock_dir" 2>/dev/null || echo "$(date +%s)") ))
+      else
+        lock_age=$(( $(date +%s) - $(stat -c "%Y" "$lock_dir" 2>/dev/null || echo "$(date +%s)") ))
+      fi
+      if [ "$lock_age" -gt 30 ]; then
+        rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
+      fi
+    fi
+    attempt=$((attempt + 1))
+    sleep 0.005
+  done
+
+  if [ "$acquired" -eq 1 ]; then
     local current=0
     [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
     [ -z "$current" ] && current=0
     local next=$((current + 1))
-    echo "$next" > "$seq_file"
-    echo "$next"
-    # Release lock
-    rmdir "$lock_dir" 2>/dev/null
+    printf "%s\n" "$next" > "$seq_file"
+    printf "%s\n" "$next"
+    rmdir "$lock_dir" 2>/dev/null || true
     return 0
   fi
 
-  # Lock contention: monotonic fallback — read current + PID-derived offset
-  local current_approx=0
-  [ -f "$seq_file" ] && current_approx=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
-  [ -z "$current_approx" ] && current_approx=0
-  echo $(( current_approx + 1000 + ($$ % 100) ))
+  local ts_ms
+  ts_ms=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || date +%s000)
+  echo "${ts_ms}$$"
 }
 
 # --- Get gap phases (missing/failed between valid checkpoints) ---

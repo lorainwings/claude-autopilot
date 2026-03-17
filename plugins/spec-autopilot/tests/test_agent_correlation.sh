@@ -56,8 +56,22 @@ else
   PASS=$((PASS + 1))
 fi
 
+# 2e. Session-scoped marker has priority over global marker
+echo "phase-global" > "$REPO_ROOT/logs/.active-agent-id"
+echo "phase-session" > "$REPO_ROOT/logs/.active-agent-session-sess-2"
+TOOL_JSON_SESSION='{"session_id":"sess-2","tool_name":"Read","tool_input":{"file_path":"/tmp/test.txt"},"tool_result":{"output":"file contents"},"cwd":"'"$REPO_ROOT"'"}'
+echo "$TOOL_JSON_SESSION" | bash "$SCRIPT_DIR/emit-tool-event.sh" 2>/dev/null
+LAST_EVENT=$(tail -1 "$REPO_ROOT/logs/events.jsonl" 2>/dev/null)
+if echo "$LAST_EVENT" | grep -q 'phase-session'; then
+  green "  PASS: 2e. session-scoped agent marker wins"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2e. session-scoped agent marker not used"
+  FAIL=$((FAIL + 1))
+fi
+
 # Cleanup
-rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/events.jsonl" "$REPO_ROOT/logs/.event_sequence" 2>/dev/null || true
+rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/.active-agent-session-sess-2" "$REPO_ROOT/logs/events.jsonl" "$REPO_ROOT/logs/.event_sequence" 2>/dev/null || true
 rmdir "$REPO_ROOT/logs/.event_sequence.lk" 2>/dev/null || true
 rmdir "$REPO_ROOT/logs" 2>/dev/null || true
 

@@ -14,12 +14,13 @@ if python3 -c "
 import json
 with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
     data = json.load(f)
-# Only the first SessionStart group (scan-checkpoints) needs async: true
-# The compact reinject hook must be synchronous to feed context back
-scan_group = data['hooks']['SessionStart'][0]
-assert 'matcher' not in scan_group, 'First SessionStart group should not have matcher'
-for hook in scan_group['hooks']:
-    assert hook.get('async') is True, f'scan-checkpoints hook missing async: true'
+# scan-checkpoints hook must remain async even if other capture hooks share the same group
+scan_groups = [g for g in data['hooks']['SessionStart'] if 'matcher' not in g]
+assert scan_groups, 'Missing default SessionStart group'
+hooks = [hook for group in scan_groups for hook in group['hooks']]
+scan_hooks = [hook for hook in hooks if 'scan-checkpoints-on-start.sh' in hook.get('command', '')]
+assert len(scan_hooks) == 1, f'Expected exactly one scan-checkpoints hook, got {len(scan_hooks)}'
+assert scan_hooks[0].get('async') is True, 'scan-checkpoints hook missing async: true'
 print('ok')
 " 2>/dev/null | grep -q "ok"; then
   green "  PASS: SessionStart scan-checkpoints hook has async: true"

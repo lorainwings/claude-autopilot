@@ -78,7 +78,7 @@ sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' \
 
 # 6. 校验: hooks.json 引用的脚本都存在于 dist
 MISSING=0
-for script in $(grep -o 'scripts/[^"]*' "$DIST_DIR/hooks/hooks.json" | sed 's|scripts/||'); do
+for script in $(grep -o 'scripts/[^" ]*\.sh' "$DIST_DIR/hooks/hooks.json" | sed 's|scripts/||'); do
   if [ ! -f "$DIST_DIR/scripts/$script" ]; then
     echo "ERROR: hooks.json references scripts/$script but it's missing from dist"
     MISSING=1

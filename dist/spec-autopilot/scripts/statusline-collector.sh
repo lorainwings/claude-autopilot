@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# statusline-collector.sh
+# Collect Claude Code status line JSON for GUI telemetry while printing a compact status line.
+# Usage: statusline-collector.sh
+
+set -uo pipefail
+
+STDIN_DATA=""
+if [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
+
+if [ -z "$STDIN_DATA" ]; then
+  printf "[autopilot] idle"
+  exit 0
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
+PROJECT_ROOT=$(python3 -c '
+import json, os, sys
+data = json.loads(sys.stdin.read())
+cwd = data.get("cwd")
+if isinstance(cwd, str) and cwd:
+    print(cwd)
+elif os.environ.get("AUTOPILOT_PROJECT_ROOT"):
+    print(os.environ["AUTOPILOT_PROJECT_ROOT"])
+else:
+    print(os.getcwd())
+' <<< "$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
+[ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
+
+# Pre-extract session_id and sanitize using shared _common.sh function
+SESSION_ID=$(python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); v=d.get("session_id",""); print(v if isinstance(v,str) and v else "unknown")' <<< "$STDIN_DATA" 2>/dev/null) || SESSION_ID="unknown"
+SESSION_KEY=$(sanitize_session_key "$SESSION_ID")
+
+export AUTOPILOT_STATUS_PROJECT_ROOT="$PROJECT_ROOT"
+export AUTOPILOT_STATUS_SESSION_ID="$SESSION_ID"
+export AUTOPILOT_STATUS_SESSION_KEY="$SESSION_KEY"
+STDIN_FILE=$(mktemp "${TMPDIR:-/tmp}/autopilot-statusline.XXXXXX")
+printf "%s" "$STDIN_DATA" > "$STDIN_FILE"
+trap 'rm -f "$STDIN_FILE"' EXIT
+export AUTOPILOT_STATUS_STDIN_FILE="$STDIN_FILE"
+
+STATUS_LINE=$(python3 - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+def get_any(d, *names):
+    for name in names:
+        val = d.get(name)
+        if val not in (None, ""):
+            return val
+    return None
+
+try:
+    data = json.loads(Path(os.environ.get("AUTOPILOT_STATUS_STDIN_FILE", "")).read_text(encoding="utf-8"))
+except Exception:
+    print("[autopilot] telemetry-error")
+    raise SystemExit(0)
+
+project_root = os.environ.get("AUTOPILOT_STATUS_PROJECT_ROOT", "")
+session_id = os.environ.get("AUTOPILOT_STATUS_SESSION_ID") or get_any(data, "session_id") or "unknown"
+session_key = os.environ.get("AUTOPILOT_STATUS_SESSION_KEY") or "unknown"
+captured_at = datetime.now(timezone.utc).isoformat()
+
+raw_dir = Path(project_root) / "logs" / "sessions" / session_key / "raw"
+raw_dir.mkdir(parents=True, exist_ok=True)
+
+record = {
+    "source": "statusline",
+    "captured_at": captured_at,
+    "project_root": project_root,
+    "session_id": session_id,
+    "session_key": session_key,
+    "cwd": get_any(data, "cwd"),
+    "transcript_path": get_any(data, "transcript_path"),
+    "data": data,
+}
+with (raw_dir / "statusline.jsonl").open("a", encoding="utf-8") as fh:
+    fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+meta = {
+    "session_id": session_id,
+    "session_key": session_key,
+    "project_root": project_root,
+    "cwd": get_any(data, "cwd"),
+    "last_seen_at": captured_at,
+    "transcript_path": get_any(data, "transcript_path"),
+}
+meta_file = raw_dir.parent / "meta.json"
+if meta_file.exists():
+    try:
+        existing = json.loads(meta_file.read_text(encoding="utf-8"))
+        if isinstance(existing, dict):
+            existing.update({k: v for k, v in meta.items() if v not in (None, "")})
+            meta = existing
+    except Exception:
+        pass
+meta_file.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+model = str(get_any(data, "model") or "--")
+context_window = get_any(data, "context_window")
+context_pct = "--"
+if isinstance(context_window, dict):
+    pct = context_window.get("percent") or context_window.get("used_percent")
+    if isinstance(pct, (int, float)):
+        context_pct = f"{pct:.0f}%"
+cost = get_any(data, "cost", "cost_usd", "total_cost_usd")
+if isinstance(cost, dict):
+    cost = cost.get("total") or cost.get("usd")
+cost_label = f"${cost}" if cost not in (None, "") else "--"
+cwd = str(get_any(data, "cwd") or ".")
+cwd_label = os.path.basename(cwd.rstrip("/")) or cwd
+
+print(f"[autopilot] {model} | ctx {context_pct} | cost {cost_label} | {cwd_label}")
+PY
+)
+
+printf "%s" "${STATUS_LINE:-[autopilot] telemetry}"
+exit 0

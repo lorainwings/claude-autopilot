@@ -42,6 +42,17 @@ export interface AgentInfo {
   output_files?: string[];
 }
 
+export interface StatusSnapshot {
+  model?: string;
+  cwd?: string;
+  transcript_path?: string;
+  cost?: string;
+  context_window?: Record<string, unknown>;
+  worktree?: string;
+  version?: string;
+  timestamp: string;
+}
+
 interface AppState {
   events: AutopilotEvent[];
   connected: boolean;
@@ -49,6 +60,7 @@ interface AppState {
   sessionId: string | null;
   changeName: string | null;
   mode: "full" | "lite" | "minimal" | null;
+  latestStatus: StatusSnapshot | null;
   taskProgress: Map<string, TaskProgress>;
   agentMap: Map<string, AgentInfo>;
   decisionAcked: boolean;
@@ -221,6 +233,7 @@ export const useStore = create<AppState>((set) => ({
   sessionId: null,
   changeName: null,
   mode: null,
+  latestStatus: null,
   taskProgress: new Map(),
   agentMap: new Map(),
   decisionAcked: false,
@@ -228,27 +241,37 @@ export const useStore = create<AppState>((set) => ({
 
   addEvents: (newEvents) =>
     set((state) => {
-      // Deduplicate by sequence, then cap at 1000 events
-      const seen = new Set(state.events.map((e) => e.sequence));
-      const unique = newEvents.filter((e) => !seen.has(e.sequence));
-      const CRITICAL_TYPES = new Set(["phase_start", "phase_end", "gate_block", "gate_pass", "agent_dispatch", "agent_complete"]);
-      const MAX_CRITICAL = 200;
-      const MAX_REGULAR = 800;
-      const allSorted = [...state.events, ...unique].sort((a, b) => a.sequence - b.sequence);
+      const eventKey = (event: AutopilotEvent) =>
+        event.event_id || `${event.source || "legacy"}:${event.type}:${event.sequence}:${event.timestamp}`;
+
+      const sortKey = (event: AutopilotEvent) => event.ingest_seq ?? event.sequence;
+
+      // Deduplicate by stable event_id / fallback signature
+      const seen = new Set(state.events.map(eventKey));
+      const unique = newEvents.filter((e) => !seen.has(eventKey(e)));
+
+      const CRITICAL_TYPES = new Set([
+        "phase_start", "phase_end", "gate_block", "gate_pass",
+        "agent_dispatch", "agent_complete", "session_start", "session_end",
+      ]);
+      const MAX_CRITICAL = 400;
+      const MAX_REGULAR = 2400;
+      const allSorted = [...state.events, ...unique].sort((a, b) => sortKey(a) - sortKey(b));
       const critical = allSorted.filter((e) => CRITICAL_TYPES.has(e.type));
       const regular = allSorted.filter((e) => !CRITICAL_TYPES.has(e.type));
       // Cap both pools: keep most recent
       const cappedCritical = critical.length > MAX_CRITICAL ? critical.slice(-MAX_CRITICAL) : critical;
       const cappedRegular = regular.slice(-MAX_REGULAR);
       const keepSeqs = new Set([
-        ...cappedCritical.map((e) => e.sequence),
-        ...cappedRegular.map((e) => e.sequence),
+        ...cappedCritical.map(eventKey),
+        ...cappedRegular.map(eventKey),
       ]);
-      const merged = allSorted.filter((e) => keepSeqs.has(e.sequence));
+      const merged = allSorted.filter((e) => keepSeqs.has(eventKey(e)));
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);
       const newAgentMap = new Map(state.agentMap);
+      let latestStatus = state.latestStatus;
 
       for (const event of newEvents) {
         if (event.type === "task_progress" && event.phase === 5 && isTaskProgressPayload(event.payload)) {
@@ -290,6 +313,17 @@ export const useStore = create<AppState>((set) => ({
               newAgentMap.set(id, { ...info, status: "failed", complete_time: event.timestamp });
             }
           }
+        } else if (event.type === "status_snapshot") {
+          latestStatus = {
+            model: event.payload.model as string | undefined,
+            cwd: event.payload.cwd as string | undefined,
+            transcript_path: event.payload.transcript_path as string | undefined,
+            cost: event.payload.cost == null ? undefined : String(event.payload.cost),
+            context_window: event.payload.context_window as Record<string, unknown> | undefined,
+            worktree: event.payload.worktree as string | undefined,
+            version: event.payload.version as string | undefined,
+            timestamp: event.timestamp,
+          };
         }
       }
 
@@ -304,12 +338,17 @@ export const useStore = create<AppState>((set) => ({
         }
       }
 
+      const latestPhaseEvent = [...merged].reverse().find((event) => ![
+        "transcript_message", "status_snapshot", "tool_prepare", "hook_event",
+      ].includes(event.type));
+
       return {
         events: merged,
-        currentPhase: latest?.phase ?? state.currentPhase,
+        currentPhase: latestPhaseEvent?.phase ?? latest?.phase ?? state.currentPhase,
         sessionId: latest?.session_id ?? state.sessionId,
         changeName: latest?.change_name ?? state.changeName,
         mode: latest?.mode ?? state.mode,
+        latestStatus,
         taskProgress: newTaskProgress,
         agentMap: newAgentMap,
         decisionAcked: newDecisionAcked,
@@ -330,6 +369,7 @@ export const useStore = create<AppState>((set) => ({
       sessionId: null,
       changeName: null,
       mode: null,
+      latestStatus: null,
       taskProgress: new Map(),
       agentMap: new Map(),
       decisionAcked: false,

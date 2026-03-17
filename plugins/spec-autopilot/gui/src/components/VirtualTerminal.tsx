@@ -24,10 +24,20 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   agent_dispatch: "\x1b[35m",       // magenta
   agent_complete: "\x1b[32m",       // green
   tool_use: "\x1b[2;36m",           // dim cyan
+  session_start: "\x1b[34m",
+  session_end: "\x1b[32m",
+  session_stop: "\x1b[1;31m",
+  compact_start: "\x1b[33m",
+  compact_end: "\x1b[35m",
+  user_prompt: "\x1b[36m",
+  subagent_start: "\x1b[35m",
+  subagent_stop: "\x1b[32m",
+  transcript_message: "\x1b[37m",
+  status_snapshot: "\x1b[90m",
 };
 
 // Filter categories
-type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error" | "agent_by_id";
+type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error" | "conversation" | "system" | "agent_by_id";
 
 const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "all", label: "全部" },
@@ -37,6 +47,8 @@ const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "agent_by_id", label: "指定 Agent" },
   { value: "tool", label: "工具调用" },
   { value: "task", label: "任务进度" },
+  { value: "conversation", label: "正文/输入" },
+  { value: "system", label: "系统/遥测" },
   { value: "error", label: "错误" },
 ];
 
@@ -48,6 +60,8 @@ const FILTER_MATCH: Record<FilterType, Set<string> | null> = {
   agent_by_id: new Set(["tool_use", "agent_dispatch", "agent_complete"]),
   tool: new Set(["tool_use"]),
   task: new Set(["task_progress"]),
+  conversation: new Set(["transcript_message", "user_prompt"]),
+  system: new Set(["session_start", "session_end", "session_stop", "compact_start", "compact_end", "status_snapshot", "subagent_start", "subagent_stop", "hook_event"]),
   error: new Set(["error"]),
 };
 
@@ -117,6 +131,26 @@ function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): st
       detail = ` ${dimGray}id=${reset}${String(p.agent_id ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
       if (p.duration_ms != null) detail += ` ${dimGray}duration=${reset}${String(p.duration_ms)}ms`;
       if (typeof p.summary === "string") detail += ` ${dimGray}${p.summary.slice(0, 80)}${reset}`;
+      break;
+    case "transcript_message":
+      detail = ` ${dimGray}role=${reset}${String(p.role ?? "--")} ${dimGray}${String((p.text_preview ?? "")).slice(0, 120)}${reset}`;
+      break;
+    case "user_prompt":
+      if (typeof p.preview === "string") detail = ` ${p.preview.slice(0, 120)}`;
+      break;
+    case "status_snapshot":
+      detail = ` ${dimGray}model=${reset}${String(p.model ?? "--")} ${dimGray}cost=${reset}${String(p.cost ?? "--")}`;
+      break;
+    case "session_start":
+    case "session_end":
+    case "session_stop":
+    case "compact_start":
+    case "compact_end":
+    case "subagent_start":
+    case "subagent_stop":
+    case "hook_event":
+      if (typeof p.hook_name === "string") detail = ` ${dimGray}hook=${reset}${p.hook_name}`;
+      if (typeof p.preview === "string") detail += ` ${dimGray}${p.preview.slice(0, 100)}${reset}`;
       break;
   }
 
@@ -230,7 +264,7 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     for (const event of filtered) {
       writeBufferRef.current.push(formatEventLine(event, events));
     }
-    lastRenderedSequence.current = events.length > 0 ? events[events.length - 1]!.sequence : -1;
+    lastRenderedSequence.current = events.length > 0 ? (events[events.length - 1]!.ingest_seq ?? events[events.length - 1]!.sequence) : -1;
     if (rafIdRef.current === null) {
       rafIdRef.current = requestAnimationFrame(flushBuffer);
     }
@@ -259,11 +293,22 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
     replayFiltered("agent_by_id", agentId);
   }, [replayFiltered]);
 
+  // Reset terminal state when store is cleared (session switch / server reset)
+  const prevEventCountRef = useRef<number>(0);
+  useEffect(() => {
+    if (events.length === 0 && prevEventCountRef.current > 0) {
+      lastRenderedSequence.current = -1;
+      writeBufferRef.current = [];
+      xtermRef.current?.clear();
+    }
+    prevEventCountRef.current = events.length;
+  }, [events.length]);
+
   useEffect(() => {
     const term = xtermRef.current;
     if (!term || events.length === 0) return;
 
-    const newEvents = events.filter((e) => e.sequence > lastRenderedSequence.current);
+    const newEvents = events.filter((e) => (e.ingest_seq ?? e.sequence) > lastRenderedSequence.current);
     if (newEvents.length === 0) return;
 
     const currentFilter = filterRef.current;
@@ -272,7 +317,7 @@ export const VirtualTerminal = memo(function VirtualTerminal() {
       writeBufferRef.current.push(formatEventLine(event, events));
     }
 
-    lastRenderedSequence.current = newEvents[newEvents.length - 1]!.sequence;
+    lastRenderedSequence.current = newEvents[newEvents.length - 1]!.ingest_seq ?? newEvents[newEvents.length - 1]!.sequence;
 
     // Schedule a single rAF flush if not already pending
     if (rafIdRef.current === null) {
