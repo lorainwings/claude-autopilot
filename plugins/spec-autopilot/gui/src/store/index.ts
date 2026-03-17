@@ -232,14 +232,19 @@ export const useStore = create<AppState>((set) => ({
       const seen = new Set(state.events.map((e) => e.sequence));
       const unique = newEvents.filter((e) => !seen.has(e.sequence));
       const CRITICAL_TYPES = new Set(["phase_start", "phase_end", "gate_block", "gate_pass", "agent_dispatch", "agent_complete"]);
+      const MAX_CRITICAL = 200;
+      const MAX_REGULAR = 800;
       const allSorted = [...state.events, ...unique].sort((a, b) => a.sequence - b.sequence);
       const critical = allSorted.filter((e) => CRITICAL_TYPES.has(e.type));
       const regular = allSorted.filter((e) => !CRITICAL_TYPES.has(e.type));
-      const regularBudget = Math.max(0, 1000 - critical.length);
-      const cappedRegular = regularBudget === 0 ? [] : regular.slice(-regularBudget);
-      // Build keep-set from capped regular, then filter allSorted (already sorted) in one pass
-      const keepSeqs = new Set(cappedRegular.map((e) => e.sequence));
-      const merged = allSorted.filter((e) => CRITICAL_TYPES.has(e.type) || keepSeqs.has(e.sequence));
+      // Cap both pools: keep most recent
+      const cappedCritical = critical.length > MAX_CRITICAL ? critical.slice(-MAX_CRITICAL) : critical;
+      const cappedRegular = regular.slice(-MAX_REGULAR);
+      const keepSeqs = new Set([
+        ...cappedCritical.map((e) => e.sequence),
+        ...cappedRegular.map((e) => e.sequence),
+      ]);
+      const merged = allSorted.filter((e) => keepSeqs.has(e.sequence));
       const latest = merged[merged.length - 1];
 
       const newTaskProgress = new Map(state.taskProgress);

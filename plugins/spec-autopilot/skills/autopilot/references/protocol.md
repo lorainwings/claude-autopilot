@@ -25,7 +25,7 @@
 | 1 | `requirements_summary`, `decisions: [DecisionPoint]`, `change_name`, `complexity: "small\|medium\|large"`, `research: { status, impact_files, estimated_loc, feasibility_score, new_deps_count }` | `open_questions`, `steering_artifacts`, `requirement_type: "feature\|bugfix\|refactor\|chore"`, `routing_overrides: { sad_path_min_ratio_pct, change_coverage_min_pct, required_test_types }`, `web_research: { queries_executed, best_practices, similar_implementations, dependency_evaluation, recommended_approach }` |
 | 4 | `test_counts: { unit, api, e2e, ui }`, `sad_path_counts: { unit, api, e2e, ui }`, `dry_run_results: { unit, api, e2e, ui }`, `test_pyramid: { total, unit_pct, integration_pct, e2e_pct }`, `change_coverage: { change_points, tested_points, coverage_pct, untested_points }` | `test_traceability: [{ test, requirement }]` |
 | 5 | `test_results_path`, `tasks_completed`, `zero_skip_check: { passed: bool }` | `iterations_used`, `code_quality: { constraint_violations: number, violations: [{rule, file, detail}] }`, `parallel_metrics: { mode, groups_count, fallback_reason }`, `tdd_metrics: { total_cycles, red_violations, green_retries, refactor_reverts }` (TDD mode) |
-| 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir`, `suite_results: [{ suite, total, passed, failed, skipped }]`, `anomaly_alerts: [string]` |
+| 6 | `pass_rate`, `report_path`, `report_format` | `report_url`, `allure_results_dir`, `suite_results: [{ suite, total, passed, failed, skipped }]`, `anomaly_alerts: [string]`, `red_evidence: string`, `sample_failure_excerpt: string` |
 | 7 | `archive_path`, `change_name` | `cleanup_actions`, `knowledge_extracted: number` |
 
 ## 状态解析规则
@@ -210,3 +210,14 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
   "report_url": "file:///path/to/allure-report/index.html"
 }
 ```
+
+### Phase 6 並行 TDD 証跡フィールド（v5.1.18 新增）
+
+| フィールド                  | 必須/可選 | 型      | 説明                                                |
+|---------------------------|----------|---------|-----------------------------------------------------|
+| `pass_rate`               | required | number  | 全体テスト合格率（%）                                 |
+| `report_path`             | required | string  | レポートファイルパス                                   |
+| `report_format`           | required | string  | レポート形式（html / allure / json）                   |
+| `red_evidence`            | optional | string  | Sample RED failure excerpt (parallel TDD proof)      |
+| `suite_results`           | optional | object  | Per-suite pass/fail/skip breakdown                   |
+| `sample_failure_excerpt`  | optional | string  | Sample test failure output for audit trail            |

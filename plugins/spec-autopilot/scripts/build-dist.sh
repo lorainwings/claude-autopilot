@@ -14,17 +14,32 @@ rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # 2. 重新构建 GUI（确保 __PLUGIN_VERSION__ 与 plugin.json 同步）
-if [ -f "$GUI_ROOT/package.json" ]; then
-  if command -v bun >/dev/null 2>&1 && [ -d "$GUI_ROOT/node_modules" ]; then
-    echo "🔨 Building GUI (syncing version from plugin.json)..."
-    (cd "$GUI_ROOT" && bun run build --mode production 2>&1 | tail -1)
+try_build_gui() {
+  if ! command -v bun >/dev/null 2>&1 || [ ! -d "$GUI_ROOT/node_modules" ]; then
+    return 1
+  fi
+  echo "🔨 Building GUI (syncing version from plugin.json)..."
+  local build_output
+  if build_output=$(cd "$GUI_ROOT" && bun run build --mode production 2>&1); then
+    echo "$build_output" | tail -1
     # Kill running autopilot-server so next access starts fresh with new assets
     pkill -f "bun.*autopilot-server.ts.*--project-root" 2>/dev/null || true
-  elif [ -d "$GUI_DIST_DIR" ]; then
-    echo "ℹ️ Skipping GUI rebuild; using checked-in gui-dist"
+    return 0
   else
-    echo "ERROR: gui-dist missing and GUI rebuild is unavailable (bun + gui/node_modules required)"
-    exit 1
+    echo "WARNING: GUI build failed, checking for fallback gui-dist..." >&2
+    echo "$build_output" | tail -3 >&2
+    return 1
+  fi
+}
+
+if [ -f "$GUI_ROOT/package.json" ]; then
+  if ! try_build_gui; then
+    if [ -d "$GUI_DIST_DIR" ]; then
+      echo "ℹ️ GUI build unavailable; using checked-in gui-dist (fallback)"
+    else
+      echo "ERROR: gui-dist missing and GUI rebuild failed"
+      exit 1
+    fi
   fi
 fi
 
@@ -32,6 +47,12 @@ if [ ! -d "$GUI_DIST_DIR" ]; then
   echo "ERROR: gui-dist directory is missing: $GUI_DIST_DIR"
   exit 1
 fi
+
+# 2b. Write gui-dist build metadata
+PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo "unknown")
+cat > "$GUI_DIST_DIR/.build-meta.json" <<BMEOF
+{"plugin_version":"$PLUGIN_VERSION","build_time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","build_tool":"$(bun --version 2>/dev/null || echo 'fallback')"}
+BMEOF
 
 # 3. 白名单复制
 cp -r "$PLUGIN_ROOT/.claude-plugin" "$DIST_DIR/"

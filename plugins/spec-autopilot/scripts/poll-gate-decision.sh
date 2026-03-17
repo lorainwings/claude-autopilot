@@ -32,7 +32,7 @@ if [ -z "$CHANGE_DIR" ] || [ -z "$PHASE" ]; then
 fi
 
 # --- Configuration ---
-PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(resolve_project_root)}"
 POLL_TIMEOUT=$(read_config_value "$PROJECT_ROOT" "gui.decision_poll_timeout" "300")
 POLL_INTERVAL=1
 
@@ -71,13 +71,28 @@ mkdir -p "$CONTEXT_DIR" 2>/dev/null || true
 python3 -c "
 import json, sys
 
+phase = int(sys.argv[1])
+mode = sys.argv[2]
+override_allowed = sys.argv[5].lower() == 'true'
+
+# Compute denial reason (single source of truth for GUI)
+override_denied_reason = ''
+if not override_allowed:
+    if phase == 5 and mode == 'full':
+        override_denied_reason = 'Phase 4 -> 5 gate: override forbidden'
+    elif phase == 6 and mode in ('full', 'lite'):
+        override_denied_reason = 'Phase 5 -> 6 gate: override forbidden'
+    else:
+        override_denied_reason = 'Override denied by gate policy'
+
 request = {
-    'phase': int(sys.argv[1]),
-    'mode': sys.argv[2],
+    'phase': phase,
+    'mode': mode,
     'gate_result': 'blocked',
     'timestamp': sys.argv[3],
     'awaiting_decision': True,
-    'override_allowed': sys.argv[5].lower() == 'true',
+    'override_allowed': override_allowed,
+    'override_denied_reason': override_denied_reason,
 }
 
 # Merge block reason payload

@@ -11,7 +11,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
-PROJECT_ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ROOT="${1:-$(resolve_project_root)}"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
 # Find active change
@@ -63,14 +63,22 @@ for phase_num in range(1, 8):
     duration = metrics.get('duration_seconds', 0)
     retries = metrics.get('retry_count', 0)
 
-    phases.append({
+    phase_entry = {
         'phase': phase_num,
         'status': data.get('status', 'unknown'),
         'duration_seconds': duration,
         'retry_count': retries,
         'start_time': metrics.get('start_time', ''),
         'end_time': metrics.get('end_time', ''),
-    })
+    }
+
+    # Phase 6: extract TDD evidence fields if present
+    if phase_num == 6:
+        for evidence_key in ('red_evidence', 'suite_results', 'sample_failure_excerpt'):
+            if evidence_key in data:
+                phase_entry[evidence_key] = data[evidence_key]
+
+    phases.append(phase_entry)
 
     if isinstance(duration, (int, float)):
         total_duration += duration

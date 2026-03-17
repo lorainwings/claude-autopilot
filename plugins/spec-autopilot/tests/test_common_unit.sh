@@ -331,6 +331,97 @@ else
 fi
 rm -rf "$CORRUPT_TEST_DIR"
 
+# --- resolve_project_root tests ---
+echo "  resolve_project_root tests"
+
+# 19aa. Explicit env var takes priority
+RPR_TMPDIR=$(mktemp -d)
+export AUTOPILOT_PROJECT_ROOT="$RPR_TMPDIR"
+result=$(resolve_project_root)
+if [ "$result" = "$RPR_TMPDIR" ]; then
+  green "  PASS: 19aa. resolve_project_root env var priority"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19aa. resolve_project_root env var priority (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+unset AUTOPILOT_PROJECT_ROOT
+
+# 19ab. Falls back to git rev-parse when no env var
+result=$(resolve_project_root)
+expected=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [ "$result" = "$expected" ]; then
+  green "  PASS: 19ab. resolve_project_root git fallback"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19ab. resolve_project_root git fallback (got '$result', expected '$expected')"
+  FAIL=$((FAIL + 1))
+fi
+
+# --- resolve_changes_dir tests ---
+echo "  resolve_changes_dir tests"
+
+# 19ac. Returns openspec/changes under project root
+RCD_TMPDIR=$(mktemp -d)
+mkdir -p "$RCD_TMPDIR/openspec/changes"
+export AUTOPILOT_PROJECT_ROOT="$RCD_TMPDIR"
+result=$(resolve_changes_dir)
+if [ "$result" = "$RCD_TMPDIR/openspec/changes" ]; then
+  green "  PASS: 19ac. resolve_changes_dir returns correct path"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19ac. resolve_changes_dir (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+unset AUTOPILOT_PROJECT_ROOT
+rm -rf "$RCD_TMPDIR"
+
+# 19ad. Returns exit 1 when dir missing
+RCD_TMPDIR2=$(mktemp -d)
+export AUTOPILOT_PROJECT_ROOT="$RCD_TMPDIR2"
+if resolve_changes_dir 2>/dev/null; then
+  red "  FAIL: 19ad. resolve_changes_dir should exit 1 when missing"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 19ad. resolve_changes_dir exits 1 when missing"
+  PASS=$((PASS + 1))
+fi
+unset AUTOPILOT_PROJECT_ROOT
+rm -rf "$RCD_TMPDIR2"
+
+# --- resolve_active_change_dir tests ---
+echo "  resolve_active_change_dir tests"
+
+# 19ae. Returns active change directory
+RACD_TMPDIR=$(mktemp -d)
+mkdir -p "$RACD_TMPDIR/openspec/changes/my-feature/context/phase-results"
+echo '{"change":"my-feature"}' > "$RACD_TMPDIR/openspec/changes/.autopilot-active"
+export AUTOPILOT_PROJECT_ROOT="$RACD_TMPDIR"
+result=$(resolve_active_change_dir)
+if [ "$result" = "$RACD_TMPDIR/openspec/changes/my-feature" ]; then
+  green "  PASS: 19ae. resolve_active_change_dir returns active change"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 19ae. resolve_active_change_dir (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+unset AUTOPILOT_PROJECT_ROOT
+rm -rf "$RACD_TMPDIR"
+
+# 19af. Returns exit 1 when no active change
+RACD_TMPDIR2=$(mktemp -d)
+mkdir -p "$RACD_TMPDIR2/openspec/changes"
+export AUTOPILOT_PROJECT_ROOT="$RACD_TMPDIR2"
+if resolve_active_change_dir 2>/dev/null; then
+  red "  FAIL: 19af. resolve_active_change_dir should exit 1 when no active"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 19af. resolve_active_change_dir exits 1 when no active"
+  PASS=$((PASS + 1))
+fi
+unset AUTOPILOT_PROJECT_ROOT
+rm -rf "$RACD_TMPDIR2"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

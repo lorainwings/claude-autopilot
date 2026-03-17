@@ -109,7 +109,7 @@ phase_required = {
 }
 phase_recommended = {
     4: ["test_traceability"],
-    6: ["suite_results", "anomaly_alerts"],
+    6: ["suite_results", "anomaly_alerts", "red_evidence", "sample_failure_excerpt"],
 }
 
 # P0-1: When TDD mode is enabled, tdd_metrics becomes required for Phase 5

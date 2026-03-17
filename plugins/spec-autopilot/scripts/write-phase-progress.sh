@@ -28,16 +28,8 @@ if [ -z "$PHASE" ] || [ -z "$STEP" ]; then
   exit 0  # Never block
 fi
 
-# --- Determine project root ---
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-
-# --- Find active change directory ---
-CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
-if [ ! -d "$CHANGES_DIR" ]; then
-  exit 0
-fi
-
-ACTIVE_CHANGE=$(find_active_change "$CHANGES_DIR") || exit 0
+# --- Find active change directory (unified resolution) ---
+ACTIVE_CHANGE=$(resolve_active_change_dir) || exit 0
 PHASE_RESULTS_DIR="$ACTIVE_CHANGE/context/phase-results"
 mkdir -p "$PHASE_RESULTS_DIR" 2>/dev/null || true
 

@@ -110,7 +110,7 @@ phase_required = {
 # Recommended fields: warn on stderr if missing (v3.2.0 enhancements, not gate-critical)
 phase_recommended = {
     4: ['test_traceability'],
-    6: ['suite_results', 'anomaly_alerts'],
+    6: ['suite_results', 'anomaly_alerts', 'red_evidence', 'sample_failure_excerpt'],
 }
 
 if phase_num in phase_required:

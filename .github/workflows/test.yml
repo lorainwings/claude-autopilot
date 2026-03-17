@@ -33,3 +33,6 @@ jobs:
 
       - name: Run hook test suite
         run: bash plugins/spec-autopilot/tests/run_all.sh
+
+      - name: Run release smoke suite
+        run: bash plugins/spec-autopilot/tests/smoke_release.sh

@@ -96,14 +96,16 @@
 ## 返回要求
 
 必须包含 pass_rate、report_path、report_format 字段。
-**v3.2.0 新增**: 必须包含 `suite_results` 和 `anomaly_alerts` 字段。
+**推荐字段**（缺失时校验器 warn，不阻断）: `suite_results`, `anomaly_alerts`, `red_evidence`, `sample_failure_excerpt`。
 
 ```json
 {
   "pass_rate": 96.5,
   "report_path": "allure-report/index.html",
   "report_format": "allure",
-  "suite_results": [...],
-  "anomaly_alerts": [...]
+  "suite_results": [{"suite": "unit", "total": 42, "passed": 40, "failed": 2, "skipped": 0}],
+  "anomaly_alerts": [],
+  "red_evidence": "FAIL: UserService.login should reject expired token",
+  "sample_failure_excerpt": "Expected: 401, Received: 200"
 }
 ```

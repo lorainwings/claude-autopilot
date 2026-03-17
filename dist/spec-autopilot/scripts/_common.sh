@@ -22,6 +22,41 @@ has_active_autopilot() {
   return 1
 }
 
+# --- Unified project root resolution ---
+# Priority: $AUTOPILOT_PROJECT_ROOT > git rev-parse > pwd
+# Usage: resolve_project_root
+# Returns: absolute path on stdout
+resolve_project_root() {
+  if [ -n "${AUTOPILOT_PROJECT_ROOT:-}" ] && [ -d "$AUTOPILOT_PROJECT_ROOT" ]; then
+    echo "$AUTOPILOT_PROJECT_ROOT"
+    return 0
+  fi
+  git rev-parse --show-toplevel 2>/dev/null || pwd
+}
+
+# --- Resolve openspec/changes directory ---
+# Usage: resolve_changes_dir
+# Returns: path on stdout, exit 1 if not found
+resolve_changes_dir() {
+  local root
+  root=$(resolve_project_root)
+  local changes="$root/openspec/changes"
+  if [ -d "$changes" ]; then
+    echo "$changes"
+    return 0
+  fi
+  return 1
+}
+
+# --- Resolve active change directory (convenience wrapper) ---
+# Usage: resolve_active_change_dir
+# Returns: path on stdout, exit 1 if not found
+resolve_active_change_dir() {
+  local changes_dir
+  changes_dir=$(resolve_changes_dir) || return 1
+  find_active_change "$changes_dir"
+}
+
 # --- Parse lock file (JSON or legacy plain text) ---
 # Usage: parse_lock_file <lock_file_path>
 # Returns: change name on stdout, or empty string on failure

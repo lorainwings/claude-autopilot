@@ -13,20 +13,13 @@ interface GateBlockCardProps {
   onDecision?: (action: "retry" | "fix" | "override", phase: number, reason?: string) => void;
 }
 
-function isOverrideAllowed(
-  phase: number,
-  mode: "full" | "lite" | "minimal",
-  payload: Record<string, unknown>
-) {
+function isOverrideAllowed(payload: Record<string, unknown>): boolean {
+  // Single source of truth: poll-gate-decision.sh writes override_allowed
+  // GUI only consumes, never independently derives override policy
   if (typeof payload.override_allowed === "boolean") {
     return payload.override_allowed;
   }
-  if (phase === 5 && mode === "full") {
-    return false;
-  }
-  if (phase === 6 && (mode === "full" || mode === "lite")) {
-    return false;
-  }
+  // Fallback: allow if field missing (backward compat with older scripts)
   return true;
 }
 
@@ -50,12 +43,10 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   // v5.2: Decision ACK received — hide the card immediately
   if (decisionAcked) return null;
   const { phase, phase_label, payload } = latest;
-  const overrideAllowed = isOverrideAllowed(phase, latest.mode, payload);
-  const overrideBlockedReason = phase === 5 && latest.mode === "full"
-    ? "Phase 4 -> 5 门禁禁止强制通过"
-    : phase === 6 && (latest.mode === "full" || latest.mode === "lite")
-      ? "Phase 5 -> 6 门禁禁止强制通过"
-      : "当前门禁禁止强制通过";
+  const overrideAllowed = isOverrideAllowed(payload);
+  const overrideBlockedReason = typeof payload.override_denied_reason === "string" && payload.override_denied_reason
+    ? payload.override_denied_reason
+    : "当前门禁禁止强制通过";
 
   const handleDecision = async (action: "retry" | "fix" | "override") => {
     if (action === "override" && !overrideAllowed) {
