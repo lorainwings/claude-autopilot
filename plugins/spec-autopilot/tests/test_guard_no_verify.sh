@@ -121,14 +121,15 @@ assert_exit "4d. cross-platform sedi() used, no raw sed -i" 0 $?
 # Part 3: End-to-end fresh clone simulation
 # ============================================
 echo ""
-echo "--- E2E: fresh clone → setup → commit blocked ---"
+echo "--- E2E: fresh clone → setup → commit blocked by CHANGELOG ---"
 
 TMP_ROOT=$(mktemp -d)
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-# 5a. Simulate fresh clone: create a bare-minimum git repo with our hooks
+# 5a. Simulate fresh clone: realistic repo structure
 E2E_DIR="$TMP_ROOT/e2e-repo"
 mkdir -p "$E2E_DIR/.githooks"
+mkdir -p "$E2E_DIR/plugins/spec-autopilot/.claude-plugin"
 mkdir -p "$E2E_DIR/plugins/spec-autopilot/hooks"
 mkdir -p "$E2E_DIR/scripts"
 
@@ -141,8 +142,8 @@ chmod +x "$E2E_DIR/.githooks/pre-commit"
 cp "$SETUP_SCRIPT" "$E2E_DIR/scripts/setup-hooks.sh"
 chmod +x "$E2E_DIR/scripts/setup-hooks.sh"
 
-# Create minimal plugin structure for hook trigger
-echo '{"version": "1.0.0"}' > "$E2E_DIR/plugins/spec-autopilot/.claude-plugin_plugin.json"
+# Realistic plugin structure (correct .claude-plugin/ subdirectory)
+echo '{"version": "1.0.0"}' > "$E2E_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
 echo '{}' > "$E2E_DIR/plugins/spec-autopilot/hooks/hooks.json"
 
 # Initial commit so we have a HEAD
@@ -159,17 +160,20 @@ hooks_path=$(git -C "$E2E_DIR" config --local core.hooksPath 2>/dev/null || echo
 [ "$hooks_path" = ".githooks" ]
 assert_exit "5b. core.hooksPath = .githooks after setup" 0 $?
 
-# 5d. Simulate a plugin file change without CHANGELOG.md → must be blocked
+# 5d. Simulate a plugin file change without CHANGELOG.md → must be blocked by CHANGELOG check
 echo "// new code" > "$E2E_DIR/plugins/spec-autopilot/app.ts"
 git -C "$E2E_DIR" add "$E2E_DIR/plugins/spec-autopilot/app.ts"
 
 commit_exit=0
 commit_output=$(git -C "$E2E_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "test: should be blocked" 2>&1) || commit_exit=$?
 
-# The pre-commit hook should block (CHANGELOG.md missing) → exit code non-zero
-# Note: may fail for different reason (test suite missing) but the key is it DOES NOT pass silently
+# Verify: exit code is non-zero (commit was blocked)
 [ "$commit_exit" -ne 0 ]
-assert_exit "5c. commit blocked by pre-commit hook (no CHANGELOG)" 0 $?
+assert_exit "5c. commit blocked (non-zero exit)" 0 $?
+
+# Verify: blocked SPECIFICALLY by CHANGELOG check, not by some other error
+echo "$commit_output" | grep -q "CHANGELOG.md not updated"
+assert_exit "5d. blocked reason is CHANGELOG.md missing (not other error)" 0 $?
 
 # ============================================
 # Summary

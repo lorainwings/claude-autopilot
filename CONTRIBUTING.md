@@ -17,8 +17,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 git clone https://github.com/lorainwings/claude-autopilot.git
 cd claude-autopilot
 
-# Activate Git hooks (required — enables pre-commit quality gates)
-bash scripts/setup-hooks.sh
+# One-time setup: activate git hooks (required)
+make setup
 ```
 
 ### Run Tests

@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.1.24] - 2026-03-18
+
+### Added
+
+- **Makefile**: `make setup` / `make test` / `make build` 入口，降低新贡献者上手门槛
+
+### Fixed
+
+- **E2E 测试精度**: 验证 commit 被精确的 CHANGELOG 门禁阻断（非任意非零退出），修复假仓库 `.claude-plugin/` 目录结构
+
 ## [5.1.23] - 2026-03-18
 
 ### Added
