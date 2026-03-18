@@ -142,7 +142,7 @@ let snapshotState: SessionSnapshot = {
 let refreshInFlight = false;
 let dirtyWhileInFlight = false;
 let pluginVersionCache = "unknown";
-const lastJournalEventCounts = new Map<string, number>();
+const lastJournalHashes = new Map<string, string>();
 
 // ─── CORS ───────────────────────────────────────────────────
 
@@ -717,11 +717,14 @@ function sortAndFinalize(events: AutopilotEvent[]): AutopilotEvent[] {
 async function writeJournal(sessionKey: string, events: AutopilotEvent[]) {
   const journalDir = join(SESSIONS_DIR, sessionKey, "journal");
   const journalPath = join(journalDir, "events.jsonl");
-  if (events.length === (lastJournalEventCounts.get(sessionKey) ?? -1)) return journalPath;
-  await mkdir(journalDir, { recursive: true });
   const content = events.map((event) => JSON.stringify(event)).join("\n");
-  await writeFile(journalPath, content ? `${content}\n` : "", "utf-8");
-  lastJournalEventCounts.set(sessionKey, events.length);
+  const contentBody = content ? `${content}\n` : "";
+  // Skip write when content is identical (hash covers both count and value changes)
+  const contentHash = hashText(contentBody);
+  if (contentHash === (lastJournalHashes.get(sessionKey) ?? "")) return journalPath;
+  await mkdir(journalDir, { recursive: true });
+  await writeFile(journalPath, contentBody, "utf-8");
+  lastJournalHashes.set(sessionKey, contentHash);
   return journalPath;
 }
 
@@ -1083,12 +1086,21 @@ const httpServer = Bun.serve({
         }
         const readSize = Math.min(fileSize - cursor, 256 * 1024);
         const text = await file.slice(cursor, cursor + readSize).text();
-        const rawLines = text.split("\n").filter(Boolean).slice(-maxLines);
+        // Handle chunk boundary: only consume up to the last complete line
+        const lastNewline = text.lastIndexOf("\n");
+        const safeText = lastNewline >= 0 ? text.slice(0, lastNewline + 1) : "";
+        const nextCursor = lastNewline >= 0 ? cursor + lastNewline + 1 : cursor;
+        if (!safeText) {
+          // No complete line in this chunk (single line > 256KB); skip ahead
+          return Response.json({ lines: [], cursor: cursor + readSize, fileSize },
+            { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+        }
+        const rawLines = safeText.split("\n").filter(Boolean).slice(-maxLines);
         const sanitized = rawLines.map(l => {
           try { return JSON.stringify(sanitizeForApi(JSON.parse(l))); }
           catch { return sanitizePath(l); }
         });
-        return Response.json({ lines: sanitized, cursor: cursor + readSize, fileSize },
+        return Response.json({ lines: sanitized, cursor: nextCursor, fileSize },
           { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
       } catch {
         return Response.json({ lines: [], cursor: 0, fileSize: 0 },

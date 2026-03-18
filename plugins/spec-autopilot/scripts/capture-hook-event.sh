@@ -18,15 +18,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
 PROJECT_ROOT=$(python3 -c '
-import json, os, sys
+import json, os, sys, subprocess
 data = json.loads(sys.stdin.read())
 cwd = data.get("cwd")
-if isinstance(cwd, str) and cwd:
-    print(cwd)
-elif os.environ.get("AUTOPILOT_PROJECT_ROOT"):
-    print(os.environ["AUTOPILOT_PROJECT_ROOT"])
-else:
-    print(os.getcwd())
+# cwd may be a subdirectory; always resolve to git repo root
+start_dir = cwd if isinstance(cwd, str) and cwd else os.getcwd()
+try:
+    root = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=start_dir, stderr=subprocess.DEVNULL
+    ).decode().strip()
+    if root:
+        print(root)
+    else:
+        raise ValueError
+except Exception:
+    env_root = os.environ.get("AUTOPILOT_PROJECT_ROOT")
+    print(env_root if env_root else start_dir)
 ' <<< "$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
 
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
