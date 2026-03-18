@@ -66,6 +66,22 @@ if [ -n "$STAGED" ]; then
     fi
   fi
 
+  # ============================================
+  # Part 1.7: Staged Lint Quick-Check
+  # ============================================
+  STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
+  STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+  if [ -n "$STAGED_SH" ] && command -v shellcheck >/dev/null 2>&1; then
+    echo "🔍 shellcheck staged .sh files..."
+    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=error || true
+  fi
+
+  if [ -n "$STAGED_PY" ] && command -v ruff >/dev/null 2>&1; then
+    echo "🔍 ruff check staged .py files..."
+    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --select=F || true
+  fi
+
   echo ""
 fi
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.1.28] - 2026-03-19
+
+### Added
+
+- **工程化配置**: 新增 `.editorconfig`（统一缩进/编码）、`.shellcheckrc`（bash lint 配置）、`pyproject.toml`（ruff + mypy）
+- **Makefile 扩展**: 新增 `lint` / `format` / `typecheck` / `ci` 目标，工具缺失时优雅 `[skip]`
+- **pre-commit 快检**: Part 1.7 staged 文件快速 shellcheck + ruff 检查（警告模式）
+- **CI 独立 job**: 新增 lint、typecheck、build-dist 三个独立 CI job
+
 ## [5.1.27] - 2026-03-18
 
 ### Changed

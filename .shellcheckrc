@@ -1,0 +1,8 @@
+# ShellCheck 全局配置
+# 默认 shell 为 bash
+shell=bash
+
+# SC2034: 变量赋值后未使用（许多变量由 source 方导出）
+# SC1091: 无法跟踪 source 文件（动态路径）
+# SC2155: declare 与赋值分开（既有模式大量使用）
+disable=SC2034,SC1091,SC2155
