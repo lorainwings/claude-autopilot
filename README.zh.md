@@ -11,7 +11,7 @@
 
 | 插件 | 版本 | 说明 |
 |------|------|------|
-| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.1.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
+| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.1.25 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 
 ## 快速安装
 
@@ -40,7 +40,7 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope project
 - **事件总线** — 通过 `events.jsonl` + WebSocket 实时事件流
 - **GUI V2 大盘** — 三栏实时仪表盘，含 decision_ack 决策反馈闭环
 - **并行执行** — 域级并行 Agent，文件所有权强制
-- **模块化测试** — 53 个测试文件，约 340 个断言
+- **模块化测试** — 76 个测试文件，692+ 个断言
 
 ### 架构
 
@@ -107,6 +107,7 @@ claude-autopilot/
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
 │   └── test.yml
+├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # 构建产出（用于市场安装）
 │   └── spec-autopilot/
 ├── plugins/                 # 插件源码
@@ -115,8 +116,9 @@ claude-autopilot/
 │       ├── scripts/         # Hook 脚本 + 工具
 │       ├── hooks/           # Hook 注册
 │       ├── gui/             # GUI V2 大盘 (React + Tailwind)
-│       ├── tests/           # 53 个测试文件，约 340 个断言
+│       ├── tests/           # 76 个测试文件，692+ 个断言
 │       └── docs/            # 完整文档 (中英双语)
+├── Makefile                 # 构建、测试、初始化快捷入口
 ├── README.md                # 英文说明
 ├── README.zh.md             # 本文件
 ├── LICENSE                  # MIT 许可证
@@ -126,23 +128,21 @@ claude-autopilot/
 
 ## 贡献
 
-欢迎贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解指南。
+欢迎贡献！请参阅 [CONTRIBUTING.zh.md](CONTRIBUTING.zh.md) 了解指南。
 
 ```bash
 # 克隆仓库
 git clone https://github.com/lorainwings/claude-autopilot.git
 cd claude-autopilot
 
-# 运行测试
-bash plugins/spec-autopilot/tests/run_all.sh
+# 一键初始化：激活 git hooks
+make setup
 
-# 语法检查所有脚本
-for f in plugins/spec-autopilot/scripts/*.sh; do
-  bash -n "$f" && echo "OK: $(basename $f)" || echo "FAIL: $(basename $f)"
-done
+# 运行测试
+make test
 
 # 构建分发包
-bash plugins/spec-autopilot/scripts/build-dist.sh
+make build
 ```
 
 ## 安全

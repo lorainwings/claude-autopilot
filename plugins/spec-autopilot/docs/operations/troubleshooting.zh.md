@@ -243,12 +243,12 @@ INFO: JSON envelope missing optional field: artifacts
 ### 本地测试 Hook
 
 ```bash
-# 运行测试套件
-bash plugins/spec-autopilot/scripts/test-hooks.sh
+# 运行完整测试套件
+make test
 
-# 用模拟输入测试特定 Hook
+# 用模拟输入测试统一验证器
 echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nTest"},"tool_response":"..."}' \
-  | bash plugins/spec-autopilot/scripts/validate-json-envelope.sh
+  | bash plugins/spec-autopilot/scripts/post-task-validator.sh
 ```
 
 ### 检查 Hook 注册

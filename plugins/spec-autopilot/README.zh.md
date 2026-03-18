@@ -4,7 +4,7 @@
 
 > 规范驱动的自动驾驶交付编排 — 8 阶段工作流 + 3 层门禁系统 + 崩溃恢复。
 
-[![Version](https://img.shields.io/badge/version-5.1.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.25-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 概述
@@ -25,7 +25,7 @@
 - **GUI V2 大盘（v5.0.8）**: 三栏实时仪表盘（Phase 时间轴 / 事件流 / 门禁决策）含 decision_ack 反馈回路
 - **并行执行（v5.0）**: 领域级并行 Agent（backend ‖ frontend ‖ node）含文件所有权强制
 - **7-Agent 并行审计（v5.0.10）**: 跨 7 个维度的全面并行审计
-- **模块化测试套件**: 53 个测试文件，约 340 个断言，覆盖所有 Hook 和脚本
+- **模块化测试套件**: 76 个测试文件，692+ 个断言，覆盖所有 Hook 和脚本
 - **需求清晰度检测**: 预扫描规则引擎，在研究前检测模糊需求（v4.1）
 - **指标采集**: 每阶段计时和重试追踪
 - **苏格拉底需求模式**: 通过挑战性问题进行深度需求分析（v5.0.6: +Step 7 非功能需求）
@@ -85,8 +85,8 @@ graph LR
 
     subgraph "Layer 2: Hook Scripts"
         L2A[PreToolUse: check-predecessor-checkpoint.sh<br/>Verify predecessor checkpoint exists]
-        L2B[PostToolUse: validate-json-envelope.sh<br/>Validate JSON envelope + test pyramid]
-        L2C[PostToolUse: anti-rationalization-check.sh<br/>Detect skip patterns]
+        L2B[PostToolUse: post-task-validator.sh<br/>统一验证器：JSON 信封 + 反合理化 + TDD 指标]
+        L2C[PostToolUse: unified-write-edit-check.sh<br/>统一写入约束：禁止模式 + 断言质量]
     end
 
     subgraph "Layer 3: AI Verification"
@@ -281,6 +281,7 @@ test_suites:
 | `check-predecessor-checkpoint.sh` | PreToolUse(Task) | 验证前置检查点 + 挂钟超时 + 模式感知门禁 |
 | `post-task-validator.sh` | PostToolUse(Task) | 统一验证器：JSON 信封 + 反合理化 + 代码约束 + 合并守卫 + 决策格式 + TDD 指标（v5.1） |
 | `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | 统一写入约束：禁止模式 + 断言质量 + 检查点保护 + 文件所有权（v5.1） |
+| `guard-no-verify.sh` | PreToolUse(Bash) | 阻断 git 命令中的 `--no-verify` 标志以强制执行 hook |
 | `scan-checkpoints-on-start.sh` | SessionStart | 报告现有检查点（模式感知的恢复建议） |
 | `save-state-before-compact.sh` | PreCompact | 持久化编排状态 |
 | `reinject-state-after-compact.sh` | SessionStart(compact) | 压缩后恢复状态 |
@@ -295,6 +296,8 @@ test_suites:
 | `emit-phase-event.sh` | 向事件总线发射阶段生命周期事件（v4.2） |
 | `emit-gate-event.sh` | 向事件总线发射门禁通过/阻断事件（v4.2） |
 | `emit-task-progress.sh` | 发射 Phase 5 任务进度事件（v5.2） |
+| `capture-hook-event.sh` | 捕获并记录 hook 执行事件，用于诊断 |
+| `emit-tool-event.sh` | 向事件总线发射工具级事件 |
 | `autopilot-server.ts` | GUI 双模服务器：HTTP:9527 + WebSocket:8765（v5.0.8） |
 | `build-dist.sh` | 构建发布分发包 |
 | `_common.sh` | 共享工具函数 |
@@ -356,8 +359,8 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 
 1. Fork 本仓库
 2. 创建特性分支：`git checkout -b feature/my-feature`
-3. 运行测试：`bash plugins/spec-autopilot/tests/run_all.sh`
-4. 确保所有 bash 脚本通过语法检查：`bash -n plugins/spec-autopilot/scripts/*.sh`
+3. 运行测试：`make test`
+4. 重新构建分发包：`make build`
 5. 确保 JSON 文件有效
 6. 提交 Pull Request
 

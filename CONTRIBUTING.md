@@ -1,3 +1,5 @@
+> **[中文版](CONTRIBUTING.zh.md)** | English (default)
+
 # Contributing to lorainwings-plugins
 
 Thank you for your interest in contributing! This guide will help you get started.
@@ -24,7 +26,7 @@ make setup
 ### Run Tests
 
 ```bash
-bash plugins/spec-autopilot/tests/run_all.sh
+make test
 ```
 
 ## Development Workflow
@@ -44,18 +46,13 @@ git checkout -b feature/my-feature
 
 ```bash
 # Run full test suite
-bash plugins/spec-autopilot/tests/run_all.sh
-
-# Syntax check all scripts
-for f in plugins/spec-autopilot/scripts/*.sh; do
-  bash -n "$f" && echo "OK: $(basename $f)" || echo "FAIL: $(basename $f)"
-done
+make test
 ```
 
 ### 4. Rebuild Distribution
 
 ```bash
-bash plugins/spec-autopilot/scripts/build-dist.sh
+make build
 ```
 
 ### 5. Commit and Push
@@ -74,7 +71,7 @@ Open a PR against `main` with a clear description of your changes.
 
 ### Shell Scripts
 
-- All scripts must pass `bash -n` syntax check
+- All scripts must pass `bash -n` syntax check (included in `make test`)
 - Use `set -euo pipefail` where appropriate
 - Include timeout configuration for all hooks
 - Hook exit codes: `exit 0` always (decisions via stdout JSON)
@@ -100,7 +97,7 @@ Open a PR against `main` with a clear description of your changes.
 
 ### Build Discipline
 
-- Run `build-dist.sh` after modifying any runtime files
+- Run `make build` after modifying any runtime files
 - `dist/` is auto-generated — all changes go in source
 - Test files never enter `dist/`
 

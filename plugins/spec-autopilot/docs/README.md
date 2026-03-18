@@ -2,7 +2,7 @@
 
 # spec-autopilot Documentation
 
-> This index covers all documentation for spec-autopilot v5.1.0, organized by category. Includes Event Bus, GUI V2 Dashboard, parallel dispatch, requirements routing, and more.
+> This index covers all documentation for spec-autopilot v5.1, organized by category. Includes Event Bus, GUI V2 Dashboard, parallel dispatch, requirements routing, and more.
 
 ## Getting Started (`getting-started/`)
 

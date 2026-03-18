@@ -308,6 +308,6 @@ spec-autopilot/
 │       ├── lib/                 (工具函数)
 │       └── fonts/               (本地 woff2 字体)
 ├── hooks/hooks.json  (Hook 注册)
-├── tests/            (53 个测试文件, ~340 断言)
+├── tests/            (76 个测试文件, 692+ 断言)
 └── docs/             (文档)
 ```

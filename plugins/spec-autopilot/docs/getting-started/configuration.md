@@ -115,7 +115,7 @@ Layer 2 (Hook) enforces lenient floors; Layer 3 (AI gate) enforces strict config
 
 ### `test_pyramid.hook_floors`
 
-Optional overrides for Layer 2 Hook floor thresholds. These are the lenient minimums enforced by `validate-json-envelope.sh`. The Hook floor must not be stricter than the Layer 3 strict threshold (cross-validated by `validate-config.sh`).
+Optional overrides for Layer 2 Hook floor thresholds. These are the lenient minimums enforced by `post-task-validator.sh`. The Hook floor must not be stricter than the Layer 3 strict threshold (cross-validated by `validate-config.sh`).
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|

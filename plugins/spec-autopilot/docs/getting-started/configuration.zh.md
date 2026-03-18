@@ -115,7 +115,7 @@ services:
 
 ### `test_pyramid.hook_floors`
 
-第 2 层 Hook 下限阈值的可选覆盖。这些是 `validate-json-envelope.sh` 执行的宽松最低值。Hook 下限不得比第 3 层严格阈值更严格（由 `validate-config.sh` 交叉验证）。
+第 2 层 Hook 下限阈值的可选覆盖。这些是 `post-task-validator.sh` 执行的宽松最低值。Hook 下限不得比第 3 层严格阈值更严格（由 `validate-config.sh` 交叉验证）。
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|

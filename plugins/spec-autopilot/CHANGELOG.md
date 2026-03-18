@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.1.25] - 2026-03-18
+
+### Added
+
+- **中文贡献文档**: 新增 `CONTRIBUTING.zh.md`，并为贡献文档补齐中英文切换入口
+- **事件总线 API 中文参考**: 新增 `event-bus-api.zh.md` 并同步到源码与 dist
+
+### Fixed
+
+- **Make 工作流文档统一**: 顶层 README、插件 README、贡献指南统一改为 `make setup` / `make test` / `make build`
+- **文档事实修正**: 修正测试规模、目录结构、Hook 入口和配置说明，去除过时的独立 Hook 描述
+- **排障文档准确性**: 本地 Hook 调试示例改为 `post-task-validator.sh`，语法检查示例恢复为真实的 `bash -n` 循环
+- **fresh clone 构建回退**: `build-dist.sh` 在 `plugins/spec-autopilot/gui-dist` 缺失时，可从 `dist/spec-autopilot/gui-dist` 恢复并继续构建
+- **构建回退测试覆盖**: 新增 fresh-clone GUI 恢复用例，并补充 `guard-no-verify` 测试注释说明
+
 ## [5.1.24] - 2026-03-18
 
 ### Added

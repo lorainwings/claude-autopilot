@@ -4,7 +4,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.24-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.25-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -25,7 +25,7 @@
 - **GUI V2 Dashboard (v5.0.8)**: Three-column real-time dashboard (Phase timeline / Event stream / Gate decisions) with decision_ack feedback loop
 - **Parallel Execution (v5.0)**: Domain-level parallel agents (backend ‖ frontend ‖ node) with file ownership enforcement
 - **7-Agent Parallel Audit (v5.0.10)**: Comprehensive parallel audit across 7 dimensions
-- **Modular Test Suite**: 53 test files with ~340 assertions covering all hooks and scripts
+- **Modular Test Suite**: 76 test files with 692+ assertions covering all hooks and scripts
 - **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
 - **Metrics Collection**: Per-phase timing and retry tracking
 - **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 non-functional requirements)
@@ -85,8 +85,8 @@ graph LR
 
     subgraph "Layer 2: Hook Scripts"
         L2A[PreToolUse: check-predecessor-checkpoint.sh<br/>Verify predecessor checkpoint exists]
-        L2B[PostToolUse: validate-json-envelope.sh<br/>Validate JSON envelope + test pyramid]
-        L2C[PostToolUse: anti-rationalization-check.sh<br/>Detect skip patterns]
+        L2B[PostToolUse: post-task-validator.sh<br/>Unified validator: JSON envelope + anti-rationalization + TDD metrics]
+        L2C[PostToolUse: unified-write-edit-check.sh<br/>Unified write constraint: banned patterns + assertion quality]
     end
 
     subgraph "Layer 3: AI Verification"
@@ -281,6 +281,7 @@ test_suites:
 | `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint + wall-clock timeout + mode-aware gates |
 | `post-task-validator.sh` | PostToolUse(Task) | Unified validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics (v5.1) |
 | `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | Unified write constraint: banned patterns + assertion quality + checkpoint protection + file ownership (v5.1) |
+| `guard-no-verify.sh` | PreToolUse(Bash) | Block `--no-verify` flag in git commands to enforce hook execution |
 | `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints (mode-aware resume suggestion) |
 | `save-state-before-compact.sh` | PreCompact | Persist orchestration state |
 | `reinject-state-after-compact.sh` | SessionStart(compact) | Restore state after compression |
@@ -295,6 +296,8 @@ test_suites:
 | `emit-phase-event.sh` | Emit phase lifecycle events to Event Bus (v4.2) |
 | `emit-gate-event.sh` | Emit gate pass/block events to Event Bus (v4.2) |
 | `emit-task-progress.sh` | Emit Phase 5 task progress events (v5.2) |
+| `capture-hook-event.sh` | Capture and log hook execution events for diagnostics |
+| `emit-tool-event.sh` | Emit tool-level events to Event Bus |
 | `autopilot-server.ts` | GUI dual-mode server: HTTP:9527 + WebSocket:8765 (v5.0.8) |
 | `build-dist.sh` | Build distribution package for publishing |
 | `_common.sh` | Shared utility functions |
@@ -356,8 +359,8 @@ Common issues and solutions: [docs/operations/troubleshooting.md](docs/operation
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Run tests: `bash plugins/spec-autopilot/tests/run_all.sh`
-4. Ensure all bash scripts pass syntax check: `bash -n plugins/spec-autopilot/scripts/*.sh`
+3. Run tests: `make test`
+4. Rebuild distribution: `make build`
 5. Ensure JSON files are valid
 6. Submit a pull request
 

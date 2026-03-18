@@ -119,6 +119,11 @@ assert_exit "4d. cross-platform sedi() used, no raw sed -i" 0 $?
 
 # ============================================
 # Part 3: End-to-end fresh clone simulation
+# Scope: tests the CHANGELOG gate specifically.
+# This uses a minimal repo WITHOUT run_all.sh / build-dist.sh
+# so the pre-commit hook skips the test suite and goes straight
+# to the CHANGELOG check. The full build chain is tested in
+# test_build_dist.sh (including the fresh-clone gui-dist recovery).
 # ============================================
 echo ""
 echo "--- E2E: fresh clone → setup → commit blocked by CHANGELOG ---"

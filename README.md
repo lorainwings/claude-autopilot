@@ -11,7 +11,7 @@
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [spec-autopilot](plugins/spec-autopilot/) | 5.1.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
+| [spec-autopilot](plugins/spec-autopilot/) | 5.1.25 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 
 ## Quick Install
 
@@ -40,7 +40,7 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope project
 - **Event Bus** — Real-time event streaming via `events.jsonl` + WebSocket
 - **GUI V2 Dashboard** — Three-column real-time dashboard with decision_ack feedback loop
 - **Parallel Execution** — Domain-level parallel agents with file ownership enforcement
-- **Modular Test Suite** — 53 test files with ~340 assertions
+- **Modular Test Suite** — 76 test files with 692+ assertions
 
 ### Architecture
 
@@ -107,6 +107,7 @@ claude-autopilot/
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
 │   └── test.yml
+├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # Built plugin (for marketplace install)
 │   └── spec-autopilot/
 ├── plugins/                 # Plugin source code
@@ -115,8 +116,9 @@ claude-autopilot/
 │       ├── scripts/         # Hook scripts + utilities
 │       ├── hooks/           # Hook registration
 │       ├── gui/             # GUI V2 dashboard (React + Tailwind)
-│       ├── tests/           # 53 test files, ~340 assertions
+│       ├── tests/           # 76 test files, 692+ assertions
 │       └── docs/            # Full documentation (EN + ZH)
+├── Makefile                 # Build, test, setup shortcuts
 ├── README.md                # This file
 ├── LICENSE                  # MIT License
 ├── CONTRIBUTING.md          # Contribution guidelines
@@ -132,16 +134,14 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 git clone https://github.com/lorainwings/claude-autopilot.git
 cd claude-autopilot
 
-# Run tests
-bash plugins/spec-autopilot/tests/run_all.sh
+# One-time setup: activate git hooks
+make setup
 
-# Syntax check all scripts
-for f in plugins/spec-autopilot/scripts/*.sh; do
-  bash -n "$f" && echo "OK: $(basename $f)" || echo "FAIL: $(basename $f)"
-done
+# Run tests
+make test
 
 # Build distribution
-bash plugins/spec-autopilot/scripts/build-dist.sh
+make build
 ```
 
 ## Security

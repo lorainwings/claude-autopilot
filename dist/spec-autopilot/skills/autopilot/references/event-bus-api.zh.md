@@ -1,6 +1,6 @@
-> **[中文版](event-bus-api.zh.md)** | English (default)
+> [English](event-bus-api.md) | 中文
 
-# Event Bus API Reference (v5.0)
+# 事件总线 API 参考 (v5.0)
 
 > 本文件定义 autopilot 事件总线的事件格式规范，为 GUI 大盘集成提供标准化接口。
 

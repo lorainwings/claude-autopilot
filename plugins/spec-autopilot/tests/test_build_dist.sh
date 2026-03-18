@@ -118,6 +118,49 @@ assert_exit "build-dist falls back when bun build fails" 0 "$fail_exit"
 assert_contains "build failure fallback message shown" "$fail_output" "GUI build unavailable"
 rm -rf "$fail_root"
 
+# Test: fresh-clone scenario — gui-dist only in dist/, NOT in plugins/ (gitignored)
+# Simulates: git clone → bun unavailable → must recover gui-dist from dist/
+echo "  fresh-clone gui-dist recovery test"
+fc_root=$(mktemp -d)
+fc_repo="$fc_root/repo"
+fc_plugin="$fc_repo/plugins/spec-autopilot"
+fc_dist="$fc_repo/dist/spec-autopilot"
+mkdir -p \
+  "$fc_plugin/scripts" \
+  "$fc_plugin/hooks" \
+  "$fc_plugin/skills" \
+  "$fc_plugin/.claude-plugin" \
+  "$fc_plugin/gui" \
+  "$fc_dist/gui-dist" \
+  "$fc_root/bin"
+# NOTE: NO $fc_plugin/gui-dist — simulating fresh clone where it's gitignored
+
+cp "$BUILD_SCRIPT" "$fc_plugin/scripts/build-dist.sh"
+printf '#!/usr/bin/env bash\necho "collect"\n' > "$fc_plugin/scripts/collect-metrics.sh"
+chmod +x "$fc_plugin/scripts/build-dist.sh" "$fc_plugin/scripts/collect-metrics.sh"
+cat > "$fc_plugin/hooks/hooks.json" <<'FCEOF'
+{ "hooks": [{ "hooks": [{ "type": "command", "command": "scripts/collect-metrics.sh" }] }] }
+FCEOF
+printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$fc_plugin/.claude-plugin/plugin.json"
+printf '# CLAUDE\n' > "$fc_plugin/CLAUDE.md"
+printf '{ "name": "gui" }\n' > "$fc_plugin/gui/package.json"
+# gui-dist ONLY exists in dist/, not plugins/ (fresh-clone scenario)
+printf '<!doctype html><title>fc</title>\n' > "$fc_dist/gui-dist/index.html"
+# Fake bun that can't build
+cat > "$fc_root/bin/bun" <<'FCBEOF'
+#!/usr/bin/env bash
+echo "bun not available in CI"
+exit 99
+FCBEOF
+chmod +x "$fc_root/bin/bun"
+
+fc_output=$(PATH="$fc_root/bin:$PATH" bash "$fc_plugin/scripts/build-dist.sh" 2>&1)
+fc_exit=$?
+assert_exit "fresh-clone: build-dist recovers gui-dist from dist/" 0 "$fc_exit"
+assert_contains "fresh-clone: recovery message shown" "$fc_output" "Recovered gui-dist from dist/"
+assert_contains "fresh-clone: build completes with success banner" "$fc_output" "dist/spec-autopilot built"
+rm -rf "$fc_root"
+
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1
 exit 0
