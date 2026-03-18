@@ -2,6 +2,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard-no-verify.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "^Task$",
         "hooks": [
           {

@@ -3,6 +3,15 @@
 
 set -uo pipefail
 
+# Cross-platform in-place sed (BSD vs GNU)
+sedi() {
+  if sed --version 2>/dev/null | grep -q GNU; then
+    sed -i "$@"
+  else
+    sed -i '' "$@"
+  fi
+}
+
 # ============================================
 # Part 1: Hook Test Suite
 # ============================================
@@ -82,8 +91,8 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   if [ -n "$CURRENT_VERSION" ]; then
     if git diff --cached -- "$PLUGIN_JSON" | grep -q '"version"'; then
       # Manual bump detected — propagate to README.md + marketplace.json
-      sed -i '' "s/version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue/version-${CURRENT_VERSION}-blue/" "$README_MD"
-      sed -i '' "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CURRENT_VERSION}\"/" "$MARKETPLACE_JSON"
+      sedi "s/version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue/version-${CURRENT_VERSION}-blue/" "$README_MD"
+      sedi "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CURRENT_VERSION}\"/" "$MARKETPLACE_JSON"
       git add "$README_MD" "$MARKETPLACE_JSON"
       echo "🔖 Manual bump detected — synced all files to ${CURRENT_VERSION}"
     else
@@ -94,9 +103,9 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       NEW_PATCH=$((PATCH + 1))
       NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
 
-      sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
-      sed -i '' "s/version-${CURRENT_VERSION}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
-      sed -i '' "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
+      sedi "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
+      sedi "s/version-${CURRENT_VERSION}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
+      sedi "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
 
       git add "$PLUGIN_JSON" "$README_MD" "$MARKETPLACE_JSON"
       echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"

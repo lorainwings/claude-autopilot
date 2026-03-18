@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.1.23] - 2026-03-18
+
+### Added
+
+- **`guard-no-verify.sh`**: Claude Code PreToolUse(Bash) 守卫，拦截 `--no-verify`/`-n`/`commit.noVerify`/`HUSKY=0` 四种 hook 绕过模式，仅作用于本仓库
+- **`scripts/setup-hooks.sh`**: Hook 激活脚本，一键设置 `core.hooksPath=.githooks`，支持 fresh clone 可重复部署
+- **`test_guard_no_verify.sh`**: 19 条回归测试，含 E2E fresh-repo 仿真验证完整门禁链
+
+### Fixed
+
+- **Hook 激活链断裂**: `.githooks/pre-commit` 已跟踪但 `core.hooksPath` 未设置，实际生效的是旧版 `.git/hooks/pre-commit`（仅匹配 `.sh|.json`），导致 `.ts` 等文件变更绕过测试门禁
+- **跨平台 sed**: `.githooks/pre-commit` 中 5 处 `sed -i ''`（BSD only）替换为 `sedi()` 跨平台包装函数
+- **CONTRIBUTING.md**: Setup 步骤新增 `bash scripts/setup-hooks.sh` 要求
+
 ## [5.1.22] - 2026-03-18
 
 ### Added

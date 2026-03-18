@@ -18,16 +18,15 @@ mkdir -p "$TMPDIR_49_REPO"
 # NOTE: results.txt MUST be outside the git repo dir to avoid
 # "unstaged changes" error during rebase.
 (
-  cd "$TMPDIR_49_REPO"
+  cd "$TMPDIR_49_REPO" || exit 1
   git init -q 2>/dev/null
   git config user.email "test@test.com"
   git config user.name "Test"
-  git config core.hooksPath /dev/null
 
-  # Initial commit
+  # Initial commit (--no-verify instead of hooksPath=/dev/null to avoid polluting any repo config)
   echo "initial" > README.md
   git add README.md
-  git commit -q -m "initial commit" 2>/dev/null
+  git commit -q --no-verify -m "initial commit" 2>/dev/null
 
   # Anchor commit (simulates Phase 0 step 8)
   git commit -q --allow-empty -m "autopilot: start test-change" 2>/dev/null
