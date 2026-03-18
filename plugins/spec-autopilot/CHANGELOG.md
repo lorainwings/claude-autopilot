@@ -1,5 +1,23 @@
 # Changelog
 
+## [5.1.22] - 2026-03-18
+
+### Added
+
+- **`/api/raw-tail` 游标增量端点**: 支持 cursor/lines 参数的增量日志拉取，替代全量 `/api/raw` 轮询
+- **虚拟滚动**: TranscriptPanel 和 ToolTracePanel 使用 `@tanstack/react-virtual` 窗口化渲染
+- **Store 预计算分类数组**: `transcriptEvents` / `toolEvents` 在 `addEvents` 中预过滤，避免渲染时重复 filter
+- **Vite 代码分割**: `manualChunks` 分离 vendor-react (193kB) 和 vendor-virtual (16kB)，主 chunk 降至 346kB
+- **跨 session journal 测试**: 新增 sess-a/sess-b 独立性、路径脱敏、raw-tail 游标验证用例
+
+### Fixed
+
+- **服务器绑定安全**: `Bun.serve` 双端口绑定 `127.0.0.1`，阻止外部网络访问
+- **CORS 限制**: 替换 `Access-Control-Allow-Origin: *` 为 localhost 来源白名单
+- **API 层路径脱敏**: 所有 API 出口对绝对路径做 `~/` 替换，机密字段 (apiKey/token/secret) 直接 redact
+- **Journal 跳过条件**: 全局 `lastJournalEventCount` 改为 per-session `Map`，修复跨 session 同事件数互相跳过
+- **RawInspectorPanel 全量轮询**: 改用游标增量拉取，累积最近 500 行
+
 ## [5.1.21] - 2026-03-17
 
 ### Added

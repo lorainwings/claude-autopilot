@@ -55,6 +55,8 @@ export interface StatusSnapshot {
 
 interface AppState {
   events: AutopilotEvent[];
+  transcriptEvents: AutopilotEvent[];
+  toolEvents: AutopilotEvent[];
   connected: boolean;
   currentPhase: number | null;
   sessionId: string | null;
@@ -228,6 +230,8 @@ export function selectGateStats(events: AutopilotEvent[]): GateStats {
 
 export const useStore = create<AppState>((set) => ({
   events: [],
+  transcriptEvents: [],
+  toolEvents: [],
   connected: false,
   currentPhase: null,
   sessionId: null,
@@ -342,8 +346,13 @@ export const useStore = create<AppState>((set) => ({
         "transcript_message", "status_snapshot", "tool_prepare", "hook_event",
       ].includes(event.type));
 
+      const transcriptEvents = merged.filter((e) => e.type === "transcript_message");
+      const toolEvents = merged.filter((e) => e.type === "tool_use");
+
       return {
         events: merged,
+        transcriptEvents,
+        toolEvents,
         currentPhase: latestPhaseEvent?.phase ?? latest?.phase ?? state.currentPhase,
         sessionId: latest?.session_id ?? state.sessionId,
         changeName: latest?.change_name ?? state.changeName,
@@ -364,6 +373,8 @@ export const useStore = create<AppState>((set) => ({
   reset: () =>
     set({
       events: [],
+      transcriptEvents: [],
+      toolEvents: [],
       // 注意：不重置 connected — reset 由 WS 消息触发，连接仍然活跃
       currentPhase: null,
       sessionId: null,

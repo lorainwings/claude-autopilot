@@ -142,7 +142,50 @@ let snapshotState: SessionSnapshot = {
 let refreshInFlight = false;
 let dirtyWhileInFlight = false;
 let pluginVersionCache = "unknown";
-let lastJournalEventCount = -1;
+const lastJournalEventCounts = new Map<string, number>();
+
+// ─── CORS ───────────────────────────────────────────────────
+
+const ALLOWED_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN_RE.test(origin) ? origin : "",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
+}
+
+// ─── API 层脱敏 ─────────────────────────────────────────────
+
+/** 绝对路径中的用户主目录替换为 ~ */
+function sanitizePath(s: string): string {
+  return s.replace(/\/(Users|home|root)\/[^/\s"')]+/g, "~");
+}
+
+/** 真正的机密字段 — 直接 redact */
+const SECRET_FIELDS = new Set(["apiKey", "ANTHROPIC_API_KEY", "api_key", "token", "secret"]);
+
+function sanitizeForApi(obj: unknown, depth = 0): unknown {
+  if (depth > 12 || obj === null || typeof obj !== "object") {
+    if (typeof obj === "string") return sanitizePath(obj);
+    return obj;
+  }
+  if (Array.isArray(obj)) return obj.map(v => sanitizeForApi(v, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (SECRET_FIELDS.has(k)) {
+      out[k] = "[REDACTED]";
+    } else {
+      out[k] = sanitizeForApi(v, depth + 1);
+    }
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────
 
 function sanitizeSessionKey(sessionId: string): string {
   const cleaned = sessionId.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
@@ -674,12 +717,11 @@ function sortAndFinalize(events: AutopilotEvent[]): AutopilotEvent[] {
 async function writeJournal(sessionKey: string, events: AutopilotEvent[]) {
   const journalDir = join(SESSIONS_DIR, sessionKey, "journal");
   const journalPath = join(journalDir, "events.jsonl");
-  // Skip write when event count is unchanged (reduces disk I/O on idle polls)
-  if (events.length === lastJournalEventCount) return journalPath;
+  if (events.length === (lastJournalEventCounts.get(sessionKey) ?? -1)) return journalPath;
   await mkdir(journalDir, { recursive: true });
   const content = events.map((event) => JSON.stringify(event)).join("\n");
   await writeFile(journalPath, content ? `${content}\n` : "", "utf-8");
-  lastJournalEventCount = events.length;
+  lastJournalEventCounts.set(sessionKey, events.length);
   return journalPath;
 }
 
@@ -739,7 +781,8 @@ function broadcastReset() {
 }
 
 function broadcastSnapshot(events: AutopilotEvent[]) {
-  const payload = JSON.stringify({ type: "snapshot", data: events });
+  const sanitized = events.map(e => sanitizeForApi(e));
+  const payload = JSON.stringify({ type: "snapshot", data: sanitized });
   for (const ws of wsClients) {
     try {
       ws.send(payload);
@@ -751,7 +794,8 @@ function broadcastSnapshot(events: AutopilotEvent[]) {
 
 function broadcastEvents(events: AutopilotEvent[]) {
   for (const event of events) {
-    const payload = JSON.stringify({ type: "event", data: event });
+    const sanitized = sanitizeForApi(event);
+    const payload = JSON.stringify({ type: "event", data: sanitized });
     for (const ws of wsClients) {
       try {
         ws.send(payload);
@@ -873,7 +917,6 @@ async function serveStaticFile(filePath: string): Promise<Response> {
         headers: {
           "Content-Type": contentType,
           "Cache-Control": cacheControl,
-          "Access-Control-Allow-Origin": "*",
         },
       });
     }
@@ -884,6 +927,7 @@ async function serveStaticFile(filePath: string): Promise<Response> {
 }
 
 const wsServer = Bun.serve({
+  hostname: "127.0.0.1",
   port: WS_PORT,
   fetch(req: Request, server: { upgrade(request: Request): boolean }) {
     if (server.upgrade(req)) return;
@@ -902,7 +946,8 @@ const wsServer = Bun.serve({
   websocket: {
     open(ws: ServerWebSocket<unknown>) {
       wsClients.add(ws);
-      ws.send(JSON.stringify({ type: "snapshot", data: snapshotState.events }));
+      const sanitized = snapshotState.events.map(e => sanitizeForApi(e));
+      ws.send(JSON.stringify({ type: "snapshot", data: sanitized }));
     },
     message(ws: ServerWebSocket<unknown>, message: string | Uint8Array | ArrayBuffer) {
       try {
@@ -923,31 +968,29 @@ const wsServer = Bun.serve({
 });
 
 const httpServer = Bun.serve({
+  hostname: "127.0.0.1",
   port: HTTP_PORT,
   async fetch(req: Request) {
     const url = new URL(req.url);
 
     if (req.method === "OPTIONS") {
       return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-          "Access-Control-Allow-Headers": "*",
-        },
+        headers: corsHeaders(req),
       });
     }
 
     if (url.pathname === "/api/events") {
       const offset = parseInt(url.searchParams.get("offset") || "0", 10);
       const events = snapshotState.events.filter((event) => event.ingest_seq > offset);
+      const sanitized = events.map(e => sanitizeForApi(e));
       return new Response(JSON.stringify({
-        events,
+        events: sanitized,
         total: snapshotState.events.length,
         sessionId: snapshotState.sessionId,
       }), {
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          ...corsHeaders(req),
         },
       });
     }
@@ -956,19 +999,19 @@ const httpServer = Bun.serve({
       const version = await ensurePluginVersion();
       return new Response(JSON.stringify({
         version,
-        projectRoot,
+        projectRoot: sanitizePath(projectRoot),
         wsPort: WS_PORT,
         httpPort: HTTP_PORT,
-        guiDist: GUI_DIST,
+        guiDist: sanitizePath(GUI_DIST),
         sessionId: snapshotState.sessionId,
         changeName: snapshotState.changeName,
-        journalPath: snapshotState.journalPath,
+        journalPath: snapshotState.journalPath ? sanitizePath(snapshotState.journalPath) : null,
         telemetryAvailable: snapshotState.telemetryAvailable,
         transcriptAvailable: snapshotState.transcriptAvailable,
       }), {
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          ...corsHeaders(req),
         },
       });
     }
@@ -980,7 +1023,7 @@ const httpServer = Bun.serve({
         return new Response(JSON.stringify({ lines: [] }), {
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            ...corsHeaders(req),
           },
         });
       }
@@ -989,26 +1032,67 @@ const httpServer = Bun.serve({
         return new Response(JSON.stringify({ lines: [] }), {
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            ...corsHeaders(req),
           },
         });
       }
       const filePath = join(SESSIONS_DIR, sessionKey, "raw", fileName);
       try {
-        const lines = (await readFile(filePath, "utf-8")).split("\n").filter(Boolean);
-        return new Response(JSON.stringify({ lines, filePath }), {
+        const rawLines = (await readFile(filePath, "utf-8")).split("\n").filter(Boolean);
+        const lines = rawLines.map(l => {
+          try { return JSON.stringify(sanitizeForApi(JSON.parse(l))); }
+          catch { return sanitizePath(l); }
+        });
+        return new Response(JSON.stringify({ lines, filePath: sanitizePath(filePath) }), {
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            ...corsHeaders(req),
           },
         });
       } catch {
-        return new Response(JSON.stringify({ lines: [], filePath }), {
+        return new Response(JSON.stringify({ lines: [], filePath: sanitizePath(filePath) }), {
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+            ...corsHeaders(req),
           },
         });
+      }
+    }
+
+    if (url.pathname === "/api/raw-tail") {
+      const kind = url.searchParams.get("kind");
+      const cursor = parseInt(url.searchParams.get("cursor") || "0", 10);
+      const maxLines = Math.min(parseInt(url.searchParams.get("lines") || "120", 10), 500);
+      const sessionKey = snapshotState.sessionKey;
+      if (!sessionKey || !kind) {
+        return Response.json({ lines: [], cursor: 0, fileSize: 0 },
+          { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+      }
+      const fileName = kind === "hooks" ? "hooks.jsonl" : kind === "statusline" ? "statusline.jsonl" : null;
+      if (!fileName) {
+        return Response.json({ lines: [], cursor: 0, fileSize: 0 },
+          { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+      }
+      const filePath = join(SESSIONS_DIR, sessionKey, "raw", fileName);
+      try {
+        const file = Bun.file(filePath);
+        const fileSize = file.size;
+        if (cursor >= fileSize) {
+          return Response.json({ lines: [], cursor, fileSize },
+            { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+        }
+        const readSize = Math.min(fileSize - cursor, 256 * 1024);
+        const text = await file.slice(cursor, cursor + readSize).text();
+        const rawLines = text.split("\n").filter(Boolean).slice(-maxLines);
+        const sanitized = rawLines.map(l => {
+          try { return JSON.stringify(sanitizeForApi(JSON.parse(l))); }
+          catch { return sanitizePath(l); }
+        });
+        return Response.json({ lines: sanitized, cursor: cursor + readSize, fileSize },
+          { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+      } catch {
+        return Response.json({ lines: [], cursor: 0, fileSize: 0 },
+          { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
       }
     }
 

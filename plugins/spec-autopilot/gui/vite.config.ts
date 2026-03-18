@@ -19,6 +19,18 @@ export default defineConfig({
     outDir: resolve(__dirname, "../gui-dist"),
     emptyOutDir: true,
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
+            return "vendor-react";
+          }
+          if (id.includes("@tanstack/react-virtual") || id.includes("@tanstack/virtual-core")) {
+            return "vendor-virtual";
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5173,

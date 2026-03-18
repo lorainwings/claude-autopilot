@@ -1,10 +1,11 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 type RawKind = "hooks" | "statusline";
 
-interface RawResponse {
+interface RawTailResponse {
   lines: string[];
-  filePath?: string;
+  cursor: number;
+  fileSize: number;
 }
 
 /** Derive HTTP API base from current page origin (consistent with WSBridge's localhost default) */
@@ -13,31 +14,32 @@ function getApiBase(): string {
   return `${protocol}//${hostname}:9527`;
 }
 
-async function fetchRaw(kind: RawKind): Promise<RawResponse> {
-  const response = await fetch(`${getApiBase()}/api/raw?kind=${kind}`);
-  if (!response.ok) return { lines: [] };
-  return response.json() as Promise<RawResponse>;
-}
-
 export const RawInspectorPanel = memo(function RawInspectorPanel() {
   const [kind, setKind] = useState<RawKind>("hooks");
   const [lines, setLines] = useState<string[]>([]);
-  const [filePath, setFilePath] = useState<string>("");
+  const cursorRef = useRef(0);
+
+  // kind 切换时重置游标和行
+  useEffect(() => {
+    cursorRef.current = 0;
+    setLines([]);
+  }, [kind]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await fetchRaw(kind);
-        if (!cancelled) {
-          setLines(data.lines.slice(-120));
-          setFilePath(data.filePath || "");
+        const res = await fetch(
+          `${getApiBase()}/api/raw-tail?kind=${kind}&cursor=${cursorRef.current}`
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as RawTailResponse;
+        if (!cancelled && data.lines.length > 0) {
+          setLines((prev) => [...prev, ...data.lines].slice(-500));
+          cursorRef.current = data.cursor;
         }
       } catch {
-        if (!cancelled) {
-          setLines([]);
-          setFilePath("");
-        }
+        // 网络错误静默忽略，下次轮询重试
       }
     };
 
@@ -65,7 +67,9 @@ export const RawInspectorPanel = memo(function RawInspectorPanel() {
             </button>
           ))}
         </div>
-        <div className="text-[10px] font-mono text-text-muted truncate ml-4">{filePath || "无原始文件"}</div>
+        <div className="text-[10px] font-mono text-text-muted truncate ml-4">
+          {lines.length > 0 ? `${lines.length} 行 (游标增量)` : "暂无数据"}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
         {lines.length === 0 ? (
