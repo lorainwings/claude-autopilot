@@ -245,7 +245,7 @@ The GUI dashboard is served via `autopilot-server.ts` in dual-mode, requiring no
 ### Server Command-Line Arguments
 
 ```bash
-bun run scripts/autopilot-server.ts [options]
+bun run server/autopilot-server.ts [options]
 ```
 
 | Argument | Default | Description |

@@ -90,6 +90,12 @@ while IFS= read -r line; do
 done < "$MANIFEST"
 echo "📋 Manifest-driven copy: $MANIFEST_COUNT files → dist/scripts/"
 
+# 5b. server 回填: 将 server/autopilot-server.ts 复制到 dist/scripts/（dist 态需要）
+if [ -f "$PLUGIN_ROOT/server/autopilot-server.ts" ]; then
+  cp "$PLUGIN_ROOT/server/autopilot-server.ts" "$DIST_DIR/scripts/"
+  echo "📋 Server backfill: server/autopilot-server.ts → dist/scripts/"
+fi
+
 # 6. CLAUDE.md — 裁剪 dev-only 段落
 sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' \
   "$PLUGIN_ROOT/CLAUDE.md" > "$DIST_DIR/CLAUDE.md"
@@ -113,11 +119,12 @@ for script in $(grep -o 'scripts/[^" ]*\.sh' "$DIST_DIR/hooks/hooks.json" | sed 
 done
 [ "$MISSING" -eq 1 ] && exit 1
 
-# 7c. 校验: dist/scripts/ 中不存在清单外文件
+# 7c. 校验: dist/scripts/ 中不存在清单外文件（server 回填的 autopilot-server.ts 豁免）
 LEAKED=0
 for f in "$DIST_DIR/scripts/"*; do
   [ -f "$f" ] || continue
   fname=$(basename "$f")
+  [ "$fname" = "autopilot-server.ts" ] && continue
   if ! grep -qxF "$fname" <(sed 's/#.*//' "$MANIFEST" | xargs -n1 2>/dev/null); then
     echo "ERROR: dist/scripts/ contains file not in manifest: $fname"
     LEAKED=1

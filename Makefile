@@ -52,10 +52,10 @@ typecheck: ## Run TypeScript type checks (gui + server)
 	fi
 	@echo ""
 	@echo "── server typecheck ──"
-	@if [ -f $(PLUGIN)/scripts/tsconfig.json ]; then \
-	  cd $(PLUGIN)/scripts && npx tsc --noEmit; \
+	@if [ -f $(PLUGIN)/server/tsconfig.json ]; then \
+	  cd $(PLUGIN)/server && npx tsc --noEmit; \
 	else \
-	  echo "[skip] scripts/tsconfig.json not found"; \
+	  echo "[skip] server/tsconfig.json not found"; \
 	fi
 
 ci: lint typecheck test build ## CI pipeline: lint → typecheck → test → build

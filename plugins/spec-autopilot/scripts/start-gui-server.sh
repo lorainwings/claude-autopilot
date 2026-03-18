@@ -18,10 +18,15 @@ check_server_alive() {
 
 # --- Start server in background ---
 start_server() {
-  local server_script="$SCRIPT_DIR/autopilot-server.ts"
+  local server_script=""
 
-  if [ ! -f "$server_script" ]; then
-    echo "[WARN] GUI server script not found: $server_script" >&2
+  # 双路径解析: dist 态优先，源码态兜底
+  if [ -f "$SCRIPT_DIR/autopilot-server.ts" ]; then
+    server_script="$SCRIPT_DIR/autopilot-server.ts"
+  elif [ -f "$SCRIPT_DIR/../server/autopilot-server.ts" ]; then
+    server_script="$SCRIPT_DIR/../server/autopilot-server.ts"
+  else
+    echo "[WARN] GUI server script not found in scripts/ or server/" >&2
     return 1
   fi
 

@@ -2,7 +2,7 @@
 # test_autopilot_server_aggregation.sh — server aggregates legacy + raw hook + statusline + transcript
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SERVER_DIR="$(cd "$TEST_DIR/../server" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- autopilot-server aggregation ---"
@@ -41,7 +41,7 @@ cat > "$TMP_DIR/transcript.jsonl" <<EOF
 {"timestamp":"2026-03-17T00:00:04Z","role":"assistant","content":[{"text":"开始执行"}]}
 EOF
 
-bun run "$SCRIPT_DIR/autopilot-server.ts" --project-root "$TMP_DIR" --no-open >/dev/null 2>&1 &
+bun run "$SERVER_DIR/autopilot-server.ts" --project-root "$TMP_DIR" --no-open >/dev/null 2>&1 &
 SERVER_PID=$!
 
 READY=0

@@ -9,6 +9,13 @@
 - **pre-commit 快检**: Part 1.7 staged 文件快速 shellcheck + ruff 检查（警告模式）
 - **CI 独立 job**: 新增 lint、typecheck、build-dist 三个独立 CI job
 
+### Changed
+
+- **GUI Server 分层**: `autopilot-server.ts` 及其 `package.json`/`tsconfig.json`/`bun.lock` 从 `scripts/` 迁移至新建 `server/` 目录
+- **启动脚本双路径**: `start-gui-server.sh` 支持 dist 态（`scripts/`）和源码态（`server/`）双路径解析
+- **构建回填**: `build-dist.sh` 自动将 `server/autopilot-server.ts` 回填到 `dist/scripts/`
+- **Live docs 收口**: README、getting-started、operations 文档中 `scripts/autopilot-server.ts` 引用全部更新为 `server/autopilot-server.ts`
+
 ## [5.1.27] - 2026-03-18
 
 ### Changed

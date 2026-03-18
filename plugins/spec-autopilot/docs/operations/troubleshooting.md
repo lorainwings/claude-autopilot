@@ -158,8 +158,8 @@ rm openspec/changes/.autopilot-active
 
 **Fix**:
 1. Check if autopilot-server.ts is still running: `ps aux | grep autopilot-server`
-2. If it has exited, restart it: `bun run plugins/spec-autopilot/scripts/autopilot-server.ts`
-3. If there is a port conflict: `bun run plugins/spec-autopilot/scripts/autopilot-server.ts --ws-port 9000`
+2. If it has exited, restart it: `bun run plugins/spec-autopilot/server/autopilot-server.ts`
+3. If there is a port conflict: `bun run plugins/spec-autopilot/server/autopilot-server.ts --ws-port 9000`
 4. The GUI will auto-reconnect (built-in 3-second retry) and backfill missed events after reconnection
 
 ### 12. GUI Shows No Events (v5.0.8)

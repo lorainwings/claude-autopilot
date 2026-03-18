@@ -158,8 +158,8 @@ rm openspec/changes/.autopilot-active
 
 **修复**:
 1. 检查 autopilot-server.ts 是否仍在运行：`ps aux | grep autopilot-server`
-2. 如已退出，重新启动：`bun run plugins/spec-autopilot/scripts/autopilot-server.ts`
-3. 如端口冲突：`bun run plugins/spec-autopilot/scripts/autopilot-server.ts --ws-port 9000`
+2. 如已退出，重新启动：`bun run plugins/spec-autopilot/server/autopilot-server.ts`
+3. 如端口冲突：`bun run plugins/spec-autopilot/server/autopilot-server.ts --ws-port 9000`
 4. GUI 会自动重连（内置 3 秒重试），重新连接后补发缺失事件
 
 ### 12. GUI 无事件显示 (v5.0.8)

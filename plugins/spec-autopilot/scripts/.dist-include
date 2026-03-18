@@ -55,6 +55,4 @@ write-edit-constraint-check.sh
 write-phase-progress.sh
 
 # ── GUI server 运行时入口 ──
-# package.json / bun.lock / tsconfig.json 仅含 devDependencies 类型定义，
-# 不是运行时必须文件，Phase 3 迁移 server/ 时统一处理。
-autopilot-server.ts
+# autopilot-server.ts 已迁移至 server/，由 build-dist.sh 回填到 dist/scripts/

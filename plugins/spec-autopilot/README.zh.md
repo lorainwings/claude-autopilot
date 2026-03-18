@@ -150,7 +150,7 @@ sequenceDiagram
 **启动命令**:
 
 ```bash
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+bun run plugins/spec-autopilot/server/autopilot-server.ts
 ```
 
 **三栏布局**:

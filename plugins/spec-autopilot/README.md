@@ -4,7 +4,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.28-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.29-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -150,7 +150,7 @@ Real-time visualization of execution status and gate decision interaction.
 **Launch command**:
 
 ```bash
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+bun run plugins/spec-autopilot/server/autopilot-server.ts
 ```
 
 **Three-column layout**:

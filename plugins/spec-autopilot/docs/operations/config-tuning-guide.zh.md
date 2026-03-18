@@ -235,10 +235,10 @@ TDD 行为说明：
 
 ```bash
 # 启动 GUI 双模服务器
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+bun run plugins/spec-autopilot/server/autopilot-server.ts
 
 # 自定义端口
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts --http-port 3000 --ws-port 9000
+bun run plugins/spec-autopilot/server/autopilot-server.ts --http-port 3000 --ws-port 9000
 ```
 
 调优建议：

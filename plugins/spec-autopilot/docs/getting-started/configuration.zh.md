@@ -245,7 +245,7 @@ GUI 大盘通过 `autopilot-server.ts` 提供双模服务，无需在 `autopilot
 ### 服务器命令行参数
 
 ```bash
-bun run scripts/autopilot-server.ts [options]
+bun run server/autopilot-server.ts [options]
 ```
 
 | 参数 | 默认值 | 说明 |

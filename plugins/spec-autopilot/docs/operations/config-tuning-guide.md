@@ -235,10 +235,10 @@ TDD behavior details:
 
 ```bash
 # Start the GUI dual-mode server
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts
+bun run plugins/spec-autopilot/server/autopilot-server.ts
 
 # Custom ports
-bun run plugins/spec-autopilot/scripts/autopilot-server.ts --http-port 3000 --ws-port 9000
+bun run plugins/spec-autopilot/server/autopilot-server.ts --http-port 3000 --ws-port 9000
 ```
 
 Tuning tips:
