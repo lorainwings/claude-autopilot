@@ -299,8 +299,15 @@ test_suites:
 | `capture-hook-event.sh` | 捕获并记录 hook 执行事件，用于诊断 |
 | `emit-tool-event.sh` | 向事件总线发射工具级事件 |
 | `autopilot-server.ts` | GUI 双模服务器：HTTP:9527 + WebSocket:8765（v5.0.8） |
-| `build-dist.sh` | 构建发布分发包 |
 | `_common.sh` | 共享工具函数 |
+
+### 开发工具 (`tools/`)
+
+| 脚本 | 用途 |
+|------|------|
+| `build-dist.sh` | 构建发布分发包 |
+| `bump-version.sh` | 同步 plugin.json / marketplace.json / README.md / CHANGELOG.md 版本号 |
+| `mock-event-emitter.js` | 用于 GUI 组件测试的模拟事件发射器 |
 
 ## 环境要求
 

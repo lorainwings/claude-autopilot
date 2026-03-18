@@ -92,7 +92,7 @@ Open a PR against `main` with a clear description of your changes.
 
 ### Version Bumping
 
-- Version changes **must** go through `scripts/bump-version.sh`
+- Version changes **must** go through `tools/bump-version.sh`
 - Never manually edit version numbers in plugin.json, marketplace.json, README.md, or CHANGELOG.md
 
 ### Build Discipline

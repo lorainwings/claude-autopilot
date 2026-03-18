@@ -61,11 +61,11 @@
 <!-- DEV-ONLY-BEGIN -->
 ## 发版纪律 (v4.3)
 
-1. **唯一入口**: 版本号升级必须且只能通过 `scripts/bump-version.sh <new_version>` 执行
+1. **唯一入口**: 版本号升级必须且只能通过 `tools/bump-version.sh <new_version>` 执行
 2. **禁止散弹式修改**: 禁止人工或 AI 单独修改 plugin.json / marketplace.json / README.md / CHANGELOG.md 中的版本号
 3. **同步范围**: 脚本一键同步 4 个文件 — plugin.json (version) + marketplace.json (plugins[].version) + README.md (badge) + CHANGELOG.md (header)
 4. **验证闭环**: 脚本执行后自动验证 4 个文件一致性，任一不匹配则 exit 1
-5. **推送前必须完整构建+测试**: `git push` 前必须依次执行 `bash scripts/build-dist.sh`（构建）+ `bash tests/run_all.sh`（全量测试），两者均 exit 0 后才允许推送，禁止跳过
+5. **推送前必须完整构建+测试**: `git push` 前必须依次执行 `bash tools/build-dist.sh`（构建）+ `bash tests/run_all.sh`（全量测试），两者均 exit 0 后才允许推送，禁止跳过
 <!-- DEV-ONLY-END -->
 
 <!-- DEV-ONLY-BEGIN -->
@@ -109,9 +109,9 @@
 <!-- DEV-ONLY-BEGIN -->
 ## 构建纪律 (Build Discipline)
 
-1. **修改运行时文件后必须重新构建**: 运行 `bash scripts/build-dist.sh`（pre-commit 自动执行）
+1. **修改运行时文件后必须重新构建**: 运行 `bash tools/build-dist.sh`（pre-commit 自动执行）
 2. **dist/plugin/ 禁止手动修改**: 所有修改在源码中进行，通过构建同步
-3. **新增运行时脚本须加入白名单**: 确认不在 build-dist.sh 的 EXCLUDE_SCRIPTS 列表中
+3. **新增运行时脚本须加入清单**: 在 `scripts/.dist-include` 中添加对应条目
 4. **测试文件永不进入 dist**: `tests/` 目录不在构建白名单中
 
 ## TypeScript 配置纪律

@@ -170,7 +170,7 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   # Part 2.5: Rebuild dist (AFTER version bump)
   # ============================================
   echo "📦 Rebuilding dist/plugin/..."
-  if bash plugins/spec-autopilot/scripts/build-dist.sh; then
+  if bash plugins/spec-autopilot/tools/build-dist.sh; then
     git add dist/spec-autopilot/
   else
     echo "❌ dist build failed. Fix the build before committing."

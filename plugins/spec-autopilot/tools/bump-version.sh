@@ -2,8 +2,8 @@
 # bump-version.sh — 全局版本号确定性同步脚本
 # 一键同步修改 plugin.json / marketplace.json / README.md / CHANGELOG.md
 #
-# Usage: bash scripts/bump-version.sh <new_version>
-# Example: bash scripts/bump-version.sh 4.3.0
+# Usage: bash tools/bump-version.sh <new_version>
+# Example: bash tools/bump-version.sh 4.3.0
 #
 # 此脚本是版本升级的唯一合法入口。禁止人工或 AI 散弹式手动修改版本号。
 

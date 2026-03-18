@@ -14,4 +14,4 @@ test: ## Run full test suite
 	@bash plugins/spec-autopilot/tests/run_all.sh
 
 build: ## Rebuild dist/ from source
-	@bash plugins/spec-autopilot/scripts/build-dist.sh
+	@bash plugins/spec-autopilot/tools/build-dist.sh

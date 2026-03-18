@@ -88,7 +88,7 @@ mkdir -p \
   "$fix_root/bin"
 
 # 复制真实的 build-dist.sh 和 manifest
-cp "$PLUGIN_ROOT/scripts/build-dist.sh" "$fix_plugin/scripts/"
+cp "$PLUGIN_ROOT/tools/build-dist.sh" "$fix_plugin/scripts/"
 cp "$MANIFEST" "$fix_plugin/scripts/.dist-include"
 chmod +x "$fix_plugin/scripts/build-dist.sh"
 

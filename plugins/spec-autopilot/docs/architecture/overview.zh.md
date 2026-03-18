@@ -297,8 +297,11 @@ spec-autopilot/
 │   ├── emit-gate-event.sh       (Gate 事件发射, v4.2)
 │   ├── emit-task-progress.sh    (Task 进度发射, v5.2)
 │   ├── autopilot-server.ts      (GUI 双模服务器, v5.0.8)
-│   ├── build-dist.sh            (分发包构建)
 │   └── ...                      (各 Hook 脚本)
+├── tools/           (开发/发布工具, 不进入 dist)
+│   ├── build-dist.sh            (分发包构建)
+│   ├── bump-version.sh          (版本号同步)
+│   └── mock-event-emitter.js    (GUI 事件模拟)
 ├── gui/              (GUI V2 大盘, v5.0.8)
 │   └── src/
 │       ├── App.tsx              (主应用)

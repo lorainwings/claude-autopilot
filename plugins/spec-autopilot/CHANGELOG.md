@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.1.27] - 2026-03-18
+
+### Changed
+
+- **Phase 1 — dev-only 工具迁出**: 将 `build-dist.sh`、`bump-version.sh`、`mock-event-emitter.js` 从 `scripts/` 迁移至新建 `tools/` 目录，使 `scripts/` 专注于运行时契约面
+- **级联路径同步**: Makefile、pre-commit、测试、CLAUDE.md、CONTRIBUTING、README、架构文档中的所有引用路径已更新
+- **构建纪律更正**: CLAUDE.md 构建白名单指引从已废弃的 EXCLUDE_SCRIPTS 改为 `scripts/.dist-include` manifest
+
 ## [5.1.26] - 2026-03-18
 
 ### Added

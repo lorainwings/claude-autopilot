@@ -4,7 +4,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.26-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.27-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -299,8 +299,15 @@ test_suites:
 | `capture-hook-event.sh` | Capture and log hook execution events for diagnostics |
 | `emit-tool-event.sh` | Emit tool-level events to Event Bus |
 | `autopilot-server.ts` | GUI dual-mode server: HTTP:9527 + WebSocket:8765 (v5.0.8) |
-| `build-dist.sh` | Build distribution package for publishing |
 | `_common.sh` | Shared utility functions |
+
+### Development Tools (`tools/`)
+
+| Script | Purpose |
+|--------|---------|
+| `build-dist.sh` | Build distribution package for publishing |
+| `bump-version.sh` | Synchronize version across plugin.json / marketplace.json / README.md / CHANGELOG.md |
+| `mock-event-emitter.js` | Mock event emitter for GUI component testing |
 
 ## Requirements
 

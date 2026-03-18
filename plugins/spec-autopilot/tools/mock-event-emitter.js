@@ -3,7 +3,7 @@
  * mock-event-emitter.js
  * 模拟事件发射器，用于测试 GUI 组件
  *
- * 用法: node scripts/mock-event-emitter.js [--project-root <path>]
+ * 用法: node tools/mock-event-emitter.js [--project-root <path>]
  */
 
 const fs = require("fs");

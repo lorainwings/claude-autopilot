@@ -92,7 +92,7 @@ git push origin feature/my-feature
 
 ### 版本升级
 
-- 版本号变更**必须**通过 `scripts/bump-version.sh` 执行
+- 版本号变更**必须**通过 `tools/bump-version.sh` 执行
 - 禁止手动编辑 plugin.json、marketplace.json、README.md 或 CHANGELOG.md 中的版本号
 
 ### 构建纪律

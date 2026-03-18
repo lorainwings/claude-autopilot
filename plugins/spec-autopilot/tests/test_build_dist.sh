@@ -6,7 +6,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
-BUILD_SCRIPT="$PLUGIN_ROOT/scripts/build-dist.sh"
+BUILD_SCRIPT="$PLUGIN_ROOT/tools/build-dist.sh"
 DIST_DIR="$REPO_ROOT/dist/spec-autopilot"
 
 echo "--- build-dist runtime completeness ---"
