@@ -27,13 +27,9 @@ scan-checkpoints-on-start.sh
 unified-write-edit-check.sh
 
 # ── Runtime scripts (called by skills / other runtime scripts) ──
-anti-rationalization-check.sh
-assertion-quality-check.sh
-banned-patterns-check.sh
 check-allure-install.sh
 check-security-tools-install.sh
 clean-phase-artifacts.sh
-code-constraint-check.sh
 collect-metrics.sh
 emit-agent-event.sh
 emit-gate-event.sh
@@ -51,8 +47,19 @@ tdd-refactor-rollback.sh
 validate-config.sh
 validate-decision-format.sh
 validate-json-envelope.sh
-write-edit-constraint-check.sh
 write-phase-progress.sh
+
+# ── Deprecated (兼容窗口，计划于下个大版本移除) ──
+# anti-rationalization-check.sh → post-task-validator.sh (v4.0)
+anti-rationalization-check.sh
+# assertion-quality-check.sh → unified-write-edit-check.sh (v5.1)
+assertion-quality-check.sh
+# banned-patterns-check.sh → unified-write-edit-check.sh (v5.1)
+banned-patterns-check.sh
+# code-constraint-check.sh → post-task-validator.sh (v4.0)
+code-constraint-check.sh
+# write-edit-constraint-check.sh → unified-write-edit-check.sh (v5.1)
+write-edit-constraint-check.sh
 
 # ── GUI server 运行时入口 ──
 # autopilot-server.ts 已迁移至 server/，由 build-dist.sh 回填到 dist/scripts/

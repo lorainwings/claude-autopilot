@@ -16,6 +16,13 @@
 - **构建回填**: `build-dist.sh` 自动将 `server/autopilot-server.ts` 回填到 `dist/scripts/`
 - **Live docs 收口**: README、getting-started、operations 文档中 `scripts/autopilot-server.ts` 引用全部更新为 `server/autopilot-server.ts`
 
+### Deprecated
+
+- **兼容淘汰期**: 5 个 deprecated 脚本加完整 tombstone block，live docs 引用迁移到替代方案
+  - `anti-rationalization-check.sh` / `code-constraint-check.sh` → `post-task-validator.sh` (v4.0)
+  - `assertion-quality-check.sh` / `banned-patterns-check.sh` / `write-edit-constraint-check.sh` → `unified-write-edit-check.sh` (v5.1)
+- `.dist-include` manifest 重组: deprecated 条目移至独立 "兼容窗口" 区块
+
 ## [5.1.27] - 2026-03-18
 
 ### Changed

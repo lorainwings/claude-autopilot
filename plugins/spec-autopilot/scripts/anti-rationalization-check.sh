@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# DEPRECATED: Core logic merged into post-task-validator.sh / _post_task_validator.py (v4.0). This file is retained for reference only and is NOT registered in hooks.json.
+# ┌─────────────────────────────────────────────────────────────┐
+# │ DEPRECATED since v4.0                                       │
+# │ Replaced by: post-task-validator.sh / _post_task_validator.py│
+# │ Planned removal: next major version                         │
+# │ NOT registered in hooks.json — retained for compatibility   │
+# └─────────────────────────────────────────────────────────────┘
 # anti-rationalization-check.sh
 # Hook: PostToolUse(Task) — runs after validate-json-envelope.sh
 # Purpose: Detect rationalization patterns in autopilot sub-agent output

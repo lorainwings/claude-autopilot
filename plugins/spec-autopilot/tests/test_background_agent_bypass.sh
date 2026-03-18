@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test_background_agent_bypass.sh — Section 45: Background agent bypass
+# NOTE: Some cases test deprecated scripts (anti-rationalization-check, code-constraint-check)
+#       retained during the compatibility window.
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"

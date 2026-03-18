@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test_lock_precheck.sh — Section 25: Lock file pre-check false positive prevention
+# NOTE: Some cases reference code-constraint-check.sh (DEPRECATED since v4.0, replaced by
+#       post-task-validator.sh). Retained during the compatibility window.
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"

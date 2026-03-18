@@ -91,7 +91,9 @@ Task(Phase 1) → Task(Phase 2, blockedBy: [Phase 1]) → ... → Task(Phase 7, 
    - `e2e_pct <= 40`（宽松上限）
    - `total_cases >= 10`（最低数量）
 
-### PostToolUse 反合理化 (`anti-rationalization-check.sh`)
+### PostToolUse 反合理化 (`anti-rationalization-check.sh`) — DEPRECATED
+
+> **v4.0 起废弃**: 已被 `post-task-validator.sh` 替代。保留以兼容现有测试。
 
 在信封验证之后运行。检测子 Agent 合理化跳过工作的模式：
 

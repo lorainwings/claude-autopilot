@@ -148,15 +148,15 @@
 {task.owned_files}
 
 禁止修改此列表之外的任何文件。
-write-edit-constraint-check Hook 会拦截越权修改。
+unified-write-edit-check Hook 会拦截越权修改。
 ```
 
-#### 与 write-edit-constraint-check 的集成
+#### 与 unified-write-edit-check 的集成
 
 并行执行期间，主线程将每个 agent 的 owned_files 写入临时文件：
 `openspec/changes/<name>/context/phase-results/phase5-ownership/agent-{N}.json`
 
-write-edit-constraint-check.sh 在并行模式下额外检查：
+unified-write-edit-check.sh 在并行模式下额外检查：
 - 读取当前 agent 的 ownership 文件
 - 验证 Write/Edit 目标文件在 owned_files 范围内
 - 越权 → block

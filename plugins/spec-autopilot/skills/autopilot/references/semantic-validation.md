@@ -48,7 +48,7 @@
 - [ ] 是否有未处理的 TODO/FIXME/HACK 注释
 - [ ] 所有 tasks.md 任务的 [x] 是否有对应的代码变更（非空 commit）
 - [ ] 测试是否通过且无跳过（zero_skip_check）
-- [ ] 代码约束合规：artifacts 中所有文件是否通过 code-constraint-check（无禁止文件/模式）
+- [ ] 代码约束合规：artifacts 中所有文件是否通过 post-task-validator（无禁止文件/模式）
 - [ ] 文件大小：新增/修改文件是否超过 800 行限制（config.code_constraints.max_file_lines）
 - [ ] 目录范围：所有修改是否在 config.code_constraints.allowed_dirs 范围内
 - [ ] 禁止模式：代码中是否包含 config.code_constraints.forbidden_patterns 中的模式

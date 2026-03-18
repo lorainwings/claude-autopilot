@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# DEPRECATED (v5.1): Merged into unified-write-edit-check.sh. This file is retained for reference only and is NOT registered in hooks.json.
+# ┌─────────────────────────────────────────────────────────────┐
+# │ DEPRECATED since v5.1                                       │
+# │ Replaced by: unified-write-edit-check.sh                    │
+# │ Planned removal: next major version                         │
+# │ NOT registered in hooks.json — retained for compatibility   │
+# └─────────────────────────────────────────────────────────────┘
 # write-edit-constraint-check.sh
 # Hook: PostToolUse(Write|Edit) — Phase 5 直接文件写入约束检查
 # 与 code-constraint-check.sh 互补：后者检查 Task 子 Agent 返回的 artifacts，

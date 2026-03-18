@@ -91,7 +91,9 @@ Runs after every `Task` tool call. For autopilot phases:
    - `e2e_pct <= 40` (lenient ceiling)
    - `total_cases >= 10` (minimum)
 
-### PostToolUse Anti-Rationalization (`anti-rationalization-check.sh`)
+### PostToolUse Anti-Rationalization (`anti-rationalization-check.sh`) — DEPRECATED
+
+> **Deprecated since v4.0**: Replaced by `post-task-validator.sh`. Retained for backward compatibility.
 
 Runs after envelope validation. Detects patterns suggesting the sub-agent is rationalizing skipping work:
 

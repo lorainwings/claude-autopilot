@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test_anti_rationalization.sh — Section 22: anti-rationalization-check.sh
+# NOTE: anti-rationalization-check.sh is DEPRECATED since v4.0 (replaced by post-task-validator.sh).
+#       This test is retained during the compatibility window to ensure the script still functions.
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"

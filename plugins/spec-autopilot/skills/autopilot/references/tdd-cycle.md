@@ -59,7 +59,7 @@
 
 ### TDD 阶段状态文件（v5.1 L2 确定性门禁）
 
-主线程在每个 TDD 步骤派发前，**必须**写入 `.tdd-stage` 状态文件，供 `write-edit-constraint-check.sh` L2 Hook 确定性拦截：
+主线程在每个 TDD 步骤派发前，**必须**写入 `.tdd-stage` 状态文件，供 `unified-write-edit-check.sh` L2 Hook 确定性拦截：
 
 ```
 文件位置: openspec/changes/<name>/context/.tdd-stage

@@ -140,7 +140,7 @@ Task(
 你被分配以下文件的独占所有权：
 {domain_all_owned_files}
 禁止修改此列表之外的任何文件。
-write-edit-constraint-check Hook 会拦截越权修改。
+unified-write-edit-check Hook 会拦截越权修改。
 
 ## 并发隔离
 - 你运行在独立 worktree 中（每域 1 个 worktree）
