@@ -42,6 +42,7 @@ mkdir -p \
 
 cp "$BUILD_SCRIPT" "$tmp_plugin/scripts/build-dist.sh"
 printf '#!/usr/bin/env bash\necho "collect metrics"\n' > "$tmp_plugin/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' > "$tmp_plugin/scripts/.dist-include"
 chmod +x "$tmp_plugin/scripts/build-dist.sh" "$tmp_plugin/scripts/collect-metrics.sh"
 cat > "$tmp_plugin/hooks/hooks.json" <<'EOF'
 {
@@ -93,6 +94,7 @@ mkdir -p \
 
 cp "$BUILD_SCRIPT" "$fail_plugin/scripts/build-dist.sh"
 printf '#!/usr/bin/env bash\necho "collect"\n' > "$fail_plugin/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' > "$fail_plugin/scripts/.dist-include"
 chmod +x "$fail_plugin/scripts/build-dist.sh" "$fail_plugin/scripts/collect-metrics.sh"
 cat > "$fail_plugin/hooks/hooks.json" <<'HEOF'
 { "hooks": [{ "hooks": [{ "type": "command", "command": "scripts/collect-metrics.sh" }] }] }
@@ -137,6 +139,7 @@ mkdir -p \
 
 cp "$BUILD_SCRIPT" "$fc_plugin/scripts/build-dist.sh"
 printf '#!/usr/bin/env bash\necho "collect"\n' > "$fc_plugin/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' > "$fc_plugin/scripts/.dist-include"
 chmod +x "$fc_plugin/scripts/build-dist.sh" "$fc_plugin/scripts/collect-metrics.sh"
 cat > "$fc_plugin/hooks/hooks.json" <<'FCEOF'
 { "hooks": [{ "hooks": [{ "type": "command", "command": "scripts/collect-metrics.sh" }] }] }
@@ -160,6 +163,75 @@ assert_exit "fresh-clone: build-dist recovers gui-dist from dist/" 0 "$fc_exit"
 assert_contains "fresh-clone: recovery message shown" "$fc_output" "Recovered gui-dist from dist/"
 assert_contains "fresh-clone: build completes with success banner" "$fc_output" "dist/spec-autopilot built"
 rm -rf "$fc_root"
+
+# ── 负向测试: manifest 护栏失败路径 ──
+
+# 辅助函数: 创建最小 fixture 环境
+setup_neg_fixture() {
+  local root="$1"
+  local repo="$root/repo"
+  local plugin="$repo/plugins/spec-autopilot"
+  mkdir -p \
+    "$plugin/scripts" \
+    "$plugin/hooks" \
+    "$plugin/skills" \
+    "$plugin/.claude-plugin" \
+    "$plugin/gui" \
+    "$plugin/gui-dist" \
+    "$root/bin"
+  cp "$BUILD_SCRIPT" "$plugin/scripts/build-dist.sh"
+  printf '#!/usr/bin/env bash\necho "stub"\n' > "$plugin/scripts/collect-metrics.sh"
+  chmod +x "$plugin/scripts/build-dist.sh" "$plugin/scripts/collect-metrics.sh"
+  cat > "$plugin/hooks/hooks.json" <<'NEOF'
+{ "hooks": [{ "hooks": [{ "type": "command", "command": "scripts/collect-metrics.sh" }] }] }
+NEOF
+  printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$plugin/.claude-plugin/plugin.json"
+  printf '# CLAUDE\n' > "$plugin/CLAUDE.md"
+  printf '{ "name": "gui" }\n' > "$plugin/gui/package.json"
+  printf '<!doctype html><title>f</title>\n' > "$plugin/gui-dist/index.html"
+  cat > "$root/bin/bun" <<'NBEOF'
+#!/usr/bin/env bash
+echo "0.0.0-stub"
+NBEOF
+  chmod +x "$root/bin/bun"
+  echo "$plugin"
+}
+
+# NEG-1. manifest 文件缺失 → exit 1
+echo "  neg: manifest missing"
+neg1_root=$(mktemp -d)
+neg1_plugin=$(setup_neg_fixture "$neg1_root")
+# 故意不创建 .dist-include
+neg1_output=$(PATH="$neg1_root/bin:$PATH" bash "$neg1_plugin/scripts/build-dist.sh" 2>&1)
+neg1_exit=$?
+assert_exit "NEG-1. missing manifest → exit 1" 1 "$neg1_exit"
+assert_contains "NEG-1. error message mentions manifest" "$neg1_output" "runtime manifest not found"
+rm -rf "$neg1_root"
+
+# NEG-2. manifest 条目引用不存在的文件 → exit 1
+echo "  neg: manifest references nonexistent file"
+neg2_root=$(mktemp -d)
+neg2_plugin=$(setup_neg_fixture "$neg2_root")
+printf 'collect-metrics.sh\nnonexistent-script.sh\n' > "$neg2_plugin/scripts/.dist-include"
+neg2_output=$(PATH="$neg2_root/bin:$PATH" bash "$neg2_plugin/scripts/build-dist.sh" 2>&1)
+neg2_exit=$?
+assert_exit "NEG-2. nonexistent manifest entry → exit 1" 1 "$neg2_exit"
+assert_contains "NEG-2. error message mentions missing entry" "$neg2_output" "manifest entry missing from source"
+rm -rf "$neg2_root"
+
+# NEG-3. hooks.json 引用的脚本不在 manifest → exit 1
+echo "  neg: hooks reference not in manifest"
+neg3_root=$(mktemp -d)
+neg3_plugin=$(setup_neg_fixture "$neg3_root")
+# manifest 只有 guard.sh，但 hooks.json 引用 collect-metrics.sh
+printf '#!/usr/bin/env bash\necho "guard"\n' > "$neg3_plugin/scripts/guard.sh"
+chmod +x "$neg3_plugin/scripts/guard.sh"
+printf 'guard.sh\n' > "$neg3_plugin/scripts/.dist-include"
+neg3_output=$(PATH="$neg3_root/bin:$PATH" bash "$neg3_plugin/scripts/build-dist.sh" 2>&1)
+neg3_exit=$?
+assert_exit "NEG-3. hooks script not in manifest → exit 1" 1 "$neg3_exit"
+assert_contains "NEG-3. error message mentions hooks/dist mismatch" "$neg3_output" "missing from dist"
+rm -rf "$neg3_root"
 
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1

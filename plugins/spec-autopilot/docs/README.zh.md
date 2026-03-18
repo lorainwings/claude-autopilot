@@ -130,6 +130,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [2026-03-18-scripts-engineering-refactor-blueprint.md](roadmap/2026-03-18-scripts-engineering-refactor-blueprint.md) | scripts 工程化重构蓝图：运行时契约、manifest 构建、server 分层、遗留脚本淘汰策略 |
 | [v5.1.0-execution-plan.md](roadmap/v5.1.0-execution-plan.md) | v5.1.0 执行计划 |
 | [v5.0.10-analysis-report.md](roadmap/v5.0.10-analysis-report.md) | v5.0.10 分析报告 |
 | [v5.0.8/ui-upgrade.md](roadmap/v5.0.8/ui-upgrade.md) | v5.0.8 GUI V2 升级 |

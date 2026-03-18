@@ -130,6 +130,7 @@
 
 | Document | Description |
 |----------|-------------|
+| [2026-03-18-scripts-engineering-refactor-blueprint.md](roadmap/2026-03-18-scripts-engineering-refactor-blueprint.md) | Professional blueprint for scripts engineering refactor: runtime contract, manifest build, server split, legacy deprecation |
 | [v5.1.0-execution-plan.md](roadmap/v5.1.0-execution-plan.md) | v5.1.0 execution plan |
 | [v5.0.10-analysis-report.md](roadmap/v5.0.10-analysis-report.md) | v5.0.10 analysis report |
 | [v5.0.8/ui-upgrade.md](roadmap/v5.0.8/ui-upgrade.md) | v5.0.8 GUI V2 upgrade |

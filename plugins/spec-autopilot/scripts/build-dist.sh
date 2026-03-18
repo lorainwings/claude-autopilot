@@ -68,17 +68,27 @@ cp -r "$PLUGIN_ROOT/hooks"          "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/skills"         "$DIST_DIR/"
 cp -r "$GUI_DIST_DIR"               "$DIST_DIR/"
 
-# 5. scripts/ — 排除开发专用脚本和 node_modules
+# 5. scripts/ — 按 runtime manifest 逐项复制（Phase 0: 排除式 → 清单式）
+MANIFEST="$PLUGIN_ROOT/scripts/.dist-include"
+if [ ! -f "$MANIFEST" ]; then
+  echo "ERROR: runtime manifest not found: $MANIFEST"
+  exit 1
+fi
 mkdir -p "$DIST_DIR/scripts"
-EXCLUDE_SCRIPTS="bump-version.sh|build-dist.sh"
-for f in "$PLUGIN_ROOT/scripts/"*; do
-  # Skip subdirectories (including node_modules/)
-  [ -f "$f" ] || continue
-  fname=$(basename "$f")
-  if ! echo "$fname" | grep -qE "^($EXCLUDE_SCRIPTS)$"; then
-    cp "$f" "$DIST_DIR/scripts/"
+MANIFEST_COUNT=0
+while IFS= read -r line; do
+  # 跳过注释和空行
+  line="${line%%#*}"
+  line="$(echo "$line" | xargs)"
+  [ -z "$line" ] && continue
+  if [ ! -f "$PLUGIN_ROOT/scripts/$line" ]; then
+    echo "ERROR: manifest entry missing from source: scripts/$line"
+    exit 1
   fi
-done
+  cp "$PLUGIN_ROOT/scripts/$line" "$DIST_DIR/scripts/"
+  MANIFEST_COUNT=$((MANIFEST_COUNT + 1))
+done < "$MANIFEST"
+echo "📋 Manifest-driven copy: $MANIFEST_COUNT files → dist/scripts/"
 
 # 6. CLAUDE.md — 裁剪 dev-only 段落
 sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' \
@@ -93,6 +103,27 @@ for script in $(grep -o 'scripts/[^" ]*\.sh' "$DIST_DIR/hooks/hooks.json" | sed 
   fi
 done
 [ "$MISSING" -eq 1 ] && exit 1
+
+# 7b. 校验: hooks.json 引用的脚本都在 manifest 中
+for script in $(grep -o 'scripts/[^" ]*\.sh' "$DIST_DIR/hooks/hooks.json" | sed 's|scripts/||'); do
+  if ! grep -qxF "$script" <(sed 's/#.*//' "$MANIFEST" | xargs -n1 2>/dev/null); then
+    echo "ERROR: hooks.json references scripts/$script but it's NOT in manifest"
+    MISSING=1
+  fi
+done
+[ "$MISSING" -eq 1 ] && exit 1
+
+# 7c. 校验: dist/scripts/ 中不存在清单外文件
+LEAKED=0
+for f in "$DIST_DIR/scripts/"*; do
+  [ -f "$f" ] || continue
+  fname=$(basename "$f")
+  if ! grep -qxF "$fname" <(sed 's/#.*//' "$MANIFEST" | xargs -n1 2>/dev/null); then
+    echo "ERROR: dist/scripts/ contains file not in manifest: $fname"
+    LEAKED=1
+  fi
+done
+[ "$LEAKED" -eq 1 ] && exit 1
 
 # 8. CLAUDE.md 裁剪验证
 for keyword in "测试纪律" "构建纪律" "发版纪律"; do

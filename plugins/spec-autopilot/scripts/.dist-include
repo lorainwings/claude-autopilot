@@ -1,0 +1,60 @@
+# Runtime Manifest — dist/scripts/ allowlist
+# Only files listed here will be copied into the release package.
+# Managed by Phase 0 of the scripts engineering refactor blueprint.
+# ---
+# Format: one filename per line, comments (#) and blank lines ignored.
+
+# ── Core helpers (sourced by hook scripts) ──
+_common.sh
+_hook_preamble.sh
+_config_validator.py
+_constraint_loader.py
+_envelope_parser.py
+_post_task_validator.py
+
+# ── Hook scripts (referenced in hooks/hooks.json) ──
+auto-emit-agent-complete.sh
+auto-emit-agent-dispatch.sh
+capture-hook-event.sh
+check-predecessor-checkpoint.sh
+check-skill-size.sh
+emit-tool-event.sh
+guard-no-verify.sh
+post-task-validator.sh
+reinject-state-after-compact.sh
+save-state-before-compact.sh
+scan-checkpoints-on-start.sh
+unified-write-edit-check.sh
+
+# ── Runtime scripts (called by skills / other runtime scripts) ──
+anti-rationalization-check.sh
+assertion-quality-check.sh
+banned-patterns-check.sh
+check-allure-install.sh
+check-security-tools-install.sh
+clean-phase-artifacts.sh
+code-constraint-check.sh
+collect-metrics.sh
+emit-agent-event.sh
+emit-gate-event.sh
+emit-phase-event.sh
+emit-task-progress.sh
+install-statusline-config.sh
+parallel-merge-guard.sh
+poll-gate-decision.sh
+recovery-decision.sh
+rules-scanner.sh
+save-phase-context.sh
+start-gui-server.sh
+statusline-collector.sh
+tdd-refactor-rollback.sh
+validate-config.sh
+validate-decision-format.sh
+validate-json-envelope.sh
+write-edit-constraint-check.sh
+write-phase-progress.sh
+
+# ── GUI server 运行时入口 ──
+# package.json / bun.lock / tsconfig.json 仅含 devDependencies 类型定义，
+# 不是运行时必须文件，Phase 3 迁移 server/ 时统一处理。
+autopilot-server.ts

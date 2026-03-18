@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.1.26] - 2026-03-18
+
+### Added
+
+- **Runtime Manifest**: 新增 `scripts/.dist-include` 运行时发布清单，45 个文件显式声明
+- **Manifest 一致性测试**: 新增 `test_runtime_manifest.sh`（9 项断言，fixture 自洽，不依赖外部 dist/ 状态）
+- **负向回归测试**: `test_build_dist.sh` 补充 3 个 manifest 护栏失败路径测试
+- **重构蓝图**: 新增 `docs/roadmap/2026-03-18-scripts-engineering-refactor-blueprint.md`
+
+### Changed
+
+- **构建逻辑 manifest 化**: `build-dist.sh` 从排除式复制改为 manifest 逐项复制，新增 hooks→manifest 交叉校验 + dist 纯净度校验
+- **dist 纯净化**: 从发布包清除 6 个 dev-only 文件（mock-event-emitter.js, tsconfig.json, package.json, bun.lock, build-dist.sh, bump-version.sh）
+
 ## [5.1.25] - 2026-03-18
 
 ### Added
