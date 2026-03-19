@@ -206,7 +206,7 @@ fi
 
 IS_TEST="no"
 case "$FILE_PATH" in
-  *test*|*spec*|*Test*|*Spec*|*__tests__*)
+  *test*|*spec*|*Test*|*Spec*)
     IS_TEST="yes" ;;
 esac
 

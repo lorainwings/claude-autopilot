@@ -84,6 +84,7 @@ if ! command -v python3 &>/dev/null; then
   exit 0
 fi
 
+# shellcheck disable=SC2140
 python3 -c "
 import json, os, sys, glob, re
 from datetime import datetime

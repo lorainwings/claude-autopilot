@@ -8,6 +8,7 @@
 - **CI lint 硬门禁**: 移除 `continue-on-error: true`，lint job 失败将阻断 CI
 - **typecheck 开箱即用**: `make typecheck` 在 gui/server 缺 `node_modules` 时自动执行 `bun install`
 - **setup 闭环**: `make setup` 同时安装 gui + server 依赖，新贡献者一键到位
+- **shellcheck 警告**: 移除 case 模式冗余 (`*__tests__*` 已被 `*test*` 覆盖)，内嵌 Python 加 SC2140 disable
 
 ### Changed
 

@@ -31,6 +31,7 @@ if ! require_python3; then
 fi
 
 # --- Single python3 call to do all processing ---
+# shellcheck disable=SC2140
 echo "$STDIN_DATA" | python3 -c "
 import importlib.util
 import json
