@@ -77,6 +77,11 @@ if [ -n "$STAGED" ]; then
     echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=error || true
   fi
 
+  if [ -n "$STAGED_SH" ] && command -v shfmt >/dev/null 2>&1; then
+    echo "🔍 shfmt staged .sh files..."
+    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shfmt -d -i 2 -ci || true
+  fi
+
   if [ -n "$STAGED_PY" ] && command -v ruff >/dev/null 2>&1; then
     echo "🔍 ruff check staged .py files..."
     echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --select=F || true

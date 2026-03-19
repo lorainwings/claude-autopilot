@@ -38,20 +38,20 @@ jobs:
         run: bash plugins/spec-autopilot/tests/smoke_release.sh
 
   lint:
-    name: Lint (shellcheck + ruff)
+    name: Lint (shellcheck + shfmt + ruff + mypy)
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install shellcheck + shfmt
+        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install ruff + mypy
+        run: pip install ruff mypy
 
-      - name: Run lint
-        run: make lint
+      - name: Run lint + format check
+        run: make lint && make format
 
   typecheck:
     name: TypeScript Type Check

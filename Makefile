@@ -20,7 +20,7 @@ build: ## Rebuild dist/ from source
 
 # ── Lint / Format / Typecheck ─────────────────────────────────────
 
-lint: ## Run linters (shellcheck + ruff); missing tools skipped
+lint: ## Run linters (shellcheck + ruff + mypy); missing tools skipped
 	@echo "── shellcheck ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true; \
@@ -34,8 +34,22 @@ lint: ## Run linters (shellcheck + ruff); missing tools skipped
 	else \
 	  echo "[skip] ruff not found"; \
 	fi
+	@echo ""
+	@echo "── mypy ──"
+	@if command -v mypy >/dev/null 2>&1; then \
+	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 mypy --config-file $(PLUGIN)/pyproject.toml || true; \
+	else \
+	  echo "[skip] mypy not found"; \
+	fi
 
-format: ## Run formatters (ruff format); missing tools skipped
+format: ## Run formatters (shfmt + ruff format); missing tools skipped
+	@echo "── shfmt ──"
+	@if command -v shfmt >/dev/null 2>&1; then \
+	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci || true; \
+	else \
+	  echo "[skip] shfmt not found"; \
+	fi
+	@echo ""
 	@echo "── ruff format ──"
 	@if command -v ruff >/dev/null 2>&1; then \
 	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff format --check --config $(PLUGIN)/pyproject.toml || true; \
