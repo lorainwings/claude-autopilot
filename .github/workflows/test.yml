@@ -64,7 +64,7 @@ jobs:
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
 
       - name: Install server dependencies
-        run: cd plugins/spec-autopilot/server && bun install --frozen-lockfile
+        run: cd plugins/spec-autopilot/runtime/server && bun install --frozen-lockfile
 
       - name: Run typecheck
         run: make typecheck

@@ -20,10 +20,10 @@ setup: ## One-time setup: activate git hooks + install deps
 	fi
 	@echo ""
 	@echo "── Installing server dependencies ──"
-	@if [ -f $(PLUGIN)/server/package.json ]; then \
-	  cd $(PLUGIN)/server && bun install; \
+	@if [ -f $(PLUGIN)/runtime/server/package.json ]; then \
+	  cd $(PLUGIN)/runtime/server && bun install; \
 	else \
-	  echo "[skip] server/package.json not found"; \
+	  echo "[skip] runtime/server/package.json not found"; \
 	fi
 
 test: ## Run full test suite
@@ -37,21 +37,21 @@ build: ## Rebuild dist/ from source
 lint: ## Run linters (shellcheck + ruff + mypy); missing tools skipped
 	@echo "── shellcheck ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
-	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning; \
+	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning; \
 	else \
 	  echo "[skip] shellcheck not found"; \
 	fi
 	@echo ""
 	@echo "── ruff ──"
 	@if command -v ruff >/dev/null 2>&1; then \
-	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff check --config $(PLUGIN)/pyproject.toml; \
+	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff check --config $(PLUGIN)/pyproject.toml; \
 	else \
 	  echo "[skip] ruff not found"; \
 	fi
 	@echo ""
 	@echo "── mypy ──"
 	@if command -v mypy >/dev/null 2>&1; then \
-	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 mypy --config-file $(PLUGIN)/pyproject.toml; \
+	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 mypy --config-file $(PLUGIN)/pyproject.toml; \
 	else \
 	  echo "[skip] mypy not found"; \
 	fi
@@ -59,14 +59,14 @@ lint: ## Run linters (shellcheck + ruff + mypy); missing tools skipped
 format: ## Run formatters (shfmt + ruff format); missing tools skipped
 	@echo "── shfmt ──"
 	@if command -v shfmt >/dev/null 2>&1; then \
-	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci; \
+	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci; \
 	else \
 	  echo "[skip] shfmt not found"; \
 	fi
 	@echo ""
 	@echo "── ruff format ──"
 	@if command -v ruff >/dev/null 2>&1; then \
-	  find $(PLUGIN)/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff format --check --config $(PLUGIN)/pyproject.toml; \
+	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff format --check --config $(PLUGIN)/pyproject.toml; \
 	else \
 	  echo "[skip] ruff not found"; \
 	fi
@@ -84,14 +84,14 @@ typecheck: ## Run TypeScript type checks (gui + server)
 	fi
 	@echo ""
 	@echo "── server typecheck ──"
-	@if [ -f $(PLUGIN)/server/tsconfig.json ]; then \
-	  if [ ! -d $(PLUGIN)/server/node_modules ]; then \
+	@if [ -f $(PLUGIN)/runtime/server/tsconfig.json ]; then \
+	  if [ ! -d $(PLUGIN)/runtime/server/node_modules ]; then \
 	    echo "[auto] Installing server dependencies..."; \
-	    (cd $(PLUGIN)/server && bun install); \
+	    (cd $(PLUGIN)/runtime/server && bun install); \
 	  fi; \
-	  cd $(PLUGIN)/server && npx tsc --noEmit; \
+	  cd $(PLUGIN)/runtime/server && npx tsc --noEmit; \
 	else \
-	  echo "[skip] server/tsconfig.json not found"; \
+	  echo "[skip] runtime/server/tsconfig.json not found"; \
 	fi
 
 ci: lint typecheck test build ## CI pipeline: lint → typecheck → test → build
