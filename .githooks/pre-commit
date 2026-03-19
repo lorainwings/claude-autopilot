@@ -72,19 +72,28 @@ if [ -n "$STAGED" ]; then
   STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
   STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
+  # NOTE: Staged lint is quick feedback per blueprint design (§10.2).
+  # Hard gate is make lint / CI. Pre-commit reports but does not block.
+  STAGED_LINT_FAILED=0
+
   if [ -n "$STAGED_SH" ] && command -v shellcheck >/dev/null 2>&1; then
     echo "🔍 shellcheck staged .sh files..."
-    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=error || true
+    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=error || STAGED_LINT_FAILED=1
   fi
 
   if [ -n "$STAGED_SH" ] && command -v shfmt >/dev/null 2>&1; then
     echo "🔍 shfmt staged .sh files..."
-    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shfmt -d -i 2 -ci || true
+    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shfmt -d -i 2 -ci || STAGED_LINT_FAILED=1
   fi
 
   if [ -n "$STAGED_PY" ] && command -v ruff >/dev/null 2>&1; then
     echo "🔍 ruff check staged .py files..."
-    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --select=F || true
+    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --select=F || STAGED_LINT_FAILED=1
+  fi
+
+  if [ "$STAGED_LINT_FAILED" -eq 1 ]; then
+    echo ""
+    echo "⚠️  Staged lint found issues (non-blocking). Run 'make lint' for full report."
   fi
 
   echo ""

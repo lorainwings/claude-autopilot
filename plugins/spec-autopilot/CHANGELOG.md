@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.1.29] - 2026-03-19
+
+### Fixed
+
+- **Makefile lint/format 硬门禁**: 移除所有 `|| true`，工具报错时 `make lint` / `make format` 真正失败
+- **CI lint 硬门禁**: 移除 `continue-on-error: true`，lint job 失败将阻断 CI
+- **typecheck 开箱即用**: `make typecheck` 在 gui/server 缺 `node_modules` 时自动执行 `bun install`
+- **setup 闭环**: `make setup` 同时安装 gui + server 依赖，新贡献者一键到位
+
+### Changed
+
+- **pre-commit staged lint**: 从 `|| true` 改为追踪失败状态 + 明确警告输出（非阻断快检，硬门禁在 `make lint` / CI）
+- **server/package.json**: 移除冗余 `bun-types`，统一以 `@types/bun` 为准
+
 ## [5.1.28] - 2026-03-19
 
 ### Added
