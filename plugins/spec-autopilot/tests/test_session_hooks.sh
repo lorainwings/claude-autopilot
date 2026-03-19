@@ -12,7 +12,7 @@ setup_autopilot_fixture
 # 10a. hooks.json SessionStart scan-checkpoints hook has async: true
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
     data = json.load(f)
 # scan-checkpoints hook must remain async even if other capture hooks share the same group
 scan_groups = [g for g in data['hooks']['SessionStart'] if 'matcher' not in g]
@@ -38,7 +38,7 @@ echo "--- 11. PreCompact + SessionStart(compact) hooks ---"
 # 11a. hooks.json has PreCompact section
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
     data = json.load(f)
 assert 'PreCompact' in data['hooks'], 'Missing PreCompact hook'
 assert len(data['hooks']['PreCompact']) > 0, 'PreCompact has no groups'
@@ -54,7 +54,7 @@ fi
 # 11b. SessionStart has a compact matcher group
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
     data = json.load(f)
 compact_groups = [g for g in data['hooks']['SessionStart'] if g.get('matcher') == 'compact']
 assert len(compact_groups) == 1, f'Expected 1 compact group, got {len(compact_groups)}'

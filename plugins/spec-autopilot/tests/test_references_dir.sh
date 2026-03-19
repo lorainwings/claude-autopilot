@@ -10,7 +10,7 @@ echo "--- 15. references/ directory structure ---"
 setup_autopilot_fixture
 
 # 15a. protocol.md is in autopilot/references/ (official pattern)
-if [ -f "$SCRIPT_DIR/../skills/autopilot/references/protocol.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/protocol.md" ]; then
   green "  PASS: protocol.md in autopilot/references/ (official pattern)"
   PASS=$((PASS + 1))
 else
@@ -19,7 +19,7 @@ else
 fi
 
 # 15b. No leftover shared/ directory
-if [ ! -d "$SCRIPT_DIR/../skills/shared" ]; then
+if [ ! -d "$SCRIPT_DIR/../../skills/shared" ]; then
   green "  PASS: no leftover skills/shared/ directory"
   PASS=$((PASS + 1))
 else

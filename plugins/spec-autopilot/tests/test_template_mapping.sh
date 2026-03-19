@@ -10,7 +10,7 @@ echo "--- 44. Template file mapping consistency ---"
 setup_autopilot_fixture
 
 # 44a. dispatch SKILL.md references phase5-serial-task.md (not phase5-ralph-loop.md)
-DISPATCH_FILE="$SCRIPT_DIR/../skills/autopilot-dispatch/SKILL.md"
+DISPATCH_FILE="$SCRIPT_DIR/../../skills/autopilot-dispatch/SKILL.md"
 if grep -q 'phase5-serial-task.md' "$DISPATCH_FILE"; then
   green "  PASS: dispatch references phase5-serial-task.md"
   PASS=$((PASS + 1))
@@ -28,7 +28,7 @@ else
 fi
 
 # 44b. SKILL.md Phase 5 describes foreground Task (not ralph-loop)
-MAIN_SKILL="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+MAIN_SKILL="$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
 if grep -q '前台 Task' "$MAIN_SKILL"; then
   green "  PASS: SKILL.md Phase 5 describes foreground Task dispatch"
   PASS=$((PASS + 1))
@@ -38,7 +38,7 @@ else
 fi
 
 # 44c. phase5-implementation.md has serial mode section
-IMPL_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase5-implementation.md"
+IMPL_FILE="$SCRIPT_DIR/../../skills/autopilot/references/phase5-implementation.md"
 if grep -q '串行模式' "$IMPL_FILE" && grep -q '前台 Task' "$IMPL_FILE"; then
   green "  PASS: phase5-implementation.md has serial mode with foreground Task"
   PASS=$((PASS + 1))

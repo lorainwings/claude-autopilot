@@ -10,7 +10,7 @@ echo "--- 30. v3.2.0 reference files existence ---"
 setup_autopilot_fixture
 
 # 30a. parallel-dispatch.md exists
-if [ -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/parallel-dispatch.md" ]; then
   green "  PASS: parallel-dispatch.md exists"
   PASS=$((PASS + 1))
 else
@@ -19,7 +19,7 @@ else
 fi
 
 # 30b. parallel-phase-dispatch.md merged into parallel-dispatch.md (v4.1)
-if [ ! -f "$SCRIPT_DIR/../skills/autopilot/references/parallel-phase-dispatch.md" ]; then
+if [ ! -f "$SCRIPT_DIR/../../skills/autopilot/references/parallel-phase-dispatch.md" ]; then
   green "  PASS: parallel-phase-dispatch.md removed (merged into parallel-dispatch.md)"
   PASS=$((PASS + 1))
 else
@@ -28,7 +28,7 @@ else
 fi
 
 # 30c. config-schema.md exists
-if [ -f "$SCRIPT_DIR/../skills/autopilot/references/config-schema.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md" ]; then
   green "  PASS: config-schema.md exists"
   PASS=$((PASS + 1))
 else
@@ -37,7 +37,7 @@ else
 fi
 
 # 30d. phase1-supplementary.md exists
-if [ -f "$SCRIPT_DIR/../skills/autopilot/references/phase1-supplementary.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/phase1-supplementary.md" ]; then
   green "  PASS: phase1-supplementary.md exists"
   PASS=$((PASS + 1))
 else
@@ -48,7 +48,7 @@ fi
 # 30e. plugin.json version >= 3.2.0
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../.claude-plugin/plugin.json') as f:
+with open('$SCRIPT_DIR/../../.claude-plugin/plugin.json') as f:
     data = json.load(f)
 v = data.get('version', '0.0.0')
 major, minor, patch = (int(x) for x in v.split('.'))

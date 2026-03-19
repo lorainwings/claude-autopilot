@@ -9,11 +9,11 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- 52. Search policy rule engine and SKILL.md assertions (v3.3.7) ---"
 setup_autopilot_fixture
 
-SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
-P1_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase1-requirements.md"
-P1_DETAIL_FILE="$SCRIPT_DIR/../skills/autopilot/references/phase1-requirements-detail.md"
-PD_FILE="$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md"
-CS_FILE="$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
+SKILL_FILE="$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
+P1_FILE="$SCRIPT_DIR/../../skills/autopilot/references/phase1-requirements.md"
+P1_DETAIL_FILE="$SCRIPT_DIR/../../skills/autopilot/references/phase1-requirements-detail.md"
+PD_FILE="$SCRIPT_DIR/../../skills/autopilot/references/parallel-dispatch.md"
+CS_FILE="$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md"
 
 # --- 52a-c: SKILL.md assertions ---
 skill_search_line=$(grep '联网搜索决策' "$SKILL_FILE" || true)

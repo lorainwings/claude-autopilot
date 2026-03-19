@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.38] - 2026-03-19
+
+### Fixed
+
+- **CI/Makefile 路径适配**: Makefile 和 `.github/workflows/test.yml` 中 `scripts/` → `runtime/scripts/`、`server/` → `runtime/server/`
+- **测试相对路径修复**: 10 个测试文件中 `$SCRIPT_DIR/../skills` → `$SCRIPT_DIR/../../skills`（runtime/scripts/ 上两级到插件根目录）
+
 ## [5.1.37] - 2026-03-19
 
 ### Changed

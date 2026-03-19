@@ -10,7 +10,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
-GUARD_SCRIPT="$PLUGIN_ROOT/scripts/guard-no-verify.sh"
+GUARD_SCRIPT="$PLUGIN_ROOT/runtime/scripts/guard-no-verify.sh"
 SETUP_SCRIPT="$REPO_ROOT/scripts/setup-hooks.sh"
 GITHOOKS_DIR="$REPO_ROOT/.githooks"
 

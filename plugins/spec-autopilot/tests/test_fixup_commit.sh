@@ -9,7 +9,7 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- 51. Fixup commit uses git add -A, forbids explicit lockfile add (v3.3.5 regression) ---"
 setup_autopilot_fixture
 
-SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
+SKILL_FILE="$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
 
 # 51a: Step 5+7 Checkpoint Agent section contains "必须使用 git add -A"
 step7_git=$(grep -A20 'Step 5+7.*Checkpoint Agent' "$SKILL_FILE" || true)

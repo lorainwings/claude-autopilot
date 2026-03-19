@@ -19,7 +19,7 @@ else
 fi
 
 # 41b. No phase5-ralph-loop.md template (renamed to phase5-serial-task.md)
-if [ ! -f "$SCRIPT_DIR/../skills/autopilot/templates/phase5-ralph-loop.md" ]; then
+if [ ! -f "$SCRIPT_DIR/../../skills/autopilot/templates/phase5-ralph-loop.md" ]; then
   green "  PASS: phase5-ralph-loop.md removed (renamed to phase5-serial-task.md)"
   PASS=$((PASS + 1))
 else
@@ -28,7 +28,7 @@ else
 fi
 
 # 41c. phase5-serial-task.md exists as replacement
-if [ -f "$SCRIPT_DIR/../skills/autopilot/templates/phase5-serial-task.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot/templates/phase5-serial-task.md" ]; then
   green "  PASS: phase5-serial-task.md exists"
   PASS=$((PASS + 1))
 else
@@ -57,7 +57,7 @@ for old_key in "ralph_loop.enabled" "ralph_loop.max_iterations" "ralph_loop.fall
 done
 
 # 41f. config-schema.md uses max_retries_per_task (not max_iterations/fallback_enabled under serial_task)
-SCHEMA_FILE="$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
+SCHEMA_FILE="$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md"
 if grep -q 'max_retries_per_task' "$SCHEMA_FILE"; then
   green "  PASS: config-schema has max_retries_per_task"
   PASS=$((PASS + 1))
@@ -86,11 +86,11 @@ fi
 
 # 41g. No ralph_loop references in core SKILL files
 CORE_FILES=(
-  "$SCRIPT_DIR/../skills/autopilot/SKILL.md"
-  "$SCRIPT_DIR/../skills/autopilot-dispatch/SKILL.md"
-  "$SCRIPT_DIR/../skills/autopilot/references/phase5-implementation.md"
-  "$SCRIPT_DIR/../skills/autopilot/references/parallel-dispatch.md"
-  "$SCRIPT_DIR/../skills/autopilot/references/config-schema.md"
+  "$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
+  "$SCRIPT_DIR/../../skills/autopilot-dispatch/SKILL.md"
+  "$SCRIPT_DIR/../../skills/autopilot/references/phase5-implementation.md"
+  "$SCRIPT_DIR/../../skills/autopilot/references/parallel-dispatch.md"
+  "$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md"
 )
 ralph_found=false
 for f in "${CORE_FILES[@]}"; do

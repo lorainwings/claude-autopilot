@@ -9,10 +9,10 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- 50. SKILL.md lockfile path uses absolute path (v3.3.4 regression) ---"
 setup_autopilot_fixture
 
-SKILL_FILE="$SCRIPT_DIR/../skills/autopilot/SKILL.md"
-LOCKFILE_FILE="$SCRIPT_DIR/../skills/autopilot-phase0/SKILL.md"
-RECOVERY_FILE="$SCRIPT_DIR/../skills/autopilot-recovery/SKILL.md"
-GATE_FILE="$SCRIPT_DIR/../skills/autopilot-gate/SKILL.md"
+SKILL_FILE="$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
+LOCKFILE_FILE="$SCRIPT_DIR/../../skills/autopilot-phase0/SKILL.md"
+RECOVERY_FILE="$SCRIPT_DIR/../../skills/autopilot-recovery/SKILL.md"
+GATE_FILE="$SCRIPT_DIR/../../skills/autopilot-gate/SKILL.md"
 
 # 50a: Lockfile skill must contain ${session_cwd} absolute path (v3.5.0: moved from main SKILL to lockfile skill)
 lockfile_path_line=$(grep 'openspec/changes/\.autopilot-active' "$LOCKFILE_FILE" | head -1 || true)

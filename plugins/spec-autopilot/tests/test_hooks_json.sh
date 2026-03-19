@@ -10,7 +10,7 @@ echo "--- 6. hooks.json validation ---"
 setup_autopilot_fixture
 
 # 6a. Valid JSON
-if python3 -c "import json; json.load(open('$SCRIPT_DIR/../hooks/hooks.json'))" 2>/dev/null; then
+if python3 -c "import json; json.load(open('$SCRIPT_DIR/../../hooks/hooks.json'))" 2>/dev/null; then
   green "  PASS: hooks.json is valid JSON"
   PASS=$((PASS + 1))
 else
@@ -21,7 +21,7 @@ fi
 # 6b. Has timeout fields
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
     data = json.load(f)
 for event in data['hooks'].values():
     for group in event:
@@ -39,7 +39,7 @@ fi
 # 6c. Matcher uses ^Task$ (exact match, not substring)
 if python3 -c "
 import json, re
-with open('$SCRIPT_DIR/../hooks/hooks.json') as f:
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
     data = json.load(f)
 for event_name in ['PreToolUse', 'PostToolUse']:
     for group in data['hooks'][event_name]:
@@ -63,7 +63,7 @@ fi
 # 6d. Plugin version is > 1.0.0
 if python3 -c "
 import json
-with open('$SCRIPT_DIR/../.claude-plugin/plugin.json') as f:
+with open('$SCRIPT_DIR/../../.claude-plugin/plugin.json') as f:
     data = json.load(f)
 v = data.get('version', '0.0.0')
 major, minor, patch = (int(x) for x in v.split('.'))
