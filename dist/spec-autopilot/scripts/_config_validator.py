@@ -229,18 +229,14 @@ def validate(config_path):
                 type_name = "|".join(t.__name__ for t in expected_type)
             else:
                 type_name = expected_type.__name__
-            type_errors.append(
-                f"{key_path}: expected {type_name}, got {type(val).__name__}"
-            )
+            type_errors.append(f"{key_path}: expected {type_name}, got {type(val).__name__}")
 
     # Range validation
     for key_path, (min_val, max_val) in RANGE_RULES.items():
         val = get_value(yaml_data, key_path)
         if val is not None and isinstance(val, (int, float)):
             if val < min_val or val > max_val:
-                range_errors.append(
-                    f"{key_path}: value {val} out of range [{min_val}, {max_val}]"
-                )
+                range_errors.append(f"{key_path}: value {val} out of range [{min_val}, {max_val}]")
 
     # Enum validation
     enum_errors = []
@@ -250,9 +246,7 @@ def validate(config_path):
         val = get_value(yaml_data, key_path)
         if val is not None and isinstance(val, str):
             if val not in allowed_values:
-                enum_errors.append(
-                    f'{key_path}: "{val}" not in allowed values {allowed_values}'
-                )
+                enum_errors.append(f'{key_path}: "{val}" not in allowed values {allowed_values}')
 
     # Cross-reference validation
     min_unit = get_value(yaml_data, "test_pyramid.min_unit_pct")
@@ -264,44 +258,25 @@ def validate(config_path):
         and isinstance(max_e2e, (int, float))
     ):
         if min_unit + max_e2e > 100:
-            cross_ref_warnings.append(
-                "test_pyramid: min_unit_pct + max_e2e_pct > 100%, impossible distribution"
-            )
+            cross_ref_warnings.append("test_pyramid: min_unit_pct + max_e2e_pct > 100%, impossible distribution")
 
-    st_max = get_value(
-        yaml_data, "phases.implementation.serial_task.max_retries_per_task"
-    )
+    st_max = get_value(yaml_data, "phases.implementation.serial_task.max_retries_per_task")
     if isinstance(st_max, (int, float)) and st_max < 1:
-        cross_ref_warnings.append(
-            "serial_task.max_retries_per_task<1, will not retry on failure"
-        )
+        cross_ref_warnings.append("serial_task.max_retries_per_task<1, will not retry on failure")
 
     par_enabled = get_value(yaml_data, "phases.implementation.parallel.enabled")
     par_max = get_value(yaml_data, "phases.implementation.parallel.max_agents")
-    if (
-        par_enabled
-        and par_max is not None
-        and isinstance(par_max, (int, float))
-        and par_max < 2
-    ):
-        cross_ref_warnings.append(
-            "parallel.enabled=true but max_agents<2, no parallelism benefit"
-        )
+    if par_enabled and par_max is not None and isinstance(par_max, (int, float)) and par_max < 2:
+        cross_ref_warnings.append("parallel.enabled=true but max_agents<2, no parallelism benefit")
 
     cov_target = get_value(yaml_data, "phases.reporting.coverage_target")
     zero_skip = get_value(yaml_data, "phases.reporting.zero_skip_required")
     if cov_target is not None and zero_skip is not None:
         if isinstance(cov_target, (int, float)) and cov_target == 0 and zero_skip:
-            cross_ref_warnings.append(
-                "coverage_target=0 but zero_skip_required=true, may be misconfigured"
-            )
+            cross_ref_warnings.append("coverage_target=0 but zero_skip_required=true, may be misconfigured")
 
-    cr_small = get_value(
-        yaml_data, "phases.requirements.complexity_routing.thresholds.small"
-    )
-    cr_medium = get_value(
-        yaml_data, "phases.requirements.complexity_routing.thresholds.medium"
-    )
+    cr_small = get_value(yaml_data, "phases.requirements.complexity_routing.thresholds.small")
+    cr_medium = get_value(yaml_data, "phases.requirements.complexity_routing.thresholds.medium")
     if (
         cr_small is not None
         and cr_medium is not None
@@ -309,9 +284,7 @@ def validate(config_path):
         and isinstance(cr_medium, (int, float))
     ):
         if cr_small >= cr_medium:
-            cross_ref_warnings.append(
-                "complexity_routing: thresholds.small >= thresholds.medium, routing ineffective"
-            )
+            cross_ref_warnings.append("complexity_routing: thresholds.small >= thresholds.medium, routing ineffective")
 
     hf_unit = get_value(yaml_data, "test_pyramid.hook_floors.min_unit_pct")
     strict_unit = get_value(yaml_data, "test_pyramid.min_unit_pct")
@@ -323,7 +296,9 @@ def validate(config_path):
     ):
         if hf_unit > strict_unit:
             cross_ref_warnings.append(
-                f"hook_floors.min_unit_pct ({hf_unit}) > test_pyramid.min_unit_pct ({strict_unit}), floor stricter than gate"
+                f"hook_floors.min_unit_pct ({hf_unit}) > "
+                f"test_pyramid.min_unit_pct ({strict_unit}), "
+                "floor stricter than gate"
             )
 
     hf_e2e = get_value(yaml_data, "test_pyramid.hook_floors.max_e2e_pct")
@@ -336,7 +311,9 @@ def validate(config_path):
     ):
         if hf_e2e < strict_e2e:
             cross_ref_warnings.append(
-                f"hook_floors.max_e2e_pct ({hf_e2e}) < test_pyramid.max_e2e_pct ({strict_e2e}), floor stricter than gate"
+                f"hook_floors.max_e2e_pct ({hf_e2e}) < "
+                f"test_pyramid.max_e2e_pct ({strict_e2e}), "
+                "floor stricter than gate"
             )
 
     hf_total = get_value(yaml_data, "test_pyramid.hook_floors.min_total_cases")
@@ -349,14 +326,14 @@ def validate(config_path):
     ):
         if hf_total > strict_total:
             cross_ref_warnings.append(
-                f"hook_floors.min_total_cases ({hf_total}) > test_pyramid.min_total_cases ({strict_total}), floor stricter than gate"
+                f"hook_floors.min_total_cases ({hf_total}) > "
+                f"test_pyramid.min_total_cases ({strict_total}), "
+                "floor stricter than gate"
             )
 
     tdd_mode = get_value(yaml_data, "phases.implementation.tdd_mode")
     if tdd_mode is True:
-        cross_ref_warnings.append(
-            "tdd_mode=true: TDD cycle only active in full execution mode"
-        )
+        cross_ref_warnings.append("tdd_mode=true: TDD cycle only active in full execution mode")
 
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
@@ -398,11 +375,11 @@ def validate(config_path):
         inst_files = get_value(yaml_data, f"phases.{phase_key}.instruction_files")
         if isinstance(inst_files, list):
             for path in inst_files:
-                if isinstance(path, str) and (
-                    path.startswith("/") or ".." in path or path.startswith("~")
-                ):
+                if isinstance(path, str) and (path.startswith("/") or ".." in path or path.startswith("~")):
                     cross_ref_warnings.append(
-                        f"phases.{phase_key}.instruction_files: path '{path}' uses absolute/relative/home notation, should be project-relative"
+                        f"phases.{phase_key}.instruction_files: "
+                        f"path '{path}' uses absolute/relative/home "
+                        "notation, should be project-relative"
                     )
 
     # Cross-ref: hook_floors.min_change_coverage_pct vs reporting.coverage_target
@@ -416,7 +393,9 @@ def validate(config_path):
     ):
         if hf_cov > gate_cov:
             cross_ref_warnings.append(
-                f"hook_floors.min_change_coverage_pct ({hf_cov}) > reporting.coverage_target ({gate_cov}), floor stricter than gate"
+                f"hook_floors.min_change_coverage_pct ({hf_cov}) > "
+                f"reporting.coverage_target ({gate_cov}), "
+                "floor stricter than gate"
             )
 
     # Cross-ref: tdd_mode=true requires non-empty test_suites

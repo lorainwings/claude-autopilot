@@ -24,15 +24,11 @@ import sys
 # --- Import shared modules ---
 _script_dir = os.environ.get("SCRIPT_DIR", os.path.dirname(os.path.abspath(__file__)))
 
-_spec = importlib.util.spec_from_file_location(
-    "_ep", os.path.join(_script_dir, "_envelope_parser.py")
-)
+_spec = importlib.util.spec_from_file_location("_ep", os.path.join(_script_dir, "_envelope_parser.py"))
 _ep = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_ep)
 
-_spec2 = importlib.util.spec_from_file_location(
-    "_cl", os.path.join(_script_dir, "_constraint_loader.py")
-)
+_spec2 = importlib.util.spec_from_file_location("_cl", os.path.join(_script_dir, "_constraint_loader.py"))
 _cl = importlib.util.module_from_spec(_spec2)
 _spec2.loader.exec_module(_cl)
 
@@ -62,9 +58,7 @@ phase_num = int(phase_match.group(1))
 output = _ep.normalize_tool_response(data)
 
 if not output.strip():
-    output_block(
-        "Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase."
-    )
+    output_block("Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase.")
 
 # --- Extract envelope (shared across all validators) ---
 envelope = _ep.extract_envelope(output)
@@ -76,14 +70,14 @@ envelope = _ep.extract_envelope(output)
 
 if not envelope:
     output_block(
-        'No valid JSON envelope found in autopilot sub-agent output. '
+        "No valid JSON envelope found in autopilot sub-agent output. "
         'The sub-agent must return a JSON object with at least {"status": "ok|warning|blocked|failed"}. '
         "Re-dispatch this phase with clearer instructions."
     )
 
 if "status" not in envelope:
     output_block(
-        'Autopilot JSON envelope missing required field: status. '
+        "Autopilot JSON envelope missing required field: status. "
         'The sub-agent must return {"status": "ok|warning|blocked|failed", ...}.'
     )
 
@@ -92,9 +86,7 @@ if "summary" not in envelope:
 
 valid_statuses = ["ok", "warning", "blocked", "failed"]
 if envelope["status"] not in valid_statuses:
-    output_block(
-        f'Invalid autopilot status "{envelope["status"]}". Must be one of: {valid_statuses}'
-    )
+    output_block(f'Invalid autopilot status "{envelope["status"]}". Must be one of: {valid_statuses}')
 
 if "artifacts" not in envelope:
     print("INFO: JSON envelope missing optional field: artifacts", file=sys.stderr)
@@ -146,7 +138,7 @@ if phase_num == 5 and envelope.get("status") == "ok":
     if isinstance(zsc, dict) and zsc.get("passed") is not True:
         output_block(
             f'Phase 5 status is "ok" but zero_skip_check.passed is not true '
-            f'(got: {zsc.get("passed", "missing")}). All tests must pass with zero skips before proceeding.'
+            f"(got: {zsc.get('passed', 'missing')}). All tests must pass with zero skips before proceeding."
         )
 
     # TDD Metrics L2 check (only when tdd_metrics present, i.e. TDD mode)
@@ -155,14 +147,14 @@ if phase_num == 5 and envelope.get("status") == "ok":
         red_violations = tdd_metrics.get("red_violations", -1)
         if red_violations != 0:
             output_block(
-                f'Phase 5 TDD metrics check failed: red_violations={red_violations} (expected 0). '
-                'All TDD RED phases must have verified failing tests before GREEN implementation.'
+                f"Phase 5 TDD metrics check failed: red_violations={red_violations} (expected 0). "
+                "All TDD RED phases must have verified failing tests before GREEN implementation."
             )
         cycles_completed = tdd_metrics.get("cycles_completed", 0)
         if cycles_completed < 1:
             output_block(
-                f'Phase 5 TDD metrics check failed: cycles_completed={cycles_completed} (expected >= 1). '
-                'At least one complete RED-GREEN-REFACTOR cycle must be recorded.'
+                f"Phase 5 TDD metrics check failed: cycles_completed={cycles_completed} (expected >= 1). "
+                "At least one complete RED-GREEN-REFACTOR cycle must be recorded."
             )
 
 if phase_num in phase_recommended:
@@ -175,17 +167,14 @@ if phase_num in phase_recommended:
 
 # Phase 4: warning not acceptable
 if phase_num == 4 and envelope["status"] == "warning":
-    output_block(
-        'Phase 4 returned "warning" but only "ok" or "blocked" are accepted. Re-dispatch Phase 4.'
-    )
+    output_block('Phase 4 returned "warning" but only "ok" or "blocked" are accepted. Re-dispatch Phase 4.')
 
 # Phase 4 and 6: artifacts must be non-empty
 if phase_num in (4, 6):
     artifacts = envelope.get("artifacts", [])
     if not isinstance(artifacts, list) or len(artifacts) == 0:
         output_block(
-            f'Phase {phase_num} "artifacts" is empty or missing. '
-            f"Phase {phase_num} must produce actual output files."
+            f'Phase {phase_num} "artifacts" is empty or missing. Phase {phase_num} must produce actual output files.'
         )
 
 # Phase 4: test_pyramid floor validation
@@ -203,9 +192,10 @@ if phase_num == 4:
                 _change_name = _lock_data.get("change", "")
             if _change_name:
                 import glob as _glob
-                _p1_files = _glob.glob(os.path.join(
-                    _phase_results_dir, _change_name, "context", "phase-results", "phase-1-*.json"
-                ))
+
+                _p1_files = _glob.glob(
+                    os.path.join(_phase_results_dir, _change_name, "context", "phase-results", "phase-1-*.json")
+                )
                 if _p1_files:
                     with open(sorted(_p1_files)[-1]) as _p1f:
                         _p1_data = json.loads(_p1f.read())
@@ -248,17 +238,19 @@ if phase_num == 4:
 
     if violations:
         output_block(
-            f'Phase 4 test_pyramid floor violation (Layer 2): {";".join(violations)}. '
+            f"Phase 4 test_pyramid floor violation (Layer 2): {';'.join(violations)}. "
             "Adjust test distribution before proceeding.",
-            fix_suggestion="增加单元测试数量或减少 E2E 测试占比。阈值可在 config.test_pyramid.hook_floors 中调整。参考: docs/config-tuning-guide.md"
+            fix_suggestion=(
+                "增加单元测试数量或减少 E2E 测试占比。"
+                "阈值可在 config.test_pyramid.hook_floors 中调整。"
+                "参考: docs/config-tuning-guide.md"
+            ),
         )
 
     # Phase 4 test_traceability L2 blocking (v4.0 upgrade from recommended to required)
     TRACEABILITY_FLOOR = read_hook_floor("traceability_floor", 80)
     # Read from top-level test_pyramid.traceability_floor as override
-    traceability_floor_cfg = _ep.read_config_value(
-        _root, "test_pyramid.traceability_floor", TRACEABILITY_FLOOR
-    )
+    traceability_floor_cfg = _ep.read_config_value(_root, "test_pyramid.traceability_floor", TRACEABILITY_FLOOR)
     try:
         traceability_floor_val = int(traceability_floor_cfg)
     except (ValueError, TypeError):
@@ -273,7 +265,11 @@ if phase_num == 4:
                     f"Phase 4 test_traceability coverage {trace_coverage}% < {traceability_floor_val}% floor. "
                     "Each test case must trace to a Phase 1 requirement. "
                     "Add traceability mappings to increase coverage.",
-                    fix_suggestion="为每个测试用例添加 requirement 追溯映射。阈值可在 config.test_pyramid.traceability_floor 中调整。参考: docs/troubleshooting-faq.md#10"
+                    fix_suggestion=(
+                        "为每个测试用例添加 requirement 追溯映射。"
+                        "阈值可在 config.test_pyramid.traceability_floor "
+                        "中调整。参考: docs/troubleshooting-faq.md#10"
+                    ),
                 )
 
     # Phase 4 change_coverage validation
@@ -294,7 +290,9 @@ if phase_num == 4:
 
     # Phase 4 sad_path_counts validation (v4.2 — TD-3)
     _routing_sad = _routing_overrides.get("sad_path_min_ratio_pct")
-    FLOOR_MIN_SAD_PATH_RATIO = int(_routing_sad) if _routing_sad is not None else read_hook_floor("min_sad_path_ratio_pct", 20)
+    FLOOR_MIN_SAD_PATH_RATIO = (
+        int(_routing_sad) if _routing_sad is not None else read_hook_floor("min_sad_path_ratio_pct", 20)
+    )
     sad_counts = envelope.get("sad_path_counts", {})
     if isinstance(sad_counts, dict) and sad_counts:
         sad_violations = []
@@ -305,14 +303,27 @@ if phase_num == 4:
                     sad_ratio = (sad_count / total_for_type) * 100
                     if sad_ratio < FLOOR_MIN_SAD_PATH_RATIO:
                         sad_violations.append(
-                            f"{test_type}: sad_path={sad_count}/{total_for_type} ({sad_ratio:.0f}%) < {FLOOR_MIN_SAD_PATH_RATIO}%"
+                            f"{test_type}: sad_path="
+                            f"{sad_count}/{total_for_type} "
+                            f"({sad_ratio:.0f}%) < "
+                            f"{FLOOR_MIN_SAD_PATH_RATIO}%"
                         )
         if sad_violations:
             output_block(
-                f'Phase 4 sad_path coverage insufficient: {"; ".join(sad_violations)}. '
-                f"Each test type must have >= {FLOOR_MIN_SAD_PATH_RATIO}% sad-path (error/exception/boundary) test cases.",
-                fix_suggestion="Add more sad-path test cases covering: invalid input, permission denied, resource not found, timeout, concurrent conflicts. "
-                f"Threshold: config.test_pyramid.hook_floors.min_sad_path_ratio_pct (default {FLOOR_MIN_SAD_PATH_RATIO}%)"
+                f"Phase 4 sad_path coverage insufficient: "
+                f"{'; '.join(sad_violations)}. "
+                f"Each test type must have >= "
+                f"{FLOOR_MIN_SAD_PATH_RATIO}% sad-path "
+                "(error/exception/boundary) test cases.",
+                fix_suggestion=(
+                    "Add more sad-path test cases covering: "
+                    "invalid input, permission denied, "
+                    "resource not found, timeout, "
+                    "concurrent conflicts. "
+                    f"Threshold: config.test_pyramid.hook_floors"
+                    f".min_sad_path_ratio_pct "
+                    f"(default {FLOOR_MIN_SAD_PATH_RATIO}%)"
+                ),
             )
     elif isinstance(total, dict) and total_sum > 0:
         # sad_path_counts is required but empty/missing when test_counts has data
@@ -348,8 +359,17 @@ if phase_num in (4, 5, 6) and envelope.get("status") in ("ok", "warning"):
         # v5.2: 3 new high-frequency excuse patterns (EN)
         (3, r"(not\s+enough|ran\s+out\s+of|insufficient)\s+time"),
         (3, r"(deadline|time\s*(?:constraint|pressure|limit))\s+(?:prevent|doesn.t\s+allow|too\s+tight)"),
-        (2, r"(environment|config(?:uration)?|setup|infra(?:structure)?)\s+(?:issue|problem|not\s+(?:ready|available|configured))"),
-        (2, r"(third[- ]party|external|upstream)\s+(?:dependency|service|api|library)\s+(?:block|unavailable|broken|down|not\s+(?:ready|available))"),
+        (
+            2,
+            r"(environment|config(?:uration)?|setup|infra(?:structure)?)"
+            r"\s+(?:issue|problem|not\s+(?:ready|available|configured))",
+        ),
+        (
+            2,
+            r"(third[- ]party|external|upstream)"
+            r"\s+(?:dependency|service|api|library)"
+            r"\s+(?:block|unavailable|broken|down|not\s+(?:ready|available))",
+        ),
         (3, r"(?:测试|任务|功能|用例)\s*(?:被|已)?(?:跳过|省略|忽略)"),
         (3, r"跳过了?|已跳过|被跳过"),
         (3, r"(?:延后|推迟|暂缓)(?:处理|实现|开发)?"),
@@ -423,7 +443,7 @@ if phase_num in (4, 5, 6) and envelope.get("status") in ("ok", "warning"):
                     violations.extend(_cl.check_file_violations(art, root, constraints))
             if violations:
                 shown = violations[:5]
-                extra = f" (+{len(violations)-5} more)" if len(violations) > 5 else ""
+                extra = f" (+{len(violations) - 5} more)" if len(violations) > 5 else ""
                 output_block(
                     f"Code constraint violations ({len(violations)}): "
                     + "; ".join(shown)
@@ -437,9 +457,7 @@ if phase_num in (4, 5, 6) and envelope.get("status") in ("ok", "warning"):
 # ============================================================
 
 if phase_num == 5:
-    merge_pattern = re.compile(
-        r"worktree.*merge|merge.*worktree|git\s+merge.*autopilot-task", re.IGNORECASE
-    )
+    merge_pattern = re.compile(r"worktree.*merge|merge.*worktree|git\s+merge.*autopilot-task", re.IGNORECASE)
     if merge_pattern.search(output):
         root = _ep.find_project_root(data)
         merge_violations = []
@@ -448,7 +466,10 @@ if phase_num == 5:
         try:
             result = subprocess.run(
                 ["git", "diff", "--check"],
-                cwd=root, capture_output=True, text=True, timeout=15,
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if result.returncode != 0 and result.stdout.strip():
                 conflict_lines = result.stdout.strip().split("\n")[:5]
@@ -459,7 +480,10 @@ if phase_num == 5:
         try:
             result = subprocess.run(
                 ["git", "diff", "--cached", "--check"],
-                cwd=root, capture_output=True, text=True, timeout=15,
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             if result.returncode != 0 and result.stdout.strip():
                 conflict_lines = result.stdout.strip().split("\n")[:5]
@@ -486,20 +510,32 @@ if phase_num == 5:
             diff_base = None
             if anchor_sha:
                 try:
-                    is_ancestor = subprocess.run(
-                        ["git", "merge-base", "--is-ancestor", anchor_sha, "HEAD"],
-                        cwd=root, capture_output=True, text=True, timeout=5,
-                    ).returncode == 0
+                    is_ancestor = (
+                        subprocess.run(
+                            ["git", "merge-base", "--is-ancestor", anchor_sha, "HEAD"],
+                            cwd=root,
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        ).returncode
+                        == 0
+                    )
                     if is_ancestor:
                         diff_base = anchor_sha
                 except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                     pass
             if not diff_base:
                 try:
-                    if subprocess.run(
-                        ["git", "rev-parse", "--verify", "HEAD~1"],
-                        cwd=root, capture_output=True, text=True, timeout=5,
-                    ).returncode == 0:
+                    if (
+                        subprocess.run(
+                            ["git", "rev-parse", "--verify", "HEAD~1"],
+                            cwd=root,
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        ).returncode
+                        == 0
+                    ):
                         diff_base = "HEAD~1"
                 except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                     pass
@@ -508,7 +544,10 @@ if phase_num == 5:
                 try:
                     result = subprocess.run(
                         ["git", "diff", "--name-only", diff_base, "HEAD"],
-                        cwd=root, capture_output=True, text=True, timeout=15,
+                        cwd=root,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
                     )
                     if result.returncode == 0 and result.stdout.strip():
                         changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
@@ -529,7 +568,7 @@ if phase_num == 5:
                                 out_of_scope.append(cf)
                         if out_of_scope:
                             shown = out_of_scope[:5]
-                            extra = f" (+{len(out_of_scope)-5} more)" if len(out_of_scope) > 5 else ""
+                            extra = f" (+{len(out_of_scope) - 5} more)" if len(out_of_scope) > 5 else ""
                             merge_violations.append("Files outside task scope: " + ", ".join(shown) + extra)
                 except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                     pass
@@ -542,7 +581,7 @@ if phase_num == 5:
                     cfg_txt = f.read()
                 ts_match = re.search(r"^test_suites:\s*$", cfg_txt, re.MULTILINE)
                 if ts_match:
-                    section = cfg_txt[ts_match.end():]
+                    section = cfg_txt[ts_match.end() :]
                     next_top = re.search(r"^\S", section, re.MULTILINE)
                     section = section[: next_top.start()] if next_top else section
                     suites = re.split(r"\n  (\w[\w_-]*):\s*\n", section)
@@ -554,8 +593,12 @@ if phase_num == 5:
                             cmd = cmd_m.group(1).strip().strip("\x22\x27")
                             try:
                                 result = subprocess.run(
-                                    cmd, shell=True, cwd=root,
-                                    capture_output=True, text=True, timeout=120,
+                                    cmd,
+                                    shell=True,
+                                    cwd=root,
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=120,
                                 )
                                 if result.returncode != 0:
                                     stderr_tail = (result.stderr or result.stdout or "").strip()[-300:]
@@ -569,7 +612,7 @@ if phase_num == 5:
 
         if merge_violations:
             shown = merge_violations[:5]
-            extra = f" (+{len(merge_violations)-5} more)" if len(merge_violations) > 5 else ""
+            extra = f" (+{len(merge_violations) - 5} more)" if len(merge_violations) > 5 else ""
             output_block(
                 f"Parallel merge guard: {len(merge_violations)} issue(s) after worktree merge: "
                 + "; ".join(shown)
@@ -585,10 +628,7 @@ if phase_num == 5:
 if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
     decisions = envelope.get("decisions")
     if not isinstance(decisions, list) or len(decisions) == 0:
-        output_block(
-            'Phase 1 envelope missing or empty "decisions" array. '
-            "At least one DecisionPoint is required."
-        )
+        output_block('Phase 1 envelope missing or empty "decisions" array. At least one DecisionPoint is required.')
 
     complexity = envelope.get("complexity", "medium")
     if complexity not in ("small", "medium", "large"):
@@ -603,9 +643,7 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
             if not d.get("point") and not d.get("choice"):
                 errors.append(f'decisions[{idx}]: missing both "point" and "choice"')
         if errors:
-            output_block(
-                f"Phase 1 decision format errors (small complexity): {'; '.join(errors)}"
-            )
+            output_block(f"Phase 1 decision format errors (small complexity): {'; '.join(errors)}")
         else:
             print(
                 f"OK: Phase 1 decisions validated (small complexity, {len(decisions)} decisions)",
@@ -645,7 +683,7 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
 
         if errors:
             shown = errors[:5]
-            extra = f" (+{len(errors)-5} more)" if len(errors) > 5 else ""
+            extra = f" (+{len(errors) - 5} more)" if len(errors) > 5 else ""
             output_block(
                 f"Phase 1 decision format violations ({len(errors)}, {complexity} complexity): "
                 + "; ".join(shown)
