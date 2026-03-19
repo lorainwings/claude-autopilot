@@ -110,7 +110,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 1. 发射 `gate_block` 事件（已有逻辑）
 2. 调用决策轮询脚本：
    ```bash
-   DECISION=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/poll-gate-decision.sh "${change_dir}/" "${PHASE}" "${MODE}" '{"blocked_step":M,"error_message":"..."}')
+   DECISION=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/poll-gate-decision.sh "${change_dir}/" "${PHASE}" "${MODE}" '{"blocked_step":M,"error_message":"..."}')
    POLL_EXIT=$?
    ```
 3. 根据轮询结果分支处理：

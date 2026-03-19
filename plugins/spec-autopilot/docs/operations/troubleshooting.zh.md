@@ -158,8 +158,8 @@ rm openspec/changes/.autopilot-active
 
 **修复**:
 1. 检查 autopilot-server.ts 是否仍在运行：`ps aux | grep autopilot-server`
-2. 如已退出，重新启动：`bun run plugins/spec-autopilot/server/autopilot-server.ts`
-3. 如端口冲突：`bun run plugins/spec-autopilot/server/autopilot-server.ts --ws-port 9000`
+2. 如已退出，重新启动：`bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root .`
+3. 如端口冲突（HTTP: 9527、WS: 8765 为源码内硬编码常量），终止已有进程（`lsof -ti:9527 | xargs kill`）后重启
 4. GUI 会自动重连（内置 3 秒重试），重新连接后补发缺失事件
 
 ### 12. GUI 无事件显示 (v5.0.8)
@@ -248,7 +248,7 @@ make test
 
 # 用模拟输入测试统一验证器
 echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nTest"},"tool_response":"..."}' \
-  | bash plugins/spec-autopilot/scripts/post-task-validator.sh
+  | bash plugins/spec-autopilot/runtime/scripts/post-task-validator.sh
 ```
 
 ### 检查 Hook 注册
@@ -273,7 +273,7 @@ print('All hooks have timeout configured')
 ### 语法检查所有脚本
 
 ```bash
-for f in plugins/spec-autopilot/scripts/*.sh; do
+for f in plugins/spec-autopilot/runtime/scripts/*.sh; do
   bash -n "$f" && echo "OK: $(basename $f)" || echo "FAIL: $(basename $f)"
 done
 ```

@@ -196,7 +196,7 @@ async_quality_scans:
     command: ""
     threshold: 60
   security_audit:                    # v2.4.0 新增：安全审计扫描
-    check_command: "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-security-tools-install.sh"
+    check_command: "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-security-tools-install.sh"
     install_command: ""              # 由检测脚本的 install_commands 动态提供
     command: ""                      # 由检测脚本的 recommended_scans 动态决定
     threshold: "0_critical"          # 0 个 critical 漏洞

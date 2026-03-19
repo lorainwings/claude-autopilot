@@ -111,7 +111,7 @@
 
 1. **修改运行时文件后必须重新构建**: 运行 `bash tools/build-dist.sh`（pre-commit 自动执行）
 2. **dist/plugin/ 禁止手动修改**: 所有修改在源码中进行，通过构建同步
-3. **新增运行时脚本须加入清单**: 在 `scripts/.dist-include` 中添加对应条目
+3. **新增运行时脚本须加入清单**: 在 `runtime/scripts/.dist-include` 中添加对应条目
 4. **测试文件永不进入 dist**: `tests/` 目录不在构建白名单中
 
 ## TypeScript 配置纪律

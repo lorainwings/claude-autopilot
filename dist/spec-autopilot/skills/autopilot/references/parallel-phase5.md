@@ -192,7 +192,7 @@ unified-write-edit-check Hook 会拦截越权修改。
 按 task 编号顺序合并:
 for each agent in sorted(agents, key=task_number):
   # v5.2: 合并前发射 task running 事件
-  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode}')
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode}')
 
   git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
   if conflict and conflict_files > 3: rollback group worktree, degrade to serial
@@ -200,7 +200,7 @@ for each agent in sorted(agents, key=task_number):
   else: git worktree remove + git branch -d
 
   # v5.2: 合并成功后发射 task passed 事件
-  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode}')
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode}')
 
 快速验证: 运行 config.test_suites 中 type=typecheck 的命令
 主线程写入 checkpoint: phase5-tasks/task-N.json

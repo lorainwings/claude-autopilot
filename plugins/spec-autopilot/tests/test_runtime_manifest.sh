@@ -7,7 +7,7 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
-MANIFEST="$PLUGIN_ROOT/scripts/.dist-include"
+MANIFEST="$PLUGIN_ROOT/runtime/scripts/.dist-include"
 HOOKS_JSON="$PLUGIN_ROOT/hooks/hooks.json"
 
 echo "--- runtime manifest consistency ---"
@@ -28,23 +28,23 @@ parse_manifest() {
   sed 's/#.*//' "$MANIFEST" | xargs -n1 2>/dev/null | grep -v '^$'
 }
 
-# ── 2. manifest 中每个文件都存在于 scripts/ ──
+# ── 2. manifest 中每个文件都存在于 runtime/scripts/ ──
 ALL_EXIST=true
 while IFS= read -r entry; do
-  if [ ! -f "$PLUGIN_ROOT/scripts/$entry" ]; then
-    red "  FAIL: manifest entry missing from scripts/: $entry"
+  if [ ! -f "$PLUGIN_ROOT/runtime/scripts/$entry" ]; then
+    red "  FAIL: manifest entry missing from runtime/scripts/: $entry"
     FAIL=$((FAIL + 1))
     ALL_EXIST=false
   fi
 done < <(parse_manifest)
 if [ "$ALL_EXIST" = true ]; then
-  green "  PASS: all manifest entries exist in scripts/"
+  green "  PASS: all manifest entries exist in runtime/scripts/"
   PASS=$((PASS + 1))
 fi
 
 # ── 3. hooks.json 引用的脚本全部在 manifest 中 ──
 HOOKS_COVERED=true
-for script in $(grep -o 'scripts/[^" ]*\.sh' "$HOOKS_JSON" | sed 's|scripts/||' | sort -u); do
+for script in $(grep -o 'runtime/scripts/[^" ]*\.sh' "$HOOKS_JSON" | sed 's|runtime/scripts/||' | sort -u); do
   if ! parse_manifest | grep -qxF "$script"; then
     red "  FAIL: hooks.json references '$script' but it's NOT in manifest"
     FAIL=$((FAIL + 1))
@@ -79,30 +79,31 @@ trap 'rm -rf "$fix_root"' EXIT
 fix_repo="$fix_root/repo"
 fix_plugin="$fix_repo/plugins/spec-autopilot"
 mkdir -p \
-  "$fix_plugin/scripts" \
+  "$fix_plugin/runtime/scripts" \
   "$fix_plugin/hooks" \
   "$fix_plugin/skills" \
   "$fix_plugin/.claude-plugin" \
   "$fix_plugin/gui" \
   "$fix_plugin/gui-dist" \
+  "$fix_plugin/tools" \
   "$fix_root/bin"
 
 # 复制真实的 build-dist.sh 和 manifest
-cp "$PLUGIN_ROOT/tools/build-dist.sh" "$fix_plugin/scripts/"
-cp "$MANIFEST" "$fix_plugin/scripts/.dist-include"
-chmod +x "$fix_plugin/scripts/build-dist.sh"
+cp "$PLUGIN_ROOT/tools/build-dist.sh" "$fix_plugin/tools/"
+cp "$MANIFEST" "$fix_plugin/runtime/scripts/.dist-include"
+chmod +x "$fix_plugin/tools/build-dist.sh"
 
 # 为 manifest 中每个文件创建占位脚本
 while IFS= read -r entry; do
-  if [ ! -f "$fix_plugin/scripts/$entry" ]; then
-    printf '#!/usr/bin/env bash\necho "stub: %s"\n' "$entry" > "$fix_plugin/scripts/$entry"
+  if [ ! -f "$fix_plugin/runtime/scripts/$entry" ]; then
+    printf '#!/usr/bin/env bash\necho "stub: %s"\n' "$entry" > "$fix_plugin/runtime/scripts/$entry"
   fi
 done < <(parse_manifest)
 
 # 额外放入 dev-only 文件（不应出现在 dist）
-printf 'dev-only\n' > "$fix_plugin/scripts/mock-event-emitter.js"
-printf '{"devDependencies":{}}\n' > "$fix_plugin/scripts/package.json"
-printf 'lockfile\n' > "$fix_plugin/scripts/tsconfig.json"
+printf 'dev-only\n' > "$fix_plugin/runtime/scripts/mock-event-emitter.js"
+printf '{"devDependencies":{}}\n' > "$fix_plugin/runtime/scripts/package.json"
+printf 'lockfile\n' > "$fix_plugin/runtime/scripts/tsconfig.json"
 
 # 最小化 hooks/skills/plugin 配置
 cp "$HOOKS_JSON" "$fix_plugin/hooks/hooks.json"
@@ -119,16 +120,16 @@ BEOF
 chmod +x "$fix_root/bin/bun"
 
 # 在 fixture 内构建
-fix_output=$(PATH="$fix_root/bin:$PATH" bash "$fix_plugin/scripts/build-dist.sh" 2>&1)
+fix_output=$(PATH="$fix_root/bin:$PATH" bash "$fix_plugin/tools/build-dist.sh" 2>&1)
 fix_exit=$?
 fix_dist="$fix_repo/dist/spec-autopilot"
 
 assert_exit "5a. fixture build completes successfully" 0 "$fix_exit"
 
-if [ -d "$fix_dist/scripts" ]; then
+if [ -d "$fix_dist/runtime/scripts" ]; then
   # 5b. dist 中每个文件都在 manifest 中
   DIST_CLEAN=true
-  for f in "$fix_dist/scripts/"*; do
+  for f in "$fix_dist/runtime/scripts/"*; do
     [ -f "$f" ] || continue
     fname=$(basename "$f")
     if ! parse_manifest | grep -qxF "$fname"; then
@@ -145,7 +146,7 @@ if [ -d "$fix_dist/scripts" ]; then
   # 5c. manifest 中每个文件都在 dist 中
   DIST_COMPLETE=true
   while IFS= read -r entry; do
-    if [ ! -f "$fix_dist/scripts/$entry" ]; then
+    if [ ! -f "$fix_dist/runtime/scripts/$entry" ]; then
       red "  FAIL: 5c. manifest entry missing from fixture dist: $entry"
       FAIL=$((FAIL + 1))
       DIST_COMPLETE=false
@@ -158,7 +159,7 @@ if [ -d "$fix_dist/scripts" ]; then
 
   # 5d. 文件数量精确匹配
   manifest_count=$(parse_manifest | wc -l | xargs)
-  dist_count=$(find "$fix_dist/scripts" -maxdepth 1 -type f | wc -l | xargs)
+  dist_count=$(find "$fix_dist/runtime/scripts" -maxdepth 1 -type f | wc -l | xargs)
   if [ "$manifest_count" = "$dist_count" ]; then
     green "  PASS: 5d. file count matches (manifest=$manifest_count, dist=$dist_count)"
     PASS=$((PASS + 1))
@@ -169,7 +170,7 @@ if [ -d "$fix_dist/scripts" ]; then
 
   # 5e. dev-only 文件确实被排除
   for devfile in mock-event-emitter.js package.json tsconfig.json; do
-    if [ -f "$fix_dist/scripts/$devfile" ]; then
+    if [ -f "$fix_dist/runtime/scripts/$devfile" ]; then
       red "  FAIL: 5e. dev-only file leaked into fixture dist: $devfile"
       FAIL=$((FAIL + 1))
     fi
@@ -177,7 +178,7 @@ if [ -d "$fix_dist/scripts" ]; then
   green "  PASS: 5e. dev-only files excluded from fixture dist"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 5. fixture dist/scripts/ not created by build"
+  red "  FAIL: 5. fixture dist/runtime/scripts/ not created by build"
   FAIL=$((FAIL + 1))
 fi
 

@@ -4,7 +4,7 @@
 # dynamically adjust Phase 4 L2 Hook thresholds for sad_path and change_coverage.
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- 51. Phase 4 routing_overrides dynamic thresholds ---"

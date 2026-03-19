@@ -63,7 +63,7 @@ autopilot 会自动：
 
 ```bash
 # 启动双模服务器 (HTTP:9527 + WebSocket:8765)
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 ```
 
 打开浏览器访问 `http://localhost:9527`，可查看：
@@ -105,7 +105,7 @@ phases:
 - `Anti-rationalization` → 子 Agent 试图跳过工作，会自动重新派发
 
 **Q: 如何查看实时可视化执行状态？**
-启动 GUI 大盘：`bun run plugins/spec-autopilot/server/autopilot-server.ts`，然后打开 `http://localhost:9527`。所有 Phase 进度、门禁判定、任务进度实时推送到浏览器。
+启动 GUI 大盘：`bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`，然后打开 `http://localhost:9527`。所有 Phase 进度、门禁判定、任务进度实时推送到浏览器。
 
 **Q: 如何启用并行执行？**
 在配置文件中设置：

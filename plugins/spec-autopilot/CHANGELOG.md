@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.1.37] - 2026-03-19
+
+### Changed
+
+- **架构重构 — 目录收敛**: `scripts/` → `runtime/scripts/`，`server/` → `runtime/server/`，dist 产物 `gui-dist/` → `assets/gui/`
+- **Server 模块化**: 1181 行 `autopilot-server.ts` 拆分为 7 层 19 个 TS 模块 (`runtime/server/src/`)
+- **增量快照引擎**: 字节偏移游标替代全量 size+mtime 缓存；journal 追加写入；session 切换时 cursor/journal 重置
+- **构建脚本**: `build-dist.sh` 完整重写为 `runtime/` + `assets/gui` 目标结构，移除旧单文件回填
+- **hooks.json**: 21 处路径更新至 `runtime/scripts/`
+- **Skills**: 8 个 SKILL/reference 文件 35 处路径更新
+- **Tests**: 74 个测试文件路径更新
+- **文档同步**: 12 个用户面向文档中 22 处旧路径 + 6 处无效 CLI 参数 (`--ws-port`/`--http-port`) 修正
+
+### Added
+
+- **健壮性测试** (`test_server_robustness.sh`): 32 项覆盖多 session 切换、损坏 JSON 容错、raw-tail 增量游标、snapshot/journal 一致性、超长单行 JSONL
+
+### Fixed
+
+- **start-gui-server.sh**: 统一为 `runtime/server/` 单路径，移除旧双入口兼容逻辑
+
 ## [5.1.29] - 2026-03-19
 
 ### Fixed

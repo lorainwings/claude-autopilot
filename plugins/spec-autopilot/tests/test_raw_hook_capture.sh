@@ -2,7 +2,7 @@
 # test_raw_hook_capture.sh — raw hook bridge writes session-scoped records
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- raw hook capture ---"

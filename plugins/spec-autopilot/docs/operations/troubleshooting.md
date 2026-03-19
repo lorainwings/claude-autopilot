@@ -158,8 +158,8 @@ rm openspec/changes/.autopilot-active
 
 **Fix**:
 1. Check if autopilot-server.ts is still running: `ps aux | grep autopilot-server`
-2. If it has exited, restart it: `bun run plugins/spec-autopilot/server/autopilot-server.ts`
-3. If there is a port conflict: `bun run plugins/spec-autopilot/server/autopilot-server.ts --ws-port 9000`
+2. If it has exited, restart it: `bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root .`
+3. If there is a port conflict (HTTP: 9527, WS: 8765 are hardcoded source constants), kill the existing process (`lsof -ti:9527 | xargs kill`) and restart
 4. The GUI will auto-reconnect (built-in 3-second retry) and backfill missed events after reconnection
 
 ### 12. GUI Shows No Events (v5.0.8)
@@ -248,7 +248,7 @@ make test
 
 # Test the unified post-task validator with mock input
 echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nTest"},"tool_response":"..."}' \
-  | bash plugins/spec-autopilot/scripts/post-task-validator.sh
+  | bash plugins/spec-autopilot/runtime/scripts/post-task-validator.sh
 ```
 
 ### Check Hook Registration
@@ -273,7 +273,7 @@ print('All hooks have timeout configured')
 ### Syntax Check All Scripts
 
 ```bash
-for f in plugins/spec-autopilot/scripts/*.sh; do
+for f in plugins/spec-autopilot/runtime/scripts/*.sh; do
   bash -n "$f" && echo "OK: $(basename $f)" || echo "FAIL: $(basename $f)"
 done
 ```

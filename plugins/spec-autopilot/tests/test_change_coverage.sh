@@ -2,7 +2,7 @@
 # test_change_coverage.sh — Section 40: Phase 4 change_coverage validation
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 source "$TEST_DIR/_fixtures.sh"
 

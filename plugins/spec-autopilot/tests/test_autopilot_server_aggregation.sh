@@ -2,7 +2,7 @@
 # test_autopilot_server_aggregation.sh — server aggregates legacy + raw hook + statusline + transcript
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_DIR="$(cd "$TEST_DIR/../server" && pwd)"
+SERVER_DIR="$(cd "$TEST_DIR/../runtime/server" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- autopilot-server aggregation ---"

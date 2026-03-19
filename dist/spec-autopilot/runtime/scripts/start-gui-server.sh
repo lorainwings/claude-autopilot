@@ -2,7 +2,7 @@
 # start-gui-server.sh
 # v5.0 GUI 服务器守护进程启动器
 # Purpose: 检测 autopilot-server 是否存活，未存活则后台启动
-# Usage: bash scripts/start-gui-server.sh [project_root]
+# Usage: bash runtime/scripts/start-gui-server.sh [project_root]
 # Output: 一行优雅提示或静默（已存活时）
 
 set -uo pipefail
@@ -20,13 +20,11 @@ check_server_alive() {
 start_server() {
   local server_script=""
 
-  # 双路径解析: dist 态优先，源码态兜底
-  if [ -f "$SCRIPT_DIR/autopilot-server.ts" ]; then
-    server_script="$SCRIPT_DIR/autopilot-server.ts"
-  elif [ -f "$SCRIPT_DIR/../server/autopilot-server.ts" ]; then
+  # runtime/server/ 为标准路径（源码态 & dist 态统一）
+  if [ -f "$SCRIPT_DIR/../server/autopilot-server.ts" ]; then
     server_script="$SCRIPT_DIR/../server/autopilot-server.ts"
   else
-    echo "[WARN] GUI server script not found in scripts/ or server/" >&2
+    echo "[WARN] GUI server script not found at runtime/server/autopilot-server.ts" >&2
     return 1
   fi
 

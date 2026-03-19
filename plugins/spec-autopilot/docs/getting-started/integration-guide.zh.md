@@ -114,7 +114,7 @@ project_context:
 运行配置验证：
 
 ```bash
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 ```
 
 ### Step 5:（可选）高级自定义
@@ -169,7 +169,7 @@ GUI 大盘提供实时可视化执行状态和门禁交互界面。
 
 ```bash
 # 启动双模服务器 (HTTP:9527 + WebSocket:8765)
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 ```
 
 打开 `http://localhost:9527` 即可查看三栏布局大盘。当门禁阻断时，GUI 提供 retry / fix / override 决策按钮。
@@ -434,7 +434,7 @@ curl http://localhost:9527/api/events
 - [ ] `openspec/` 目录结构已存在
 - [ ] （可选）并行模式已配置（`parallel.enabled: true`）
 - [ ] （可选）`instruction_files` 自定义覆盖已配置
-- [ ] （可选）GUI 大盘已启动（`bun run plugins/spec-autopilot/server/autopilot-server.ts`）
+- [ ] （可选）GUI 大盘已启动（`bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`）
 - [ ] （可选）Event Bus 日志目录已创建（`mkdir -p logs`，或由首次运行自动创建）
 - [ ] 首次 `启动autopilot` 或 `/spec-autopilot:autopilot` 测试通过
 
@@ -461,7 +461,7 @@ spec-autopilot 持续迭代，以下为各版本升级要点。
 ### v5.0.8+: GUI V2 大盘
 
 - 安装 Bun 运行时
-- 启动命令: `bun run plugins/spec-autopilot/server/autopilot-server.ts`
+- 启动命令: `bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`
 - 端口: HTTP 9527 + WebSocket 8765
 
 ### v2.2: instruction_files 可选化（历史）
@@ -550,7 +550,7 @@ rm .claude/skills/autopilot/SKILL.md
 
 ```bash
 # 验证 config
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 
 # 重启 Claude Code 后测试
 /spec-autopilot:autopilot

@@ -38,7 +38,7 @@ user-invocable: false
 执行 `recovery-decision.sh`，获取完整的恢复决策数据：
 
 ```bash
-Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/recovery-decision.sh "${session_cwd}/openspec/changes" "${mode}" --change "${change_name_if_known}"')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/recovery-decision.sh "${session_cwd}/openspec/changes" "${mode}" --change "${change_name_if_known}"')
 ```
 
 解析 JSON 输出，后续**所有决策基于此数据**，不再执行任何内联 bash 扫描命令。
@@ -117,13 +117,13 @@ AskUserQuestion:
 - `recovery_phase = target_phase`
 - **Git SHA 查找**：
   ```bash
-  TARGET_SHA=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/_common.sh && read_phase_commit_sha "${session_cwd}" ${target_phase} "${change_name}")
+  TARGET_SHA=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/_common.sh && read_phase_commit_sha "${session_cwd}" ${target_phase} "${change_name}")
   ```
   - **找到 SHA** → 传递给 clean-phase-artifacts.sh 的 `--git-target-sha` 参数
   - **未找到 SHA**（旧版 commit 无标记） → 跳过 git 回退，仅清理文件制品，输出警告
 - **调用清理脚本**：
   ```bash
-  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/clean-phase-artifacts.sh ${target_phase} ${mode} "${change_dir}" --git-target-sha ${TARGET_SHA}')
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/clean-phase-artifacts.sh ${target_phase} ${mode} "${change_dir}" --git-target-sha ${TARGET_SHA}')
   ```
   清理脚本自动处理：git 回退 → 文件清理 → 事件过滤（事务性顺序）
 - 解析清理脚本的 JSON 输出，向用户展示清理摘要
@@ -133,7 +133,7 @@ AskUserQuestion:
 - `recovery_phase = 1`
 - **调用清理脚本**：
   ```bash
-  Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/clean-phase-artifacts.sh 1 ${mode} "${change_dir}"')
+  Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/clean-phase-artifacts.sh 1 ${mode} "${change_dir}"')
   ```
   不传 `--git-target-sha`（不回退 git 状态，仅清理文件）
 - 返回起始阶段号 1

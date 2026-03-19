@@ -114,7 +114,7 @@ project_context:
 Run config validation:
 
 ```bash
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 ```
 
 ### Step 5: (Optional) Advanced Customization
@@ -169,7 +169,7 @@ The GUI dashboard provides real-time visualization of execution status and gate 
 
 ```bash
 # Start dual-mode server (HTTP:9527 + WebSocket:8765)
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 ```
 
 Open `http://localhost:9527` to view the three-column dashboard. When a gate blocks, the GUI provides retry / fix / override decision buttons.
@@ -434,7 +434,7 @@ Event types: `phase_start`, `phase_end`, `gate_pass`, `gate_block`, `task_progre
 - [ ] `openspec/` directory structure exists
 - [ ] (Optional) Parallel mode configured (`parallel.enabled: true`)
 - [ ] (Optional) `instruction_files` custom overrides configured
-- [ ] (Optional) GUI dashboard launched (`bun run plugins/spec-autopilot/server/autopilot-server.ts`)
+- [ ] (Optional) GUI dashboard launched (`bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`)
 - [ ] (Optional) Event Bus log directory created (`mkdir -p logs`, or auto-created on first run)
 - [ ] First `启动autopilot` or `/spec-autopilot:autopilot` test passed
 
@@ -461,7 +461,7 @@ spec-autopilot is continuously evolving. Below are key upgrade notes for each ve
 ### v5.0.8+: GUI V2 Dashboard
 
 - Install Bun runtime
-- Launch command: `bun run plugins/spec-autopilot/server/autopilot-server.ts`
+- Launch command: `bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`
 - Ports: HTTP 9527 + WebSocket 8765
 
 ### v2.2: instruction_files Made Optional (Historical)
@@ -550,7 +550,7 @@ rm .claude/skills/autopilot/SKILL.md
 
 ```bash
 # Validate config
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 
 # Restart Claude Code and test
 /spec-autopilot:autopilot

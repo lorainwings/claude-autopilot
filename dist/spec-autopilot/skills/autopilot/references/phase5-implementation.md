@@ -550,7 +550,7 @@ Phase 5 启动时，扫描 `phase5-tasks/` 目录：
 3. 验证写入成功
 4. **v5.2: 发射 task_progress 事件**（GUI 实时看板消费）：
    ```
-   Bash('bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-task-progress.sh "task-{N}-{slug}" {status} {N} {total} {mode} [tdd_step]')
+   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" {status} {N} {total} {mode} [tdd_step]')
    ```
    status 映射: ok/warning → "passed", failed/blocked → "failed"
 

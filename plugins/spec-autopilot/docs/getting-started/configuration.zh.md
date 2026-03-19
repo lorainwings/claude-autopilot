@@ -245,14 +245,16 @@ GUI 大盘通过 `autopilot-server.ts` 提供双模服务，无需在 `autopilot
 ### 服务器命令行参数
 
 ```bash
-bun run server/autopilot-server.ts [options]
+bun run runtime/server/autopilot-server.ts [options]
 ```
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--http-port` | `9527` | HTTP 静态资源端口 |
-| `--ws-port` | `8765` | WebSocket 实时推送端口 |
+| `--project-root` | `.` | 项目根目录，用于事件文件发现 |
+| `--no-open` | `false` | 启动时不自动打开浏览器 |
 | `--events-file` | `logs/events.jsonl` | 事件文件路径 |
+
+> **注意**: HTTP 端口 (9527) 和 WebSocket 端口 (8765) 为源码中的硬编码常量，不支持通过命令行参数配置。如遇端口冲突，需终止已有进程后重启。
 
 ### 端口映射
 
@@ -311,7 +313,7 @@ test_suites:
 运行 `validate-config.sh` 检查配置：
 
 ```bash
-bash plugins/spec-autopilot/scripts/validate-config.sh /path/to/project
+bash plugins/spec-autopilot/runtime/scripts/validate-config.sh /path/to/project
 ```
 
 输出：

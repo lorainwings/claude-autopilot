@@ -10,7 +10,7 @@
 #   - No constraints → no blocking
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- 54. code_constraints L2 blocking (Phase 5) ---"

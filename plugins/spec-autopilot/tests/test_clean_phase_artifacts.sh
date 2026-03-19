@@ -2,7 +2,7 @@
 # test_clean_phase_artifacts.sh — Unit tests for clean-phase-artifacts.sh
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 source "$SCRIPT_DIR/_common.sh"
 

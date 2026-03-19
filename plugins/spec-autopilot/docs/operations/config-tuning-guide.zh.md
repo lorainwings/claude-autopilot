@@ -235,15 +235,15 @@ TDD 行为说明：
 
 ```bash
 # 启动 GUI 双模服务器
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root /path/to/project
 
-# 自定义端口
-bun run plugins/spec-autopilot/server/autopilot-server.ts --http-port 3000 --ws-port 9000
+# 启动时不自动打开浏览器
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root /path/to/project --no-open
 ```
 
 调优建议：
 - 事件文件默认写入 `logs/events.jsonl`，建议将 `logs/` 加入 `.gitignore`
-- WebSocket 端口冲突时通过 `--ws-port` 更改
+- 端口为源码内硬编码常量（HTTP: 9527、WS: 8765），如端口冲突需终止已有进程后重启，或修改源码中的常量
 - 大型项目事件量大时，定期清理 `events.jsonl`（每次 autopilot 会话追加，不自动清理）
 - 不使用 GUI 时无需启动服务器，事件仍写入文件可通过 `tail -f` 消费
 
@@ -252,7 +252,7 @@ bun run plugins/spec-autopilot/server/autopilot-server.ts --http-port 3000 --ws-
 修改配置后运行验证：
 
 ```bash
-bash plugins/spec-autopilot/scripts/validate-config.sh
+bash plugins/spec-autopilot/runtime/scripts/validate-config.sh
 ```
 
 输出 JSON 包含：

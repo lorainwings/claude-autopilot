@@ -63,7 +63,7 @@ Launch the GUI dashboard to view real-time execution status:
 
 ```bash
 # Start dual-mode server (HTTP:9527 + WebSocket:8765)
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 ```
 
 Open your browser at `http://localhost:9527` to view:
@@ -105,7 +105,7 @@ The blocking message will tell you the reason and suggested fix. Common blocks:
 - `Anti-rationalization` — a sub-Agent tried to skip work, will be automatically re-dispatched
 
 **Q: How do I view real-time visual execution status?**
-Launch the GUI dashboard: `bun run plugins/spec-autopilot/server/autopilot-server.ts`, then open `http://localhost:9527`. All phase progress, gate decisions, and task progress are pushed to the browser in real-time.
+Launch the GUI dashboard: `bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts`, then open `http://localhost:9527`. All phase progress, gate decisions, and task progress are pushed to the browser in real-time.
 
 **Q: How do I enable parallel execution?**
 Set in the configuration file:

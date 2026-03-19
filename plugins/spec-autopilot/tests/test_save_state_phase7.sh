@@ -2,7 +2,7 @@
 # test_save_state_phase7.sh — Section 18: save-state Phase 7 scan
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 source "$TEST_DIR/_fixtures.sh"
 

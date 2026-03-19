@@ -235,15 +235,15 @@ TDD behavior details:
 
 ```bash
 # Start the GUI dual-mode server
-bun run plugins/spec-autopilot/server/autopilot-server.ts
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root /path/to/project
 
-# Custom ports
-bun run plugins/spec-autopilot/server/autopilot-server.ts --http-port 3000 --ws-port 9000
+# Start without auto-opening browser
+bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts --project-root /path/to/project --no-open
 ```
 
 Tuning tips:
 - Event files are written to `logs/events.jsonl` by default; consider adding `logs/` to `.gitignore`
-- Use `--ws-port` to change the port if there is a WebSocket port conflict
+- Ports are hardcoded source constants (HTTP: 9527, WS: 8765); if there is a port conflict, kill the existing process and restart, or modify the constants in the source code
 - For large projects with high event volume, periodically clean up `events.jsonl` (each autopilot session appends; no automatic cleanup)
 - If not using the GUI, there is no need to start the server; events are still written to the file and can be consumed via `tail -f`
 
@@ -252,7 +252,7 @@ Tuning tips:
 Run validation after modifying the configuration:
 
 ```bash
-bash plugins/spec-autopilot/scripts/validate-config.sh
+bash plugins/spec-autopilot/runtime/scripts/validate-config.sh
 ```
 
 The output JSON includes:

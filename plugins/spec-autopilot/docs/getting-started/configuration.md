@@ -245,14 +245,16 @@ The GUI dashboard is served via `autopilot-server.ts` in dual-mode, requiring no
 ### Server Command-Line Arguments
 
 ```bash
-bun run server/autopilot-server.ts [options]
+bun run runtime/server/autopilot-server.ts [options]
 ```
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--http-port` | `9527` | HTTP static asset port |
-| `--ws-port` | `8765` | WebSocket real-time push port |
+| `--project-root` | `.` | Project root directory for event file discovery |
+| `--no-open` | `false` | Do not auto-open browser on startup |
 | `--events-file` | `logs/events.jsonl` | Event file path |
+
+> **Note**: HTTP port (9527) and WebSocket port (8765) are hardcoded constants in the source code and are not configurable via CLI arguments. If a port conflict occurs, kill the existing process and restart.
 
 ### Port Mapping
 
@@ -311,7 +313,7 @@ test_suites:
 Run `validate-config.sh` to check your config:
 
 ```bash
-bash plugins/spec-autopilot/scripts/validate-config.sh /path/to/project
+bash plugins/spec-autopilot/runtime/scripts/validate-config.sh /path/to/project
 ```
 
 Output:

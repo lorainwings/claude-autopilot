@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard-no-verify.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/guard-no-verify.sh",
             "timeout": 5
           }
         ]
@@ -16,17 +16,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh PreToolUse",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PreToolUse",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-predecessor-checkpoint.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-checkpoint.sh",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/auto-emit-agent-dispatch.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/auto-emit-agent-dispatch.sh",
             "timeout": 5
           }
         ]
@@ -38,12 +38,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh PostToolUse",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PostToolUse",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/emit-tool-event.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-tool-event.sh",
             "timeout": 5
           }
         ]
@@ -53,12 +53,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/post-task-validator.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/post-task-validator.sh",
             "timeout": 60
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/auto-emit-agent-complete.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/auto-emit-agent-complete.sh",
             "timeout": 5
           }
         ]
@@ -68,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/unified-write-edit-check.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/unified-write-edit-check.sh",
             "timeout": 15
           }
         ]
@@ -79,12 +79,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh PreCompact",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PreCompact",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/save-state-before-compact.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/save-state-before-compact.sh",
             "timeout": 15
           }
         ]
@@ -95,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh PostCompact",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PostCompact",
             "timeout": 5
           }
         ]
@@ -106,7 +106,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh UserPromptSubmit",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh UserPromptSubmit",
             "timeout": 5
           }
         ]
@@ -117,7 +117,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh Stop",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh Stop",
             "timeout": 5
           }
         ]
@@ -128,7 +128,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh SubagentStart",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh SubagentStart",
             "timeout": 5
           }
         ]
@@ -139,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh SubagentStop",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh SubagentStop",
             "timeout": 5
           }
         ]
@@ -150,12 +150,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh SessionStart",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh SessionStart",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-checkpoints-on-start.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/scan-checkpoints-on-start.sh",
             "timeout": 15,
             "async": true
           }
@@ -165,7 +165,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-skill-size.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-skill-size.sh",
             "timeout": 15
           }
         ]
@@ -175,7 +175,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/reinject-state-after-compact.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/reinject-state-after-compact.sh",
             "timeout": 15
           }
         ]
@@ -186,7 +186,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/capture-hook-event.sh SessionEnd",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh SessionEnd",
             "timeout": 5
           }
         ]

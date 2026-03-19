@@ -2,7 +2,7 @@
 # test_event_sequence_concurrency.sh — next_event_sequence must stay unique under contention
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- event sequence concurrency ---"

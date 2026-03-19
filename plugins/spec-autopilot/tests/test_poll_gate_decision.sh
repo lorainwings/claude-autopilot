@@ -2,7 +2,7 @@
 # test_poll_gate_decision.sh — Regression tests for gate override safety
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_DIR="$(cd "$TEST_DIR/../scripts" && pwd)"
+SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
 POLL_SCRIPT="$SCRIPT_DIR/poll-gate-decision.sh"
