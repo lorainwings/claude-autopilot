@@ -128,16 +128,16 @@ fi
 # Global file is also written for backward compat (last-writer-wins in parallel).
 ACTIVE_AGENT_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$ACTIVE_AGENT_DIR" 2>/dev/null || true
-echo "$AGENT_ID" > "$ACTIVE_AGENT_DIR/.active-agent-id" 2>/dev/null || true
-echo "$AGENT_ID" > "$ACTIVE_AGENT_DIR/.active-agent-phase-${PHASE}" 2>/dev/null || true
+echo "$AGENT_ID" >"$ACTIVE_AGENT_DIR/.active-agent-id" 2>/dev/null || true
+echo "$AGENT_ID" >"$ACTIVE_AGENT_DIR/.active-agent-phase-${PHASE}" 2>/dev/null || true
 if [ -n "$SESSION_ID" ]; then
   SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$SESSION_ID")
-  echo "$AGENT_ID" > "$SESSION_AGENT_FILE" 2>/dev/null || true
+  echo "$AGENT_ID" >"$SESSION_AGENT_FILE" 2>/dev/null || true
 fi
 
 # --- Record dispatch timestamp for duration calculation (millisecond precision) ---
 DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"
-python3 -c "import time; print(int(time.time()*1000))" > "$DISPATCH_TS_FILE" 2>/dev/null || date +%s000 > "$DISPATCH_TS_FILE" 2>/dev/null || true
+python3 -c "import time; print(int(time.time()*1000))" >"$DISPATCH_TS_FILE" 2>/dev/null || date +%s000 >"$DISPATCH_TS_FILE" 2>/dev/null || true
 
 # --- Emit agent_dispatch event (log errors to stderr, never deny) ---
 bash "$SCRIPT_DIR/emit-agent-event.sh" agent_dispatch "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "{\"background\":$IS_BG}" >/dev/null 2>&1 ||

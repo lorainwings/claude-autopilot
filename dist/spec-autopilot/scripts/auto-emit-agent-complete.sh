@@ -129,7 +129,7 @@ try:
             continue
 except Exception:
     pass
-" <<< "$STDIN_DATA" 2>/dev/null) || true
+" <<<"$STDIN_DATA" 2>/dev/null) || true
   if [ -n "$_EXTRACTED" ]; then
     _line=""
     while IFS= read -r _line; do
@@ -138,7 +138,7 @@ except Exception:
         SUMMARY=*) SUMMARY="${_line#SUMMARY=}" ;;
         ARTIFACTS=*) OUTPUT_FILES="${_line#ARTIFACTS=}" ;;
       esac
-    done <<< "$_EXTRACTED"
+    done <<<"$_EXTRACTED"
   fi
 else
   # Bash regex fallback: search in full stdin (less reliable, matches first occurrence)
@@ -157,7 +157,7 @@ if [ -f "$DISPATCH_TS_FILE" ]; then
   DISPATCH_TS=$(head -1 "$DISPATCH_TS_FILE" 2>/dev/null | tr -d '[:space:]')
   if [ -n "$DISPATCH_TS" ]; then
     NOW_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "$(date +%s)000")
-    DURATION_MS=$(( NOW_MS - DISPATCH_TS ))
+    DURATION_MS=$((NOW_MS - DISPATCH_TS))
     [ "$DURATION_MS" -lt 0 ] && DURATION_MS=0
   fi
   # Cleanup dispatch timestamp file

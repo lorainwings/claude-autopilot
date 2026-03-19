@@ -233,9 +233,9 @@ scan_all_checkpoints() {
   # Determine which phases to scan based on mode
   local phases
   case "$mode" in
-    lite)    phases="1 5 6 7" ;;
+    lite) phases="1 5 6 7" ;;
     minimal) phases="1 5 7" ;;
-    *)       phases="1 2 3 4 5 6 7" ;;
+    *) phases="1 2 3 4 5 6 7" ;;
   esac
 
   python3 -c "
@@ -274,9 +274,9 @@ get_last_valid_phase() {
 
   local phases
   case "$mode" in
-    lite)    phases="1 5 6 7" ;;
+    lite) phases="1 5 6 7" ;;
     minimal) phases="1 5 7" ;;
-    *)       phases="1 2 3 4 5 6 7" ;;
+    *) phases="1 2 3 4 5 6 7" ;;
   esac
 
   python3 -c "
@@ -397,7 +397,10 @@ read_lock_json_field() {
   local lock_file="$1"
   local field="$2"
   local default_val="${3:-}"
-  [ -f "$lock_file" ] || { echo "$default_val"; return 0; }
+  [ -f "$lock_file" ] || {
+    echo "$default_val"
+    return 0
+  }
 
   local result
   result=$(python3 -c "
@@ -434,10 +437,10 @@ get_phase_label() {
 # Returns: phase count on stdout (full=8, lite=5, minimal=4)
 get_total_phases() {
   case "${1:-full}" in
-    full)    echo 8 ;;
-    lite)    echo 5 ;;
+    full) echo 8 ;;
+    lite) echo 5 ;;
     minimal) echo 4 ;;
-    *)       echo 8 ;;
+    *) echo 8 ;;
   esac
 }
 
@@ -484,9 +487,9 @@ next_event_sequence() {
     if [ "$attempt" -eq 10 ] && [ -d "$lock_dir" ]; then
       local lock_age=0
       if [[ "$(uname)" == "Darwin" ]]; then
-        lock_age=$(( $(date +%s) - $(stat -f "%m" "$lock_dir" 2>/dev/null || echo "$(date +%s)") ))
+        lock_age=$(($(date +%s) - $(stat -f "%m" "$lock_dir" 2>/dev/null || echo "$(date +%s)")))
       else
-        lock_age=$(( $(date +%s) - $(stat -c "%Y" "$lock_dir" 2>/dev/null || echo "$(date +%s)") ))
+        lock_age=$(($(date +%s) - $(stat -c "%Y" "$lock_dir" 2>/dev/null || echo "$(date +%s)")))
       fi
       if [ "$lock_age" -gt 30 ]; then
         rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
@@ -501,7 +504,7 @@ next_event_sequence() {
     [ -f "$seq_file" ] && current=$(cat "$seq_file" 2>/dev/null | tr -d '[:space:]') || true
     [ -z "$current" ] && current=0
     local next=$((current + 1))
-    printf "%s\n" "$next" > "$seq_file"
+    printf "%s\n" "$next" >"$seq_file"
     printf "%s\n" "$next"
     rmdir "$lock_dir" 2>/dev/null || true
     return 0
@@ -522,9 +525,9 @@ get_gap_phases() {
 
   local phases
   case "$mode" in
-    lite)    phases="1 5 6 7" ;;
+    lite) phases="1 5 6 7" ;;
     minimal) phases="1 5 7" ;;
-    *)       phases="1 2 3 4 5 6 7" ;;
+    *) phases="1 2 3 4 5 6 7" ;;
   esac
 
   python3 -c "
@@ -560,9 +563,9 @@ print(json.dumps(gaps))
 # Returns: space-separated phase numbers (e.g. "1 2 3 4 5 6 7")
 get_phase_sequence() {
   case "${1:-full}" in
-    lite)    echo "1 5 6 7" ;;
+    lite) echo "1 5 6 7" ;;
     minimal) echo "1 5 7" ;;
-    *)       echo "1 2 3 4 5 6 7" ;;
+    *) echo "1 2 3 4 5 6 7" ;;
   esac
 }
 

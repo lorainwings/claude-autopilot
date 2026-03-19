@@ -38,8 +38,9 @@ FILE_PATH=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[
 # --- Only check test files ---
 IS_TEST="no"
 case "$FILE_PATH" in
-  *test*|*spec*|*Test*|*Spec*)
-    IS_TEST="yes" ;;
+  *test* | *spec* | *Test* | *Spec*)
+    IS_TEST="yes"
+    ;;
 esac
 [ "$IS_TEST" != "yes" ] && exit 0
 

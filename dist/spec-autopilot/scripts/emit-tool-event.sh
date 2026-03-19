@@ -42,7 +42,7 @@ case "$TOOL_NAME" in
       KEY_PARAM="${BASH_REMATCH[1]}"
     fi
     ;;
-  Write|Edit)
+  Write | Edit)
     if [[ "$STDIN_DATA" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
       KEY_PARAM="${BASH_REMATCH[1]}"
     fi
@@ -113,9 +113,15 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Pure bash JSON field extractor: read_json_field <file> <key> <default>
 _read_json_field() {
   local file="$1" key="$2" default="${3:-}"
-  [ -f "$file" ] || { echo "$default"; return; }
+  [ -f "$file" ] || {
+    echo "$default"
+    return
+  }
   local content
-  content=$(cat "$file" 2>/dev/null) || { echo "$default"; return; }
+  content=$(cat "$file" 2>/dev/null) || {
+    echo "$default"
+    return
+  }
   if [[ "$content" =~ \"$key\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
     echo "${BASH_REMATCH[1]}"
   else
@@ -187,6 +193,6 @@ fi
 # Append to events.jsonl (silent — no stdout for PostToolUse hooks)
 EVENTS_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$EVENTS_DIR" 2>/dev/null || true
-echo "$EVENT_JSON" >> "$EVENTS_FILE" 2>/dev/null || true
+echo "$EVENT_JSON" >>"$EVENTS_FILE" 2>/dev/null || true
 
 exit 0

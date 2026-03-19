@@ -80,7 +80,7 @@ if [ -d "$SNAPSHOTS_DIR" ]; then
     echo ""
     # Limit snapshot output to 2000 chars to avoid context bloat
     head -c 2000 "$LATEST_SNAPSHOT"
-    SNAP_SIZE=$(wc -c < "$LATEST_SNAPSHOT" 2>/dev/null || echo 0)
+    SNAP_SIZE=$(wc -c <"$LATEST_SNAPSHOT" 2>/dev/null || echo 0)
     if [ "$SNAP_SIZE" -gt 2000 ]; then
       echo ""
       echo "... (truncated, full snapshot: $(basename "$LATEST_SNAPSHOT"))"

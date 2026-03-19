@@ -12,7 +12,7 @@ EXIT_CODE=0
 
 for f in "$PLUGIN_ROOT"/skills/*/SKILL.md; do
   [ -f "$f" ] || continue
-  lines=$(wc -l < "$f" | tr -d ' ')
+  lines=$(wc -l <"$f" | tr -d ' ')
   name=$(basename "$(dirname "$f")")
   if [ "$lines" -gt "$MAX_LINES" ]; then
     echo "BLOCKED: $name/SKILL.md = $lines lines (max: $MAX_LINES)"

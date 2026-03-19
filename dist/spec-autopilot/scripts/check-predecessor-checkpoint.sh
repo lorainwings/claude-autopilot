@@ -182,7 +182,7 @@ except Exception:
 
 # === Main logic ===
 
-change_dir=$(find_active_change "$CHANGES_DIR" "yes") || exit 0  # No active change, allow
+change_dir=$(find_active_change "$CHANGES_DIR" "yes") || exit 0 # No active change, allow
 
 phase_results_dir="${change_dir}context/phase-results"
 
@@ -234,7 +234,7 @@ get_predecessor_phase() {
         *) echo 0 ;;
       esac
       ;;
-    *)  # full
+    *) # full
       # TDD mode check only needed for full mode (lite/minimal skip Phase 4 regardless)
       if [ "$(_get_tdd_mode)" = "true" ] && [ "$target" -eq 5 ]; then
         # TDD mode: Phase 5 depends on Phase 3 (Phase 4 skipped)
@@ -296,7 +296,7 @@ try:
 except: print('false')
 " 2>/dev/null || echo "false")
     if [ "$zsc_passed" != "true" ]; then
-        echo "[WARNING] minimal mode: zero_skip_check not passed — tests may not have been verified" >&2
+      echo "[WARNING] minimal mode: zero_skip_check not passed — tests may not have been verified" >&2
     fi
   fi
 fi
@@ -329,16 +329,16 @@ if [ "$TARGET_PHASE" -eq 5 ]; then
       # Non-TDD full mode: require Phase 4 checkpoint
       phase4_file=$(find_checkpoint "$phase_results_dir" 4)
 
-    if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
-      deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
-    fi
+      if [ -z "$phase4_file" ] || [ ! -f "$phase4_file" ]; then
+        deny "Phase 4 checkpoint not found. Phase 4 must complete before Phase 5."
+      fi
 
-    phase4_status=$(read_checkpoint_status "$phase4_file")
+      phase4_status=$(read_checkpoint_status "$phase4_file")
 
-    if [ "$phase4_status" != "ok" ]; then
-      deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
-    fi
-    fi  # end non-TDD full mode
+      if [ "$phase4_status" != "ok" ]; then
+        deny "Phase 4 checkpoint status is '$phase4_status'. Only 'ok' is accepted (Phase 4 protocol: ok or blocked). Re-dispatch Phase 4."
+      fi
+    fi # end non-TDD full mode
   else
     # lite/minimal: Phase 5 predecessor is Phase 1
     phase1_file=$(find_checkpoint "$phase_results_dir" 1)

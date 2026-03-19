@@ -27,7 +27,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$SCOPE" in
-  local|project|user) ;;
+  local | project | user) ;;
   *)
     echo "ERROR: invalid scope '$SCOPE' (expected local|project|user)" >&2
     exit 1
@@ -35,7 +35,10 @@ case "$SCOPE" in
 esac
 
 COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
-[ -f "$COLLECTOR_SCRIPT" ] || { echo "ERROR: collector script not found: $COLLECTOR_SCRIPT" >&2; exit 1; }
+[ -f "$COLLECTOR_SCRIPT" ] || {
+  echo "ERROR: collector script not found: $COLLECTOR_SCRIPT" >&2
+  exit 1
+}
 
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
@@ -53,7 +56,7 @@ fi
 
 mkdir -p "$CLAUDE_DIR"
 
-cat > "$BRIDGE_SCRIPT" <<EOF
+cat >"$BRIDGE_SCRIPT" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 exec bash "$COLLECTOR_SCRIPT"
@@ -102,10 +105,10 @@ if [ "$SCOPE" = "local" ] && git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/nu
   EXCLUDE_FILE="$GIT_DIR/info/exclude"
   touch "$EXCLUDE_FILE"
   if ! grep -qxF '.claude/settings.local.json' "$EXCLUDE_FILE" 2>/dev/null; then
-    printf "%s\n" '.claude/settings.local.json' >> "$EXCLUDE_FILE"
+    printf "%s\n" '.claude/settings.local.json' >>"$EXCLUDE_FILE"
   fi
   if ! grep -qxF '.claude/statusline-autopilot.sh' "$EXCLUDE_FILE" 2>/dev/null; then
-    printf "%s\n" '.claude/statusline-autopilot.sh' >> "$EXCLUDE_FILE"
+    printf "%s\n" '.claude/statusline-autopilot.sh' >>"$EXCLUDE_FILE"
   fi
 fi
 

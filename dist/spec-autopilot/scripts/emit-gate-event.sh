@@ -32,7 +32,7 @@ fi
 
 # Validate event_type
 case "$EVENT_TYPE" in
-  gate_pass|gate_block) ;;
+  gate_pass | gate_block) ;;
   *)
     echo "ERROR: Invalid event_type '$EVENT_TYPE'. Must be: gate_pass|gate_block" >&2
     exit 1
@@ -107,6 +107,6 @@ EVENTS_DIR="$PROJECT_ROOT/logs"
 EVENTS_FILE="$EVENTS_DIR/events.jsonl"
 
 mkdir -p "$EVENTS_DIR" 2>/dev/null || true
-echo "$EVENT_JSON" >> "$EVENTS_FILE" 2>/dev/null || true
+echo "$EVENT_JSON" >>"$EVENTS_FILE" 2>/dev/null || true
 
 exit 0

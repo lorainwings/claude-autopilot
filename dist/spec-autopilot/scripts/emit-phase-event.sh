@@ -32,7 +32,7 @@ fi
 
 # Validate event_type
 case "$EVENT_TYPE" in
-  phase_start|phase_end|error|gate_decision_pending|gate_decision_received) ;;
+  phase_start | phase_end | error | gate_decision_pending | gate_decision_received) ;;
   *)
     echo "ERROR: Invalid event_type '$EVENT_TYPE'. Must be: phase_start|phase_end|error" >&2
     exit 1
@@ -107,6 +107,6 @@ EVENTS_DIR="$PROJECT_ROOT/logs"
 EVENTS_FILE="$EVENTS_DIR/events.jsonl"
 
 mkdir -p "$EVENTS_DIR" 2>/dev/null || true
-echo "$EVENT_JSON" >> "$EVENTS_FILE" 2>/dev/null || true
+echo "$EVENT_JSON" >>"$EVENTS_FILE" 2>/dev/null || true
 
 exit 0

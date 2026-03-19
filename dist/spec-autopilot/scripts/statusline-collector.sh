@@ -36,22 +36,23 @@ try:
 except Exception:
     env_root = os.environ.get("AUTOPILOT_PROJECT_ROOT")
     print(env_root if env_root else start_dir)
-' <<< "$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
+' <<<"$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
 
 # Pre-extract session_id and sanitize using shared _common.sh function
-SESSION_ID=$(python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); v=d.get("session_id",""); print(v if isinstance(v,str) and v else "unknown")' <<< "$STDIN_DATA" 2>/dev/null) || SESSION_ID="unknown"
+SESSION_ID=$(python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); v=d.get("session_id",""); print(v if isinstance(v,str) and v else "unknown")' <<<"$STDIN_DATA" 2>/dev/null) || SESSION_ID="unknown"
 SESSION_KEY=$(sanitize_session_key "$SESSION_ID")
 
 export AUTOPILOT_STATUS_PROJECT_ROOT="$PROJECT_ROOT"
 export AUTOPILOT_STATUS_SESSION_ID="$SESSION_ID"
 export AUTOPILOT_STATUS_SESSION_KEY="$SESSION_KEY"
 STDIN_FILE=$(mktemp "${TMPDIR:-/tmp}/autopilot-statusline.XXXXXX")
-printf "%s" "$STDIN_DATA" > "$STDIN_FILE"
+printf "%s" "$STDIN_DATA" >"$STDIN_FILE"
 trap 'rm -f "$STDIN_FILE"' EXIT
 export AUTOPILOT_STATUS_STDIN_FILE="$STDIN_FILE"
 
-STATUS_LINE=$(python3 - <<'PY'
+STATUS_LINE=$(
+  python3 - <<'PY'
 import json
 import os
 from datetime import datetime, timezone

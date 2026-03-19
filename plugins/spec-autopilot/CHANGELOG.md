@@ -12,6 +12,7 @@
 - **ruff lint**: 修复 E501 超长行 + F401 未使用导入，Python 文件统一 ruff format
 - **pyproject.toml**: `select` 迁移至 `[tool.ruff.lint]` 消除 deprecated 警告
 - **mypy 配置**: python_version 升至 3.9，disable `import-untyped`，修复 `spec_from_file_location` Optional 断言
+- **shfmt 格式化**: 全量 shell 脚本统一 `shfmt -i 2 -ci` 格式（case/esac 缩进、`>>` 间距等）
 
 ### Changed
 

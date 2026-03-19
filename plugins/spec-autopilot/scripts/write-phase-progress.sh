@@ -25,7 +25,7 @@ PAYLOAD_JSON="${4:-}"
 
 if [ -z "$PHASE" ] || [ -z "$STEP" ]; then
   echo "Usage: write-phase-progress.sh <phase> <step> <status> [payload_json]" >&2
-  exit 0  # Never block
+  exit 0 # Never block
 fi
 
 # --- Find active change directory (unified resolution) ---

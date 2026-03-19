@@ -34,7 +34,7 @@ fi
 
 # Validate status
 case "$STATUS" in
-  running|passed|failed|retrying) ;;
+  running | passed | failed | retrying) ;;
   *)
     echo "ERROR: Invalid status '$STATUS'. Must be: running|passed|failed|retrying" >&2
     exit 1
@@ -108,6 +108,6 @@ EVENTS_DIR="$PROJECT_ROOT/logs"
 EVENTS_FILE="$EVENTS_DIR/events.jsonl"
 
 mkdir -p "$EVENTS_DIR" 2>/dev/null || true
-echo "$EVENT_JSON" >> "$EVENTS_FILE" 2>/dev/null || true
+echo "$EVENT_JSON" >>"$EVENTS_FILE" 2>/dev/null || true
 
 exit 0

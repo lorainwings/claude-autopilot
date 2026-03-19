@@ -99,13 +99,17 @@ BASENAME=$(basename "$FILE_PATH")
 SKIP_HEAVY_CHECKS="no"
 case "$FILE_PATH" in
   *.md)
-    [ "$IN_DELIVERY_PHASE" != "yes" ] && SKIP_HEAVY_CHECKS="yes" ;;
-  *.json|*.yaml|*.yml|*.txt|*.csv|*.toml|*.ini|*.cfg|*.conf|*.lock|*.log|*.svg|*.png|*.jpg|*.gif|*.ico)
-    SKIP_HEAVY_CHECKS="yes" ;;
-  */CHANGELOG*|*/changelog*|*/LICENSE*|*/README*)
-    SKIP_HEAVY_CHECKS="yes" ;;
-  *openspec/*|*context/*|*phase-results/*)
-    SKIP_HEAVY_CHECKS="yes" ;;
+    [ "$IN_DELIVERY_PHASE" != "yes" ] && SKIP_HEAVY_CHECKS="yes"
+    ;;
+  *.json | *.yaml | *.yml | *.txt | *.csv | *.toml | *.ini | *.cfg | *.conf | *.lock | *.log | *.svg | *.png | *.jpg | *.gif | *.ico)
+    SKIP_HEAVY_CHECKS="yes"
+    ;;
+  */CHANGELOG* | */changelog* | */LICENSE* | */README*)
+    SKIP_HEAVY_CHECKS="yes"
+    ;;
+  *openspec/* | *context/* | *phase-results/*)
+    SKIP_HEAVY_CHECKS="yes"
+    ;;
 esac
 
 # ============================================================
@@ -174,7 +178,7 @@ if [ "$IN_PHASE5" = "yes" ]; then
       refactor)
         # Track files written during REFACTOR for targeted rollback
         REFACTOR_FILES="$CHANGES_DIR/$CHANGE_NAME/context/.tdd-refactor-files"
-        echo "$FILE_PATH" >> "$REFACTOR_FILES"
+        echo "$FILE_PATH" >>"$REFACTOR_FILES"
         ;;
     esac
   fi
@@ -206,8 +210,9 @@ fi
 
 IS_TEST="no"
 case "$FILE_PATH" in
-  *test*|*spec*|*Test*|*Spec*)
-    IS_TEST="yes" ;;
+  *test* | *spec* | *Test* | *Spec*)
+    IS_TEST="yes"
+    ;;
 esac
 
 if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then

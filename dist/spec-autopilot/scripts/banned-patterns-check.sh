@@ -37,12 +37,15 @@ FILE_PATH=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[
 
 # --- Skip non-source files (docs, configs, test fixtures, etc.) ---
 case "$FILE_PATH" in
-  *.md|*.txt|*.json|*.yaml|*.yml|*.toml|*.ini|*.cfg|*.conf|*.lock|*.log)
-    exit 0 ;;
-  */CHANGELOG*|*/changelog*|*/LICENSE*|*/README*)
-    exit 0 ;;
-  *openspec/*|*context/*|*phase-results/*)
-    exit 0 ;;
+  *.md | *.txt | *.json | *.yaml | *.yml | *.toml | *.ini | *.cfg | *.conf | *.lock | *.log)
+    exit 0
+    ;;
+  */CHANGELOG* | */changelog* | */LICENSE* | */README*)
+    exit 0
+    ;;
+  *openspec/* | *context/* | *phase-results/*)
+    exit 0
+    ;;
 esac
 
 # --- Check file exists ---

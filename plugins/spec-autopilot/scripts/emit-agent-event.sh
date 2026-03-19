@@ -32,7 +32,7 @@ fi
 
 # Validate event_type
 case "$EVENT_TYPE" in
-  agent_dispatch|agent_complete) ;;
+  agent_dispatch | agent_complete) ;;
   *)
     echo "ERROR: Invalid event_type '$EVENT_TYPE'. Must be: agent_dispatch|agent_complete" >&2
     exit 1
@@ -103,6 +103,6 @@ EVENTS_DIR="$PROJECT_ROOT/logs"
 EVENTS_FILE="$EVENTS_DIR/events.jsonl"
 
 mkdir -p "$EVENTS_DIR" 2>/dev/null || true
-echo "$EVENT_JSON" >> "$EVENTS_FILE" 2>/dev/null || true
+echo "$EVENT_JSON" >>"$EVENTS_FILE" 2>/dev/null || true
 
 exit 0

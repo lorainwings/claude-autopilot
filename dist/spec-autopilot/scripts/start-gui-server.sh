@@ -43,7 +43,7 @@ start_server() {
   local server_pid=$!
 
   # Wait up to 3 seconds for server to be ready
-  local max_wait=30  # 30 * 0.1s = 3s
+  local max_wait=30 # 30 * 0.1s = 3s
   local count=0
   while [ $count -lt $max_wait ]; do
     if check_server_alive; then

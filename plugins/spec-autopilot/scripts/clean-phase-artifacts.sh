@@ -319,7 +319,7 @@ fi
 
 # --- Step 3: Events filtering (atomic write) ---
 if [ -f "$EVENTS_FILE" ]; then
-  ORIGINAL_COUNT=$(wc -l < "$EVENTS_FILE" | tr -d ' ')
+  ORIGINAL_COUNT=$(wc -l <"$EVENTS_FILE" | tr -d ' ')
   if [ "$DRY_RUN" = "true" ]; then
     # Count how many would be filtered without modifying
     EVENTS_FILTERED=$(python3 -c "
@@ -377,7 +377,7 @@ except Exception:
         pass
     raise
 " "$FROM_PHASE" "$EVENTS_FILE" 2>/dev/null || true
-    NEW_COUNT=$(wc -l < "$EVENTS_FILE" | tr -d ' ')
+    NEW_COUNT=$(wc -l <"$EVENTS_FILE" | tr -d ' ')
     EVENTS_FILTERED=$((ORIGINAL_COUNT - NEW_COUNT))
   fi
 fi

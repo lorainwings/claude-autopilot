@@ -35,7 +35,7 @@ try:
 except Exception:
     env_root = os.environ.get("AUTOPILOT_PROJECT_ROOT")
     print(env_root if env_root else start_dir)
-' <<< "$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
+' <<<"$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
 
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
 
@@ -45,7 +45,7 @@ data = json.loads(sys.stdin.read())
 val = data.get("session_id")
 if isinstance(val, str) and val:
     print(val)
-' <<< "$STDIN_DATA" 2>/dev/null) || SESSION_ID=""
+' <<<"$STDIN_DATA" 2>/dev/null) || SESSION_ID=""
 
 if [ -z "$SESSION_ID" ]; then
   LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"
@@ -73,7 +73,7 @@ export AUTOPILOT_CAPTURE_SESSION_KEY="$SESSION_KEY"
 export AUTOPILOT_CAPTURE_ACTIVE_AGENT_ID="$ACTIVE_AGENT_ID"
 export AUTOPILOT_CAPTURE_RAW_DIR="$RAW_DIR"
 STDIN_FILE=$(mktemp "${TMPDIR:-/tmp}/autopilot-hook.XXXXXX")
-printf "%s" "$STDIN_DATA" > "$STDIN_FILE"
+printf "%s" "$STDIN_DATA" >"$STDIN_FILE"
 trap 'rm -f "$STDIN_FILE"' EXIT
 export AUTOPILOT_CAPTURE_STDIN_FILE="$STDIN_FILE"
 

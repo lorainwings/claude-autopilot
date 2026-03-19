@@ -24,7 +24,7 @@ fi
 
 # Check python3 availability (needed for JSON parsing)
 if ! command -v python3 &>/dev/null; then
-  exit 0  # SessionStart: fail silently, don't block session
+  exit 0 # SessionStart: fail silently, don't block session
 fi
 
 found_any=false
@@ -84,7 +84,7 @@ except Exception:
     local lock_file="$CHANGES_DIR/.autopilot-active"
     local mode=""
     if [ -f "${lock_file}" ]; then
-        mode=$(python3 -c "
+      mode=$(python3 -c "
 import json
 try:
     with open('${lock_file}') as f: data = json.load(f)
@@ -93,28 +93,28 @@ except: print('full')
 " 2>/dev/null || echo "full")
     fi
     if [ -z "$mode" ]; then
-        mode="full"
+      mode="full"
     fi
 
     local -a phases_seq
     case "$mode" in
-        lite)    phases_seq=(1 5 6 7) ;;
-        minimal) phases_seq=(1 5 7) ;;
-        *)       phases_seq=(1 2 3 4 5 6 7) ;;
+      lite) phases_seq=(1 5 6 7) ;;
+      minimal) phases_seq=(1 5 7) ;;
+      *) phases_seq=(1 2 3 4 5 6 7) ;;
     esac
 
     # Calculate suggested resume phase from mode-aware sequence
     local suggested_resume=1
     for i in "${!phases_seq[@]}"; do
-        if [ "${phases_seq[$i]}" -eq "$last_phase" ]; then
-            local next_idx=$((i + 1))
-            if [ "$next_idx" -lt "${#phases_seq[@]}" ]; then
-                suggested_resume="${phases_seq[$next_idx]}"
-            else
-                suggested_resume="done"
-            fi
-            break
+      if [ "${phases_seq[$i]}" -eq "$last_phase" ]; then
+        local next_idx=$((i + 1))
+        if [ "$next_idx" -lt "${#phases_seq[@]}" ]; then
+          suggested_resume="${phases_seq[$next_idx]}"
+        else
+          suggested_resume="done"
         fi
+        break
+      fi
     done
 
     echo ""

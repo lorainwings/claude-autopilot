@@ -71,7 +71,7 @@ while IFS= read -r file; do
       rm "$file" 2>/dev/null && ROLLED_BACK=$((ROLLED_BACK + 1)) || ERRORS="${ERRORS}Failed to remove: ${file}; "
     fi
   fi
-done <<< "$FILE_LIST"
+done <<<"$FILE_LIST"
 
 # Clean up the refactor files list
 rm -f "$REFACTOR_FILES"
