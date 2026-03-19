@@ -25,10 +25,12 @@ import sys
 _script_dir = os.environ.get("SCRIPT_DIR", os.path.dirname(os.path.abspath(__file__)))
 
 _spec = importlib.util.spec_from_file_location("_ep", os.path.join(_script_dir, "_envelope_parser.py"))
+assert _spec and _spec.loader, "Failed to load _envelope_parser.py"
 _ep = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_ep)
 
 _spec2 = importlib.util.spec_from_file_location("_cl", os.path.join(_script_dir, "_constraint_loader.py"))
+assert _spec2 and _spec2.loader, "Failed to load _constraint_loader.py"
 _cl = importlib.util.module_from_spec(_spec2)
 _spec2.loader.exec_module(_cl)
 

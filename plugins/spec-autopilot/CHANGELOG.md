@@ -11,6 +11,7 @@
 - **shellcheck 警告**: 移除 case 模式冗余 (`*__tests__*` 已被 `*test*` 覆盖)，内嵌 Python 加 SC2140 disable
 - **ruff lint**: 修复 E501 超长行 + F401 未使用导入，Python 文件统一 ruff format
 - **pyproject.toml**: `select` 迁移至 `[tool.ruff.lint]` 消除 deprecated 警告
+- **mypy 配置**: python_version 升至 3.9，disable `import-untyped`，修复 `spec_from_file_location` Optional 断言
 
 ### Changed
 
