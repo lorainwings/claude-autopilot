@@ -11,6 +11,12 @@
 
 - **Phase 5 默认路由升级为 deep/opus**: 代码实施阶段默认使用最强推理能力，同步更新升级链测试、多 phase 差异化测试、dispatch 技能说明、中英文配置文档
 
+### Fixed
+
+- **pre-commit hook 链路收敛**: `core.hooksPath` 指向 `.githooks`，消除 `.git/hooks/pre-commit` 旧实现的执行链路分裂
+- **marketplace.json 版本同步改用 jq 确定性更新**: 按 `name == "spec-autopilot"` 精确匹配，取代脆弱的 sed 文本替换
+- **补充版本漂移回归测试**: 6a 测试验证 plugin.json != marketplace.json 时 pre-commit 自动同步
+
 ## [5.1.39] - 2026-03-20
 
 ### Fixed

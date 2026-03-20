@@ -181,6 +181,82 @@ echo "$commit_output" | grep -q "CHANGELOG.md not updated"
 assert_exit "5d. blocked reason is CHANGELOG.md missing (not other error)" 0 $?
 
 # ============================================
+# Part 4: marketplace.json version drift regression test
+# ============================================
+echo ""
+echo "--- E2E: marketplace.json version drift → auto-sync ---"
+
+DRIFT_DIR="$TMP_ROOT/drift-repo"
+mkdir -p "$DRIFT_DIR/.githooks"
+mkdir -p "$DRIFT_DIR/.claude-plugin"
+mkdir -p "$DRIFT_DIR/plugins/spec-autopilot/.claude-plugin"
+mkdir -p "$DRIFT_DIR/plugins/spec-autopilot/tests"
+mkdir -p "$DRIFT_DIR/scripts"
+
+git -C "$DRIFT_DIR" init -q
+
+# Copy hook and setup
+cp "$GITHOOKS_DIR/pre-commit" "$DRIFT_DIR/.githooks/pre-commit"
+chmod +x "$DRIFT_DIR/.githooks/pre-commit"
+cp "$SETUP_SCRIPT" "$DRIFT_DIR/scripts/setup-hooks.sh"
+
+# Plugin at 2.0.0, marketplace deliberately stale at 1.0.0
+echo '{"version": "2.0.0"}' > "$DRIFT_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-2.0.0-blue)' > "$DRIFT_DIR/plugins/spec-autopilot/README.md"
+cat > "$DRIFT_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+{
+  "plugins": [
+    {"name": "spec-autopilot", "version": "1.0.0"}
+  ]
+}
+MKJSON
+echo -e "# Changelog\n\n## [2.0.0] - 2026-01-01\n\n### Added\n- init" > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md"
+
+git -C "$DRIFT_DIR" add -A
+git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
+
+# Setup hooks
+(cd "$DRIFT_DIR" && bash scripts/setup-hooks.sh) >/dev/null 2>&1
+
+# Stage a plugin change + CHANGELOG update
+echo "// new feature" > "$DRIFT_DIR/plugins/spec-autopilot/feature.ts"
+cat > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
+# Changelog
+
+## [2.0.1] - 2026-01-02
+
+### Added
+- new feature
+
+## [2.0.0] - 2026-01-01
+
+### Added
+- init
+CLOG
+git -C "$DRIFT_DIR" add "$DRIFT_DIR/plugins/spec-autopilot/feature.ts" "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md"
+
+if command -v jq &>/dev/null; then
+  drift_exit=0
+  drift_output=$(git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: test drift sync" 2>&1) || drift_exit=$?
+
+  # After commit (or attempt), check marketplace.json was synced
+  DRIFT_MKT_VER=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$DRIFT_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
+
+  # marketplace should have been updated from 1.0.0 to 2.0.1 (auto-bumped)
+  if [ "$DRIFT_MKT_VER" != "1.0.0" ] && [ -n "$DRIFT_MKT_VER" ]; then
+    green "  PASS: 6a. marketplace.json synced from 1.0.0 to $DRIFT_MKT_VER"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 6a. marketplace.json still 1.0.0 (not synced)"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  echo "  SKIP: 6a. jq not available, skipping drift test"
+fi
+
+rm -rf "$DRIFT_DIR"
+
+# ============================================
 # Summary
 # ============================================
 echo ""
