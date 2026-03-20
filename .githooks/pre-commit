@@ -134,8 +134,8 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
 
       sedi "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$PLUGIN_JSON"
-      sedi "s/version-${CURRENT_VERSION}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
-      sedi "s/\"version\": \"${CURRENT_VERSION}\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
+      sedi "s/version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*-blue/version-${NEW_VERSION}-blue/" "$README_MD"
+      sedi "s/\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"/\"version\": \"${NEW_VERSION}\"/" "$MARKETPLACE_JSON"
 
       git add "$PLUGIN_JSON" "$README_MD" "$MARKETPLACE_JSON"
       echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"
