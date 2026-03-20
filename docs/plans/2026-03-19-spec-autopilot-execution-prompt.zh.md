@@ -30,8 +30,8 @@
 ### 架构与目录问题
 
 - 打包后的目录结构仍然混乱，源码、产物、运行日志边界不清。
-- `server` 代码过大，当前 [autopilot-server.ts](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts) 约 1180 行，承担过多职责。
-- `server/autopilot-server.ts` 被 [build-dist.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tools/build-dist.sh) 回填到 `dist/scripts/`，说明分发结构和源码结构断裂。
+- `server` 代码过大，当前 [autopilot-server.ts](plugins/spec-autopilot/server/autopilot-server.ts) 约 1180 行，承担过多职责。
+- `server/autopilot-server.ts` 被 [build-dist.sh](plugins/spec-autopilot/tools/build-dist.sh) 回填到 `dist/scripts/`，说明分发结构和源码结构断裂。
 - `scripts/` 已经是事实上的 runtime core，但分类、命名和职责边界仍不清晰。
 
 ### 稳定性问题
@@ -79,18 +79,18 @@
 
 在开始改代码前，你必须阅读并遵循这些文档：
 
-- [总调研报告](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
-- [spec-autopilot 修复设计方案](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
-- [竞品能力复用矩阵](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
+- [总调研报告](docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
+- [spec-autopilot 修复设计方案](docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
+- [竞品能力复用矩阵](docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
 
 ## 关键代码与测试入口
 
 优先检查这些文件：
 
-- [autopilot-server.ts](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts)
-- [build-dist.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tools/build-dist.sh)
-- [test_autopilot_server_aggregation.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh)
-- [overview.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/architecture/overview.zh.md)
+- [autopilot-server.ts](plugins/spec-autopilot/server/autopilot-server.ts)
+- [build-dist.sh](plugins/spec-autopilot/tools/build-dist.sh)
+- [test_autopilot_server_aggregation.sh](plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh)
+- [overview.zh.md](plugins/spec-autopilot/docs/architecture/overview.zh.md)
 
 ## 本次必须解决的完整问题清单
 
@@ -316,7 +316,7 @@ dist/spec-autopilot/
 你现在是这个仓库的高级架构修复工程师。请直接在当前代码库中执行修复工作，不要只停留在分析。
 
 仓库根目录：
-/Users/lorain/Coding/Huihao/claude-autopilot
+.
 
 任务对象：
 当前插件 `spec-autopilot`
@@ -325,9 +325,9 @@ dist/spec-autopilot/
 `spec-autopilot` 是规范驱动交付编排插件，不是新的通用并行 AI 平台。本次任务必须坚持这个边界，只做修复、稳定性治理、模块化和发布边界收敛，不要把它重构成另一种产品。
 
 你必须先阅读并遵循以下文档：
-1. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-holistic-architecture-research-report.zh.md
-2. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md
-3. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
+1. docs/plans/2026-03-19-holistic-architecture-research-report.zh.md
+2. docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md
+3. docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
 
 你必须理解以下完整上下文：
 
@@ -369,7 +369,7 @@ A. 稳定性止血
 
 B. server 模块化
 1. 当前单文件：
-   - `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts`
+   - `plugins/spec-autopilot/server/autopilot-server.ts`
 2. 请按合理边界拆分，至少拆出：
    - session context
    - snapshot builder
@@ -454,10 +454,10 @@ E. 吸收低风险竞品能力
 7. 除非有充分必要，不要改动市场配置和仓库主 README。
 
 五、建议优先检查的文件
-1. /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts
-2. /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tools/build-dist.sh
-3. /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh
-4. /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/architecture/overview.zh.md
+1. plugins/spec-autopilot/server/autopilot-server.ts
+2. plugins/spec-autopilot/tools/build-dist.sh
+3. plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh
+4. plugins/spec-autopilot/docs/architecture/overview.zh.md
 
 六、建议执行顺序
 1. 先读文档和关键代码

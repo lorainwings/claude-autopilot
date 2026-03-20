@@ -391,7 +391,7 @@ echo "$next" > "$seq_file"
 
 ### D-01 [高危] — unified-write-edit-check.sh Phase 5 检测逻辑误判
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/unified-write-edit-check.sh`
+**文件**: `plugins/spec-autopilot/scripts/unified-write-edit-check.sh`
 **行号**: 42-71 (IN_PHASE5 检测逻辑)
 **模式**: full
 **描述**: 在 full 模式 Phase 2/3 期间（Phase 1 完成，Phase 3/4 尚未完成），代码落入第三分支 `elif [ -n "$PHASE1_CP" ]` (行 62)，错误设置 `IN_PHASE5="yes"`。随后 CHECK 0 (行 88-113) 会阻断写入 `*openspec/changes/*/context/*.json` 和 `*context/phase-results/*`。
@@ -411,14 +411,14 @@ fi
 
 ### D-02 [低危] — parallel-merge-guard.sh 独立脚本残留
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/parallel-merge-guard.sh`
+**文件**: `plugins/spec-autopilot/scripts/parallel-merge-guard.sh`
 **行号**: 14
 **描述**: 独立脚本未在 hooks.json 注册，功能已由 `_post_task_validator.py` Validator 4 覆盖。但脚本仍包含旧的 `is_background_agent && exit 0` 绕过逻辑 (行 14)。如果未来有人将其重新注册为 Hook，会引入后台 Agent 绕过。
 **修复建议**: 删除此脚本或添加 deprecation 注释。
 
 ### D-03 [中危] — check-predecessor-checkpoint.sh 全局 `local` 关键字
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/check-predecessor-checkpoint.sh`
+**文件**: `plugins/spec-autopilot/scripts/check-predecessor-checkpoint.sh`
 **行号**: 289
 **描述**: `local zsc_passed` 在全局作用域使用（if 块内但不在函数内）。bash 3.2 (macOS 默认) 中 `local` 在函数外使用会报错。由于脚本使用 `set -uo pipefail` 但无 `set -e`，此错误可能被忽略。
 **影响**: 在 macOS bash 3.2 上可能产生 stderr 错误输出，但变量仍然创建，不影响功能。在使用 `#!/usr/bin/env bash` 且系统安装了 bash 5.x 的环境下行为正常。
@@ -426,7 +426,7 @@ fi
 
 ### D-04 [低危] — has_phase_marker 假阳性
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/_common.sh`
+**文件**: `plugins/spec-autopilot/scripts/_common.sh`
 **行号**: 316-319
 **描述**: `has_phase_marker()` 使用 grep 匹配 stdin 中的 `"prompt"` 字段后跟 `<!-- autopilot-phase:N`。如果 prompt 内容本身包含此标记文本（如代码示例或文档引用），会产生假阳性。
 **影响**: 非 autopilot Task 的 prompt 中如果包含标记文本引用，会误触发 Hook 验证。概率极低。
@@ -434,7 +434,7 @@ fi
 
 ### D-05 [中危] — post-task-validator.sh python3 缺失时 fail-open
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/post-task-validator.sh`
+**文件**: `plugins/spec-autopilot/scripts/post-task-validator.sh`
 **行号**: 28-29
 **描述**: `require_python3()` 返回 1 时输出 block JSON 到 stdout，但调用方 `if ! require_python3; then exit 0; fi` 在返回 1 时执行 `exit 0`。这导致 block JSON 被输出到 stdout **后** 脚本仍以 exit 0 退出。Claude Code 可能先读到 block JSON 再看到 exit 0，行为取决于 Claude Code 的 hook 输出解析实现。
 **影响**: 如果 Claude Code 优先使用 exit code 判断，则 exit 0 意味着 allow，block JSON 被忽略 -> fail-open。如果 Claude Code 优先解析 stdout JSON，则仍能 block -> 实际 fail-closed。
@@ -442,7 +442,7 @@ fi
 
 ### D-06 [中危] — next_event_sequence TOCTOU 竞态
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/_common.sh`
+**文件**: `plugins/spec-autopilot/scripts/_common.sh`
 **行号**: 290-302
 **描述**: `next_event_sequence()` 的 read (行 296) 和 write (行 300) 之间无文件锁。并发调用可能导致 sequence 重复。注释 (行 289) 声称 "Thread-safe via atomic write" 但实际不是。
 **影响**: 并发事件发射可能产生相同 sequence 号，导致 GUI 消费者无法正确排序事件。
@@ -460,7 +460,7 @@ fi
 
 ### D-07 [低危] — emit-phase-event.sh 错误信息不完整
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/emit-phase-event.sh`
+**文件**: `plugins/spec-autopilot/scripts/emit-phase-event.sh`
 **行号**: 37-38
 **描述**: event_type 验证的 case 语句 (行 34-39) 接受 `gate_decision_pending|gate_decision_received`，但错误信息 (行 37) 仅列出 `phase_start|phase_end|error`。
 **修复建议**: 更新行 37 的错误信息为 `"Must be: phase_start|phase_end|error|gate_decision_pending|gate_decision_received"`。
@@ -468,21 +468,21 @@ fi
 ### D-08 [低危] — emit-phase-event.sh 和 emit-gate-event.sh 代码重复
 
 **文件**:
-- `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/emit-phase-event.sh` (行 70-95)
-- `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/emit-gate-event.sh` (行 70-95)
+- `plugins/spec-autopilot/scripts/emit-phase-event.sh` (行 70-95)
+- `plugins/spec-autopilot/scripts/emit-gate-event.sh` (行 70-95)
 **描述**: 两个脚本的事件 JSON 构造 python3 代码完全相同（26 行），以及上下文解析 (change_name, session_id, phase_label 等) 也完全相同 (行 48-68)。
 **修复建议**: 提取为 `_emit_event_common.sh` 共享函数或合并为单一 `emit-event.sh` 脚本。
 
 ### D-09 [低危] — poll-gate-decision.sh override 安全约束未 Hook 强制
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/poll-gate-decision.sh`
+**文件**: `plugins/spec-autopilot/scripts/poll-gate-decision.sh`
 **行号**: 全文
 **描述**: autopilot-gate/SKILL.md:122 声明 "override 不可在 Phase 4->5 和 Phase 5->6 特殊门禁中使用"，但 `poll-gate-decision.sh` 不检查 phase 号来拒绝 override。此约束仅依赖 AI (L3) 遵守。
 **修复建议**: 在 `poll-gate-decision.sh` 中添加 phase 检查：当 `action=override` 且 `PHASE` 为 5 或 6 时，将其视为无效 action，返回错误。
 
 ### D-10 [低危] — save-state-before-compact.sh config 路径计算
 
-**文件**: `/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/scripts/save-state-before-compact.sh`
+**文件**: `plugins/spec-autopilot/scripts/save-state-before-compact.sh`
 **行号**: 159
 **描述**: config 文件路径使用 `os.path.join(change_dir, '..', '..', '..', '.claude', 'autopilot.config.yaml')` 计算，假定 change_dir 是 `openspec/changes/<name>/` 的绝对路径。如果目录层级变化，此相对路径计算会失败。
 **修复建议**: 直接从 PROJECT_ROOT 构造路径，而非从 change_dir 反向推导。

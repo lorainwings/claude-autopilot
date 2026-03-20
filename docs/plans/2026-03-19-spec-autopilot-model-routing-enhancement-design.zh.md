@@ -44,9 +44,9 @@
 
 当前仓库里已经有模型路由雏形：
 
-- [config-schema.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
-- [protocol.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/protocol.md)
-- [dispatch-prompt-template.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
+- [config-schema.md](plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
+- [protocol.md](plugins/spec-autopilot/skills/autopilot/references/protocol.md)
+- [dispatch-prompt-template.md](plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
 
 但当前问题是：
 
@@ -316,14 +316,14 @@ dispatch 时不再只注入“高效模式/深度分析模式”文字，而是�
 
 优先修改：
 
-- [config-schema.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
-- [protocol.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/protocol.md)
-- [dispatch-prompt-template.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
-- [SKILL.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md)
-- [validate-config.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/runtime/scripts/validate-config.sh)
-- [_config_validator.py](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/runtime/scripts/_config_validator.py)
-- [configuration.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/getting-started/configuration.zh.md)
-- [configuration.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/getting-started/configuration.md)
+- [config-schema.md](plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
+- [protocol.md](plugins/spec-autopilot/skills/autopilot/references/protocol.md)
+- [dispatch-prompt-template.md](plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
+- [SKILL.md](plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md)
+- [validate-config.sh](plugins/spec-autopilot/runtime/scripts/validate-config.sh)
+- [_config_validator.py](plugins/spec-autopilot/runtime/scripts/_config_validator.py)
+- [configuration.zh.md](plugins/spec-autopilot/docs/getting-started/configuration.zh.md)
+- [configuration.md](plugins/spec-autopilot/docs/getting-started/configuration.md)
 
 新增建议：
 

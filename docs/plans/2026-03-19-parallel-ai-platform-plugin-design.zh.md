@@ -431,7 +431,7 @@ runtime/
 
 ### 9.1 市场策略
 
-当前市场 [marketplace.json](/Users/lorain/Coding/Huihao/claude-autopilot/.claude-plugin/marketplace.json) 已经承载 `spec-autopilot`。
+当前市场 [marketplace.json](.claude-plugin/marketplace.json) 已经承载 `spec-autopilot`。
 
 后续应统一变成多插件市场：
 

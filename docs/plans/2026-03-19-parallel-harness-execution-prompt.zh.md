@@ -65,10 +65,10 @@
 
 在开始实现前，你必须阅读并遵循这些文档：
 
-- [总调研报告](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
-- [新并行 AI 平台插件设计方案](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
-- [竞品能力复用矩阵](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
-- [parallel-harness 实施 Backlog](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
+- [总调研报告](docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
+- [新并行 AI 平台插件设计方案](docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
+- [竞品能力复用矩阵](docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
+- [parallel-harness 实施 Backlog](docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
 
 ## 竞品上下文与必须落地的能力
 
@@ -320,7 +320,7 @@ plugins/parallel-harness/
 
 最终目标是进入：
 
-- [marketplace.json](/Users/lorain/Coding/Huihao/claude-autopilot/.claude-plugin/marketplace.json)
+- [marketplace.json](.claude-plugin/marketplace.json)
 
 但本轮规则是：
 
@@ -407,7 +407,7 @@ plugins/parallel-harness/
 你现在是这个仓库的新产品线架构师兼实现工程师。请在当前代码库中直接创建一个全新的 Claude Code 插件，不要重构替换现有 `spec-autopilot`，而是新建一个真正的并行 AI 平台插件。
 
 仓库根目录：
-/Users/lorain/Coding/Huihao/claude-autopilot
+.
 
 任务对象：
 新插件 `parallel-harness`
@@ -416,10 +416,10 @@ plugins/parallel-harness/
 `parallel-harness` 是一个新的插件，不是 `spec-autopilot vNext`。它要与 `spec-autopilot` 共存，并最终进入同一个插件市场 `lorainwings-plugins`。它的定位是“真正的并行 AI 平台 / AI 软件工程控制面插件”。
 
 你必须先阅读并遵循以下文档：
-1. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-holistic-architecture-research-report.zh.md
-2. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md
-3. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
-4. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md
+1. docs/plans/2026-03-19-holistic-architecture-research-report.zh.md
+2. docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md
+3. docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
+4. docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md
 
 你必须理解以下完整上下文：
 
@@ -570,7 +570,7 @@ H. 测试与文档
 
 I. 插件市场接入准备
 最终目标是接入：
-- /Users/lorain/Coding/Huihao/claude-autopilot/.claude-plugin/marketplace.json
+- .claude-plugin/marketplace.json
 
 但规则是：
 - 如果本轮已具备最小可构建结构，则准备市场接入

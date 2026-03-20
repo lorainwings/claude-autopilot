@@ -418,6 +418,15 @@ def validate(config_path):
         VALID_EFFORTS = {"low", "medium", "high"}
         VALID_PHASES = {f"phase_{i}" for i in range(1, 8)}
 
+        # Regex fallback 模式：model_routing 被存为 True，子节点存为 flat dotted keys
+        if mr is True:
+            mr_dict = {}
+            for k, v in yaml_data.items():
+                if k.startswith("model_routing.") and k != "model_routing":
+                    leaf = k[len("model_routing.") :]
+                    mr_dict[leaf] = v
+            mr = mr_dict if mr_dict else {}
+
         if isinstance(mr, str):
             # 旧格式顶层字符串: heavy/light/auto
             if mr not in VALID_LEGACY_VALUES:
@@ -435,16 +444,17 @@ def validate(config_path):
             else:
                 # 新格式对象化配置
                 allowed_top_keys = {
-                    "enabled", "default_session_model", "default_subagent_model",
-                    "fallback_model", "phases",
+                    "enabled",
+                    "default_session_model",
+                    "default_subagent_model",
+                    "fallback_model",
+                    "phases",
                     # 兼容旧格式 phase_N 键混在新格式顶层
                 } | VALID_PHASES
 
                 for key in mr.keys():
                     if key not in allowed_top_keys:
-                        model_routing_errors.append(
-                            f'model_routing: unknown key "{key}"'
-                        )
+                        model_routing_errors.append(f'model_routing: unknown key "{key}"')
 
                 # enabled 字段
                 mr_enabled = mr.get("enabled")
@@ -464,7 +474,7 @@ def validate(config_path):
                         elif val not in VALID_MODELS and val not in VALID_TIERS:
                             model_routing_errors.append(
                                 f'model_routing.{model_key}: "{val}" not in allowed values '
-                                f'{sorted(VALID_MODELS | VALID_TIERS)}'
+                                f"{sorted(VALID_MODELS | VALID_TIERS)}"
                             )
 
                 # phases 对象校验
@@ -477,9 +487,7 @@ def validate(config_path):
                     else:
                         for pkey, pval in phases_obj.items():
                             if pkey not in VALID_PHASES:
-                                model_routing_errors.append(
-                                    f'model_routing.phases: unknown phase key "{pkey}"'
-                                )
+                                model_routing_errors.append(f'model_routing.phases: unknown phase key "{pkey}"')
                                 continue
                             if isinstance(pval, str):
                                 # 兼容旧格式: phase_1: heavy
@@ -490,47 +498,42 @@ def validate(config_path):
                                     )
                             elif isinstance(pval, dict):
                                 allowed_phase_keys = {
-                                    "tier", "model", "effort", "escalate_on_failure_to",
+                                    "tier",
+                                    "model",
+                                    "effort",
+                                    "escalate_on_failure_to",
                                 }
                                 for pk in pval.keys():
                                     if pk not in allowed_phase_keys:
-                                        model_routing_errors.append(
-                                            f'model_routing.phases.{pkey}: unknown key "{pk}"'
-                                        )
+                                        model_routing_errors.append(f'model_routing.phases.{pkey}: unknown key "{pk}"')
                                 tier = pval.get("tier")
                                 if tier is not None and tier not in VALID_TIERS:
                                     model_routing_errors.append(
-                                        f'model_routing.phases.{pkey}.tier: "{tier}" not in '
-                                        f"{sorted(VALID_TIERS)}"
+                                        f'model_routing.phases.{pkey}.tier: "{tier}" not in {sorted(VALID_TIERS)}'
                                     )
                                 model = pval.get("model")
                                 if model is not None and model not in VALID_MODELS:
                                     model_routing_errors.append(
-                                        f'model_routing.phases.{pkey}.model: "{model}" not in '
-                                        f"{sorted(VALID_MODELS)}"
+                                        f'model_routing.phases.{pkey}.model: "{model}" not in {sorted(VALID_MODELS)}'
                                     )
                                 effort = pval.get("effort")
                                 if effort is not None and effort not in VALID_EFFORTS:
                                     model_routing_errors.append(
-                                        f'model_routing.phases.{pkey}.effort: "{effort}" not in '
-                                        f"{sorted(VALID_EFFORTS)}"
+                                        f'model_routing.phases.{pkey}.effort: "{effort}" not in {sorted(VALID_EFFORTS)}'
                                     )
                                 esc = pval.get("escalate_on_failure_to")
                                 if esc is not None and esc not in VALID_TIERS and esc not in VALID_MODELS:
                                     model_routing_errors.append(
-                                        f'model_routing.phases.{pkey}.escalate_on_failure_to: '
+                                        f"model_routing.phases.{pkey}.escalate_on_failure_to: "
                                         f'"{esc}" not in allowed values '
-                                        f'{sorted(VALID_MODELS | VALID_TIERS)}'
+                                        f"{sorted(VALID_MODELS | VALID_TIERS)}"
                                     )
                             else:
                                 model_routing_errors.append(
-                                    f"model_routing.phases.{pkey}: expected str or dict, "
-                                    f"got {type(pval).__name__}"
+                                    f"model_routing.phases.{pkey}: expected str or dict, got {type(pval).__name__}"
                                 )
         else:
-            model_routing_errors.append(
-                f"model_routing: expected str or dict, got {type(mr).__name__}"
-            )
+            model_routing_errors.append(f"model_routing: expected str or dict, got {type(mr).__name__}")
 
     valid = len(missing) == 0 and len(type_errors) == 0 and len(enum_errors) == 0 and len(model_routing_errors) == 0
     return {

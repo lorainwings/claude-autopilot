@@ -8,7 +8,7 @@
 
 你已经完成了以下文档对应的 `spec-autopilot` 修复与结构化迭代，并且相关内容已经提交：
 
-- [spec-autopilot 完整执行提示词](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md)
+- [spec-autopilot 完整执行提示词](docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md)
 
 但现在发现一个明确缺口：
 
@@ -22,9 +22,9 @@
 
 仓库里已有模型路由雏形，但仍偏旧：
 
-- [config-schema.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
-- [protocol.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/protocol.md)
-- [dispatch-prompt-template.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
+- [config-schema.md](plugins/spec-autopilot/skills/autopilot/references/config-schema.md)
+- [protocol.md](plugins/spec-autopilot/skills/autopilot/references/protocol.md)
+- [dispatch-prompt-template.md](plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md)
 
 目前的主要问题是：
 
@@ -62,9 +62,9 @@
 
 在开始改代码前，你必须阅读并遵循：
 
-1. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-model-routing-enhancement-design.zh.md
-2. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
-3. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md
+1. docs/plans/2026-03-19-spec-autopilot-model-routing-enhancement-design.zh.md
+2. docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
+3. docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md
 
 ## 本轮必须完成的事项
 
@@ -132,8 +132,8 @@ resolver 输出至少包括：
 
 必须优先检查并修改：
 
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md
+- plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md
+- plugins/spec-autopilot/skills/autopilot/references/dispatch-prompt-template.md
 
 ### D. 建立最小 subagent 模型分层
 
@@ -177,11 +177,11 @@ resolver 输出至少包括：
 
 你必须更新：
 
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/runtime/scripts/_config_validator.py
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/runtime/scripts/validate-config.sh
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/skills/autopilot/references/config-schema.md
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/getting-started/configuration.zh.md
-- /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/getting-started/configuration.md
+- plugins/spec-autopilot/runtime/scripts/_config_validator.py
+- plugins/spec-autopilot/runtime/scripts/validate-config.sh
+- plugins/spec-autopilot/skills/autopilot/references/config-schema.md
+- plugins/spec-autopilot/docs/getting-started/configuration.zh.md
+- plugins/spec-autopilot/docs/getting-started/configuration.md
 
 要求：
 
@@ -263,15 +263,15 @@ resolver 输出至少包括：
 你现在是这个仓库的高级功能增强工程师。你的任务不是重构新平台，而是在 `spec-autopilot` 现有边界内，把“自动切换模型 / 模型路由”增强做成真实可执行能力。
 
 仓库根目录：
-/Users/lorain/Coding/Huihao/claude-autopilot
+.
 
 任务对象：
 当前插件 `spec-autopilot`
 
 你必须先阅读并遵循以下文档：
-1. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-model-routing-enhancement-design.zh.md
-2. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
-3. /Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md
+1. docs/plans/2026-03-19-spec-autopilot-model-routing-enhancement-design.zh.md
+2. docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md
+3. docs/plans/2026-03-19-spec-autopilot-execution-prompt.zh.md
 
 你必须理解以下关键背景：
 

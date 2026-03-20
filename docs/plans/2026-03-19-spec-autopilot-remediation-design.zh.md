@@ -410,7 +410,7 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope project
 
 ### 7.2 对插件市场
 
-当前市场文件 [marketplace.json](/Users/lorain/Coding/Huihao/claude-autopilot/.claude-plugin/marketplace.json) 继续保留 `spec-autopilot`。
+当前市场文件 [marketplace.json](.claude-plugin/marketplace.json) 继续保留 `spec-autopilot`。
 
 本插件在市场中的定位保持不变：
 

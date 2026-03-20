@@ -163,7 +163,7 @@
 
 ```bash
 # 1. 确保插件已安装
-cd /Users/lorain/Coding/Huihao/claude-autopilot
+cd .
 
 # 2. 创建测试项目目录
 mkdir -p /tmp/autopilot-benchmark-a  # 场景 A
@@ -174,7 +174,7 @@ cd /tmp/autopilot-benchmark-a && git init && npm init -y
 cd /tmp/autopilot-benchmark-b && git init && npm init -y
 
 # 4. 启动 GUI 大盘
-cd /Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot
+cd plugins/spec-autopilot
 bash scripts/start-gui-server.sh &
 
 # 5. 打开浏览器访问 GUI

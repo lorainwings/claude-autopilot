@@ -15,10 +15,10 @@
 
 这份文档不直接替代后续设计稿，而是作为总览和决策层报告。后续详细方案见：
 
-- [spec-autopilot 修复设计方案](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
-- [新并行 AI 平台插件设计方案](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
-- [竞品能力复用与反向改进矩阵](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
-- [parallel-harness 实施 Backlog](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
+- [spec-autopilot 修复设计方案](docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
+- [新并行 AI 平台插件设计方案](docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
+- [竞品能力复用与反向改进矩阵](docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
+- [parallel-harness 实施 Backlog](docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
 
 ## 2. 调研方法
 
@@ -104,7 +104,7 @@
 
 ## 4.2 server 单文件控制塔问题
 
-当前 [autopilot-server.ts](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts) 约 1180 行，承担职责包括：
+当前 [autopilot-server.ts](plugins/spec-autopilot/server/autopilot-server.ts) 约 1180 行，承担职责包括：
 
 - HTTP 静态资源服务
 - WebSocket 服务
@@ -131,7 +131,7 @@
 
 ## 4.3 打包与源码结构断裂
 
-[build-dist.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tools/build-dist.sh) 中最有代表性的信号是：
+[build-dist.sh](plugins/spec-autopilot/tools/build-dist.sh) 中最有代表性的信号是：
 
 - GUI 依赖 fallback 产物恢复
 - server 通过“回填”方式复制到 `dist/scripts/`
@@ -481,7 +481,7 @@ Planner
 
 当前市场文件：
 
-- [marketplace.json](/Users/lorain/Coding/Huihao/claude-autopilot/.claude-plugin/marketplace.json)
+- [marketplace.json](.claude-plugin/marketplace.json)
 
 后续建议形成产品矩阵：
 
@@ -507,25 +507,25 @@ Planner
 本轮最终已经产出的文档包括：
 
 - 总报告：
-  - [2026-03-19-holistic-architecture-research-report.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
+  - [2026-03-19-holistic-architecture-research-report.zh.md](docs/plans/2026-03-19-holistic-architecture-research-report.zh.md)
 
 - 设计方案：
-  - [2026-03-19-spec-autopilot-remediation-design.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
-  - [2026-03-19-parallel-ai-platform-plugin-design.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
+  - [2026-03-19-spec-autopilot-remediation-design.zh.md](docs/plans/2026-03-19-spec-autopilot-remediation-design.zh.md)
+  - [2026-03-19-parallel-ai-platform-plugin-design.zh.md](docs/plans/2026-03-19-parallel-ai-platform-plugin-design.zh.md)
 
 - 执行材料：
-  - [2026-03-19-competitive-capability-reuse-matrix.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
-  - [2026-03-19-parallel-harness-execution-backlog.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
+  - [2026-03-19-competitive-capability-reuse-matrix.zh.md](docs/plans/2026-03-19-competitive-capability-reuse-matrix.zh.md)
+  - [2026-03-19-parallel-harness-execution-backlog.zh.md](docs/plans/2026-03-19-parallel-harness-execution-backlog.zh.md)
 
 ## 11. 参考来源
 
 ### 本地证据
 
-- [autopilot-server.ts](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/server/autopilot-server.ts)
-- [build-dist.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tools/build-dist.sh)
-- [test_autopilot_server_aggregation.sh](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh)
-- [overview.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/docs/architecture/overview.zh.md)
-- [README.zh.md](/Users/lorain/Coding/Huihao/claude-autopilot/README.zh.md)
+- [autopilot-server.ts](plugins/spec-autopilot/server/autopilot-server.ts)
+- [build-dist.sh](plugins/spec-autopilot/tools/build-dist.sh)
+- [test_autopilot_server_aggregation.sh](plugins/spec-autopilot/tests/test_autopilot_server_aggregation.sh)
+- [overview.zh.md](plugins/spec-autopilot/docs/architecture/overview.zh.md)
+- [README.zh.md](README.zh.md)
 
 ### 外部来源
 
