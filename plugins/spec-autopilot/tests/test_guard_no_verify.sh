@@ -372,6 +372,16 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# 7d. README badge synced to 1.0.1 (pre-release double-dash stripped)
+PREREL_README_VER=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$PREREL_DIR/plugins/spec-autopilot/README.md" 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//')
+if [ "$PREREL_README_VER" = "1.0.1" ]; then
+  green "  PASS: 7d. README badge synced to 1.0.1"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7d. README badge expected 1.0.1, got '$PREREL_README_VER'"
+  FAIL=$((FAIL + 1))
+fi
+
 rm -rf "$PREREL_DIR"
 
 # ============================================

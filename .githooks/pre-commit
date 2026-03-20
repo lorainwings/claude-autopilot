@@ -163,8 +163,8 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       }
       mv "${MARKETPLACE_JSON}.tmp" "$MARKETPLACE_JSON"
 
-      # Sync README.md badge (supports pre-release suffixes like -beta.1)
-      sedi "s/version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(-[a-zA-Z0-9.]*\)\{0,1\}-blue/version-${NEW_VERSION}-blue/" "$README_MD"
+      # Sync README.md badge (supports pre-release: shields.io escapes - as --)
+      sedi "s/version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(--*[a-zA-Z0-9._-]*\)*-blue/version-${NEW_VERSION}-blue/" "$README_MD"
 
       git add "$PLUGIN_JSON" "$README_MD" "$MARKETPLACE_JSON"
       echo "✅ Version consistent: $NEW_VERSION"
@@ -184,7 +184,7 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
 
   # 2. Check version consistency (plugin.json vs README.md vs marketplace.json)
   PLUGIN_VERSION=$(jq -r '.version' plugins/spec-autopilot/.claude-plugin/plugin.json 2>/dev/null)
-  README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?-blue' plugins/spec-autopilot/README.md 2>/dev/null | head -1 | sed 's/version-//;s/-blue//')
+  README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' plugins/spec-autopilot/README.md 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//')
   MARKETPLACE_VERSION=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' .claude-plugin/marketplace.json 2>/dev/null)
 
   if [ -n "$PLUGIN_VERSION" ]; then

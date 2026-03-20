@@ -16,9 +16,9 @@
 - **pre-commit hook 链路收敛**: `core.hooksPath` 指向 `.githooks`，消除 `.git/hooks/pre-commit` 旧实现的执行链路分裂
 - **marketplace.json 版本同步改用 jq 确定性更新**: 按 `name == "spec-autopilot"` 精确匹配，取代脆弱的 sed 文本替换
 - **jq 缺失 fail-closed**: pre-commit 缺少 jq 时硬阻断提交，不再静默跳过版本同步
-- **README badge 兼容 pre-release 版本号**: sed 替换和 grep 读取均支持 `-beta.1` / `-rc.1` 后缀
+- **README badge 兼容 shields.io pre-release 双横线**: sed 替换匹配 `version-X.Y.Z--beta.1-blue` 格式，grep 读取同步兼容，版本一致性校验不再漏检
 - **pre-release auto-bump fail-closed**: 版本号含 pre-release 后缀时先 strip 再 patch+1，PATCH 非整数时 exit 1 阻断；jq 更新失败时显式 exit 1
-- **版本漂移回归测试加强**: 6a/6b 验证 stable 漂移同步，7a/7b/7c 验证 pre-release auto-bump；jq 缺失时 FAIL 不 SKIP
+- **版本漂移回归测试加强**: 6a/6b 验证 stable 漂移同步，7a/7b/7c/7d 验证 pre-release auto-bump 含 README badge；jq 缺失时 FAIL 不 SKIP
 - **E2E 测试仓库完整性**: Part 3/4/5 E2E 仓库均包含 marketplace.json + README badge + stub build-dist.sh
 
 ## [5.1.39] - 2026-03-20
