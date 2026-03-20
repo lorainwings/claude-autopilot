@@ -5,6 +5,7 @@
 ### Fixed
 
 - **TS2430 类型错误**: `ModelRoutingEvidence` 添加 `[key: string]: unknown` 索引签名，修复与 `AutopilotEvent.payload` (`Record<string, unknown>`) 的类型兼容性
+- **Regex fallback phases 嵌套重建**: 无 PyYAML 时 `model_routing.phases.*` dotted keys 被正确重建为嵌套 dict，修复 macOS CI 下 C4/D1 测试失败
 
 ## [5.1.39] - 2026-03-20
 

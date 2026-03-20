@@ -427,6 +427,23 @@ def validate(config_path):
                     mr_dict[leaf] = v
             mr = mr_dict if mr_dict else {}
 
+        # Regex fallback 二次重建：将 phases.phase_N.* dotted keys 嵌套为 dict
+        if isinstance(mr, dict) and mr.get("phases") is True:
+            phases_dict = {}
+            keys_to_remove = []
+            for k, v in mr.items():
+                if k.startswith("phases."):
+                    parts = k[len("phases.") :].split(".", 1)
+                    phase_key = parts[0]
+                    if phase_key not in phases_dict:
+                        phases_dict[phase_key] = {}
+                    if len(parts) == 2 and v is not True:
+                        phases_dict[phase_key][parts[1]] = v
+                    keys_to_remove.append(k)
+            for k in keys_to_remove:
+                del mr[k]
+            mr["phases"] = phases_dict if phases_dict else {}
+
         if isinstance(mr, str):
             # 旧格式顶层字符串: heavy/light/auto
             if mr not in VALID_LEGACY_VALUES:
