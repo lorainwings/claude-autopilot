@@ -429,6 +429,56 @@ ELSE:
 - `risks` 中存在 `severity: "high"` 的风险
 - 需要引入 3+ 个新依赖
 
+### 多维度复杂度修正（v5.4 新增）
+
+> **核心原则**: 不能仅依赖 total_files 判定复杂度。"少文件但高风险"不能误判为 small。
+
+以下维度独立评估，任一命中即触发复杂度升级：
+
+```
+complexity_boost_flags = []
+
+# 维度 1: 跨模块影响
+IF modified_files 涉及 >= 2 个顶层目录（如 src/auth + src/payment + src/api）:
+    complexity_boost_flags.append("cross_module")
+
+# 维度 2: 高风险域
+high_risk_domains = ["安全", "认证", "auth", "支付", "payment", "性能", "performance",
+                     "迁移", "migration", "加密", "crypto", "数据库迁移", "schema"]
+IF RAW_REQUIREMENT 或 impact_analysis 涉及 high_risk_domains 中的关键词:
+    complexity_boost_flags.append("high_risk_domain")
+
+# 维度 3: 新依赖引入
+IF impact_analysis.new_dependencies >= 1 且依赖为项目未使用过的:
+    complexity_boost_flags.append("new_dependency")
+
+# 维度 4: 非功能约束
+IF 需求涉及性能指标（延迟/吞吐/并发）、可用性要求、数据一致性、向后兼容:
+    complexity_boost_flags.append("non_functional_constraint")
+
+# 维度 5: 多决策点
+IF research_envelope.decision_points >= 3:
+    complexity_boost_flags.append("multi_decision")
+
+# 升级规则
+IF len(complexity_boost_flags) >= 2 AND complexity == "small":
+    complexity = "medium"  # small 至少升级到 medium
+
+IF len(complexity_boost_flags) >= 3 AND complexity == "medium":
+    complexity = "large"   # medium 升级到 large
+
+IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
+    complexity = "medium"  # 高风险域单独命中即不允许 small
+```
+
+| 维度 | 检测方式 | 升级效果 |
+|------|---------|---------|
+| 跨模块 (`cross_module`) | modified_files 路径的顶层目录去重计数 >= 2 | 参与组合升级 |
+| 高风险域 (`high_risk_domain`) | 关键词匹配（安全/认证/支付/性能/迁移/加密） | 单独命中: small→medium; 参与组合升级 |
+| 新依赖 (`new_dependency`) | grep 项目依赖清单不存在该依赖 | 参与组合升级 |
+| 非功能约束 (`non_functional_constraint`) | 需求含延迟/吞吐/并发/兼容/一致性关键词 | 参与组合升级 |
+| 多决策点 (`multi_decision`) | decision_points 数量 >= 3 | 参与组合升级 |
+
 ### 分路策略
 
 | 复杂度 | 讨论深度 | 苏格拉底模式 | 预计 QA 轮数 |
@@ -477,6 +527,59 @@ ELSE:
 ## 返回要求
 返回 JSON 信封：
 {"status": "ok", "summary": "...", "decision_points": [...], "requirements_summary": "功能概要", "open_questions": [...], "output_file": "context/requirements-analysis.md"}
+```
+
+### BA 输出结构约束（v5.4 新增）
+
+#### 强制输出字段
+
+BA Agent 返回的 `requirements-analysis.md` 必须包含以下全部章节，缺少任一字段时主线程拒绝放行并要求补充：
+
+| 字段 | 说明 | 校验规则 |
+|------|------|---------|
+| `goal` | 业务目标（1-3 句） | 非空字符串 |
+| `scope` | 功能范围（明确包含哪些） | 非空，至少 1 个条目 |
+| `non_goals` | 明确排除项（不做什么） | 非空，至少 1 个条目；若确实无排除项须显式声明 "无" |
+| `acceptance_criteria` | 可测试的验收标准 | 非空，每条必须可测试（含动词 + 可观测结果） |
+| `decision_points` | 需要用户决策的技术/产品选择 | 数组，可为空（表示无需决策） |
+| `assumptions` | 实施前提假设 | 非空，至少 1 个条目 |
+| `risks` | 已识别风险及缓解措施 | 非空，至少 1 个条目 |
+
+#### open_questions → decision_points 映射规则
+
+```
+# BA 返回的每个 open_question 必须映射到 decision_points
+FOR each question IN open_questions:
+    ASSERT exists(dp IN decision_points WHERE dp.topic relates to question)
+    IF NOT:
+        # open_question 未映射到决策点 → 拒绝放行
+        REJECT with message: "open_question '{question}' 未转化为 decision_point，请补充"
+
+# 不允许存在"悬空问题"——每个疑问必须有对应的决策点供用户选择
+```
+
+#### 校验流程
+
+```
+ba_envelope = parse(BA Agent 返回)
+analysis_file = Read(ba_envelope.output_file)
+
+required_fields = ["goal", "scope", "non_goals", "acceptance_criteria",
+                   "decision_points", "assumptions", "risks"]
+
+missing = [f for f in required_fields if f not in analysis_file.sections]
+
+IF len(missing) > 0:
+    # 拒绝放行，要求 BA Agent 补充缺失字段
+    RE-DISPATCH BA Agent with prompt: "以下必填字段缺失: {missing}，请补充"
+    # 最多重试 1 次
+    IF still missing after retry:
+        BLOCK with status: "warning", reason: "BA 输出不完整: 缺少 {missing}"
+
+# open_questions 映射检查
+FOR q IN ba_envelope.open_questions:
+    IF NOT any(dp.topic matches q FOR dp IN ba_envelope.decision_points):
+        APPEND to decision_points: {"topic": q, "options": ["待用户澄清"], "recommendation": "none"}
 ```
 
 > **返回值校验**: 主线程必须检查返回非空，且包含 `decision_points` 和 `requirements_summary`。如果返回为空或格式异常，应重新 dispatch 并在 prompt 中明确要求结构化输出。此 Task 不含 autopilot-phase 标记（设计预期），不受 Hook 门禁校验。

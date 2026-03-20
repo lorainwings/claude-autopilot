@@ -1,6 +1,6 @@
 > [English](event-bus-api.md) | 中文
 
-# 事件总线 API 参考 (v5.0)
+# 事件总线 API 参考 (v5.4)
 
 > 本文件定义 autopilot 事件总线的事件格式规范，为 GUI 大盘集成提供标准化接口。
 
@@ -179,6 +179,166 @@ interface AgentCompleteEvent {
 }
 ```
 
+### ModelEffectiveEvent / ModelFallbackEvent (v5.4 新增)
+
+模型路由运行时事件。由 `emit-model-routing-event.sh` 在确认实际运行模型或触发降级时发射。
+
+```typescript
+interface ModelEffectiveEvent {
+  type: 'model_effective';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    effective_model: string;   // 实际运行的模型 (如 "sonnet-4")
+    effective_tier: string;    // 实际运行的 tier (如 "standard")
+    inference_source: string;  // 推断来源 ("statusline" | "env" | "config")
+    requested_model: string;   // 请求的模型
+    match: boolean;            // 请求模型与实际模型是否一致
+    agent_id?: string;         // Agent 标识
+  };
+}
+
+interface ModelFallbackEvent {
+  type: 'model_fallback';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    requested_model: string;   // 原请求模型
+    fallback_model: string;    // 降级后使用的模型 (默认 "sonnet")
+    fallback_reason: string;   // 降级原因 (如 "model_not_available")
+    agent_id?: string;         // Agent 标识
+  };
+}
+```
+
+> **注意**: `emit-model-routing-event.sh` 支持三种事件类型：`model_routing`（路由决策）、`model_effective`（运行时实际模型确认）、`model_fallback`（模型降级触发）。通过第 6 参数 `event_type` 选择。
+
+### ParallelPlanEvent / ParallelBatchEvent / ParallelTaskEvent / ParallelFallbackEvent (v5.4 新增)
+
+并行调度生命周期事件。由 `emit-parallel-event.sh` 在并行计划生成和执行过程中发射。
+
+```typescript
+interface ParallelPlanEvent {
+  type: 'parallel_plan';
+  phase: number;               // 通常为 5
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    scheduler_decision: 'batch_parallel' | 'serial';  // 调度决策
+    total_tasks: number;       // 任务总数
+    batch_count: number;       // batch 数量
+    max_parallelism: number;   // 最大并行度
+    fallback_to_serial?: boolean;  // 是否降级为串行
+    fallback_reason?: string;  // 降级原因
+  };
+}
+
+interface ParallelBatchStartEvent {
+  type: 'parallel_batch_start';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    batch_index: number;       // 当前 batch 索引 (0-based)
+    batch_total: number;       // batch 总数
+    tasks: string[];           // 本 batch 包含的任务名列表
+    can_parallel: boolean;     // 本 batch 是否可并行
+  };
+}
+
+interface ParallelBatchEndEvent {
+  type: 'parallel_batch_end';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    batch_index: number;       // 当前 batch 索引 (0-based)
+    batch_total: number;       // batch 总数
+    tasks_completed: string[]; // 完成的任务名列表
+    duration_ms?: number;      // batch 执行耗时
+  };
+}
+
+interface ParallelTaskReadyEvent {
+  type: 'parallel_task_ready';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    task_name: string;         // 任务名
+    batch_index: number;       // 所属 batch 索引
+    dependencies_met: string[];// 已满足的依赖
+  };
+}
+
+interface ParallelTaskBlockedEvent {
+  type: 'parallel_task_blocked';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    task_name: string;         // 任务名
+    blocked_by: string[];      // 阻塞该任务的依赖列表
+    reason: string;            // 阻塞原因
+  };
+}
+
+interface ParallelFallbackEvent {
+  type: 'parallel_fallback';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    fallback_reason: string;   // 降级原因 (如 "循环依赖" / "线性依赖链")
+    original_decision: string; // 原调度决策
+    fallback_decision: 'serial';  // 降级后的决策
+    total_tasks: number;       // 任务总数
+  };
+}
+```
+
 ## 事件发射脚本
 
 | 脚本 | 事件类型 | 调用时机 |
@@ -188,6 +348,8 @@ interface AgentCompleteEvent {
 | `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
 | `scripts/emit-tool-event.sh` | `tool_use` | PostToolUse catch-all hook 自动触发 (v5.3) |
 | `scripts/emit-agent-event.sh` | `agent_dispatch`, `agent_complete` | 统一调度模板 Step 2.5/4.5 Agent 派发前/完成后 (v5.3) |
+| `scripts/emit-model-routing-event.sh` | `model_routing`, `model_effective`, `model_fallback` | dispatch 路由决策时 / 运行时模型确认 / 模型降级触发 (v5.4) |
+| `scripts/emit-parallel-event.sh` | `parallel_plan`, `parallel_batch_start`, `parallel_batch_end`, `parallel_task_ready`, `parallel_task_blocked`, `parallel_fallback` | Phase 5 并行计划生成 / batch 生命周期 / 任务就绪或阻塞 / 并行降级 (v5.4) |
 
 ## 使用示例
 

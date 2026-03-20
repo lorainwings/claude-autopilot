@@ -65,11 +65,21 @@ export interface PhaseContext {
   changeName: string;
 }
 
-// --- 模型路由类型 (v5.3) ---
+// --- 模型路由类型 (v5.3 → v5.4 可观测性闭环) ---
 
 export type ModelTier = "fast" | "standard" | "deep" | "auto";
 export type ModelName = "haiku" | "sonnet" | "opus" | "opusplan" | "auto";
 export type EffortLevel = "low" | "medium" | "high";
+
+/**
+ * 模型状态语义（v5.4 诚实降级）:
+ * - requested: 路由器建议使用的模型（已发射 model_routing 事件）
+ * - effective: 运行时实际确认使用的模型（statusLine/transcript 推断）
+ * - fallback: 因原模型不可用，降级到 fallback 模型
+ * - unknown: 无法确认实际模型（平台限制）
+ * - unsupported: 当前环境不支持 per-task model 切换
+ */
+export type ModelStatus = "requested" | "effective" | "fallback" | "unknown" | "unsupported";
 
 export interface ModelRoutingEvidence {
   selected_tier: ModelTier;
@@ -88,6 +98,60 @@ export interface ModelRoutingEvent extends AutopilotEvent {
   payload: ModelRoutingEvidence & {
     agent_id?: string;
   };
+}
+
+/** model_effective 事件 — 运行时确认实际模型 */
+export interface ModelEffectiveEvent extends AutopilotEvent {
+  type: "model_effective";
+  payload: {
+    effective_model: string;
+    effective_tier: ModelTier | "unknown";
+    inference_source: "statusline" | "transcript" | "api_response" | "config";
+    requested_model?: string;
+    match: boolean;            // effective 是否与 requested 一致
+    agent_id?: string;
+  };
+}
+
+/** model_fallback 事件 — 模型降级触发 */
+export interface ModelFallbackEvent extends AutopilotEvent {
+  type: "model_fallback";
+  payload: {
+    requested_model: string;
+    fallback_model: string;
+    fallback_reason: string;
+    agent_id?: string;
+  };
+}
+
+/** GUI 消费的模型路由聚合状态 */
+export interface ModelRoutingState {
+  /** 路由器请求的模型 */
+  requested_model: string | null;
+  requested_tier: ModelTier | null;
+  requested_effort: EffortLevel | null;
+  /** 运行时实际观测到的模型 */
+  effective_model: string | null;
+  /** 降级后使用的模型 */
+  fallback_model: string | null;
+  /** 当前模型状态 */
+  model_status: ModelStatus;
+  /** 路由决策理由 */
+  routing_reason: string | null;
+  /** 是否发生了降级 */
+  fallback_applied: boolean;
+  /** 降级原因 */
+  fallback_reason: string | null;
+  /** 推断来源 */
+  inference_source: string | null;
+  /** 能力说明（平台限制时显示） */
+  capability_note: string | null;
+  /** 当前 phase */
+  phase: number;
+  /** agent id */
+  agent_id: string | null;
+  /** 最后更新时间 */
+  updated_at: string | null;
 }
 
 /** 旧格式兼容: heavy/light/auto */

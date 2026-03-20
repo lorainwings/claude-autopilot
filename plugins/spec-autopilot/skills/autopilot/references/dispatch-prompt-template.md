@@ -67,7 +67,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 {end for}
 {end if}
 
-### 模型路由（v5.3 升级为执行级路由）
+### 模型路由（v5.4 三种事件类型）
 
 dispatch 子 Agent 前，主线程先调用 `resolve-model-routing.sh` 获取模型路由决策：
 
@@ -76,6 +76,11 @@ ROUTING_JSON=$(bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" {p
 ```
 
 返回 JSON 包含：`selected_tier` / `selected_model` / `selected_effort` / `routing_reason` / `escalated_from` / `fallback_applied`
+
+路由事件发射（通过 `emit-model-routing-event.sh`，支持三种事件类型）：
+- **`model_routing`**（默认）— 路由决策完成后发射，payload 含 `selected_tier` / `selected_model` / `routing_reason`
+- **`model_effective`** — 子 Agent 启动后确认实际运行模型时发射，payload 含 `effective_model` / `match`（请求模型与实际是否一致）
+- **`model_fallback`** — 模型不可用触发降级时发射，payload 含 `requested_model` / `fallback_model` / `fallback_reason`
 
 #### 三层 subagent 模型分层
 

@@ -24,16 +24,31 @@ export async function refreshSnapshot(forceSnapshot = false) {
   setRefreshInFlight(true);
   try {
     const prev = snapshotState;
-    const next = await buildSnapshot();
+    let next;
+    try {
+      next = await buildSnapshot();
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] [snapshot_build_error] buildSnapshot failed:`, err);
+      return;
+    }
 
     const sessionChanged = next.sessionId !== prev.sessionId;
 
     // Session 切换 → 重置所有文件游标和 journal 状态
     if (sessionChanged) {
+      console.error(
+        `[${new Date().toISOString()}] [session_switch] ${prev.sessionId ?? "none"} → ${next.sessionId ?? "none"} (reason: active session changed)`,
+      );
       resetFileCursors();
       resetJournalState();
       // 重新构建以获取干净的新 session 数据
-      const fresh = await buildSnapshot();
+      let fresh;
+      try {
+        fresh = await buildSnapshot();
+      } catch (err) {
+        console.error(`[${new Date().toISOString()}] [snapshot_rebuild_error] post-switch rebuild failed:`, err);
+        return;
+      }
       setSnapshotState(fresh);
       broadcastReset();
       broadcastSnapshot(fresh.events);

@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats, selectActivePhaseIndices } from "../store";
+import type { ModelRoutingState, ServerHealth, ParallelPlanSummary } from "../store";
 
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -27,6 +28,10 @@ function formatShortDuration(ms: number): string {
 export const TelemetryDashboard = memo(function TelemetryDashboard() {
   const events = useStore((s) => s.events);
   const latestStatus = useStore((s) => s.latestStatus);
+  const modelRouting = useStore((s) => s.modelRouting);
+  const modelRoutingHistory = useStore((s) => s.modelRoutingHistory);
+  const serverHealth = useStore((s) => s.serverHealth);
+  const parallelPlan = useStore((s) => s.parallelPlan);
 
   // G9: Force re-render every second when a phase is running
   // tick is included in useMemo deps so Date.now()-based selectors recompute
@@ -92,9 +97,22 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
             <div className="text-text-bright break-all text-[10px]">{latestStatus.transcript_path || "--"}</div>
           </div>
         ) : (
-          <div className="text-[11px] font-mono text-text-muted">未接入 statusLine 或当前会话暂无遥测</div>
+          <div className="space-y-2">
+            <div className="text-[11px] font-mono text-text-muted">未接入 statusLine 或当前会话暂无遥测</div>
+            <div className="mt-2 px-2 py-1.5 bg-surface border border-amber/30 rounded text-[10px] text-amber font-mono">
+              <div className="font-bold mb-1">安装 statusLine Hook:</div>
+              <code className="text-[9px] text-text-bright break-all">
+                bash plugins/spec-autopilot/runtime/scripts/install-statusline-config.sh
+              </code>
+            </div>
+          </div>
         )}
+        {/* 服务状态指示区域 (v5.4) */}
+        <ServerHealthBar health={serverHealth} />
       </section>
+
+      {/* Card 0.5: Model Routing — v5.4 可观测性闭环 */}
+      <ModelRoutingCard routing={modelRouting} history={modelRoutingHistory} />
 
       {/* Card 1: Session Metrics */}
       <section className="bg-deep border border-border p-4 rounded-lg">
@@ -183,6 +201,203 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
           </div>
         </div>
       </section>
+
+      {/* Card 4: Parallel Scheduling (v5.5) */}
+      <ParallelSchedulingCard plan={parallelPlan} />
     </aside>
+  );
+});
+
+// --- Server Health Bar (v5.4) ---
+
+const HEALTH_ITEMS: { key: keyof ServerHealth; label: string }[] = [
+  { key: "httpOk", label: "HTTP" },
+  { key: "wsConnected", label: "WS" },
+  { key: "telemetryAvailable", label: "Telemetry" },
+  { key: "transcriptAvailable", label: "Transcript" },
+  { key: "statusLineInstalled", label: "StatusLine" },
+];
+
+const ServerHealthBar = memo(function ServerHealthBar({ health }: { health: ServerHealth }) {
+  return (
+    <div className="mt-3 pt-3 border-t border-border">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {HEALTH_ITEMS.map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-1 text-[10px] font-mono">
+            <span className={`w-1.5 h-1.5 rounded-full ${health[key] ? "bg-emerald" : "bg-text-muted"}`}></span>
+            <span className={health[key] ? "text-emerald" : "text-text-muted"}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// --- Model Routing Card (v5.4) ---
+
+const STATUS_BADGE: Record<string, { label: string; color: string; dot: string }> = {
+  requested: { label: "已请求", color: "text-amber", dot: "bg-amber" },
+  effective: { label: "已确认", color: "text-emerald", dot: "bg-emerald" },
+  fallback: { label: "已降级", color: "text-rose", dot: "bg-rose" },
+  unknown: { label: "未知", color: "text-text-muted", dot: "bg-text-muted" },
+  unsupported: { label: "不支持", color: "text-rose", dot: "bg-rose" },
+};
+
+const ModelRoutingCard = memo(function ModelRoutingCard({
+  routing,
+  history,
+}: {
+  routing: ModelRoutingState;
+  history: ModelRoutingState[];
+}) {
+  const badge = STATUS_BADGE[routing.model_status] ?? STATUS_BADGE.unknown!;
+  const hasData = routing.updated_at !== null;
+
+  return (
+    <section className="bg-deep border border-border p-4 rounded-lg">
+      <h3 className="font-display text-[10px] font-bold text-text-bright uppercase mb-4 flex items-center justify-between">
+        <span className="flex items-center">
+          <span className="w-2 h-2 rounded-full bg-amber mr-2"></span> 模型路由
+        </span>
+        {hasData && (
+          <span className={`flex items-center text-[9px] font-mono ${badge.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} mr-1`}></span>
+            {badge.label}
+          </span>
+        )}
+      </h3>
+      {hasData ? (
+        <div className="space-y-2 text-[11px] font-mono">
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">请求模型</span>
+            <span className="text-amber truncate">{routing.requested_model ?? "--"}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">请求层级</span>
+            <span className="text-text-bright truncate">{routing.requested_tier ?? "--"} / {routing.requested_effort ?? "--"}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">实际模型</span>
+            <span className={`truncate ${routing.model_status === "effective" ? "text-emerald" : routing.model_status === "fallback" ? "text-rose" : "text-text-muted"}`}>
+              {routing.effective_model ?? routing.fallback_model ?? "unknown"}
+            </span>
+          </div>
+          {routing.fallback_applied && (
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">降级模型</span>
+              <span className="text-rose truncate">{routing.fallback_model ?? "--"}</span>
+            </div>
+          )}
+          {routing.routing_reason && (
+            <div className="mt-1">
+              <span className="text-text-muted text-[10px]">路由理由</span>
+              <div className="text-[10px] text-text-bright break-words mt-0.5">{routing.routing_reason}</div>
+            </div>
+          )}
+          {routing.capability_note && (
+            <div className="mt-1 px-2 py-1 bg-surface border border-amber/30 rounded text-[10px] text-amber">
+              {routing.capability_note}
+            </div>
+          )}
+          {routing.inference_source && (
+            <div className="flex justify-between gap-3 text-[10px]">
+              <span className="text-text-muted shrink-0">推断来源</span>
+              <span className="text-text-bright">{routing.inference_source}</span>
+            </div>
+          )}
+          <div className="flex justify-between gap-3 text-[10px]">
+            <span className="text-text-muted shrink-0">Phase / Agent</span>
+            <span className="text-text-bright">P{routing.phase}{routing.agent_id ? ` / ${routing.agent_id}` : ""}</span>
+          </div>
+          {/* 路由历史（折叠显示最近 5 条） */}
+          {history.length > 1 && (
+            <details className="mt-2">
+              <summary className="text-[10px] text-text-muted cursor-pointer hover:text-cyan">路由历史 ({history.length})</summary>
+              <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
+                {history.slice(-5).reverse().map((h, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[10px]">
+                    <span className={`w-1.5 h-1.5 rounded-full ${(STATUS_BADGE[h.model_status] ?? STATUS_BADGE.unknown!).dot}`}></span>
+                    <span className="text-text-muted">P{h.phase}</span>
+                    <span className="text-text-bright">{h.requested_model}</span>
+                    <span className="text-text-muted">→</span>
+                    <span className={h.model_status === "fallback" ? "text-rose" : "text-emerald"}>
+                      {h.effective_model ?? h.fallback_model ?? "?"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      ) : (
+        <div className="text-[11px] font-mono text-text-muted">暂无模型路由事件</div>
+      )}
+    </section>
+  );
+});
+
+// --- Parallel Scheduling Card (v5.5) ---
+
+const SCHEDULER_BADGE: Record<string, { label: string; color: string; dot: string }> = {
+  batch_parallel: { label: "批次并行", color: "text-cyan", dot: "bg-cyan" },
+  serial: { label: "串行", color: "text-amber", dot: "bg-amber" },
+  unknown: { label: "未知", color: "text-text-muted", dot: "bg-text-muted" },
+};
+
+const ParallelSchedulingCard = memo(function ParallelSchedulingCard({
+  plan,
+}: {
+  plan: ParallelPlanSummary;
+}) {
+  const badge = SCHEDULER_BADGE[plan.scheduler_decision] ?? SCHEDULER_BADGE.unknown!;
+  const hasData = plan.updated_at !== null;
+
+  return (
+    <section className="bg-deep border border-border p-4 rounded-lg">
+      <h3 className="font-display text-[10px] font-bold text-text-bright uppercase mb-4 flex items-center justify-between">
+        <span className="flex items-center">
+          <span className="w-2 h-2 rounded-full bg-cyan mr-2"></span> 并行调度
+        </span>
+        {hasData && (
+          <span className={`flex items-center text-[9px] font-mono ${badge.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot} mr-1`}></span>
+            {badge.label}
+          </span>
+        )}
+      </h3>
+      {hasData ? (
+        <div className="space-y-2 text-[11px] font-mono">
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">调度策略</span>
+            <span className={`truncate ${badge.color}`}>{plan.scheduler_decision}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">总任务数</span>
+            <span className="text-text-bright">{plan.total_tasks}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">批次数</span>
+            <span className="text-text-bright">{plan.batch_count}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-muted shrink-0">最大并行度</span>
+            <span className="text-cyan font-bold">{plan.max_parallelism}</span>
+          </div>
+          {plan.current_batch_index !== null && (
+            <div className="flex justify-between gap-3">
+              <span className="text-text-muted shrink-0">当前批次</span>
+              <span className="text-cyan font-bold">#{plan.current_batch_index}</span>
+            </div>
+          )}
+          {plan.fallback_to_serial && plan.fallback_reason && (
+            <div className="mt-1 px-2 py-1 bg-surface border border-amber/30 rounded text-[10px] text-amber">
+              <span className="font-bold">降级原因: </span>{plan.fallback_reason}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-[11px] font-mono text-text-muted">暂无并行调度事件</div>
+      )}
+    </section>
   );
 });

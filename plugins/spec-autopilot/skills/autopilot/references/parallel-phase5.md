@@ -72,6 +72,32 @@ parallel_config:
 主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
 ```
 
+### Step 1.5: 生成并行计划（v5.5 — 确定性 batch 调度）
+
+> **HARD CONSTRAINT**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
+> Scheduler 必须消费 `parallel_plan.json` 的 `batches`，而非模型自行决定并行策略。
+
+```bash
+# 将任务清单转为 JSON 数组格式后传入
+echo "$TASKS_JSON" | bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/generate-parallel-plan.sh > parallel_plan.json
+
+# 发射 parallel_plan 事件
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-parallel-event.sh \
+  "$PROJECT_ROOT" 5 "$MODE" parallel_plan \
+  '{"scheduler_decision":"batch_parallel","total_tasks":N,"batch_count":M,"max_parallelism":K}'
+```
+
+**并行计划输出 (`parallel_plan.json`)**:
+- `batches[]`: 拓扑排序后的执行批次，每个 batch 含 `tasks[]` 和 `can_parallel` 标志
+- `dependency_graph`: 任务间依赖关系（显式 depends_on + 文件冲突隐式依赖）
+- `scheduler_decision`: `batch_parallel` 或 `serial`
+- `fallback_to_serial`: 当所有任务形成线性依赖链时为 true，**必须**附带结构化 `fallback_reason`
+
+**规则**:
+- 单域项目只要文件 ownership 不冲突也能 batch 并行
+- 如果所有任务都有依赖链，则 `fallback_to_serial=true` + 结构化 reason
+- fallback 时**必须**有结构化 reason（不允许空字符串）
+
 ### Step 2: 文件所有权分区（v3.4.0: 三步域检测）
 
 ```python
@@ -170,16 +196,19 @@ unified-write-edit-check Hook 会拦截越权修改。
 
 当 `parallel.enabled = false`（串行模式）时，自动启用 Batch Scheduler：
 
+> **v5.5 变更**: Batch Scheduler 必须消费 `parallel_plan.json` 的 `batches` 字段，
+> 而非模型自行决定 batch 分组。调用 `generate-parallel-plan.sh` 生成计划后，
+> 严格按 `batches[].tasks` 顺序和 `can_parallel` 标志执行。
+
 ```
 算法:
-1. 解析任务清单 → 提取 affected_files
-2. 构建文件依赖图（affected_files 交集 → 依赖边）
-3. 拓扑排序 + 层级分组 → batches[]
-   - 同 batch 内 task 互相无文件依赖 → 可后台并行
-4. 对每个 batch:
-   - 单 task batch → 前台 Task 同步执行
-   - 多 task batch → Task(run_in_background: true) 全部后台派发
+1. 调用 generate-parallel-plan.sh 生成 parallel_plan.json
+2. 读取 parallel_plan.json 的 batches 字段
+3. 对每个 batch:
+   - can_parallel=false 或单 task → 前台 Task 同步执行
+   - can_parallel=true 且多 task → Task(run_in_background: true) 全部后台派发
    - 等待完成通知 → 收集 envelope → 按顺序写 checkpoint
+4. fallback_to_serial=true 时，所有 task 纯串行执行
 5. 失败处理: 失败 task 降级串行重试，>50% 失败则全面回退纯串行
 ```
 

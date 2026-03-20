@@ -394,5 +394,14 @@ if [ "$DRY_RUN" = "false" ] && [ "$STASH_CREATED" = "true" ] && [ -n "$STASH_REF
   fi
 fi
 
-# --- Step 5: Output JSON summary ---
-echo "{\"status\":\"${STATUS}\",\"from_phase\":${FROM_PHASE},\"mode\":\"${MODE}\",\"files_removed\":${FILES_REMOVED},\"events_filtered\":${EVENTS_FILTERED},\"git_reset\":${GIT_RESET_DONE},\"stash_created\":${STASH_CREATED},\"stash_restored\":${STASH_RESTORED},\"stash_ref\":\"${STASH_REF}\",\"rebase_aborted\":${REBASE_ABORTED},\"merge_aborted\":${MERGE_ABORTED},\"dry_run\":${DRY_RUN}}"
+# --- Step 5: Detect fixup commit status (read-only, never auto-squash) ---
+HAS_FIXUP_COMMITS=false
+FIXUP_COMMIT_COUNT=0
+if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null && command -v git &>/dev/null; then
+  # Scope to last 50 commits to avoid scanning entire history
+  FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+  [ "$FIXUP_COMMIT_COUNT" -gt 0 ] && HAS_FIXUP_COMMITS=true
+fi
+
+# --- Step 6: Output JSON summary ---
+echo "{\"status\":\"${STATUS}\",\"from_phase\":${FROM_PHASE},\"mode\":\"${MODE}\",\"files_removed\":${FILES_REMOVED},\"events_filtered\":${EVENTS_FILTERED},\"git_reset\":${GIT_RESET_DONE},\"stash_created\":${STASH_CREATED},\"stash_restored\":${STASH_RESTORED},\"stash_ref\":\"${STASH_REF}\",\"rebase_aborted\":${REBASE_ABORTED},\"merge_aborted\":${MERGE_ABORTED},\"dry_run\":${DRY_RUN},\"has_fixup_commits\":${HAS_FIXUP_COMMITS},\"fixup_commit_count\":${FIXUP_COMMIT_COUNT}}"

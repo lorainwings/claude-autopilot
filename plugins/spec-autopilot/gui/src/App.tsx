@@ -18,7 +18,7 @@ declare const __PLUGIN_VERSION__: string;
 const wsBridge = new WSBridge();
 
 export function App() {
-  const { connected, setConnected, addEvents, setDecisionAcked, setLastAckedBlockSequence, changeName, sessionId, mode } = useStore();
+  const { connected, setConnected, setHttpOk, addEvents, setDecisionAcked, setLastAckedBlockSequence, changeName, sessionId, mode } = useStore();
   const hasEvents = useStore((s) => s.events.length > 0);
 
   useEffect(() => {
@@ -48,14 +48,26 @@ export function App() {
       setConnected(wsBridge.connected);
     }, 1000);
 
+    // v5.4: Independent HTTP health ping (not tied to WS state)
+    const checkHttp = setInterval(() => {
+      fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+        .then((r) => { setHttpOk(r.ok); })
+        .catch(() => { setHttpOk(false); });
+    }, 5000);
+    // Initial check
+    fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+      .then((r) => { setHttpOk(r.ok); })
+      .catch(() => { setHttpOk(false); });
+
     return () => {
       clearInterval(checkConnection);
+      clearInterval(checkHttp);
       unsubscribe();
       unsubscribeReset();
       unsubscribeAck();
       wsBridge.disconnect();
     };
-  }, [addEvents, setConnected, setDecisionAcked, setLastAckedBlockSequence]);
+  }, [addEvents, setConnected, setHttpOk, setDecisionAcked, setLastAckedBlockSequence]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {

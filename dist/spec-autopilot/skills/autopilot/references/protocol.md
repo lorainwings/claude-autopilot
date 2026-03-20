@@ -115,9 +115,11 @@ bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLE
 
 > 当 `selected_tier` / `selected_model` 为 `"auto"` 时，dispatch 不传递 model 参数，继承父会话模型。
 
-### 路由证据事件
+### 路由证据事件（v5.4 扩展为三种事件类型）
 
-每次路由决策发射 `model_routing` 事件到 `logs/events.jsonl`：
+`emit-model-routing-event.sh` 支持三种事件类型，通过第 6 参数 `event_type` 选择：
+
+**`model_routing`**（默认）— 路由决策事件，每次路由决策时发射：
 
 ```json
 {
@@ -130,6 +132,39 @@ bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLE
     "routing_reason": "默认 phase 5 路由: standard",
     "escalated_from": null,
     "fallback_applied": false,
+    "fallback_model": "sonnet",
+    "agent_id": "phase5-task-3"
+  }
+}
+```
+
+**`model_effective`** — 运行时实际模型确认事件，子 Agent 启动后确认实际运行模型时发射：
+
+```json
+{
+  "type": "model_effective",
+  "phase": 5,
+  "payload": {
+    "effective_model": "sonnet-4",
+    "effective_tier": "standard",
+    "inference_source": "statusline",
+    "requested_model": "sonnet",
+    "match": true,
+    "agent_id": "phase5-task-3"
+  }
+}
+```
+
+**`model_fallback`** — 模型降级触发事件，模型不可用触发 fallback 时发射：
+
+```json
+{
+  "type": "model_fallback",
+  "phase": 5,
+  "payload": {
+    "requested_model": "opus",
+    "fallback_model": "sonnet",
+    "fallback_reason": "model_not_available",
     "agent_id": "phase5-task-3"
   }
 }
@@ -217,9 +252,54 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 - `tasks.md` 中所有任务标记为 `[x]`
 
 
-## 并行调度协议字段（v3.2.0 新增）
+## 并行调度协议字段（v3.2.0 新增, v5.4 确定性调度器增强）
 
 当阶段使用并行执行时，JSON 信封增加以下可选字段：
+
+### 确定性并行计划（v5.4 新增）
+
+`generate-parallel-plan.sh` 是确定性调度器脚本，接收任务列表 JSON，输出 `parallel_plan.json`。核心逻辑：
+
+1. **文件所有权图**（Union-Find）— 检测文件冲突
+2. **依赖图构建** — 显式 `depends_on` + 文件冲突隐式依赖
+3. **拓扑排序 + batch 生成** — 按依赖层次分批
+
+输出结构：
+```json
+{
+  "plan_version": "1.0",
+  "generated_at": "ISO-8601",
+  "parallel_enabled": true,
+  "total_tasks": 5,
+  "dependency_graph": {"task-3": ["task-1"]},
+  "batches": [
+    {"batch_index": 0, "tasks": ["task-1", "task-2"], "can_parallel": true, "reason": "no file ownership conflict"},
+    {"batch_index": 1, "tasks": ["task-3"], "can_parallel": false, "reason": "single task in batch"}
+  ],
+  "max_parallelism": 2,
+  "fallback_to_serial": false,
+  "fallback_reason": null,
+  "scheduler_decision": "batch_parallel"
+}
+```
+
+> **HARD CONSTRAINT**: 主线程必须消费 `parallel_plan.json` 的 `batches` 字段执行调度，禁止模型自行决定并行策略。
+
+### 崩溃恢复 auto_continue 字段（v5.4 新增）
+
+`recovery-decision.sh` 输出中新增以下字段，支持单候选变更自动继续（无需用户交互）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `auto_continue_eligible` | boolean | 是否满足自动继续条件 |
+| `recovery_interaction_required` | boolean | 是否需要用户交互（`auto_continue_eligible` 的逆） |
+| `git_risk_level` | string | git 状态风险等级：`none` / `low`（有 fixup commits）/ `high`（rebase/merge 进行中） |
+
+自动继续条件（全部满足时 `auto_continue_eligible = true`）：
+1. 恰好一个可恢复候选变更（无多候选歧义），或通过 `--change` 显式指定
+2. 存在有效的 `continue` 恢复路径
+3. git 状态风险不为 `high`（无 rebase/merge 进行中）
+4. 配置 `recovery.auto_continue_single_candidate` 为 true（默认 true）
 
 ### 并行子 Agent 返回格式（单个 agent）
 

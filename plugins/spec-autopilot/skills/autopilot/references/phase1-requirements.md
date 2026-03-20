@@ -26,13 +26,77 @@
 | 无技术实体 | 不含组件/API/模块/库名/框架名 | `no_tech_entity` |
 | 无量化指标 | 不含数字/百分比/时间单位/容量单位 | `no_metric` |
 | 动作模糊 | 不含具体动词（创建/迁移/修复/集成/添加/删除/重构/优化/implement/add/fix/migrate） | `vague_action` |
+| 无范围限定 | 不含边界词（仅/只/不包括/排除/范围/scope/only/exclude/boundary/限于） | `no_scope_boundary` |
+| 无验收标准 | 不含验收词（应该/必须/期望/验证/确认/should/must/expect/verify/accept） | `no_acceptance_criteria` |
+| 无目标对象 | 不含目标实体（用户/管理员/系统/服务/页面/接口/user/admin/service/page/endpoint） | `no_target_entity` |
 
 **决策树**：
 - **flags >= 3** → 强制进入"需求澄清预循环"（AskUserQuestion 3-5 个澄清问题，完成后更新 RAW_REQUIREMENT）
-- **flags >= 2** → 标记 `requirement_clarity: "low"`，调研 Agent 优先范围界定
+- **flags >= 2** → 触发"定向澄清预检"（Step 1.1.7），收敛基本方向后再进入调研
 - **flags < 2** → 正常流程
 
 > **设计意图**: 避免在模糊需求上直接启动三路并行调研，浪费 Token 且调研结果噪音大。
+
+## Step 1.1.7 定向澄清预检（v5.4 新增）
+
+**触发条件**: flags >= 2 且 flags < 3（信息不足但未达强制预循环阈值）。
+
+**核心原则**: 先收敛方向，再启动调研。不进入三路并行调研，直到基本方向收敛。
+
+### 澄清规则引擎
+
+```
+IF flags >= 3:
+    # 保持原逻辑: 强制预循环 3-5 问
+    GOTO 需求澄清预循环
+
+IF flags >= 2 AND flags < 3:
+    # 定向澄清: 最多 1-3 个最高价值问题
+    clarification_questions = []
+
+    IF 'no_scope_boundary' IN active_flags:
+        clarification_questions.append("这个需求的范围边界是什么？哪些场景/模块在范围内，哪些明确排除？")
+
+    IF 'no_acceptance_criteria' IN active_flags:
+        clarification_questions.append("完成后如何验证？期望的验收标准或可观测结果是什么？")
+
+    IF 'no_target_entity' IN active_flags:
+        clarification_questions.append("这个需求的目标对象是谁/什么？（用户角色 / 系统组件 / API 端点 / 页面）")
+
+    IF len(clarification_questions) == 0:
+        # flags 由 brevity/no_tech_entity/no_metric/vague_action 触发
+        # 构造通用澄清问题
+        clarification_questions.append("能否补充更多细节？包括：具体要改动的组件、期望的行为、验收条件")
+
+    # 约束: 最多 3 个问题
+    clarification_questions = clarification_questions[:3]
+
+    AskUserQuestion(clarification_questions)
+    # 用户回答后更新 RAW_REQUIREMENT，重新执行 Step 1.1.5 评估
+    UPDATE RAW_REQUIREMENT with user answers
+    RE-EVALUATE flags (回到 Step 1.1.5)
+
+    # 安全阀: 定向澄清最多执行 1 轮，避免死循环
+    IF still flags >= 2 after re-evaluation:
+        标记 requirement_clarity: "low"
+        继续流程（进入调研，调研 Agent 优先范围界定）
+
+IF flags < 2:
+    # 正常流程
+    CONTINUE
+```
+
+### 约束
+
+| 约束项 | 规则 |
+|--------|------|
+| 最大问题数 | 3 个（从 no_scope_boundary / no_acceptance_criteria / no_target_entity 优先选取） |
+| 交互方式 | AskUserQuestion（轻量，非大段 Prompt 分析） |
+| 最大轮数 | 1 轮（问完即走，不反复追问） |
+| 与预循环互斥 | flags >= 3 走预循环，flags >= 2 走定向澄清，二者不叠加 |
+| 调研阻塞 | 定向澄清未完成前，不启动三路并行调研 |
+
+> **设计意图**: 在 2-flag 灰区用最小成本收敛方向，避免过早进入高 Token 消耗的三路调研。与 flags >= 3 的强制预循环互补。
 
 ## Step 1.1.6 需求类型分类与路由（v4.2 新增）
 

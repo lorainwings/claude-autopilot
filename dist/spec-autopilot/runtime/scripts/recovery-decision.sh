@@ -19,6 +19,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
+# --- Read configuration (env var only initially; config file read after arg parsing) ---
+# recovery.auto_continue_single_candidate (default: true)
+AUTO_CONTINUE_SINGLE_CANDIDATE="${AUTOPILOT_RECOVERY_AUTO_CONTINUE_SINGLE_CANDIDATE:-}"
+
 # --- Parse arguments ---
 CHANGES_DIR="${1:-}"
 CLI_MODE="${2:-full}"
@@ -51,6 +55,15 @@ fi
 # Derive project root
 PROJECT_ROOT=$(echo "$CHANGES_DIR" | sed 's|/openspec/changes$||')
 [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+# --- Resolve config: read from config file if env var not set ---
+if [ -z "$AUTO_CONTINUE_SINGLE_CANDIDATE" ]; then
+  AUTO_CONTINUE_SINGLE_CANDIDATE=$(read_config_value "$PROJECT_ROOT" "recovery.auto_continue_single_candidate" "true" 2>/dev/null) || AUTO_CONTINUE_SINGLE_CANDIDATE="true"
+fi
+case "$AUTO_CONTINUE_SINGLE_CANDIDATE" in
+  true|True|1|yes) AUTO_CONTINUE_SINGLE_CANDIDATE="true" ;;
+  *) AUTO_CONTINUE_SINGLE_CANDIDATE="false" ;;
+esac
 
 # --- Read lock file status ---
 LOCK_FILE="$CHANGES_DIR/.autopilot-active"
@@ -97,6 +110,28 @@ if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null; then
   fi
 
   GIT_STATE="{\"rebase_in_progress\":${REBASE_IN_PROGRESS},\"merge_in_progress\":${MERGE_IN_PROGRESS},\"worktree_residuals\":${WORKTREE_RESIDUALS}}"
+fi
+
+# --- Detect fixup commits (scoped to current session, not entire history) ---
+HAS_FIXUP_COMMITS=false
+FIXUP_COMMIT_COUNT=0
+if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null && command -v git &>/dev/null; then
+  # Try to scope fixup scan to commits since anchor_sha (autopilot session start)
+  ANCHOR_SHA=""
+  if [ -f "$LOCK_FILE" ]; then
+    ANCHOR_SHA=$(python3 -c "import json,sys
+try:
+    with open(sys.argv[1]) as f: print(json.load(f).get('anchor_sha',''))
+except: pass" "$LOCK_FILE" 2>/dev/null) || true
+  fi
+  if [ -n "$ANCHOR_SHA" ] && git -C "$PROJECT_ROOT" rev-parse --verify "${ANCHOR_SHA}^{commit}" &>/dev/null; then
+    # Scan only commits since anchor (current autopilot session)
+    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" "${ANCHOR_SHA}..HEAD" 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+  else
+    # No anchor — fall back to last 50 commits (bounded, not entire history)
+    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+  fi
+  [ "$FIXUP_COMMIT_COUNT" -gt 0 ] && HAS_FIXUP_COMMITS=true
 fi
 
 # --- Scan all change directories ---
@@ -240,6 +275,9 @@ mode = sys.argv[2]
 selected = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
 lock_file = json.loads(sys.argv[4])
 git_state = json.loads(sys.argv[5])
+has_fixup_commits = sys.argv[6] == 'true'
+fixup_commit_count = int(sys.argv[7])
+auto_continue_cfg = sys.argv[8] == 'true'
 
 # Phase sequence and labels
 if mode == 'lite':
@@ -344,6 +382,32 @@ if selected_change:
             recovery_options['continue'] = cont
             recommended_phase = recovery_phase
 
+# --- Compute git_risk_level ---
+# rebase_in_progress or merge_in_progress → high; has fixup → low; else → none
+if git_state.get('rebase_in_progress') or git_state.get('merge_in_progress'):
+    git_risk_level = 'high'
+elif has_fixup_commits:
+    git_risk_level = 'low'
+else:
+    git_risk_level = 'none'
+
+# --- Compute auto_continue_eligible ---
+# Conditions: exactly one clear recoverable candidate + no multi-candidate ambiguity
+#           + no dangerous git state (rebase/merge) + recovery path is non-destructive continue
+auto_continue_eligible = False
+recovery_interaction_required = True
+
+if selected_change is not None and recovery_options.get('continue') is not None:
+    # Single candidate determined (no ambiguity)
+    num_candidates = len([c for c in changes if c['total_checkpoints'] > 0 or c.get('phase1_interim') is not None or len(c.get('progress_files', [])) > 0])
+    no_ambiguity = (num_candidates <= 1) or (selected is not None)
+    no_dangerous_git = git_risk_level != 'high'
+    is_continue_path = True  # recovery_options.continue exists
+
+    if no_ambiguity and no_dangerous_git and is_continue_path and auto_continue_cfg:
+        auto_continue_eligible = True
+        recovery_interaction_required = False
+
 result = {
     'status': 'ok',
     'has_checkpoints': has_checkpoints or has_partial_progress,
@@ -353,11 +417,16 @@ result = {
     'recovery_options': recovery_options,
     'git_state': git_state,
     'lock_file': lock_file,
-    'effective_mode': mode
+    'effective_mode': mode,
+    'has_fixup_commits': has_fixup_commits,
+    'fixup_commit_count': fixup_commit_count,
+    'recovery_interaction_required': recovery_interaction_required,
+    'auto_continue_eligible': auto_continue_eligible,
+    'git_risk_level': git_risk_level
 }
 
 print(json.dumps(result, ensure_ascii=False))
-" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" 2>/dev/null)
+" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" "$HAS_FIXUP_COMMITS" "$FIXUP_COMMIT_COUNT" "$AUTO_CONTINUE_SINGLE_CANDIDATE" 2>/dev/null)
 
 if [ -n "$RESULT_JSON" ]; then
   echo "$RESULT_JSON"

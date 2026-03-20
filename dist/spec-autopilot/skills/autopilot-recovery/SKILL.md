@@ -51,6 +51,25 @@ JSON 输出包含：
 - `recovery_options`: 三种恢复路径选项
 - `git_state`: git rebase/merge/worktree 状态
 - `lock_file`: 锁文件状态
+- `has_fixup_commits`: 当前分支是否存在未 squash 的 autopilot fixup 提交
+- `fixup_commit_count`: fixup 提交数量
+- `recovery_interaction_required`: 是否需要用户交互
+- `auto_continue_eligible`: 是否满足自动继续条件
+- `git_risk_level`: "none" | "low" | "medium" | "high" — git 风险级别
+
+### Step 1.5: 自动继续判定
+
+当 `auto_continue_eligible == true` 且配置 `recovery.auto_continue_single_candidate` 允许时：
+- **自动执行继续恢复**，不弹 AskUserQuestion，直接进入路径 A
+- 输出日志：`Auto-continuing recovery: Phase {continue.phase} ({continue.label})`
+
+当 `has_fixup_commits == true` 时：
+- 在日志中记录 fixup 状态：`Fixup commits detected: {fixup_commit_count} pending squash`
+- fixup 提交不影响恢复流程本身，仅在 Phase 7 归档时自动 squash
+
+当 `git_risk_level == "high"` 时：
+- 强制 `recovery_interaction_required = true`，不允许自动继续
+- 提示用户存在危险 git 状态（rebase/merge 冲突）
 
 ### Step 2: 多 Change 选择（如需）
 
@@ -187,6 +206,8 @@ Phase 2: [摘要...]
 ## Task 系统重建
 
 崩溃恢复时需创建对应模式的阶段任务链，已完成的阶段直接标记为 `completed`，确保 blockedBy 依赖链正确。
+
+> **Fixup Squash 时机**: fixup 提交不在恢复阶段处理。Phase 7 归档时会自动执行 `git rebase --autosquash` 将所有 fixup! 提交合并到对应的目标 commit 中。
 
 | 模式 | 创建的任务 |
 |------|-----------|

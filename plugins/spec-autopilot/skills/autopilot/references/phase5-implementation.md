@@ -114,6 +114,10 @@
 2. 构建 task 依赖图（基于 task 描述中的文件引用和显式依赖声明）
 3. 识别可并行执行的 task 组（无共享文件修改的 task）
 
+> **v5.5**: 依赖分析已下沉到 `generate-parallel-plan.sh` 确定性脚本。
+> 主线程调用脚本生成 `parallel_plan.json`，其中 `dependency_graph` 字段
+> 包含完整的依赖关系（显式 depends_on + 文件冲突隐式依赖）。
+
 ### 文件所有权分区（v3.0 新增）
 
 在依赖图基础上增加文件所有权隔离，从根本上消除合并冲突：
@@ -399,31 +403,31 @@ Phase 5 启动时（含压缩后恢复），扫描 `phase5-tasks/` 目录：
 1. `config.serial_task.allow_background_parallel !== false`（默认 true）
 2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
 
-**核心算法：Batch Scheduler**
+**核心算法：Batch Scheduler（v5.5 — 确定性计划驱动）**
+
+> **v5.5 变更**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
+> Scheduler 消费 `parallel_plan.json` 的 `batches` 字段，而非模型自行决定 batch 分组。
+> fallback 时**必须**有结构化 `fallback_reason`。
 
 ```
-1. 解析任务清单 → 提取每个 task 的 affected_files[]
-2. 构建依赖图:
-   for (i, j) in tasks × tasks:
-     if affected_files[i] ∩ affected_files[j] ≠ ∅:
-       add_dependency(i, j)
-3. 拓扑排序 + 层级分组:
-   batches = []
-   remaining = all_tasks
-   while remaining:
-     ready = [t for t in remaining if all deps satisfied]
-     # 同一 batch 内 task 互相无依赖，可并行
-     batches.append(ready)
-     remaining -= ready
-4. 对每个 batch:
-   if len(batch) == 1:
+0. 调用 generate-parallel-plan.sh 生成 parallel_plan.json
+   - 输入: 任务列表 JSON 数组 [{task_name, affected_files, depends_on, domain}]
+   - 输出: parallel_plan.json (含 batches[], dependency_graph, scheduler_decision)
+   - 发射 parallel_plan 事件到 events.jsonl
+1. 读取 parallel_plan.json:
+   - fallback_to_serial=true → 纯串行执行所有 task
+   - 否则按 batches[] 顺序执行
+2. 对每个 batch (从 parallel_plan.json 的 batches 字段):
+   发射 parallel_batch_start 事件
+   if can_parallel=false 或 len(tasks)==1:
      → 前台 Task 同步执行（零开销）
    else:
      → 全部 Task(run_in_background: true) 后台并行派发
      → 等待 Claude Code 自动完成通知
      → 收集所有 JSON 信封
      → 按 task 编号顺序写入 checkpoint + git fixup
-5. 继续下一个 batch
+   发射 parallel_batch_end 事件
+3. 继续下一个 batch
 ```
 
 **Batch 派发模板**

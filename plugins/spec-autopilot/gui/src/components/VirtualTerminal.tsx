@@ -34,15 +34,28 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   subagent_stop: "\x1b[32m",
   transcript_message: "\x1b[37m",
   status_snapshot: "\x1b[90m",
+  // v5.4: 模型路由事件
+  model_routing: "\x1b[1;33m",      // bright yellow
+  model_effective: "\x1b[1;32m",    // bright green
+  model_fallback: "\x1b[1;31m",     // bright red
+  // v5.5: 并行调度事件
+  parallel_plan: "\x1b[1;36m",           // bright cyan
+  parallel_batch_start: "\x1b[1;34m",    // bright blue
+  parallel_batch_end: "\x1b[1;32m",      // bright green
+  parallel_task_ready: "\x1b[36m",       // cyan
+  parallel_task_blocked: "\x1b[1;33m",   // bright yellow
+  parallel_fallback: "\x1b[1;31m",       // bright red
 };
 
 // Filter categories
-type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error" | "conversation" | "system" | "agent_by_id";
+type FilterType = "all" | "lifecycle" | "gate" | "agent" | "tool" | "task" | "error" | "conversation" | "system" | "model" | "parallel" | "agent_by_id";
 
 const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "all", label: "全部" },
   { value: "lifecycle", label: "阶段生命周期" },
   { value: "gate", label: "门禁" },
+  { value: "model", label: "模型路由" },
+  { value: "parallel", label: "并行调度" },
   { value: "agent", label: "Agent" },
   { value: "agent_by_id", label: "指定 Agent" },
   { value: "tool", label: "工具调用" },
@@ -56,6 +69,8 @@ const FILTER_MATCH: Record<FilterType, Set<string> | null> = {
   all: null,
   lifecycle: new Set(["phase_start", "phase_end"]),
   gate: new Set(["gate_pass", "gate_block", "gate_decision_pending", "gate_decision_received"]),
+  model: new Set(["model_routing", "model_effective", "model_fallback"]),
+  parallel: new Set(["parallel_plan", "parallel_batch_start", "parallel_batch_end", "parallel_task_ready", "parallel_task_blocked", "parallel_fallback"]),
   agent: new Set(["agent_dispatch", "agent_complete"]),
   agent_by_id: new Set(["tool_use", "agent_dispatch", "agent_complete"]),
   tool: new Set(["tool_use"]),
@@ -151,6 +166,39 @@ function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): st
     case "hook_event":
       if (typeof p.hook_name === "string") detail = ` ${dimGray}hook=${reset}${p.hook_name}`;
       if (typeof p.preview === "string") detail += ` ${dimGray}${p.preview.slice(0, 100)}${reset}`;
+      break;
+    case "model_routing":
+      detail = ` ${dimGray}tier=${reset}${String(p.selected_tier ?? "--")} ${dimGray}model=${reset}${String(p.selected_model ?? "--")} ${dimGray}effort=${reset}${String(p.selected_effort ?? "--")}`;
+      if (p.escalated_from) detail += ` ${dimGray}escalated_from=${reset}${String(p.escalated_from)}`;
+      if (typeof p.routing_reason === "string") detail += ` ${dimGray}reason="${reset}${p.routing_reason.slice(0, 80)}${dimGray}"${reset}`;
+      break;
+    case "model_effective":
+      detail = ` ${dimGray}effective=${reset}${String(p.effective_model ?? "--")} ${dimGray}source=${reset}${String(p.inference_source ?? "--")}`;
+      if (p.match === false) detail += ` \x1b[33m[MISMATCH]${reset}`;
+      break;
+    case "model_fallback":
+      detail = ` ${dimGray}from=${reset}${String(p.requested_model ?? "--")} ${dimGray}to=${reset}${String(p.fallback_model ?? "--")} ${dimGray}reason="${reset}${String(p.fallback_reason ?? "").slice(0, 80)}${dimGray}"${reset}`;
+      break;
+    case "parallel_plan":
+      detail = ` ${dimGray}decision=${reset}${String(p.scheduler_decision ?? "--")} ${dimGray}tasks=${reset}${String(p.total_tasks ?? "--")} ${dimGray}batches=${reset}${String(p.batch_count ?? "--")} ${dimGray}max_parallel=${reset}${String(p.max_parallelism ?? "--")}`;
+      if (p.fallback_to_serial) detail += ` \x1b[33m[FALLBACK]${reset}`;
+      break;
+    case "parallel_batch_start":
+      detail = ` ${dimGray}batch=${reset}#${String(p.batch_index ?? "--")} ${dimGray}tasks=${reset}${String(p.task_count ?? "--")}`;
+      if (p.can_parallel) detail += ` ${dimGray}[parallel]${reset}`;
+      break;
+    case "parallel_batch_end":
+      detail = ` ${dimGray}batch=${reset}#${String(p.batch_index ?? "--")} ${dimGray}status=${reset}${String(p.status ?? "--")}`;
+      if (p.duration_ms != null) detail += ` ${dimGray}duration=${reset}${String(p.duration_ms)}ms`;
+      break;
+    case "parallel_task_ready":
+      detail = ` ${dimGray}task=${reset}${String(p.task_name ?? "--")} ${dimGray}batch=${reset}#${String(p.batch_index ?? "--")}`;
+      break;
+    case "parallel_task_blocked":
+      detail = ` ${dimGray}task=${reset}${String(p.task_name ?? "--")} ${dimGray}blocked_by=${reset}${String(p.blocked_by ?? "--")}`;
+      break;
+    case "parallel_fallback":
+      detail = ` ${dimGray}reason="${reset}${String(p.fallback_reason ?? "").slice(0, 100)}${dimGray}"${reset}`;
       break;
   }
 

@@ -6,6 +6,39 @@
 import { create } from "zustand";
 import type { AutopilotEvent } from "../lib/ws-bridge";
 
+// --- 模型路由聚合状态 (v5.4) ---
+type ModelStatus = "requested" | "effective" | "fallback" | "unknown" | "unsupported";
+type ModelTier = "fast" | "standard" | "deep" | "auto";
+type EffortLevel = "low" | "medium" | "high";
+
+export interface ModelRoutingState {
+  requested_model: string | null;
+  requested_tier: ModelTier | null;
+  requested_effort: EffortLevel | null;
+  effective_model: string | null;
+  fallback_model: string | null;
+  model_status: ModelStatus;
+  routing_reason: string | null;
+  fallback_applied: boolean;
+  fallback_reason: string | null;
+  inference_source: string | null;
+  capability_note: string | null;
+  phase: number;
+  agent_id: string | null;
+  updated_at: string | null;
+}
+
+export interface ParallelPlanSummary {
+  scheduler_decision: string;
+  total_tasks: number;
+  batch_count: number;
+  max_parallelism: number;
+  fallback_to_serial: boolean;
+  fallback_reason: string | null;
+  current_batch_index: number | null;
+  updated_at: string | null;
+}
+
 interface TaskProgress {
   task_name: string;
   status: "running" | "passed" | "failed" | "retrying";
@@ -53,6 +86,15 @@ export interface StatusSnapshot {
   timestamp: string;
 }
 
+/** 服务可用性细分 (v5.4) */
+export interface ServerHealth {
+  httpOk: boolean;
+  wsConnected: boolean;
+  telemetryAvailable: boolean;
+  transcriptAvailable: boolean;
+  statusLineInstalled: boolean;
+}
+
 interface AppState {
   events: AutopilotEvent[];
   transcriptEvents: AutopilotEvent[];
@@ -66,9 +108,18 @@ interface AppState {
   taskProgress: Map<string, TaskProgress>;
   agentMap: Map<string, AgentInfo>;
   decisionAcked: boolean;
+  /** 模型路由聚合状态 (v5.4) */
+  modelRouting: ModelRoutingState;
+  /** 模型路由历史记录 (v5.4) */
+  modelRoutingHistory: ModelRoutingState[];
+  /** 服务可用性细分 (v5.4) */
+  serverHealth: ServerHealth;
+  /** 并行调度计划摘要 (v5.5) */
+  parallelPlan: ParallelPlanSummary;
 
   addEvents: (events: AutopilotEvent[]) => void;
   setConnected: (connected: boolean) => void;
+  setHttpOk: (ok: boolean) => void;
   setDecisionAcked: (acked: boolean) => void;
   lastAckedBlockSequence: number;
   setLastAckedBlockSequence: (seq: number) => void;
@@ -228,6 +279,47 @@ export function selectGateStats(events: AutopilotEvent[]): GateStats {
   return { passed, blocked, pending, passRate };
 }
 
+/** 提取模型路由事件历史 (v5.4) */
+export function selectModelRoutingEvents(events: AutopilotEvent[]): AutopilotEvent[] {
+  return events.filter((e) => e.type === "model_routing" || e.type === "model_effective" || e.type === "model_fallback");
+}
+
+const DEFAULT_MODEL_ROUTING: ModelRoutingState = {
+  requested_model: null,
+  requested_tier: null,
+  requested_effort: null,
+  effective_model: null,
+  fallback_model: null,
+  model_status: "unknown",
+  routing_reason: null,
+  fallback_applied: false,
+  fallback_reason: null,
+  inference_source: null,
+  capability_note: null,
+  phase: 0,
+  agent_id: null,
+  updated_at: null,
+};
+
+const DEFAULT_SERVER_HEALTH: ServerHealth = {
+  httpOk: false,
+  wsConnected: false,
+  telemetryAvailable: false,
+  transcriptAvailable: false,
+  statusLineInstalled: false,
+};
+
+const DEFAULT_PARALLEL_PLAN: ParallelPlanSummary = {
+  scheduler_decision: "unknown",
+  total_tasks: 0,
+  batch_count: 0,
+  max_parallelism: 0,
+  fallback_to_serial: false,
+  fallback_reason: null,
+  current_batch_index: null,
+  updated_at: null,
+};
+
 export const useStore = create<AppState>((set) => ({
   events: [],
   transcriptEvents: [],
@@ -242,6 +334,10 @@ export const useStore = create<AppState>((set) => ({
   agentMap: new Map(),
   decisionAcked: false,
   lastAckedBlockSequence: -1,
+  modelRouting: { ...DEFAULT_MODEL_ROUTING },
+  modelRoutingHistory: [],
+  serverHealth: { ...DEFAULT_SERVER_HEALTH },
+  parallelPlan: { ...DEFAULT_PARALLEL_PLAN },
 
   addEvents: (newEvents) =>
     set((state) => {
@@ -257,6 +353,9 @@ export const useStore = create<AppState>((set) => ({
       const CRITICAL_TYPES = new Set([
         "phase_start", "phase_end", "gate_block", "gate_pass",
         "agent_dispatch", "agent_complete", "session_start", "session_end",
+        "model_routing", "model_effective", "model_fallback",
+        "parallel_plan", "parallel_batch_start", "parallel_batch_end",
+        "parallel_task_ready", "parallel_task_blocked", "parallel_fallback",
       ]);
       const MAX_CRITICAL = 400;
       const MAX_REGULAR = 2400;
@@ -276,6 +375,9 @@ export const useStore = create<AppState>((set) => ({
       const newTaskProgress = new Map(state.taskProgress);
       const newAgentMap = new Map(state.agentMap);
       let latestStatus = state.latestStatus;
+      let modelRouting = state.modelRouting;
+      const modelRoutingHistory = [...state.modelRoutingHistory];
+      let parallelPlan = state.parallelPlan;
 
       for (const event of newEvents) {
         if (event.type === "task_progress" && event.phase === 5 && isTaskProgressPayload(event.payload)) {
@@ -328,6 +430,103 @@ export const useStore = create<AppState>((set) => ({
             version: event.payload.version as string | undefined,
             timestamp: event.timestamp,
           };
+          // v5.4: 从 statusLine 推断 effective_model
+          if (latestStatus.model && modelRouting.requested_model && modelRouting.model_status === "requested") {
+            const inferredModel = latestStatus.model;
+            const match = inferredModel.includes(modelRouting.requested_model) ||
+              modelRouting.requested_model === "auto";
+            modelRouting = {
+              ...modelRouting,
+              effective_model: inferredModel,
+              model_status: "effective",
+              inference_source: "statusline",
+              capability_note: match ? null : "runtime model override unsupported — effective model inferred from statusLine",
+              updated_at: event.timestamp,
+            };
+          }
+        } else if (event.type === "model_routing") {
+          // v5.4: 路由器请求事件 → requested 状态
+          const p = event.payload as Record<string, unknown>;
+          modelRouting = {
+            requested_model: String(p.selected_model ?? "auto"),
+            requested_tier: (p.selected_tier as ModelTier) ?? "auto",
+            requested_effort: (p.selected_effort as EffortLevel) ?? "medium",
+            effective_model: null,
+            fallback_model: (p.fallback_model as string) ?? null,
+            model_status: "requested",
+            routing_reason: String(p.routing_reason ?? ""),
+            fallback_applied: Boolean(p.fallback_applied),
+            fallback_reason: null,
+            inference_source: null,
+            capability_note: null,
+            phase: event.phase,
+            agent_id: (p.agent_id as string) ?? null,
+            updated_at: event.timestamp,
+          };
+          modelRoutingHistory.push({ ...modelRouting });
+        } else if (event.type === "model_effective") {
+          // v5.4: 运行时确认实际模型
+          const p = event.payload as Record<string, unknown>;
+          modelRouting = {
+            ...modelRouting,
+            effective_model: String(p.effective_model ?? "unknown"),
+            model_status: p.match === false ? "unsupported" : "effective",
+            inference_source: String(p.inference_source ?? "unknown"),
+            capability_note: p.match === false
+              ? "runtime model override unsupported — effective model inferred from statusLine"
+              : null,
+            phase: event.phase,
+            agent_id: (p.agent_id as string) ?? modelRouting.agent_id,
+            updated_at: event.timestamp,
+          };
+        } else if (event.type === "model_fallback") {
+          // v5.4: 模型降级
+          const p = event.payload as Record<string, unknown>;
+          modelRouting = {
+            ...modelRouting,
+            fallback_model: String(p.fallback_model ?? "sonnet"),
+            model_status: "fallback",
+            fallback_applied: true,
+            fallback_reason: String(p.fallback_reason ?? ""),
+            phase: event.phase,
+            agent_id: (p.agent_id as string) ?? modelRouting.agent_id,
+            updated_at: event.timestamp,
+          };
+          modelRoutingHistory.push({ ...modelRouting });
+        } else if (event.type === "parallel_plan") {
+          // v5.5: 并行计划生成事件
+          const p = event.payload as Record<string, unknown>;
+          parallelPlan = {
+            scheduler_decision: String(p.scheduler_decision ?? "unknown"),
+            total_tasks: Number(p.total_tasks ?? 0),
+            batch_count: Number(p.batch_count ?? 0),
+            max_parallelism: Number(p.max_parallelism ?? 0),
+            fallback_to_serial: Boolean(p.fallback_to_serial),
+            fallback_reason: p.fallback_reason ? String(p.fallback_reason) : null,
+            current_batch_index: parallelPlan.current_batch_index,
+            updated_at: event.timestamp,
+          };
+        } else if (event.type === "parallel_batch_start") {
+          const p = event.payload as Record<string, unknown>;
+          parallelPlan = {
+            ...parallelPlan,
+            current_batch_index: Number(p.batch_index ?? 0),
+            updated_at: event.timestamp,
+          };
+        } else if (event.type === "parallel_batch_end") {
+          parallelPlan = {
+            ...parallelPlan,
+            updated_at: event.timestamp,
+          };
+        } else if (event.type === "parallel_fallback") {
+          const p = event.payload as Record<string, unknown>;
+          parallelPlan = {
+            ...parallelPlan,
+            fallback_to_serial: true,
+            fallback_reason: p.fallback_reason ? String(p.fallback_reason) : null,
+            scheduler_decision: "serial",
+            updated_at: event.timestamp,
+          };
         }
       }
 
@@ -349,6 +548,17 @@ export const useStore = create<AppState>((set) => ({
       const transcriptEvents = merged.filter((e) => e.type === "transcript_message");
       const toolEvents = merged.filter((e) => e.type === "tool_use");
 
+      // v5.4: Derive serverHealth from accumulated state
+      const hasStatusSnapshot = merged.some((e) => e.type === "status_snapshot");
+      const hasTranscript = merged.some((e) => e.type === "transcript_message");
+      const newServerHealth: ServerHealth = {
+        httpOk: state.serverHealth.httpOk, // preserved from WS/snapshot init, not hardcoded
+        wsConnected: state.connected, // actual WS connection state
+        telemetryAvailable: merged.length > 0,
+        transcriptAvailable: hasTranscript,
+        statusLineInstalled: hasStatusSnapshot,
+      };
+
       return {
         events: merged,
         transcriptEvents,
@@ -361,10 +571,21 @@ export const useStore = create<AppState>((set) => ({
         taskProgress: newTaskProgress,
         agentMap: newAgentMap,
         decisionAcked: newDecisionAcked,
+        modelRouting,
+        modelRoutingHistory,
+        serverHealth: newServerHealth,
+        parallelPlan,
       };
     }),
 
-  setConnected: (connected) => set({ connected }),
+  setConnected: (connected) => set((state) => ({
+    connected,
+    serverHealth: { ...state.serverHealth, wsConnected: connected },
+  })),
+
+  setHttpOk: (ok) => set((state) => ({
+    serverHealth: { ...state.serverHealth, httpOk: ok },
+  })),
 
   setDecisionAcked: (acked) => set({ decisionAcked: acked }),
 
@@ -385,5 +606,9 @@ export const useStore = create<AppState>((set) => ({
       agentMap: new Map(),
       decisionAcked: false,
       lastAckedBlockSequence: -1,
+      modelRouting: { ...DEFAULT_MODEL_ROUTING },
+      modelRoutingHistory: [],
+      serverHealth: { ...DEFAULT_SERVER_HEALTH },
+      parallelPlan: { ...DEFAULT_PARALLEL_PLAN },
     }),
 }));

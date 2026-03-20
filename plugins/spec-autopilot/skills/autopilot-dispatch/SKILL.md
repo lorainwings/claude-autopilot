@@ -78,9 +78,17 @@ dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
    - 当 Claude Code 支持 `model` 参数时直接传递
    - 否则退化为 `CLAUDE_CODE_SUBAGENT_MODEL` 环境变量
 
-5. **发射路由事件**:
+5. **发射路由事件**（`$AGENT_ID` 为必填参数，并行场景下用于精确归因）:
    ```bash
-   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" "$ROUTING_JSON"
+   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" "$ROUTING_JSON" "$AGENT_ID"
+   ```
+   - `$AGENT_ID` 格式为 `phase{N}-{slug}`，与 auto-emit-agent-dispatch.sh 生成的一致
+   - 缺少 agent_id 的路由事件在并行场景下会被 statusline-collector 拒绝匹配
+   - statusline-collector.sh 会自动比较观测模型与请求模型，发射 `model_effective` 事件
+   - 当 Task 因模型不可用失败并使用 fallback 重试时，发射 `model_fallback` 事件:
+   ```bash
+   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" \
+     '{"requested_model":"opus","fallback_model":"sonnet","fallback_reason":"Rate limit"}' "$AGENT_ID" "model_fallback"
    ```
 
 **默认 Phase 路由策略**:

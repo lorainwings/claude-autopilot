@@ -192,4 +192,61 @@ print(json.dumps(p, ensure_ascii=False))
 bash "$SCRIPT_DIR/emit-agent-event.sh" agent_complete "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "$PAYLOAD" >/dev/null 2>&1 ||
   echo "WARNING: agent_complete event emission failed for $AGENT_ID" >&2
 
+# --- v5.4: Emit model_fallback when task failed and fallback_model is available ---
+if [ "$STATUS" = "failed" ] || [ "$STATUS" = "blocked" ]; then
+  _EVENTS_FILE="$PROJECT_ROOT/logs/events.jsonl"
+  if [ -f "$_EVENTS_FILE" ] && command -v python3 &>/dev/null; then
+    _FB_JSON=$(python3 -c "
+import json, sys, os
+
+events_file = sys.argv[1]
+phase = int(sys.argv[2])
+session_id = sys.argv[3]
+agent_id = sys.argv[4]
+status = sys.argv[5]
+
+lines = []
+try:
+    with open(events_file, 'r') as f:
+        lines = f.readlines()[-100:]
+except Exception:
+    sys.exit(0)
+
+# Find last model_routing for this phase+session+agent that has fallback_model
+for line in reversed(lines):
+    line = line.strip()
+    if not line or 'model_routing' not in line:
+        continue
+    try:
+        ev = json.loads(line)
+        if ev.get('type') != 'model_routing':
+            continue
+        if ev.get('phase') != phase:
+            continue
+        if session_id and ev.get('session_id') != session_id:
+            continue
+        payload = ev.get('payload', {})
+        # Match agent_id: when we know the current agent, reject any event
+        # that doesn't carry the same agent_id (including untagged events).
+        ev_agent = payload.get('agent_id', '')
+        if agent_id and ev_agent != agent_id:
+            continue
+        fb = payload.get('fallback_model')
+        if fb and fb not in ('null', 'None', ''):
+            result = {
+                'requested_model': payload.get('selected_model', ''),
+                'fallback_model': fb,
+                'fallback_reason': f'Task {agent_id} completed with status={status}',
+            }
+            print(json.dumps(result, ensure_ascii=False))
+        break
+    except Exception:
+        continue
+" "$_EVENTS_FILE" "$PHASE" "$SESSION_ID" "$AGENT_ID" "$STATUS" 2>/dev/null) || _FB_JSON=""
+    if [ -n "$_FB_JSON" ]; then
+      bash "$SCRIPT_DIR/emit-model-routing-event.sh" "$PROJECT_ROOT" "$PHASE" "$MODE" "$_FB_JSON" "$AGENT_ID" "model_fallback" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
 exit 0
