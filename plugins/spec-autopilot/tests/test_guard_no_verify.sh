@@ -212,6 +212,12 @@ cat > "$DRIFT_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
 MKJSON
 echo -e "# Changelog\n\n## [2.0.0] - 2026-01-01\n\n### Added\n- init" > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md"
 
+# Stub build-dist.sh + dist dir so pre-commit build step succeeds
+mkdir -p "$DRIFT_DIR/plugins/spec-autopilot/tools"
+mkdir -p "$DRIFT_DIR/dist/spec-autopilot"
+echo '#!/usr/bin/env bash' > "$DRIFT_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+chmod +x "$DRIFT_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+
 git -C "$DRIFT_DIR" add -A
 git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 
@@ -239,19 +245,29 @@ if command -v jq &>/dev/null; then
   drift_exit=0
   drift_output=$(git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: test drift sync" 2>&1) || drift_exit=$?
 
-  # After commit (or attempt), check marketplace.json was synced
-  DRIFT_MKT_VER=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$DRIFT_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
-
-  # marketplace should have been updated from 1.0.0 to 2.0.1 (auto-bumped)
-  if [ "$DRIFT_MKT_VER" != "1.0.0" ] && [ -n "$DRIFT_MKT_VER" ]; then
-    green "  PASS: 6a. marketplace.json synced from 1.0.0 to $DRIFT_MKT_VER"
+  # 6a. Commit must succeed
+  if [ "$drift_exit" -eq 0 ]; then
+    green "  PASS: 6a. commit succeeded with marketplace drift"
     PASS=$((PASS + 1))
   else
-    red "  FAIL: 6a. marketplace.json still 1.0.0 (not synced)"
+    red "  FAIL: 6a. commit failed (exit=$drift_exit): $drift_output"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # 6b. marketplace.json must be exactly 2.0.1 (auto-bumped from plugin.json 2.0.0)
+  DRIFT_MKT_VER=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$DRIFT_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
+  if [ "$DRIFT_MKT_VER" = "2.0.1" ]; then
+    green "  PASS: 6b. marketplace.json synced to exact version 2.0.1"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 6b. marketplace.json expected 2.0.1, got '$DRIFT_MKT_VER'"
     FAIL=$((FAIL + 1))
   fi
 else
-  echo "  SKIP: 6a. jq not available, skipping drift test"
+  red "  FAIL: 6a. jq is required but not found"
+  FAIL=$((FAIL + 1))
+  red "  FAIL: 6b. jq is required but not found"
+  FAIL=$((FAIL + 1))
 fi
 
 rm -rf "$DRIFT_DIR"

@@ -15,7 +15,9 @@
 
 - **pre-commit hook 链路收敛**: `core.hooksPath` 指向 `.githooks`，消除 `.git/hooks/pre-commit` 旧实现的执行链路分裂
 - **marketplace.json 版本同步改用 jq 确定性更新**: 按 `name == "spec-autopilot"` 精确匹配，取代脆弱的 sed 文本替换
-- **补充版本漂移回归测试**: 6a 测试验证 plugin.json != marketplace.json 时 pre-commit 自动同步
+- **jq 缺失 fail-closed**: pre-commit 缺少 jq 时硬阻断提交，不再静默跳过版本同步
+- **README badge 兼容 pre-release 版本号**: sed 替换和 grep 读取均支持 `-beta.1` / `-rc.1` 后缀
+- **版本漂移回归测试加强**: 6a 验证 commit 成功，6b 精确断言 marketplace.json == 2.0.1；jq 缺失时 FAIL 不 SKIP
 
 ## [5.1.39] - 2026-03-20
 
