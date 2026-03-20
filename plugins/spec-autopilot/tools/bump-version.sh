@@ -58,7 +58,7 @@ OLD_VERSION=$(jq -r '.version' "$PLUGIN_JSON")
 
 # Check ALL files, not just plugin.json — other files may be out of sync
 MKT_VERSION=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$MARKETPLACE_JSON")
-README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?-blue' "$README_MD" | head -1 | sed 's/version-//;s/-blue//')
+README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$README_MD" | head -1 | sed 's/^version-//;s/-blue$//')
 CL_VERSION=$(grep -oE '## \[[0-9]+\.[0-9]+\.[0-9]+' "$CHANGELOG_MD" | head -1 | sed 's/## \[//')
 
 ALL_MATCH=true
@@ -91,8 +91,8 @@ echo "        ✅ plugins[spec-autopilot].version: $NEW_VERSION"
 
 # --- 3. Update README.md version badge ---
 echo "  [3/4] README.md"
-# Pattern: version-X.Y.Z-blue (in shields.io badge URL)
-sed -i '' "s|version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(-[a-zA-Z0-9.]*\)\{0,1\}-blue|version-${NEW_VERSION}-blue|g" "$README_MD"
+# Pattern: version-X.Y.Z-blue or version-X.Y.Z--beta.1-blue (shields.io escapes - as --)
+sed -i '' "s|version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(--*[a-zA-Z0-9._-]*\)*-blue|version-${NEW_VERSION}-blue|g" "$README_MD"
 echo "        ✅ badge: version-${NEW_VERSION}-blue"
 
 # --- 4. Insert CHANGELOG.md header ---
@@ -118,7 +118,7 @@ echo "📋 Verification:"
 
 V1=$(jq -r '.version' "$PLUGIN_JSON")
 V2=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$MARKETPLACE_JSON")
-V3=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?-blue' "$README_MD" | head -1 | sed 's/version-//;s/-blue//')
+V3=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$README_MD" | head -1 | sed 's/^version-//;s/-blue$//')
 V4_EXISTS=$(grep -c "## \[$NEW_VERSION\]" "$CHANGELOG_MD" || echo 0)
 V4="$NEW_VERSION"
 [ "$V4_EXISTS" -eq 0 ] && V4="missing"
