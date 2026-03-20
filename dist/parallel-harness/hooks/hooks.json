@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"status\":\"parallel-harness session started\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

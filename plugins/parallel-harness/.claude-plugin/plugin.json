@@ -1,0 +1,29 @@
+{
+  "name": "parallel-harness",
+  "version": "0.1.0",
+  "description": "并行 AI 平台 / AI 软件工程控制面插件 — task-graph-first, model-routing-aware, verifier-driven, CI/PR ready",
+  "author": {
+    "name": "vibeflow-team"
+  },
+  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "license": "MIT",
+  "keywords": [
+    "parallel",
+    "task-graph",
+    "multi-agent",
+    "model-routing",
+    "verifier",
+    "ownership",
+    "scheduler",
+    "ci-integration",
+    "pr-integration",
+    "complexity-scoring",
+    "context-packing",
+    "intent-analysis",
+    "orchestration",
+    "ai-platform",
+    "control-plane",
+    "claude-code-plugin"
+  ],
+  "homepage": "https://github.com/lorainwings/claude-autopilot#readme"
+}

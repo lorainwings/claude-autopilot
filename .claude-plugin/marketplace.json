@@ -12,6 +12,13 @@
       "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, and crash recovery",
       "category": "development",
       "version": "5.1.36"
+    },
+    {
+      "name": "parallel-harness",
+      "source": "./dist/parallel-harness",
+      "description": "Parallel AI platform with task-graph-first orchestration, model-routing-aware scheduling, verifier-driven quality gates, and CI/PR integration",
+      "category": "development",
+      "version": "0.1.0"
     }
   ]
 }

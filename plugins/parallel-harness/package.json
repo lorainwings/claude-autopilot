@@ -1,0 +1,16 @@
+{
+  "name": "parallel-harness",
+  "version": "0.1.0",
+  "description": "并行 AI 平台 / AI 软件工程控制面插件",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
