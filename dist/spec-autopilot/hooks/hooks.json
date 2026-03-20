@@ -90,17 +90,6 @@
         ]
       }
     ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PostCompact",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -173,6 +162,11 @@
       {
         "matcher": "compact",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh PostCompact",
+            "timeout": 5
+          },
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/reinject-state-after-compact.sh",

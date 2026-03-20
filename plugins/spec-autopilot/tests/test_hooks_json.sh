@@ -60,7 +60,34 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 6d. Plugin version is > 1.0.0
+# 6d. All top-level hook keys belong to Claude-supported event set
+if python3 -c "
+import json
+ALLOWED = {
+    'PreToolUse', 'PostToolUse', 'PostToolUseFailure',
+    'Notification', 'UserPromptSubmit',
+    'SessionStart', 'SessionEnd', 'Stop',
+    'SubagentStart', 'SubagentStop',
+    'PreCompact', 'PermissionRequest', 'Setup',
+    'TeammateIdle', 'TaskCompleted',
+    'Elicitation', 'ElicitationResult',
+    'ConfigChange', 'WorktreeCreate', 'WorktreeRemove',
+    'InstructionsLoaded',
+}
+with open('$SCRIPT_DIR/../../hooks/hooks.json') as f:
+    data = json.load(f)
+bad = set(data['hooks'].keys()) - ALLOWED
+assert not bad, f'Invalid hook keys: {bad}'
+print('ok')
+" 2>/dev/null | grep -q "ok"; then
+  green "  PASS: all hook keys belong to Claude-supported event set"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: hooks.json contains unsupported hook event keys"
+  FAIL=$((FAIL + 1))
+fi
+
+# 6e. Plugin version is > 1.0.0
 if python3 -c "
 import json
 with open('$SCRIPT_DIR/../../.claude-plugin/plugin.json') as f:

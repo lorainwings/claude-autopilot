@@ -11,6 +11,8 @@ __pycache__/
 *.egg-info/
 build/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 .venv/
@@ -57,3 +59,6 @@ temp/
 *.tmp
 plugins/spec-autopilot/logs/
 .tmp-review-*/
+
+# Worktrees
+.worktrees/

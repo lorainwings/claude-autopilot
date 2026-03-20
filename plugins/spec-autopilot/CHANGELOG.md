@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.1.39] - 2026-03-20
+
+### Fixed
+
+- **hooks.json PostCompact 无效 key**: 移除不在 Claude Code 合法事件集合中的 `PostCompact` 顶级 key，将事件捕获迁移至 `SessionStart(compact)` handler 中 `reinject-state-after-compact.sh` 之前，保持 GUI 可观测性不变
+
+### Added
+
+- **hook key 白名单测试** (`test_hooks_json.sh` 6d): 断言所有顶级 hook key 必须属于 Claude 支持的 21 种事件类型，防止未来回归
+
 ## [5.1.38] - 2026-03-19
 
 ### Fixed
