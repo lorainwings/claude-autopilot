@@ -245,7 +245,7 @@ print(json.dumps(result, ensure_ascii=False))
           _MARKER_DIR=$(echo "$_EFF_RESULT" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('_marker_dir',''))" 2>/dev/null) || true
           if [ -n "$_MARKER_FILE" ] && [ -n "$_MARKER_DIR" ]; then
             mkdir -p "$_MARKER_DIR" 2>/dev/null || true
-            echo "$_OBSERVED_MODEL" > "$_MARKER_FILE" 2>/dev/null || true
+            echo "$_OBSERVED_MODEL" >"$_MARKER_FILE" 2>/dev/null || true
           fi
         fi
       fi

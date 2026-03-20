@@ -30,8 +30,11 @@ EVENT_TYPE="${6:-model_routing}"
 
 # 校验事件类型
 case "$EVENT_TYPE" in
-  model_routing|model_effective|model_fallback) ;;
-  *) echo "ERROR: 不支持的事件类型: $EVENT_TYPE (仅支持 model_routing/model_effective/model_fallback)" >&2; exit 1 ;;
+  model_routing | model_effective | model_fallback) ;;
+  *)
+    echo "ERROR: 不支持的事件类型: $EVENT_TYPE (仅支持 model_routing/model_effective/model_fallback)" >&2
+    exit 1
+    ;;
 esac
 
 # 生成 ISO-8601 时间戳

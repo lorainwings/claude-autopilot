@@ -61,7 +61,7 @@ if [ -z "$AUTO_CONTINUE_SINGLE_CANDIDATE" ]; then
   AUTO_CONTINUE_SINGLE_CANDIDATE=$(read_config_value "$PROJECT_ROOT" "recovery.auto_continue_single_candidate" "true" 2>/dev/null) || AUTO_CONTINUE_SINGLE_CANDIDATE="true"
 fi
 case "$AUTO_CONTINUE_SINGLE_CANDIDATE" in
-  true|True|1|yes) AUTO_CONTINUE_SINGLE_CANDIDATE="true" ;;
+  true | True | 1 | yes) AUTO_CONTINUE_SINGLE_CANDIDATE="true" ;;
   *) AUTO_CONTINUE_SINGLE_CANDIDATE="false" ;;
 esac
 
@@ -126,10 +126,10 @@ except: pass" "$LOCK_FILE" 2>/dev/null) || true
   fi
   if [ -n "$ANCHOR_SHA" ] && git -C "$PROJECT_ROOT" rev-parse --verify "${ANCHOR_SHA}^{commit}" &>/dev/null; then
     # Scan only commits since anchor (current autopilot session)
-    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" "${ANCHOR_SHA}..HEAD" 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format='%s' "${ANCHOR_SHA}..HEAD" 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
   else
     # No anchor — fall back to last 50 commits (bounded, not entire history)
-    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+    FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format='%s' -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
   fi
   [ "$FIXUP_COMMIT_COUNT" -gt 0 ] && HAS_FIXUP_COMMITS=true
 fi

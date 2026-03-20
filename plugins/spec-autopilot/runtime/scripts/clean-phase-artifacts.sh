@@ -399,7 +399,7 @@ HAS_FIXUP_COMMITS=false
 FIXUP_COMMIT_COUNT=0
 if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null && command -v git &>/dev/null; then
   # Scope to last 50 commits to avoid scanning entire history
-  FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format="%s" -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
+  FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format='%s' -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
   [ "$FIXUP_COMMIT_COUNT" -gt 0 ] && HAS_FIXUP_COMMITS=true
 fi
 

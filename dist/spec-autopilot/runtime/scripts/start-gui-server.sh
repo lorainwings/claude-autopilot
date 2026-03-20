@@ -17,9 +17,9 @@ MODE="start"
 POSITIONAL_ARGS=()
 for arg in "$@"; do
   case "$arg" in
-    --stop)         MODE="stop" ;;
+    --stop) MODE="stop" ;;
     --check-health) MODE="check-health" ;;
-    *)              POSITIONAL_ARGS+=("$arg") ;;
+    *) POSITIONAL_ARGS+=("$arg") ;;
   esac
 done
 
@@ -81,7 +81,7 @@ check_pid_alive() {
 write_pid() {
   local pid="$1"
   mkdir -p "$LOGS_DIR"
-  echo "$pid" > "$PID_FILE"
+  echo "$pid" >"$PID_FILE"
 }
 
 # --- Remove PID file ---

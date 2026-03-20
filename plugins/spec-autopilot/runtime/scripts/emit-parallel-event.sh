@@ -30,8 +30,11 @@ PAYLOAD_JSON="${5:-"{}"}"
 
 # 校验事件类型
 case "$EVENT_TYPE" in
-  parallel_plan|parallel_batch_start|parallel_batch_end|parallel_task_ready|parallel_task_blocked|parallel_fallback) ;;
-  *) echo "ERROR: 不支持的事件类型: $EVENT_TYPE (仅支持 parallel_plan/parallel_batch_start/parallel_batch_end/parallel_task_ready/parallel_task_blocked/parallel_fallback)" >&2; exit 1 ;;
+  parallel_plan | parallel_batch_start | parallel_batch_end | parallel_task_ready | parallel_task_blocked | parallel_fallback) ;;
+  *)
+    echo "ERROR: 不支持的事件类型: $EVENT_TYPE (仅支持 parallel_plan/parallel_batch_start/parallel_batch_end/parallel_task_ready/parallel_task_blocked/parallel_fallback)" >&2
+    exit 1
+    ;;
 esac
 
 # 生成 ISO-8601 时间戳
