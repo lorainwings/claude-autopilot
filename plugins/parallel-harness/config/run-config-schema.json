@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "parallel-harness Run Config",
+  "type": "object",
+  "required": ["version", "run_config"],
+  "properties": {
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string" },
+    "run_config": {
+      "type": "object",
+      "required": ["max_concurrency", "budget_limit", "max_model_tier", "enabled_gates", "timeout_ms"],
+      "properties": {
+        "max_concurrency": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "high_risk_max_concurrency": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "prioritize_critical_path": { "type": "boolean" },
+        "budget_limit": { "type": "number", "minimum": 0 },
+        "max_model_tier": { "type": "string", "enum": ["tier-1", "tier-2", "tier-3"] },
+        "enabled_gates": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["test", "lint_type", "review", "security", "perf", "coverage", "policy", "documentation", "release_readiness"] }
+        },
+        "auto_approve_rules": { "type": "array", "items": { "type": "string" } },
+        "timeout_ms": { "type": "integer", "minimum": 1000 },
+        "pr_strategy": { "type": "string", "enum": ["none", "single_pr", "stacked_pr"] },
+        "enable_autofix": { "type": "boolean" }
+      }
+    },
+    "gate_overrides": { "type": "object" },
+    "connector_configs": { "type": "array" },
+    "instructions": {
+      "type": "object",
+      "properties": {
+        "org_level": { "type": "array" },
+        "repo_level": { "type": "array" }
+      }
+    }
+  }
+}

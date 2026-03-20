@@ -1,0 +1,27 @@
+{
+  "name": "parallel-harness",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "built_at": "2026-03-20T10:20:42Z",
+  "git_branch": "feature/parallel-harness",
+  "git_commit": "6869549",
+  "test_count": 249,
+  "modules": [
+    "runtime/engine",
+    "runtime/orchestrator",
+    "runtime/scheduler",
+    "runtime/models",
+    "runtime/session",
+    "runtime/verifiers",
+    "runtime/observability",
+    "runtime/workers",
+    "runtime/guards",
+    "runtime/gates",
+    "runtime/persistence",
+    "runtime/integrations",
+    "runtime/governance",
+    "runtime/capabilities",
+    "runtime/schemas",
+    "runtime/server"
+  ]
+}
