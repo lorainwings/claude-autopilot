@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.40] - 2026-03-20
+
+### Fixed
+
+- **TS2430 类型错误**: `ModelRoutingEvidence` 添加 `[key: string]: unknown` 索引签名，修复与 `AutopilotEvent.payload` (`Record<string, unknown>`) 的类型兼容性
+
 ## [5.1.39] - 2026-03-20
 
 ### Fixed
