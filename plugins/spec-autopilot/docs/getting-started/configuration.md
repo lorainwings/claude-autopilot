@@ -162,6 +162,71 @@ test_pyramid:
 | `strict_mode` | boolean | `false` | `true`: block on drift; `false`: warning only |
 | `ignore_patterns` | array | `["*.test.*", "*.spec.*", "__mocks__/**"]` | File patterns to ignore |
 
+## `model_routing` (v5.3)
+
+Model routing configuration controlling AI model tier for each phase. Supports both legacy and new formats.
+
+### Legacy Format (backward compatible)
+
+```yaml
+model_routing:
+  phase_1: heavy     # heavy=deep reasoning → deep/opus
+  phase_2: light     # light=mechanical ops → standard/sonnet
+  phase_5: auto      # auto=inherit parent session model, no override
+```
+
+### New Format (recommended)
+
+```yaml
+model_routing:
+  enabled: true
+  default_subagent_model: sonnet
+  fallback_model: sonnet
+  phases:
+    phase_1:
+      tier: deep
+      model: opus
+      effort: high
+    phase_5:
+      tier: standard
+      model: sonnet
+      effort: medium
+      escalate_on_failure_to: deep
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Enable model routing |
+| `default_session_model` | string | — | Default model for main thread (e.g. `opusplan`) |
+| `default_subagent_model` | string | `sonnet` | Default model for sub-agents |
+| `fallback_model` | string | `sonnet` | Fallback when model unavailable |
+| `phases` | object | — | Per-phase model configuration |
+
+### Per-Phase Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tier` | string | Model tier: `fast` / `standard` / `deep` / `auto` |
+| `model` | string | Specific model: `haiku` / `sonnet` / `opus` / `opusplan` |
+| `effort` | string | Reasoning depth: `low` / `medium` / `high` |
+| `escalate_on_failure_to` | string | Escalation target on failure (e.g. `deep`) |
+
+### Tier Mapping
+
+| tier | model | effort | Use case |
+|------|-------|--------|----------|
+| `fast` | haiku | low | Mechanical operations (OpenSpec, FF, reports) |
+| `standard` | sonnet | medium | Code implementation, routine analysis |
+| `deep` | opus | high | Requirements analysis, test design, critical retries |
+
+### Escalation Policy
+
+- `fast` fails once → escalate to `standard`
+- `standard` fails twice or critical task → escalate to `deep`
+- `deep` still fails → no auto-escalation, manual decision required
+
 ## `project_context`
 
 Project-specific context auto-detected by `autopilot-init`. Dispatch dynamically injects these values into sub-agent prompts, **eliminating the need for separate instruction files in most cases**.

@@ -53,6 +53,50 @@ dispatch 子 Agent 时按以下优先级构造项目上下文：
 
 按模板构造子 Agent prompt，注入优先级从高到低：instruction_files → reference_files → Project Rules → project_context → test_suites → services → Phase 1 Steering → 内置规则。
 
+### 模型路由 dispatch 流程（v5.3 新增）
+
+dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
+
+1. **调用 resolver**:
+   ```bash
+   ROUTING_JSON=$(bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL")
+   ```
+
+2. **提取路由结果**:
+   ```bash
+   SELECTED_TIER=$(echo "$ROUTING_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])")
+   SELECTED_MODEL=$(echo "$ROUTING_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_model'])")
+   ```
+
+3. **选择 subagent 层级**:
+   - `autopilot-fast` → haiku (tier=fast)
+   - `autopilot-standard` → sonnet (tier=standard)
+   - `autopilot-deep` → opus (tier=deep)
+
+4. **注入 prompt + 传递 model 参数**:
+   - 将路由结果注入 prompt 的"执行模式"段落
+   - 当 Claude Code 支持 `model` 参数时直接传递
+   - 否则退化为 `CLAUDE_CODE_SUBAGENT_MODEL` 环境变量
+
+5. **发射路由事件**:
+   ```bash
+   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" "$ROUTING_JSON"
+   ```
+
+**默认 Phase 路由策略**:
+
+| Phase | tier | model | 理由 |
+|-------|------|-------|------|
+| 1 | deep | opus | 需求分析需要深度推理 |
+| 2 | fast | haiku | OpenSpec 创建是机械性操作 |
+| 3 | fast | haiku | FF 生成是模板化操作 |
+| 4 | deep | opus | 测试设计需要创造力 |
+| 5 | standard | sonnet | 代码实施需要完整能力 |
+| 6 | fast | haiku | 报告生成是机械性操作 |
+| 7 | fast | haiku | 汇总与归档较简单 |
+
+**升级策略**: fast →(失败1次)→ standard →(失败2次)→ deep →(仍失败)→ 人工决策
+
 ### 优先级 2.5: Project Rules Auto-Scan（全阶段注入，v3.0 增强）
 
 dispatch 任何阶段的子 Agent 时，自动运行 `rules-scanner.sh` 扫描项目 `.claude/rules/` 目录和 `CLAUDE.md`，提取所有约束并注入到子 Agent prompt 中。

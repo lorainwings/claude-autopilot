@@ -67,28 +67,86 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 {end for}
 {end if}
 
-### 模型路由提示注入（v3.0 新增）
+### 模型路由（v5.3 升级为执行级路由）
 
-dispatch 子 Agent 时，从 `config.model_routing.phase_{N}` 读取模型等级提示，注入到 prompt 中：
+dispatch 子 Agent 前，主线程先调用 `resolve-model-routing.sh` 获取模型路由决策：
 
-{if config.model_routing.phase_{N} == "light"}
-## 执行模式：高效模式
+```bash
+ROUTING_JSON=$(bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" {phase_number} {complexity} {requirement_type} {retry_count} {critical})
+```
+
+返回 JSON 包含：`selected_tier` / `selected_model` / `selected_effort` / `routing_reason` / `escalated_from` / `fallback_applied`
+
+#### 三层 subagent 模型分层
+
+| 概念名 | tier | model | effort | 适用场景 |
+|--------|------|-------|--------|----------|
+| `autopilot-fast` | fast | haiku | low | 机械性操作（OpenSpec、FF、报告、归档） |
+| `autopilot-standard` | standard | sonnet | medium | 代码实施、常规分析 |
+| `autopilot-deep` | deep | opus | high | 需求分析、测试设计、关键重试 |
+
+#### 路由结果注入 prompt
+
+根据 `selected_tier` 注入对应执行模式提示：
+
+{if selected_tier == "fast"}
+## 执行模式：高效模式 (autopilot-fast / haiku)
 本阶段为机械性操作，请聚焦效率：
 - 输出简洁，避免过度分析
 - 优先使用模板和既有模式
 - 减少探索性操作
+> 模型路由: {routing_reason}
 {end if}
 
-{if config.model_routing.phase_{N} == "heavy"}
-## 执行模式：深度分析模式
+{if selected_tier == "standard"}
+## 执行模式：标准模式 (autopilot-standard / sonnet)
+本阶段为常规实施任务：
+- 在质量与效率间取得平衡
+- 关注边界情况但不过度展开
+- 遵循项目既有模式
+> 模型路由: {routing_reason}
+{end if}
+
+{if selected_tier == "deep"}
+## 执行模式：深度分析模式 (autopilot-deep / opus)
 本阶段需要深度推理：
 - 充分考虑边界情况和异常场景
 - 提供详细的决策理由
 - 进行多角度技术评估
+> 模型路由: {routing_reason}
 {end if}
 
-> **注意**: 当前 Claude Code 的 Task API 不支持 per-task model 参数。此提示作为行为引导注入。
-> 未来 Claude Code 支持 model 参数时，插件将直接映射为 API 参数。
+#### subagent model 参数传递
+
+当 Claude Code 支持 Task `model` 参数时，dispatch 直接传递：
+
+```
+Task(prompt: "...", model: "{selected_model}")
+```
+
+> 如果 Claude Code 尚未支持 per-task model 参数，则退化为行为提示注入 + 环境变量 `CLAUDE_CODE_SUBAGENT_MODEL={selected_model}`。
+
+#### 升级重试
+
+当子 Agent 返回 `status: "failed"` 或 `status: "blocked"` 时：
+1. 递增 `retry_count`
+2. 重新调用 `resolve-model-routing.sh` 获取升级后的路由
+3. 升级链: fast → standard → deep
+4. deep 仍失败时不继续自动升级，转人工决策或串行回退
+
+#### 运行时模型不可用 fallback
+
+resolver 输出中包含 `fallback_model` 字段（默认 `sonnet`）。dispatch 层必须实现以下运行时 fallback 协议：
+
+1. dispatch 发起 Task 时，记录 `selected_model` 和 `fallback_model`
+2. 如果 Task 因**模型不可用**失败（错误信息包含 `model_not_available`、`overloaded`、`capacity` 等关键词），则：
+   - 用 `fallback_model` 重新发起同一 Task
+   - 在路由事件中标记 `fallback_applied: true`
+   - routing_reason 追加 `, 模型不可用, fallback 至 {fallback_model}`
+3. 如果 `fallback_model` 也不可用，转人工决策
+4. 如果 Task 因**非模型原因**失败（代码错误、测试不通过等），走正常升级重试链，不触发 fallback
+
+> 注意：resolver 是静态预分析，无法在解析时检测模型可用性。运行时 fallback 由 dispatch 主线程在 Task 执行失败后判断错误类型并决定是否使用 `fallback_model`。
 
 执行完毕后返回结构化 JSON 结果。")
 ```

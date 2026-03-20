@@ -33,12 +33,14 @@ clean-phase-artifacts.sh
 collect-metrics.sh
 emit-agent-event.sh
 emit-gate-event.sh
+emit-model-routing-event.sh
 emit-phase-event.sh
 emit-task-progress.sh
 install-statusline-config.sh
 parallel-merge-guard.sh
 poll-gate-decision.sh
 recovery-decision.sh
+resolve-model-routing.sh
 rules-scanner.sh
 save-phase-context.sh
 start-gui-server.sh

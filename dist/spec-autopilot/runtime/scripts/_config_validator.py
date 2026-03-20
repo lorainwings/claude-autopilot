@@ -118,7 +118,7 @@ REQUIRED_NESTED = [
     "phases.reporting.zero_skip_required",
 ]
 
-RECOMMENDED = ["test_pyramid", "gates", "context_management", "project_context"]
+RECOMMENDED = ["test_pyramid", "gates", "context_management", "project_context", "model_routing"]
 
 TYPE_RULES = {
     "version": str,
@@ -408,13 +408,138 @@ def validate(config_path):
 
     # default_mode enum validation is now handled by ENUM_RULES
 
-    valid = len(missing) == 0 and len(type_errors) == 0 and len(enum_errors) == 0
+    # --- model_routing validation ---
+    model_routing_errors = []
+    mr = get_value(yaml_data, "model_routing")
+    if mr is not None:
+        VALID_LEGACY_VALUES = {"heavy", "light", "auto"}
+        VALID_TIERS = {"fast", "standard", "deep", "auto"}
+        VALID_MODELS = {"haiku", "sonnet", "opus", "opusplan"}
+        VALID_EFFORTS = {"low", "medium", "high"}
+        VALID_PHASES = {f"phase_{i}" for i in range(1, 8)}
+
+        if isinstance(mr, str):
+            # 旧格式顶层字符串: heavy/light/auto
+            if mr not in VALID_LEGACY_VALUES:
+                model_routing_errors.append(
+                    f'model_routing: "{mr}" not in allowed values {sorted(VALID_LEGACY_VALUES)}'
+                )
+        elif isinstance(mr, dict):
+            # 检查是否为旧格式 flat dict (phase_1: heavy, phase_2: light, ...)
+            all_phase_keys = all(k in VALID_PHASES for k in mr.keys())
+            all_legacy_vals = all(isinstance(v, str) and v in VALID_LEGACY_VALUES for v in mr.values())
+
+            if all_phase_keys and all_legacy_vals and len(mr) > 0:
+                # 旧格式 per-phase dict — 合法，无需进一步校验
+                pass
+            else:
+                # 新格式对象化配置
+                allowed_top_keys = {
+                    "enabled", "default_session_model", "default_subagent_model",
+                    "fallback_model", "phases",
+                    # 兼容旧格式 phase_N 键混在新格式顶层
+                } | VALID_PHASES
+
+                for key in mr.keys():
+                    if key not in allowed_top_keys:
+                        model_routing_errors.append(
+                            f'model_routing: unknown key "{key}"'
+                        )
+
+                # enabled 字段
+                mr_enabled = mr.get("enabled")
+                if mr_enabled is not None and not isinstance(mr_enabled, bool):
+                    model_routing_errors.append(
+                        f"model_routing.enabled: expected bool, got {type(mr_enabled).__name__}"
+                    )
+
+                # 模型字段校验
+                for model_key in ("default_session_model", "default_subagent_model", "fallback_model"):
+                    val = mr.get(model_key)
+                    if val is not None:
+                        if not isinstance(val, str):
+                            model_routing_errors.append(
+                                f"model_routing.{model_key}: expected str, got {type(val).__name__}"
+                            )
+                        elif val not in VALID_MODELS and val not in VALID_TIERS:
+                            model_routing_errors.append(
+                                f'model_routing.{model_key}: "{val}" not in allowed values '
+                                f'{sorted(VALID_MODELS | VALID_TIERS)}'
+                            )
+
+                # phases 对象校验
+                phases_obj = mr.get("phases")
+                if phases_obj is not None:
+                    if not isinstance(phases_obj, dict):
+                        model_routing_errors.append(
+                            f"model_routing.phases: expected dict, got {type(phases_obj).__name__}"
+                        )
+                    else:
+                        for pkey, pval in phases_obj.items():
+                            if pkey not in VALID_PHASES:
+                                model_routing_errors.append(
+                                    f'model_routing.phases: unknown phase key "{pkey}"'
+                                )
+                                continue
+                            if isinstance(pval, str):
+                                # 兼容旧格式: phase_1: heavy
+                                if pval not in VALID_LEGACY_VALUES:
+                                    model_routing_errors.append(
+                                        f'model_routing.phases.{pkey}: "{pval}" not in '
+                                        f"allowed values {sorted(VALID_LEGACY_VALUES)}"
+                                    )
+                            elif isinstance(pval, dict):
+                                allowed_phase_keys = {
+                                    "tier", "model", "effort", "escalate_on_failure_to",
+                                }
+                                for pk in pval.keys():
+                                    if pk not in allowed_phase_keys:
+                                        model_routing_errors.append(
+                                            f'model_routing.phases.{pkey}: unknown key "{pk}"'
+                                        )
+                                tier = pval.get("tier")
+                                if tier is not None and tier not in VALID_TIERS:
+                                    model_routing_errors.append(
+                                        f'model_routing.phases.{pkey}.tier: "{tier}" not in '
+                                        f"{sorted(VALID_TIERS)}"
+                                    )
+                                model = pval.get("model")
+                                if model is not None and model not in VALID_MODELS:
+                                    model_routing_errors.append(
+                                        f'model_routing.phases.{pkey}.model: "{model}" not in '
+                                        f"{sorted(VALID_MODELS)}"
+                                    )
+                                effort = pval.get("effort")
+                                if effort is not None and effort not in VALID_EFFORTS:
+                                    model_routing_errors.append(
+                                        f'model_routing.phases.{pkey}.effort: "{effort}" not in '
+                                        f"{sorted(VALID_EFFORTS)}"
+                                    )
+                                esc = pval.get("escalate_on_failure_to")
+                                if esc is not None and esc not in VALID_TIERS and esc not in VALID_MODELS:
+                                    model_routing_errors.append(
+                                        f'model_routing.phases.{pkey}.escalate_on_failure_to: '
+                                        f'"{esc}" not in allowed values '
+                                        f'{sorted(VALID_MODELS | VALID_TIERS)}'
+                                    )
+                            else:
+                                model_routing_errors.append(
+                                    f"model_routing.phases.{pkey}: expected str or dict, "
+                                    f"got {type(pval).__name__}"
+                                )
+        else:
+            model_routing_errors.append(
+                f"model_routing: expected str or dict, got {type(mr).__name__}"
+            )
+
+    valid = len(missing) == 0 and len(type_errors) == 0 and len(enum_errors) == 0 and len(model_routing_errors) == 0
     return {
         "valid": valid,
         "missing_keys": missing,
         "type_errors": type_errors,
         "range_errors": range_errors,
         "enum_errors": enum_errors,
+        "model_routing_errors": model_routing_errors,
         "cross_ref_warnings": cross_ref_warnings,
         "warnings": warnings,
     }

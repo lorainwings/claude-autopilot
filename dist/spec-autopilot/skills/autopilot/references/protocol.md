@@ -49,17 +49,93 @@
 
 无标记的 Task 调用被 Hook 直接放行（exit 0）。
 
-## 模型路由（v3.0 新增）
+## 模型路由（v5.3 升级为执行级路由）
 
-config.model_routing 定义每阶段的推荐模型等级：
+### 路由层级
 
-| 等级 | 含义 | 适用阶段 |
-|------|------|---------|
-| heavy | 需要深度推理的 Opus 级任务 | Phase 1, 4, 5 |
-| light | 机械性操作的 Sonnet 级任务 | Phase 2, 3, 6, 7 |
-| auto | 继承父进程模型（默认） | 未配置时 |
+| 层级 | 含义 | tier | model | effort |
+|------|------|------|-------|--------|
+| autopilot-fast | 机械性操作 | fast | haiku | low |
+| autopilot-standard | 常规实施 | standard | sonnet | medium |
+| autopilot-deep | 深度推理 | deep | opus | high |
 
-> 向后兼容: model_routing 为可选配置。未配置时所有阶段等效 auto。
+### 默认 Phase 路由策略
+
+| Phase | tier | model | 理由 |
+|-------|------|-------|------|
+| 1 | deep | opus | 需求分析需要深度推理 |
+| 2 | fast | haiku | OpenSpec 创建是机械性操作 |
+| 3 | fast | haiku | FF 生成是模板化操作 |
+| 4 | deep | opus | 测试设计需要创造力 |
+| 5 | standard | sonnet | 代码实施需要完整能力 |
+| 6 | fast | haiku | 报告生成是机械性操作 |
+| 7 | fast | haiku | 汇总与归档较简单 |
+
+### 旧格式兼容映射
+
+| 旧值 | 新 tier | 新 model |
+|------|---------|----------|
+| heavy | deep | opus |
+| light | standard | sonnet |
+| auto | auto（继承父会话） | auto（不覆盖） |
+
+### 升级与回退策略
+
+| 触发条件 | 动作 | 执行层 |
+|----------|------|--------|
+| fast 连续失败 1 次 | 升级到 standard | resolver（静态） |
+| standard 连续失败 2 次 | 升级到 deep | resolver（静态） |
+| critical 任务 | 直接使用 deep | resolver（静态） |
+| deep 仍失败 | 不自动升级，转人工决策 | resolver（静态） |
+| 配置 tier 无效 | 回退到 fallback_model | resolver（静态） |
+| 运行时模型不可用 | 用 fallback_model 重试 Task | dispatch（运行时） |
+
+> resolver 是预分析阶段，只处理配置级和重试级路由决策。运行时模型不可用（overloaded / capacity 等）由 dispatch 主线程在 Task 失败后根据错误类型判断，使用 resolver 输出的 `fallback_model` 字段重试。
+
+### 路由解析器
+
+dispatch 子 Agent 前调用 `resolve-model-routing.sh` 统一解析：
+
+```bash
+bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL"
+```
+
+返回结构化 JSON:
+```json
+{
+  "selected_tier": "fast|standard|deep|auto",
+  "selected_model": "haiku|sonnet|opus|auto",
+  "selected_effort": "low|medium|high",
+  "routing_reason": "解析路由的详细原因",
+  "escalated_from": null,
+  "fallback_applied": false,
+  "fallback_model": "sonnet"
+}
+```
+
+> 当 `selected_tier` / `selected_model` 为 `"auto"` 时，dispatch 不传递 model 参数，继承父会话模型。
+
+### 路由证据事件
+
+每次路由决策发射 `model_routing` 事件到 `logs/events.jsonl`：
+
+```json
+{
+  "type": "model_routing",
+  "phase": 5,
+  "payload": {
+    "selected_tier": "standard",
+    "selected_model": "sonnet",
+    "selected_effort": "medium",
+    "routing_reason": "默认 phase 5 路由: standard",
+    "escalated_from": null,
+    "fallback_applied": false,
+    "agent_id": "phase5-task-3"
+  }
+}
+```
+
+> 向后兼容: 旧格式 `model_routing: { phase_1: heavy, phase_2: light, ... }` 仍可用，自动映射到新 tier 体系。
 
 ## Checkpoint 文件命名
 

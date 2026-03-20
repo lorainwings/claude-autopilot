@@ -152,14 +152,57 @@ gates:
     after_phase_3: false     # 设计生成后自动继续
     after_phase_4: false     # 测试设计后自动继续
 
-model_routing:                   # 每阶段模型等级提示（heavy=Opus 级, light=Sonnet 级, auto=继承父进程）
-  phase_1: heavy                 # 需求分析需要深度推理
-  phase_2: light                 # OpenSpec 创建是机械性操作
-  phase_3: light                 # FF 生成是模板化操作
-  phase_4: heavy                 # 测试设计需要创造力
-  phase_5: heavy                 # 代码实施需要完整能力
-  phase_6: light                 # 报告生成是机械性操作
-  phase_7: light                 # 汇总较简单
+model_routing:                   # 模型路由配置（v5.3 升级为执行级路由）
+  # ── 旧格式（向后兼容，仍可用）──
+  # phase_1: heavy               # heavy=Opus 级, light=Sonnet 级, auto=继承父进程
+  # phase_2: light
+  # ...
+
+  # ── 新格式（推荐）──
+  enabled: true                  # 是否启用模型路由（false 时退化为默认路由）
+  default_session_model: opusplan  # 主线程默认模型
+  default_subagent_model: sonnet   # 子 Agent 默认模型
+  fallback_model: sonnet           # 模型不可用时的兜底模型
+  phases:
+    phase_1:
+      tier: deep                 # fast/standard/deep/auto
+      model: opus                # haiku/sonnet/opus/opusplan
+      effort: high               # low/medium/high
+    phase_2:
+      tier: fast
+      model: haiku
+      effort: low
+    phase_3:
+      tier: fast
+      model: haiku
+      effort: low
+    phase_4:
+      tier: deep
+      model: opus
+      effort: high
+    phase_5:
+      tier: standard
+      model: sonnet
+      effort: medium
+      escalate_on_failure_to: deep  # 失败时升级目标
+    phase_6:
+      tier: fast
+      model: haiku
+      effort: low
+    phase_7:
+      tier: fast
+      model: haiku
+      effort: low
+
+  # ── 兼容映射 ──
+  # heavy -> deep (opus)
+  # light -> standard (sonnet)
+  # auto  -> 继承父会话模型（resolver 输出 selected_tier=auto, dispatch 不覆盖模型）
+
+  # ── 自动升级策略（内置，无需配置）──
+  # fast 连续失败 1 次 → 升级到 standard
+  # standard 连续失败 2 次或 critical → 升级到 deep
+  # deep 仍失败 → 不自动升级，转人工决策
 
 context_management:
   git_commit_per_phase: true # 每 Phase 完成后自动 git commit checkpoint

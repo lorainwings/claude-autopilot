@@ -162,6 +162,71 @@ test_pyramid:
 | `strict_mode` | boolean | `false` | `true`：漂移时阻断；`false`：仅警告 |
 | `ignore_patterns` | array | `["*.test.*", "*.spec.*", "__mocks__/**"]` | 忽略的文件模式 |
 
+## `model_routing`（v5.3 新增）
+
+模型路由配置，控制每个阶段使用的 AI 模型档位。支持旧格式和新格式。
+
+### 旧格式（向后兼容）
+
+```yaml
+model_routing:
+  phase_1: heavy     # heavy=深度推理 → deep/opus
+  phase_2: light     # light=机械性操作 → standard/sonnet
+  phase_5: auto      # auto=继承父会话模型，不覆盖
+```
+
+### 新格式（推荐）
+
+```yaml
+model_routing:
+  enabled: true
+  default_subagent_model: sonnet
+  fallback_model: sonnet
+  phases:
+    phase_1:
+      tier: deep
+      model: opus
+      effort: high
+    phase_5:
+      tier: standard
+      model: sonnet
+      effort: medium
+      escalate_on_failure_to: deep
+```
+
+### 字段说明
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | boolean | `true` | 是否启用模型路由 |
+| `default_session_model` | string | — | 主线程默认模型（如 `opusplan`） |
+| `default_subagent_model` | string | `sonnet` | 子 Agent 默认模型 |
+| `fallback_model` | string | `sonnet` | 模型不可用时的兜底模型 |
+| `phases` | object | — | 每个阶段的模型配置 |
+
+### Phase 级字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `tier` | string | 模型档位：`fast` / `standard` / `deep` / `auto` |
+| `model` | string | 具体模型：`haiku` / `sonnet` / `opus` / `opusplan` |
+| `effort` | string | 推理深度：`low` / `medium` / `high` |
+| `escalate_on_failure_to` | string | 失败时升级目标（如 `deep`） |
+
+### Tier 映射表
+
+| tier | model | effort | 适用场景 |
+|------|-------|--------|----------|
+| `fast` | haiku | low | 机械性操作（OpenSpec、FF、报告） |
+| `standard` | sonnet | medium | 代码实施、常规分析 |
+| `deep` | opus | high | 需求分析、测试设计、关键重试 |
+
+### 升级策略
+
+- `fast` 连续失败 1 次 → 升级到 `standard`
+- `standard` 连续失败 2 次或 critical 任务 → 升级到 `deep`
+- `deep` 仍失败 → 不自动升级，转人工决策
+
 ## `project_context`
 
 由 `autopilot-init` 自动检测的项目特定上下文。Dispatch 动态将这些值注入子 Agent 提示词，**大多数情况下无需单独的指令文件**。
