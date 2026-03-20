@@ -17,6 +17,8 @@ setup_recovery_test() {
   mkdir -p "$changes_dir"
   # Initialize as git repo for git_state detection
   (cd "$tmpdir" && git init -q 2>/dev/null) || true
+  # Configure user identity so commits succeed in CI environments without global git config
+  (cd "$tmpdir" && git config user.email "test@ci.local" && git config user.name "CI Test") || true
   echo "$tmpdir"
 }
 
