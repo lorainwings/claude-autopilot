@@ -134,8 +134,11 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 # 5a. Simulate fresh clone: realistic repo structure
 E2E_DIR="$TMP_ROOT/e2e-repo"
 mkdir -p "$E2E_DIR/.githooks"
+mkdir -p "$E2E_DIR/.claude-plugin"
 mkdir -p "$E2E_DIR/plugins/spec-autopilot/.claude-plugin"
 mkdir -p "$E2E_DIR/plugins/spec-autopilot/hooks"
+mkdir -p "$E2E_DIR/plugins/spec-autopilot/tools"
+mkdir -p "$E2E_DIR/dist/spec-autopilot"
 mkdir -p "$E2E_DIR/scripts"
 
 # Init git repo
@@ -149,7 +152,17 @@ chmod +x "$E2E_DIR/scripts/setup-hooks.sh"
 
 # Realistic plugin structure (correct .claude-plugin/ subdirectory)
 echo '{"version": "1.0.0"}' > "$E2E_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-1.0.0-blue)' > "$E2E_DIR/plugins/spec-autopilot/README.md"
 echo '{}' > "$E2E_DIR/plugins/spec-autopilot/hooks/hooks.json"
+echo '#!/usr/bin/env bash' > "$E2E_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+chmod +x "$E2E_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+cat > "$E2E_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+{
+  "plugins": [
+    {"name": "spec-autopilot", "version": "1.0.0"}
+  ]
+}
+MKJSON
 
 # Initial commit so we have a HEAD
 git -C "$E2E_DIR" add -A
@@ -271,6 +284,95 @@ else
 fi
 
 rm -rf "$DRIFT_DIR"
+
+# ============================================
+# Part 5: pre-release version auto-bump regression test
+# ============================================
+echo ""
+echo "--- E2E: pre-release version auto-bump ---"
+
+PREREL_DIR="$TMP_ROOT/prerel-repo"
+mkdir -p "$PREREL_DIR/.githooks"
+mkdir -p "$PREREL_DIR/.claude-plugin"
+mkdir -p "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin"
+mkdir -p "$PREREL_DIR/plugins/spec-autopilot/tools"
+mkdir -p "$PREREL_DIR/dist/spec-autopilot"
+mkdir -p "$PREREL_DIR/scripts"
+
+git -C "$PREREL_DIR" init -q
+
+cp "$GITHOOKS_DIR/pre-commit" "$PREREL_DIR/.githooks/pre-commit"
+chmod +x "$PREREL_DIR/.githooks/pre-commit"
+cp "$SETUP_SCRIPT" "$PREREL_DIR/scripts/setup-hooks.sh"
+echo '#!/usr/bin/env bash' > "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+chmod +x "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+
+# Plugin at pre-release version 1.0.0-beta.1
+echo '{"version": "1.0.0-beta.1"}' > "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-1.0.0--beta.1-blue)' > "$PREREL_DIR/plugins/spec-autopilot/README.md"
+cat > "$PREREL_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+{
+  "plugins": [
+    {"name": "spec-autopilot", "version": "1.0.0-beta.1"}
+  ]
+}
+MKJSON
+echo -e "# Changelog\n\n## [1.0.0-beta.1] - 2026-01-01\n\n### Added\n- beta" > "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md"
+
+git -C "$PREREL_DIR" add -A
+git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
+(cd "$PREREL_DIR" && bash scripts/setup-hooks.sh) >/dev/null 2>&1
+
+# Stage a change + CHANGELOG
+echo "// beta feature" > "$PREREL_DIR/plugins/spec-autopilot/beta.ts"
+cat > "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
+# Changelog
+
+## [1.0.1] - 2026-01-02
+
+### Added
+- beta feature
+
+## [1.0.0-beta.1] - 2026-01-01
+
+### Added
+- beta
+CLOG
+git -C "$PREREL_DIR" add "$PREREL_DIR/plugins/spec-autopilot/beta.ts" "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md"
+
+prerel_exit=0
+prerel_output=$(git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: pre-release bump" 2>&1) || prerel_exit=$?
+
+# 7a. Commit must succeed (pre-release auto-bump must not crash)
+if [ "$prerel_exit" -eq 0 ]; then
+  green "  PASS: 7a. commit succeeded with pre-release version"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7a. commit failed (exit=$prerel_exit): $prerel_output"
+  FAIL=$((FAIL + 1))
+fi
+
+# 7b. Version bumped to 1.0.1 (strip -beta.1 suffix, increment patch)
+PREREL_VER=$(jq -r '.version' "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json" 2>/dev/null)
+if [ "$PREREL_VER" = "1.0.1" ]; then
+  green "  PASS: 7b. plugin.json bumped to 1.0.1 (pre-release stripped)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7b. plugin.json expected 1.0.1, got '$PREREL_VER'"
+  FAIL=$((FAIL + 1))
+fi
+
+# 7c. marketplace.json also synced to 1.0.1
+PREREL_MKT=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$PREREL_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
+if [ "$PREREL_MKT" = "1.0.1" ]; then
+  green "  PASS: 7c. marketplace.json synced to 1.0.1"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7c. marketplace.json expected 1.0.1, got '$PREREL_MKT'"
+  FAIL=$((FAIL + 1))
+fi
+
+rm -rf "$PREREL_DIR"
 
 # ============================================
 # Summary

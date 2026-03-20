@@ -130,15 +130,26 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
         NEW_VERSION="$CURRENT_VERSION"
         echo "✅ Version already bumped manually: $NEW_VERSION"
       else
-        # Auto-bump patch: X.Y.Z → X.Y.(Z+1)
-        MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-        MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-        PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+        # Auto-bump patch: X.Y.Z(-pre)? → X.Y.(Z+1), strip pre-release suffix
+        BASE_VERSION="${CURRENT_VERSION%%-*}"
+        MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+        MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+        PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+
+        # Fail-closed: PATCH must be a valid integer
+        if ! [ "$PATCH" -eq "$PATCH" ] 2>/dev/null; then
+          echo "❌ Error: Cannot parse patch version from '$CURRENT_VERSION' (PATCH='$PATCH')"
+          exit 1
+        fi
+
         NEW_PATCH=$((PATCH + 1))
         NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
 
         # Update plugin.json
-        jq --arg v "$NEW_VERSION" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp"
+        jq --arg v "$NEW_VERSION" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp" || {
+          echo "❌ Error: Failed to update plugin.json version"
+          exit 1
+        }
         mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
         echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"
       fi
@@ -146,7 +157,10 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       # Sync marketplace.json (by plugin name, deterministic)
       jq --arg v "$NEW_VERSION" '
         .plugins = [.plugins[] | if .name == "spec-autopilot" then .version = $v else . end]
-      ' "$MARKETPLACE_JSON" > "${MARKETPLACE_JSON}.tmp"
+      ' "$MARKETPLACE_JSON" > "${MARKETPLACE_JSON}.tmp" || {
+        echo "❌ Error: Failed to update marketplace.json version"
+        exit 1
+      }
       mv "${MARKETPLACE_JSON}.tmp" "$MARKETPLACE_JSON"
 
       # Sync README.md badge (supports pre-release suffixes like -beta.1)
