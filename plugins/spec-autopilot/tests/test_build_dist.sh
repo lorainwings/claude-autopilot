@@ -16,6 +16,20 @@ exit_code=$?
 
 assert_exit "build-dist.sh completes successfully" 0 "$exit_code"
 assert_file_exists "collect-metrics.sh shipped in dist runtime" "$DIST_DIR/runtime/scripts/collect-metrics.sh"
+if [ ! -e "$DIST_DIR/assets/gui/.build-meta.json" ]; then
+  green "  PASS: dist GUI excludes volatile build metadata"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: dist GUI still contains .build-meta.json"
+  FAIL=$((FAIL + 1))
+fi
+if [ ! -e "$DIST_DIR/assets/gui/gui-dist" ]; then
+  green "  PASS: dist GUI does not nest gui-dist directory"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: dist GUI contains nested gui-dist directory"
+  FAIL=$((FAIL + 1))
+fi
 
 if [ ! -e "$DIST_DIR/docs" ] && [ ! -e "$DIST_DIR/tests" ] && [ ! -e "$DIST_DIR/gui" ]; then
   green "  PASS: dist runtime still excludes docs/tests/gui source"

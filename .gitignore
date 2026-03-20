@@ -44,6 +44,7 @@ logs/
 
 # Build outputs (except dist/<plugin-name> which is tracked for marketplace install)
 !dist/spec-autopilot/
+dist/spec-autopilot/assets/gui/.build-meta.json
 plugins/spec-autopilot/gui-dist/
 build/
 *.tsbuildinfo

@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.1.48] - 2026-03-20
+
+### Fixed
+
+- **发布纪律补齐 CI 兜底**: 新增 `scripts/check-release-discipline.sh` 并接入 GitHub Actions，插件代码变更若未更新 `CHANGELOG`、未 bump 版本或版本元数据不一致将直接失败
+- **本地 hooks 自愈**: `make test/build/lint/format/typecheck/ci` 统一先执行 `setup-hooks.sh`，减少协作者因 `core.hooksPath` 漂移导致的 hook 失效
+- **dist 构建去除波动元数据**: 不再生成并提交 `dist/spec-autopilot/assets/gui/.build-meta.json`，消除仅因构建时间/工具变化产生的无意义 diff
+- **GUI 产物复制修正**: `build-dist.sh` 改为复制 `gui-dist/` 内容而非目录本身，避免 `dist/assets/gui/gui-dist/` 套娃结构
+
 ## [5.1.40] - 2026-03-20
 
 ### Fixed

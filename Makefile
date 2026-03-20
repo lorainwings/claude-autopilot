@@ -4,12 +4,15 @@
 
 PLUGIN := plugins/spec-autopilot
 
-.PHONY: setup test build lint format typecheck ci help
+.PHONY: hooks setup test build lint format typecheck ci help
+
+hooks:
+	@bash scripts/setup-hooks.sh >/dev/null
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-setup: ## One-time setup: activate git hooks + install deps
+setup: hooks ## One-time setup: activate git hooks + install deps
 	@bash scripts/setup-hooks.sh
 	@echo ""
 	@echo "── Installing GUI dependencies ──"
@@ -26,15 +29,15 @@ setup: ## One-time setup: activate git hooks + install deps
 	  echo "[skip] runtime/server/package.json not found"; \
 	fi
 
-test: ## Run full test suite
+test: hooks ## Run full test suite
 	@bash $(PLUGIN)/tests/run_all.sh
 
-build: ## Rebuild dist/ from source
+build: hooks ## Rebuild dist/ from source
 	@bash $(PLUGIN)/tools/build-dist.sh
 
 # ── Lint / Format / Typecheck ─────────────────────────────────────
 
-lint: ## Run linters (shellcheck + ruff + mypy); missing tools skipped
+lint: hooks ## Run linters (shellcheck + ruff + mypy); missing tools skipped
 	@echo "── shellcheck ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning; \
@@ -56,7 +59,7 @@ lint: ## Run linters (shellcheck + ruff + mypy); missing tools skipped
 	  echo "[skip] mypy not found"; \
 	fi
 
-format: ## Run formatters (shfmt + ruff format); missing tools skipped
+format: hooks ## Run formatters (shfmt + ruff format); missing tools skipped
 	@echo "── shfmt ──"
 	@if command -v shfmt >/dev/null 2>&1; then \
 	  find $(PLUGIN)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci; \
@@ -71,7 +74,7 @@ format: ## Run formatters (shfmt + ruff format); missing tools skipped
 	  echo "[skip] ruff not found"; \
 	fi
 
-typecheck: ## Run TypeScript type checks (gui + server)
+typecheck: hooks ## Run TypeScript type checks (gui + server)
 	@echo "── gui typecheck ──"
 	@if [ -f $(PLUGIN)/gui/tsconfig.json ]; then \
 	  if [ ! -d $(PLUGIN)/gui/node_modules ]; then \
@@ -94,4 +97,4 @@ typecheck: ## Run TypeScript type checks (gui + server)
 	  echo "[skip] runtime/server/tsconfig.json not found"; \
 	fi
 
-ci: lint typecheck test build ## CI pipeline: lint → typecheck → test → build
+ci: hooks lint typecheck test build ## CI pipeline: lint → typecheck → test → build

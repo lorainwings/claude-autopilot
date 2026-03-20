@@ -58,11 +58,8 @@ if [ ! -d "$GUI_DIST_DIR" ]; then
   exit 1
 fi
 
-# 3b. Write gui-dist build metadata
-PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo "unknown")
-cat > "$GUI_DIST_DIR/.build-meta.json" <<BMEOF
-{"plugin_version":"$PLUGIN_VERSION","build_time":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","build_tool":"$(bun --version 2>/dev/null || echo 'fallback')"}
-BMEOF
+# Drop volatile local metadata so tracked dist stays deterministic.
+rm -f "$GUI_DIST_DIR/.build-meta.json"
 
 # ═══════════════════════════════════════════════════════
 # 4. 目标 dist 结构:
@@ -83,8 +80,9 @@ cp -r "$PLUGIN_ROOT/hooks"          "$DIST_DIR/"
 cp -r "$PLUGIN_ROOT/skills"         "$DIST_DIR/"
 
 # 4a. GUI 产物 → assets/gui/ (语义收敛，不再用 gui-dist)
-mkdir -p "$DIST_DIR/assets"
-cp -r "$GUI_DIST_DIR" "$DIST_DIR/assets/gui"
+mkdir -p "$DIST_DIR/assets/gui"
+cp -R "$GUI_DIST_DIR"/. "$DIST_DIR/assets/gui/"
+rm -f "$DIST_DIR/assets/gui/.build-meta.json"
 
 # 5. runtime/scripts/ — 按 manifest 逐项复制
 MANIFEST="$PLUGIN_ROOT/runtime/scripts/.dist-include"

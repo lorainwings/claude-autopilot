@@ -13,6 +13,25 @@ on:
       - '.github/workflows/**'
 
 jobs:
+  release-discipline:
+    name: Release Discipline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Check release discipline (pull_request)
+        if: github.event_name == 'pull_request'
+        run: bash scripts/check-release-discipline.sh "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
+
+      - name: Check release discipline (push)
+        if: github.event_name == 'push'
+        run: bash scripts/check-release-discipline.sh "${{ github.event.before }}" "${{ github.sha }}"
+
   test-hooks:
     name: Test Hook Scripts
     runs-on: ${{ matrix.os }}
