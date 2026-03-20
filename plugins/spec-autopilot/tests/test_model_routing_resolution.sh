@@ -42,10 +42,10 @@ assert_json_field "A3. Phase 3 默认 tier=fast" "$output" "selected_tier" "fast
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 4 2>/dev/null)
 assert_json_field "A4. Phase 4 默认 tier=deep" "$output" "selected_tier" "deep"
 
-# A5. Phase 5 -> standard/sonnet
+# A5. Phase 5 -> deep/opus
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 5 2>/dev/null)
-assert_json_field "A5. Phase 5 默认 tier=standard" "$output" "selected_tier" "standard"
-assert_json_field "A5. Phase 5 默认 model=sonnet" "$output" "selected_model" "sonnet"
+assert_json_field "A5. Phase 5 默认 tier=deep" "$output" "selected_tier" "deep"
+assert_json_field "A5. Phase 5 默认 model=opus" "$output" "selected_model" "opus"
 
 # A6. Phase 6 -> fast/haiku
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 6 2>/dev/null)

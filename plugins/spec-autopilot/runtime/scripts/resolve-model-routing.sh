@@ -78,7 +78,7 @@ DEFAULT_PHASE_ROUTING = {
     2: 'fast',      # OpenSpec 创建是机械性操作
     3: 'fast',      # FF 生成是模板化操作
     4: 'deep',      # 测试设计需要创造力
-    5: 'standard',  # 代码实施需要完整能力
+    5: 'deep',      # 代码实施需要最强推理能力
     6: 'fast',      # 报告生成是机械性操作
     7: 'fast',      # 汇总与归档较简单
 }

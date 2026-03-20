@@ -188,9 +188,9 @@ model_routing:
       model: opus
       effort: high
     phase_5:
-      tier: standard
-      model: sonnet
-      effort: medium
+      tier: deep
+      model: opus
+      effort: high
       escalate_on_failure_to: deep
 ```
 

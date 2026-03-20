@@ -29,10 +29,17 @@ output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 2 medium feat
 assert_json_field "A1. fast + retry=1 -> standard" "$output" "selected_tier" "standard"
 assert_json_field "A1. escalated_from=fast" "$output" "escalated_from" "fast"
 
-# A2. standard + retry_count=2 -> 升级到 deep（Phase 5 默认 standard）
+# A2. deep + retry_count=2 -> 仍为 deep（Phase 5 默认 deep，不再升级）
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 5 medium feature 2 false 2>/dev/null)
-assert_json_field "A2. standard + retry=2 -> deep" "$output" "selected_tier" "deep"
-assert_json_field "A2. escalated_from=standard" "$output" "escalated_from" "standard"
+assert_json_field "A2. deep + retry=2 -> 仍 deep" "$output" "selected_tier" "deep"
+escalated=$(extract_json_field "$output" "escalated_from")
+if [ "$escalated" = "None" ] || [ "$escalated" = "" ]; then
+  green "  PASS: A2. escalated_from=None (deep 不自动升级)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: A2. escalated_from 应为 None (got '$escalated')"
+  FAIL=$((FAIL + 1))
+fi
 
 # A3. deep + retry_count=3 -> 仍为 deep（不自动升级）
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 1 medium feature 3 false 2>/dev/null)
@@ -143,18 +150,19 @@ rm -rf "$EVT_ROOT"
 echo ""
 echo "--- D. 多 phase 路由差异化 ---"
 
-# D1. 至少 3 个 phase 使用不同模型档位（Phase 1=deep, 2=fast, 5=standard）
+# D1. 至少 2 个 phase 使用不同模型档位（Phase 1=deep, 2=fast, 5=deep）
 D1_ROOT=$(mktemp -d)
 tier_1=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$D1_ROOT" 1 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])" 2>/dev/null)
 tier_2=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$D1_ROOT" 2 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])" 2>/dev/null)
 tier_5=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$D1_ROOT" 5 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])" 2>/dev/null)
+tier_6=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$D1_ROOT" 6 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])" 2>/dev/null)
 
-unique_tiers=$(echo -e "$tier_1\n$tier_2\n$tier_5" | sort -u | wc -l | tr -d ' ')
-if [ "$unique_tiers" -ge 3 ]; then
-  green "  PASS: D1. 至少 3 个 phase 使用不同模型档位 (phase1=$tier_1, phase2=$tier_2, phase5=$tier_5)"
+unique_tiers=$(echo -e "$tier_1\n$tier_2\n$tier_5\n$tier_6" | sort -u | wc -l | tr -d ' ')
+if [ "$unique_tiers" -ge 2 ]; then
+  green "  PASS: D1. 多 phase 路由差异化 (phase1=$tier_1, phase2=$tier_2, phase5=$tier_5, phase6=$tier_6, unique=$unique_tiers)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: D1. 模型档位差异不足 (phase1=$tier_1, phase2=$tier_2, phase5=$tier_5, unique=$unique_tiers)"
+  red "  FAIL: D1. 模型档位差异不足 (phase1=$tier_1, phase2=$tier_2, phase5=$tier_5, phase6=$tier_6, unique=$unique_tiers)"
   FAIL=$((FAIL + 1))
 fi
 

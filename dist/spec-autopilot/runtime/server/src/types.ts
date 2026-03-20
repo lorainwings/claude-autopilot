@@ -80,6 +80,7 @@ export interface ModelRoutingEvidence {
   fallback_applied: boolean;
   /** dispatch 运行时用：当 Task 因模型不可用失败时，用此模型重试 */
   fallback_model: ModelName | null;
+  [key: string]: unknown;
 }
 
 export interface ModelRoutingEvent extends AutopilotEvent {
