@@ -399,7 +399,7 @@ recovery_interaction_required = True
 
 if selected_change is not None and recovery_options.get('continue') is not None:
     # Single candidate determined (no ambiguity)
-    num_candidates = len([c for c in changes if c['total_checkpoints'] > 0 or c.get('phase1_interim') is not None or len(c.get('progress_files', [])) > 0])
+    num_candidates = len([c for c in changes if c['total_checkpoints'] > 0 or c.get('phase1_interim') is not None])
     no_ambiguity = (num_candidates <= 1) or (selected is not None)
     no_dangerous_git = git_risk_level != 'high'
     is_continue_path = True  # recovery_options.continue exists

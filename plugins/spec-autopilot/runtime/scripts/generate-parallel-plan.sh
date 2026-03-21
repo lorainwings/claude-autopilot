@@ -98,6 +98,12 @@ def main():
         if rank[ra] == rank[rb]:
             rank[ra] += 1
 
+    # v5.7: 诊断 — 检测 affected_files 缺失
+    missing_af = [t["task_name"] for t in tasks if not t.get("affected_files")]
+    if missing_af:
+        import sys as _sys
+        _sys.stderr.write(f"[DIAG] {len(missing_af)}/{n} tasks 缺少 affected_files: {missing_af[:5]}\n")
+
     # 文件 -> 任务索引映射
     file_to_tasks = defaultdict(list)
     for i, t in enumerate(tasks):

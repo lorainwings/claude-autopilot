@@ -24,11 +24,9 @@
 |---------|---------|------|
 | 文本过短 | 长度 < 20 字符 | `brevity` |
 | 无技术实体 | 不含组件/API/模块/库名/框架名 | `no_tech_entity` |
-| 无量化指标 | 不含数字/百分比/时间单位/容量单位 | `no_metric` |
 | 动作模糊 | 不含具体动词（创建/迁移/修复/集成/添加/删除/重构/优化/implement/add/fix/migrate） | `vague_action` |
-| 无范围限定 | 不含边界词（仅/只/不包括/排除/范围/scope/only/exclude/boundary/限于） | `no_scope_boundary` |
-| 无验收标准 | 不含验收词（应该/必须/期望/验证/确认/should/must/expect/verify/accept） | `no_acceptance_criteria` |
-| 无目标对象 | 不含目标实体（用户/管理员/系统/服务/页面/接口/user/admin/service/page/endpoint） | `no_target_entity` |
+| 无范围限定 | 不含边界词 + 不含目标实体（用户/管理员/系统/服务/页面/接口） | `no_scope_boundary` |
+| 无验收标准 | 不含验收词 + 不含数字/百分比/时间单位/容量单位 | `no_acceptance_criteria` |
 
 **决策树**：
 - **flags >= 3** → 强制进入"需求澄清预循环"（AskUserQuestion 3-5 个澄清问题，完成后更新 RAW_REQUIREMENT）
@@ -55,13 +53,10 @@ IF flags >= 2 AND flags < 3:
     clarification_questions = []
 
     IF 'no_scope_boundary' IN active_flags:
-        clarification_questions.append("这个需求的范围边界是什么？哪些场景/模块在范围内，哪些明确排除？")
+        clarification_questions.append("这个需求的范围边界是什么？哪些场景/模块在范围内，哪些明确排除？目标对象是谁/什么？")
 
     IF 'no_acceptance_criteria' IN active_flags:
         clarification_questions.append("完成后如何验证？期望的验收标准或可观测结果是什么？")
-
-    IF 'no_target_entity' IN active_flags:
-        clarification_questions.append("这个需求的目标对象是谁/什么？（用户角色 / 系统组件 / API 端点 / 页面）")
 
     IF len(clarification_questions) == 0:
         # flags 由 brevity/no_tech_entity/no_metric/vague_action 触发
@@ -90,7 +85,7 @@ IF flags < 2:
 
 | 约束项 | 规则 |
 |--------|------|
-| 最大问题数 | 3 个（从 no_scope_boundary / no_acceptance_criteria / no_target_entity 优先选取） |
+| 最大问题数 | 3 个（从 no_scope_boundary / no_acceptance_criteria 优先选取） |
 | 交互方式 | AskUserQuestion（轻量，非大段 Prompt 分析） |
 | 最大轮数 | 1 轮（问完即走，不反复追问） |
 | 与预循环互斥 | flags >= 3 走预循环，flags >= 2 走定向澄清，二者不叠加 |
@@ -230,9 +225,9 @@ LOOP:
 
 每轮循环: 梳理未决策点 → 构造决策卡片 → AskUserQuestion → 收集结果 → 检查新决策点 → 重复直到全部澄清。
 
-- **Small**: 合并为一次确认，最多 1 轮
-- **Medium**: 标准 2-3 轮
-- **Large**: 强制 3+ 轮，含 scope creep 检查
+- **Small**: 合并全部决策点为一次 AskUserQuestion（包含所有未决项），最多 **1 轮**
+- **Medium**: 按技术/业务分组，每组一次 AskUserQuestion，最多 **2 轮**
+- **Large**: 按域分组，每域一次 AskUserQuestion，最多 **3 轮**，含 scope creep 检查
 
 → 详见 `phase1-requirements-detail.md`（主动讨论协议、各复杂度路径详细流程）
 

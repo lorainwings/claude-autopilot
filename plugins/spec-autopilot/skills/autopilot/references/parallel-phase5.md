@@ -72,6 +72,22 @@ parallel_config:
 主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
 ```
 
+### Step 1.3: affected_files 元数据校验（v5.7 新增）
+
+在传入 `generate-parallel-plan.sh` 之前，主线程**必须**校验每个 task 的 `affected_files` 字段：
+
+```
+for each task in tasks:
+  if task.affected_files 为空或缺失:
+    1. 扫描 task_full_text 中出现的文件路径（匹配 *.ts/*.py/*.vue/*.go/*.java 等后缀模式）
+    2. 非空 → 注入 task.affected_files
+    3. 仍为空 → 输出诊断: "[WARN] Task {task_name} 缺少 affected_files，并行分组可能不精确"
+       标记 task.affected_files_inferred = false
+```
+
+> **设计意图**: generate-parallel-plan.sh 依赖 affected_files 进行文件冲突检测和域分组。
+> 缺失时脚本无法有效分组，导致 fallback_to_serial。
+
 ### Step 1.5: 生成并行计划（v5.5 — 确定性 batch 调度）
 
 > **HARD CONSTRAINT**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
@@ -179,6 +195,7 @@ unified-write-edit-check Hook 会拦截越权修改。
 
 ## 执行要求
 - 按 task 编号顺序逐个实施
+- **每个 task 开始和完成时必须发射进度事件**（见上方进度汇报协议）
 - 每个 task 完成后返回中间状态（便于断点恢复）
 - 所有 task 完成后返回汇总 JSON 信封
 

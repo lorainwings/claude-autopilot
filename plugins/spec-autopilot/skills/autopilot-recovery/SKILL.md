@@ -96,7 +96,14 @@ AskUserQuestion:
 
 **Phase 7 进行中**（`phase7_status == "in_progress"`）→ 归档未完成，提示用户手动执行 `/opsx:archive` 完成归档。
 
-**有 checkpoint（Phase 1-6）**→ 使用 `recovery_options` 展示三选项：
+**有 checkpoint（Phase 1-6）**→
+
+{if has_fixup_commits == true}
+> ℹ️ 检测到 {fixup_commit_count} 个 fixup 提交 — 这是 autopilot 运行时产生的中间 checkpoint 提交，
+> 将在 Phase 7 归档时通过 `git rebase --autosquash` 自动合并，**无需手动处理**。
+{end if}
+
+使用 `recovery_options` 展示三选项：
 
 ```
 AskUserQuestion:

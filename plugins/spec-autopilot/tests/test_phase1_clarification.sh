@@ -32,19 +32,12 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 15c. 新检测维度: no_acceptance_criteria + no_target_entity
-DIMS_OK=true
-for dim in no_acceptance_criteria no_target_entity; do
-  if ! grep -q "$dim" "$PHASE1_REQ"; then
-    DIMS_OK=false
-    break
-  fi
-done
-if [ "$DIMS_OK" = "true" ]; then
-  green "  PASS: 15c. detection dimensions no_acceptance_criteria + no_target_entity exist"
+# 15c. 检测维度: no_acceptance_criteria 存在（v5.7: no_target_entity 已合并入 no_scope_boundary）
+if grep -q 'no_acceptance_criteria' "$PHASE1_REQ"; then
+  green "  PASS: 15c. detection dimension no_acceptance_criteria exists"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 15c. detection dimensions no_acceptance_criteria or no_target_entity missing"
+  red "  FAIL: 15c. detection dimension no_acceptance_criteria missing"
   FAIL=$((FAIL + 1))
 fi
 
