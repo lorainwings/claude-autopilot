@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # check-release-discipline.sh
-# CI guard for release metadata discipline when spec-autopilot changes.
+# CI guard for release metadata discipline when plugin files change.
 #
 # Usage:
 #   bash scripts/check-release-discipline.sh <base_ref> <head_ref>
 #
+# Checks both spec-autopilot and parallel-harness.
 # Fails when:
-#   1. files under plugins/spec-autopilot/ changed but CHANGELOG.md did not
-#   2. files under plugins/spec-autopilot/ changed but plugin version did not bump
-#   3. version metadata is out of sync across plugin.json / marketplace / README / CHANGELOG
+#   1. files under plugins/<plugin>/ changed but CHANGELOG / CHANGELOG-equivalent did not
+#   2. files under plugins/<plugin>/ changed but plugin version did not bump
+#   3. version metadata is out of sync across plugin.json / marketplace / README
 
 set -euo pipefail
 
@@ -28,10 +29,6 @@ fi
 
 cd "$REPO_ROOT"
 
-PLUGIN_ROOT="plugins/spec-autopilot"
-PLUGIN_JSON="$PLUGIN_ROOT/.claude-plugin/plugin.json"
-README_MD="$PLUGIN_ROOT/README.md"
-CHANGELOG_MD="$PLUGIN_ROOT/CHANGELOG.md"
 MARKETPLACE_JSON=".claude-plugin/marketplace.json"
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -49,59 +46,115 @@ if ! git rev-parse --verify "$HEAD_REF^{commit}" >/dev/null 2>&1; then
   exit 1
 fi
 
-CHANGED_FILES="$(git diff --name-only "$BASE_REF" "$HEAD_REF" -- "$PLUGIN_ROOT" || true)"
+OVERALL_FAIL=0
 
-if [ -z "$CHANGED_FILES" ]; then
-  echo "✅ No spec-autopilot changes between $BASE_REF and $HEAD_REF"
-  exit 0
-fi
+# ── check_plugin <plugin_root> <marketplace_name> <version_source>
+# version_source: "plugin_json" (reads .claude-plugin/plugin.json)
+#                 "package_json" (reads package.json)
+check_plugin() {
+  local PLUGIN_ROOT="$1"
+  local MARKETPLACE_NAME="$2"
+  local VERSION_SOURCE="${3:-plugin_json}"
 
-echo "🔎 spec-autopilot changes detected between $BASE_REF and $HEAD_REF"
+  local CHANGED_FILES
+  CHANGED_FILES="$(git diff --name-only "$BASE_REF" "$HEAD_REF" -- "$PLUGIN_ROOT" || true)"
 
-if ! echo "$CHANGED_FILES" | grep -qx "$CHANGELOG_MD"; then
-  echo "❌ Error: $CHANGELOG_MD must be updated when $PLUGIN_ROOT changes."
+  if [ -z "$CHANGED_FILES" ]; then
+    echo "✅ No $PLUGIN_ROOT changes between $BASE_REF and $HEAD_REF"
+    return 0
+  fi
+
+  echo "🔎 $PLUGIN_ROOT changes detected between $BASE_REF and $HEAD_REF"
+
+  # Determine version files
+  local PLUGIN_JSON README_MD CHANGELOG_MD
+  if [ "$VERSION_SOURCE" = "package_json" ]; then
+    PLUGIN_JSON="$PLUGIN_ROOT/package.json"
+  else
+    PLUGIN_JSON="$PLUGIN_ROOT/.claude-plugin/plugin.json"
+  fi
+  README_MD="$PLUGIN_ROOT/README.md"
+  CHANGELOG_MD="$PLUGIN_ROOT/CHANGELOG.md"
+
+  # CHANGELOG check — parallel-harness may use README.zh.md or commit history instead
+  if [ -f "$CHANGELOG_MD" ]; then
+    if ! echo "$CHANGED_FILES" | grep -qx "$CHANGELOG_MD"; then
+      echo "❌ Error: $CHANGELOG_MD must be updated when $PLUGIN_ROOT changes."
+      OVERALL_FAIL=1
+      return 0
+    fi
+  fi
+
+  # Version bump check
+  local BASE_VERSION HEAD_VERSION HEAD_MARKETPLACE_VERSION
+  if ! git show "$BASE_REF:$PLUGIN_JSON" >/dev/null 2>&1; then
+    echo "ℹ️  $PLUGIN_JSON not found in base ref — skipping version bump check (new plugin)"
+    return 0
+  fi
+
+  if [ "$VERSION_SOURCE" = "package_json" ]; then
+    BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
+    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
+  else
+    BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
+    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
+  fi
+
+  HEAD_MARKETPLACE_VERSION="$(jq -r --arg name "$MARKETPLACE_NAME" '.plugins[] | select(.name == $name) | .version' "$MARKETPLACE_JSON")"
+
+  if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
+    echo "❌ Error: $PLUGIN_ROOT version was not bumped."
+    echo "   base: $BASE_VERSION  head: $HEAD_VERSION"
+    OVERALL_FAIL=1
+    return 0
+  fi
+
+  local MISMATCH=0
+
+  if [ "$HEAD_VERSION" != "$HEAD_MARKETPLACE_VERSION" ]; then
+    echo "❌ Error: $MARKETPLACE_NAME marketplace version mismatch."
+    echo "   $PLUGIN_JSON:  $HEAD_VERSION"
+    echo "   marketplace:   $HEAD_MARKETPLACE_VERSION"
+    MISMATCH=1
+  fi
+
+  # README badge check (optional — skip if badge not present)
+  if [ -f "$README_MD" ]; then
+    local HEAD_README_VERSION
+    HEAD_README_VERSION="$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$README_MD" 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//' || true)"
+    if [ -n "$HEAD_README_VERSION" ] && [ "$HEAD_VERSION" != "$HEAD_README_VERSION" ]; then
+      echo "❌ Error: $PLUGIN_ROOT README badge version mismatch."
+      echo "   $PLUGIN_JSON: $HEAD_VERSION"
+      echo "   README.md:    $HEAD_README_VERSION"
+      MISMATCH=1
+    fi
+  fi
+
+  # CHANGELOG top version check (if CHANGELOG exists)
+  if [ -f "$CHANGELOG_MD" ]; then
+    local HEAD_CHANGELOG_VERSION
+    HEAD_CHANGELOG_VERSION="$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?\]' "$CHANGELOG_MD" 2>/dev/null | head -1 | sed 's/^## \[//;s/\]$//' || true)"
+    if [ -n "$HEAD_CHANGELOG_VERSION" ] && [ "$HEAD_VERSION" != "$HEAD_CHANGELOG_VERSION" ]; then
+      echo "❌ Error: $PLUGIN_ROOT CHANGELOG top version mismatch."
+      echo "   $PLUGIN_JSON: $HEAD_VERSION"
+      echo "   CHANGELOG.md: $HEAD_CHANGELOG_VERSION"
+      MISMATCH=1
+    fi
+  fi
+
+  if [ "$MISMATCH" -eq 1 ]; then
+    OVERALL_FAIL=1
+    return 0
+  fi
+
+  echo "✅ $PLUGIN_ROOT release discipline OK: $BASE_VERSION -> $HEAD_VERSION"
+}
+
+check_plugin "plugins/spec-autopilot"  "spec-autopilot"  "plugin_json"
+check_plugin "plugins/parallel-harness" "parallel-harness" "package_json"
+
+if [ "$OVERALL_FAIL" -eq 1 ]; then
   exit 1
 fi
 
-BASE_PLUGIN_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
-HEAD_PLUGIN_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
-HEAD_MARKETPLACE_VERSION="$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$MARKETPLACE_JSON")"
-HEAD_README_VERSION="$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$README_MD" | head -1 | sed 's/^version-//;s/-blue$//')"
-HEAD_CHANGELOG_VERSION="$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?\]' "$CHANGELOG_MD" | head -1 | sed 's/^## \[//;s/\]$//')"
-
-if [ "$BASE_PLUGIN_VERSION" = "$HEAD_PLUGIN_VERSION" ]; then
-  echo "❌ Error: plugin version was not bumped."
-  echo "   base: $BASE_PLUGIN_VERSION"
-  echo "   head: $HEAD_PLUGIN_VERSION"
-  exit 1
-fi
-
-MISMATCH=0
-
-if [ "$HEAD_PLUGIN_VERSION" != "$HEAD_MARKETPLACE_VERSION" ]; then
-  echo "❌ Error: marketplace version mismatch."
-  echo "   plugin.json:    $HEAD_PLUGIN_VERSION"
-  echo "   marketplace:    $HEAD_MARKETPLACE_VERSION"
-  MISMATCH=1
-fi
-
-if [ "$HEAD_PLUGIN_VERSION" != "$HEAD_README_VERSION" ]; then
-  echo "❌ Error: README badge version mismatch."
-  echo "   plugin.json:    $HEAD_PLUGIN_VERSION"
-  echo "   README.md:      $HEAD_README_VERSION"
-  MISMATCH=1
-fi
-
-if [ "$HEAD_PLUGIN_VERSION" != "$HEAD_CHANGELOG_VERSION" ]; then
-  echo "❌ Error: CHANGELOG top version mismatch."
-  echo "   plugin.json:    $HEAD_PLUGIN_VERSION"
-  echo "   CHANGELOG.md:   $HEAD_CHANGELOG_VERSION"
-  MISMATCH=1
-fi
-
-if [ "$MISMATCH" -eq 1 ]; then
-  exit 1
-fi
-
-echo "✅ Release discipline check passed"
-echo "   bumped: $BASE_PLUGIN_VERSION -> $HEAD_PLUGIN_VERSION"
+echo "✅ All release discipline checks passed"

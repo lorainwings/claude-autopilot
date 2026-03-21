@@ -55,7 +55,7 @@
       "source": "./dist/spec-autopilot",
       "description": "Spec-driven autopilot orchestration for delivery pipelines with 8-phase workflow, 3-layer gate system, and crash recovery",
       "category": "development",
-      "version": "5.1.36"
+      "version": "5.1.48"
     },
     {
       "name": "parallel-harness",
@@ -74,7 +74,7 @@
 |------|--------|------|
 | v0.1.0 | MVP — 核心 Schema + 调度器 + 路由器 | 已完成 |
 | v0.5.0 | Beta — Worker Runtime + Gate System + Persistence | 已完成 |
-| v1.0.0 | GA — 全部 15 模块 + 216 测试 + 完整文档 | 已完成 |
+| v1.0.0 | GA — 全部 15 模块 + 219 测试 + 完整文档 | 已完成 |
 
 ## 与 spec-autopilot 产品定位
 

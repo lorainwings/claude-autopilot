@@ -51,7 +51,7 @@ make ph-build
 
 ## Test Coverage
 
-- **219 tests**, 16 test files, 571 assertions
+- **219 tests**, 9 test files, 499 assertions
 - Unit tests: schemas, engine, orchestrator, scheduler, models, workers, guards, gates, persistence, governance, capabilities, integrations
 - Integration tests: end-to-end orchestrator flow
 

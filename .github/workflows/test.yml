@@ -13,6 +13,24 @@ on:
       - '.github/workflows/**'
 
 jobs:
+  # ── release discipline ────────────────────────────────────────────
+
+  release-discipline:
+    name: Release Discipline Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Check spec-autopilot release discipline
+        run: bash scripts/check-release-discipline.sh ${{ github.event.pull_request.base.sha }} ${{ github.sha }}
+        continue-on-error: false
+
   # ── spec-autopilot ────────────────────────────────────────────────
 
   test-hooks:
