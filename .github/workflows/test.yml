@@ -6,11 +6,15 @@ on:
     paths:
       - 'plugins/**'
       - '.github/workflows/**'
+      - '.claude-plugin/**'
+      - 'scripts/**'
   pull_request:
     branches: [main]
     paths:
       - 'plugins/**'
       - '.github/workflows/**'
+      - '.claude-plugin/**'
+      - 'scripts/**'
 
 jobs:
   # ── release discipline ────────────────────────────────────────────

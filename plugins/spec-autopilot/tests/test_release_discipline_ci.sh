@@ -112,7 +112,7 @@ HEAD_PASS="$(git -C "$PASS_REPO" rev-parse HEAD)"
 pass_exit=0
 pass_output=$(cd "$PASS_REPO" && bash "$CHECK_SCRIPT" "$BASE_PASS" "$HEAD_PASS" 2>&1) || pass_exit=$?
 assert_exit "2a. synced release metadata passes" 0 $pass_exit
-assert_contains "2b. success output emitted" "$pass_output" "Release discipline check passed"
+assert_contains "2b. success output emitted" "$pass_output" "All release discipline checks passed"
 
 echo ""
 echo "=== release-discipline-ci: $PASS passed, $FAIL failed ==="
