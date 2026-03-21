@@ -15,7 +15,7 @@
 | README.md | 已完成 | 英文说明文档 |
 | README.zh.md | 已完成 | 中文说明文档（GA 级） |
 | 核心运行时可用 | 已完成 | 15 个 runtime 模块全部实现 |
-| 单元测试通过 | 已完成 | 216 pass / 0 fail / 552 expect() |
+| 单元测试通过 | 已完成 | 213 pass / 0 fail / 476 expect() |
 | Skills 骨架 | 已完成 | 4 个 Skill（harness / plan / dispatch / verify） |
 | Engine 统一入口 | 已完成 | OrchestratorRuntime 完整生命周期管理 |
 | Task Graph | 已完成 | DAG 构建、验证、依赖解析 |

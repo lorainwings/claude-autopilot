@@ -18,7 +18,7 @@ import { packContext, buildTaskContract } from "../session/context-packager";
 import { GateSystem } from "../gates/gate-system";
 import { ApprovalWorkflow } from "../governance/governance";
 import { WorkerExecutionController, type WorkerExecutionConfig } from "../workers/worker-runtime";
-import { SessionStore, RunStore, AuditTrail } from "../persistence/session-persistence";
+import { SessionStore, RunStore, AuditTrail, FileStore } from "../persistence/session-persistence";
 import type { TaskGraph, TaskNode, ModelTier } from "../orchestrator/task-graph";
 import type { VerificationResult } from "../verifiers/verifier-result";
 import type { WorkerOutput, SynthesizerInput, SynthesizerOutput } from "../orchestrator/role-contracts";
@@ -184,7 +184,7 @@ export class DefaultPolicyEngine implements PolicyEngine {
       case "always":
         return true;
       case "path_match": {
-        const paths = (params.paths as string[]) || [];
+        const paths = ((params.paths as string[]) || (params.modified_paths as string[]) || []);
         const pattern = condition.params.pattern as string;
         return paths.some((p) => p.includes(pattern));
       }
@@ -417,6 +417,7 @@ export class OrchestratorRuntime {
   private runStore: RunStore;
   private auditTrail: AuditTrail;
   private prProvider?: import("../integrations/pr-provider").PRProvider;
+  private rbacEngine?: import("../governance/governance").RBACEngine;
 
   constructor(options: OrchestratorOptions = {}) {
     this.eventBus = options.eventBus || new EventBus();
@@ -425,10 +426,13 @@ export class OrchestratorRuntime {
     this.workerController = new WorkerExecutionController(this.workerAdapter);
     this.gateSystem = options.gateSystem || new GateSystem();
     this.approvalWorkflow = options.approvalWorkflow || new ApprovalWorkflow(options.autoApproveRules || []);
-    this.sessionStore = options.sessionStore || new SessionStore();
-    this.runStore = options.runStore || new RunStore();
-    this.auditTrail = options.auditTrail || new AuditTrail();
+    // 持久化：优先使用显式传入的 store，否则根据 dataDir 决定
+    const dataDir = options.dataDir || ".parallel-harness/data";
+    this.sessionStore = options.sessionStore || SessionStore.createDurable(`${dataDir}/sessions`);
+    this.runStore = options.runStore || RunStore.createDurable(dataDir);
+    this.auditTrail = options.auditTrail || AuditTrail.createDurable(`${dataDir}/audit`);
     this.prProvider = options.prProvider;
+    this.rbacEngine = options.rbacEngine;
   }
 
   /**
@@ -561,6 +565,33 @@ export class OrchestratorRuntime {
             review_comments: renderReviewComments(ctx.collectedGateResults),
             checks_status: {},
           };
+
+          // 添加 review comments
+          const reviewComments = renderReviewComments(ctx.collectedGateResults);
+          for (const comment of reviewComments) {
+            try {
+              await this.prProvider.addReviewComment(String(prResult.pr_number), {
+                file_path: comment.file_path,
+                line: comment.line,
+                body: comment.body,
+              });
+            } catch { /* review comment 失败不阻断 */ }
+          }
+
+          // 设置 check status
+          const checkConclusion = execution.status === "succeeded" ? "success" as const : "failure" as const;
+          try {
+            await this.prProvider.setCheckStatus(String(prResult.pr_number), {
+              name: "parallel-harness",
+              status: "completed",
+              conclusion: checkConclusion,
+              output: {
+                title: `parallel-harness: ${execution.status}`,
+                summary: `${result.completed_tasks.length} 个任务完成, ${result.failed_tasks.length} 个失败`,
+              },
+            });
+          } catch { /* check status 失败不阻断 */ }
+
           emitAudit(ctx, "pr_created", { pr_url: prResult.pr_url, pr_number: prResult.pr_number });
         } catch (prError) {
           emitAudit(ctx, "run_failed", { phase: "pr_creation", error: String(prError) });
@@ -1289,6 +1320,7 @@ export class OrchestratorRuntime {
    * 审批通过被阻断的 run，并恢复执行剩余任务图
    */
   async approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<RunResult> {
+    this.requirePermission(decidedBy, "task.approve_sensitive_write");
     const execution = await this.runStore.getExecution(runId);
     if (!execution) throw new Error(`Run ${runId} 不存在`);
     if (execution.status !== "blocked") throw new Error(`Run ${runId} 不在 blocked 状态，当前: ${execution.status}`);
@@ -1373,6 +1405,7 @@ export class OrchestratorRuntime {
    * 拒绝审批，标记 run 为 failed
    */
   async rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void> {
+    this.requirePermission(decidedBy, "task.approve_sensitive_write");
     const execution = await this.runStore.getExecution(runId);
     if (!execution) throw new Error(`Run ${runId} 不存在`);
 
@@ -1398,7 +1431,8 @@ export class OrchestratorRuntime {
   /**
    * 取消 run
    */
-  async cancelRun(runId: string): Promise<void> {
+  async cancelRun(runId: string, cancelledBy?: string): Promise<void> {
+    if (cancelledBy) this.requirePermission(cancelledBy, "run.cancel");
     const execution = await this.runStore.getExecution(runId);
     if (!execution) throw new Error(`Run ${runId} 不存在`);
 
@@ -1440,6 +1474,19 @@ export class OrchestratorRuntime {
     return this.sessionStore.getByRunId(run_id);
   }
 
+  private requirePermission(actorId: string, permission: import("../governance/governance").Permission): void {
+    if (!this.rbacEngine) return; // RBAC 未配置时不阻断（向后兼容）
+    const actor: import("../schemas/ga-schemas").ActorIdentity = {
+      id: actorId,
+      type: "user",
+      name: actorId,
+      roles: [],
+    };
+    if (!this.rbacEngine.hasPermission(actor, permission)) {
+      throw new Error(`权限不足: ${actorId} 缺少 ${permission} 权限`);
+    }
+  }
+
   getEventBus(): EventBus {
     return this.eventBus;
   }
@@ -1475,9 +1522,16 @@ export class LocalWorkerAdapter implements WorkerAdapter {
       const proc = Bun.spawn(
         ["claude", "-p", prompt, "--output-format", "json"],
         {
+          cwd: input.project_root || undefined,
           stdout: "pipe",
           stderr: "pipe",
-          timeout: 300000,
+          timeout: input.max_idle_ms || 300000,
+          env: {
+            ...process.env,
+            PARALLEL_HARNESS_TASK_ID: contract.task_id,
+            PARALLEL_HARNESS_MODEL_TIER: input.model_tier,
+            ...(input.tool_policy ? { PARALLEL_HARNESS_TOOL_POLICY: input.tool_policy } : {}),
+          },
         }
       );
 
@@ -1643,5 +1697,8 @@ export interface OrchestratorOptions {
   runStore?: RunStore;
   auditTrail?: AuditTrail;
   prProvider?: import("../integrations/pr-provider").PRProvider;
+  rbacEngine?: import("../governance/governance").RBACEngine;
+  /** 持久化数据目录，设置后默认使用 FileStore */
+  dataDir?: string;
 }
 

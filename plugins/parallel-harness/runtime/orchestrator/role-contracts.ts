@@ -68,6 +68,18 @@ export interface WorkerInput {
 
   /** 分配的模型 tier */
   model_tier: ModelTier;
+
+  /** 项目根目录 */
+  project_root?: string;
+
+  /** 工具策略 */
+  tool_policy?: string;
+
+  /** 最大空闲时间（毫秒） */
+  max_idle_ms?: number;
+
+  /** 是否幂等 */
+  idempotent?: boolean;
 }
 
 /** Worker 输出 */

@@ -286,8 +286,17 @@ export class WorkerExecutionController {
       root_path: this.config.path_sandbox.root_path,
     };
 
-    // 3. 带超时的执行
-    const output = await this.executeWithTimeout(input);
+    // 3. 带超时的执行 + 心跳
+    const heartbeatInterval = 5000; // 5秒心跳
+    let heartbeatCount = 0;
+    const heartbeatTimer = setInterval(() => { heartbeatCount++; }, heartbeatInterval);
+
+    let output: WorkerOutput;
+    try {
+      output = await this.executeWithTimeout(input);
+    } finally {
+      clearInterval(heartbeatTimer);
+    }
 
     // 4. 验证输出路径
     this.validateOutputPaths(output, sandbox);
@@ -302,7 +311,7 @@ export class WorkerExecutionController {
         ended_at: endedAt,
         duration_ms: new Date(endedAt).getTime() - new Date(startedAt).getTime(),
         timed_out: false,
-        heartbeat_count: 0,
+        heartbeat_count: heartbeatCount,
       },
     };
   }

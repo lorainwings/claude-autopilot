@@ -63,3 +63,4 @@ plugins/spec-autopilot/logs/
 
 # Worktrees
 .worktrees/
+.parallel-harness

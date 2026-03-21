@@ -184,6 +184,10 @@ export class SessionStore {
     const all = await this.store.list();
     return all.filter((s) => s.status === "active");
   }
+
+  static createDurable(basePath: string): SessionStore {
+    return new SessionStore(new FileStore<SessionState>(basePath));
+  }
 }
 
 // ============================================================
@@ -242,6 +246,15 @@ export class RunStore {
 
   async listResults(): Promise<RunResult[]> {
     return this.resultStore.list();
+  }
+
+  static createDurable(basePath: string): RunStore {
+    return new RunStore({
+      requestStore: new FileStore(`${basePath}/requests`),
+      planStore: new FileStore(`${basePath}/plans`),
+      executionStore: new FileStore(`${basePath}/executions`),
+      resultStore: new FileStore(`${basePath}/results`),
+    });
   }
 }
 
@@ -324,6 +337,10 @@ export class AuditTrail {
 
   getBufferSize(): number {
     return this.buffer.length;
+  }
+
+  static createDurable(basePath: string): AuditTrail {
+    return new AuditTrail(new FileStore<AuditEvent>(basePath));
   }
 }
 

@@ -189,6 +189,11 @@ export interface RuntimeBridge {
   cancelRun(runId: string): Promise<void>;
   approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<unknown>;
   rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void>;
+  // 读操作
+  listRuns?(): Promise<RunSummary[]>;
+  getRun?(runId: string): Promise<RunDetail | undefined>;
+  getAuditLog?(runId: string): Promise<AuditEvent[]>;
+  getGateResults?(runId: string): Promise<GateResult[]>;
 }
 
 export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
@@ -200,11 +205,23 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
     this.inner = inner || new InMemoryDataProvider();
   }
 
-  // 读操作委托给 inner
-  listRuns() { return this.inner.listRuns(); }
-  getRun(runId: string) { return this.inner.getRun(runId); }
-  getAuditLog(runId: string) { return this.inner.getAuditLog(runId); }
-  getGateResults(runId: string) { return this.inner.getGateResults(runId); }
+  // 读操作优先从 runtime 读取，fallback 到 inner
+  async listRuns() {
+    if (this.runtime.listRuns) return this.runtime.listRuns();
+    return this.inner.listRuns();
+  }
+  async getRun(runId: string) {
+    if (this.runtime.getRun) return this.runtime.getRun(runId);
+    return this.inner.getRun(runId);
+  }
+  async getAuditLog(runId: string) {
+    if (this.runtime.getAuditLog) return this.runtime.getAuditLog(runId);
+    return this.inner.getAuditLog(runId);
+  }
+  async getGateResults(runId: string) {
+    if (this.runtime.getGateResults) return this.runtime.getGateResults(runId);
+    return this.inner.getGateResults(runId);
+  }
 
   // 写操作桥接到 runtime
   async cancelRun(runId: string): Promise<{ ok: boolean; message: string }> {
@@ -250,6 +267,8 @@ export interface ControlPlaneConfig {
   port: number;
   host: string;
   dataProvider: ControlPlaneDataProvider;
+  /** 可选的 API token，设置后 POST 请求需要 Authorization header */
+  apiToken?: string;
 }
 
 const DEFAULT_CONFIG: ControlPlaneConfig = {
@@ -272,6 +291,14 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
 
       // 写操作 API (POST) — 必须在 GET 之前匹配
       if (req.method === "POST") {
+        // API 鉴权
+        if (cfg.apiToken) {
+          const auth = req.headers.get("Authorization");
+          if (auth !== `Bearer ${cfg.apiToken}`) {
+            return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+          }
+        }
+
         if (path.match(/\/api\/runs\/[^/]+\/cancel$/)) {
           const runId = path.split("/api/runs/")[1].split("/cancel")[0];
           if (provider.cancelRun) {

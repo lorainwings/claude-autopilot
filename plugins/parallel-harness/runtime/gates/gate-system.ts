@@ -181,7 +181,7 @@ export class TestGateEvaluator implements SingleGateEvaluator {
 
     // 真实执行测试
     if (input.workerOutput && input.workerOutput.modified_paths.length > 0) {
-      const testResult = await execShell("bun test 2>&1 || true", cwd);
+      const testResult = await execShell("bun test 2>&1", cwd);
 
       if (testResult.exitCode !== 0) {
         // 解析失败的测试
@@ -278,7 +278,7 @@ export class LintTypeGateEvaluator implements SingleGateEvaluator {
 
       if (tsFiles.length > 0) {
         // 真实执行 tsc 类型检查
-        const tscResult = await execShell("bunx tsc --noEmit 2>&1 || true", cwd);
+        const tscResult = await execShell("bunx tsc --noEmit 2>&1", cwd);
 
         if (tscResult.exitCode !== 0 && tscResult.stdout) {
           // 解析 tsc 错误
@@ -307,7 +307,7 @@ export class LintTypeGateEvaluator implements SingleGateEvaluator {
         // 执行 lint（如果 ruff 可用）
         const pyFiles = input.workerOutput.modified_paths.filter((p) => p.endsWith(".py"));
         if (pyFiles.length > 0) {
-          const lintResult = await execShell(`ruff check ${pyFiles.join(" ")} 2>&1 || true`, cwd);
+          const lintResult = await execShell(`ruff check ${pyFiles.join(" ")} 2>&1`, cwd);
           if (lintResult.exitCode !== 0) {
             findings.push({
               severity: "error",
@@ -487,7 +487,7 @@ export class CoverageGateEvaluator implements SingleGateEvaluator {
 
     if (input.workerOutput && input.workerOutput.modified_paths.length > 0) {
       // 尝试执行 bun test --coverage 并解析结果
-      const covResult = await execShell("bun test --coverage 2>&1 || true", cwd);
+      const covResult = await execShell("bun test --coverage 2>&1", cwd);
 
       // 解析覆盖率百分比
       const covMatch = covResult.stdout.match(/(\d+(?:\.\d+)?)\s*%\s*(?:Stmts|Lines|Coverage)/i);

@@ -21,7 +21,7 @@
 - **Schema 版本**: 1.0.0
 - **运行时**: Bun
 - **语言**: TypeScript
-- **测试**: 216 pass / 0 fail / 552 expect()
+- **测试**: 213 pass / 0 fail / 476 expect()
 
 ## 模块列表
 
@@ -198,8 +198,8 @@ pending → pre_check → executing → post_check → succeeded/failed/timed_ou
 ## 测试覆盖
 
 ```
-216 pass / 0 fail / 552 expect() calls
-15 个测试文件覆盖全部 runtime 模块
+213 pass / 0 fail / 476 expect() calls
+9 个测试文件覆盖全部 runtime 模块
 ```
 
 测试覆盖包括：
