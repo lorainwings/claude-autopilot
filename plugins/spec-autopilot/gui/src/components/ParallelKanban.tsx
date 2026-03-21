@@ -1,7 +1,8 @@
 /**
  * ParallelKanban — V2 水平可滚动任务卡片流
- * 显示 Phase 5 并行任务执行状态 + Agent 生命周期卡片
+ * 显示并行任务执行状态 + Agent 生命周期卡片
  * v5.3: 可展开 Agent 卡片 + 工具调用计数
+ * v5.8: 按 Phase 分组显示任务，避免跨 Phase 同名任务混排
  * 数据源: Zustand Store (taskProgress, agentMap, currentPhase, events)
  */
 
@@ -62,6 +63,16 @@ function ToolEventRow({ event }: { event: AutopilotEvent }) {
   );
 }
 
+const PHASE_LABELS: Record<number, string> = {
+  1: "需求分析",
+  2: "OpenSpec",
+  3: "Fast-Forward",
+  4: "测试设计",
+  5: "实施",
+  6: "报告",
+  7: "归档",
+};
+
 export function ParallelKanban() {
   const { taskProgress, agentMap, events } = useStore();
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
@@ -70,14 +81,31 @@ export function ParallelKanban() {
     return null;
   }
 
-  const tasks = Array.from(taskProgress.values()).sort((a, b) => a.task_index - b.task_index);
+  // v5.8: 按 phase 分组任务
+  const tasksByPhase = useMemo(() => {
+    const groups = new Map<number, typeof allTasks>();
+    const allTasks = Array.from(taskProgress.values());
+    for (const t of allTasks) {
+      const phase = t.phase;
+      if (!groups.has(phase)) groups.set(phase, []);
+      groups.get(phase)!.push(t);
+    }
+    // 每组内按 task_index 排序
+    for (const [, tasks] of groups) {
+      tasks.sort((a, b) => a.task_index - b.task_index);
+    }
+    // 按 phase 编号排序返回
+    return Array.from(groups.entries()).sort(([a], [b]) => a - b);
+  }, [taskProgress]);
+
+  const allTasks = Array.from(taskProgress.values());
   const agents = Array.from(agentMap.values());
-  const passedCount = tasks.filter((t) => t.status === "passed").length;
+  const passedCount = allTasks.filter((t) => t.status === "passed").length;
 
   // G6: Infer parallel mode from concurrent running tasks, TDD from tdd_step fields
-  const runningTasks = tasks.filter((t) => t.status === "running");
-  const isParallel = runningTasks.length > 1 || tasks.some((t) => t.task_total > 1);
-  const hasTdd = tasks.some((t) => t.tdd_step !== undefined);
+  const runningTasks = allTasks.filter((t) => t.status === "running");
+  const isParallel = runningTasks.length > 1 || allTasks.some((t) => t.task_total > 1);
+  const hasTdd = allTasks.some((t) => t.tdd_step !== undefined);
   const hasAgents = agents.length > 0;
 
   // Memoize per-agent tool counts and events to avoid O(agents * events) per render
@@ -104,7 +132,7 @@ export function ParallelKanban() {
           <div className="font-display text-xs font-bold uppercase tracking-widest text-text-bright">执行流水线</div>
           <div className="h-4 w-px bg-border"></div>
           <div className="text-[10px] font-mono text-cyan">
-            {tasks.length > 0 ? `${passedCount}/${tasks.length} 任务已完成` : `${agents.length} Agent`}
+            {allTasks.length > 0 ? `${passedCount}/${allTasks.length} 任务已完成` : `${agents.length} Agent`}
           </div>
         </div>
         <div className="flex space-x-2">
@@ -121,7 +149,7 @@ export function ParallelKanban() {
       </div>
 
       {/* Task + Agent Cards — Horizontal Scroll */}
-      {tasks.length === 0 && agents.length === 0 ? (
+      {allTasks.length === 0 && agents.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm font-mono">
           等待任务分配...
         </div>
@@ -227,71 +255,83 @@ export function ParallelKanban() {
             );
           })}
 
-          {/* Task Cards */}
-          {tasks.map((task) => {
-            const statusCfg = STATUS_CONFIG[task.status];
-            const tddCfg = task.tdd_step ? TDD_STEP_CONFIG[task.tdd_step] : null;
-            const isRunning = task.status === "running";
-            const borderColor = tddCfg?.borderColor || (task.status === "passed" ? "border-emerald" : "border-border");
+          {/* v5.8: Task Cards grouped by Phase */}
+          {tasksByPhase.map(([phase, tasks]) => (
+            <div key={`phase-${phase}`} className="shrink-0 flex flex-col">
+              {/* Phase group header */}
+              {tasksByPhase.length > 1 && (
+                <div className="text-[9px] font-mono text-text-muted mb-1 px-1">
+                  Phase {phase}: {PHASE_LABELS[phase] || `Phase ${phase}`}
+                </div>
+              )}
+              <div className="flex space-x-3">
+                {tasks.map((task) => {
+                  const statusCfg = STATUS_CONFIG[task.status];
+                  const tddCfg = task.tdd_step ? TDD_STEP_CONFIG[task.tdd_step] : null;
+                  const isRunning = task.status === "running";
+                  const borderColor = tddCfg?.borderColor || (task.status === "passed" ? "border-emerald" : "border-border");
 
-            return (
-              <div
-                key={task.task_name}
-                className={`w-64 shrink-0 ${statusCfg.bgColor} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden`}
-              >
-                {/* Running pulse overlay */}
-                {isRunning && tddCfg && (
-                  <div className={`absolute inset-0 ${tddCfg.bgPulse} animate-pulse-soft`}></div>
-                )}
-
-                <div className="relative z-10">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className={`text-[11px] font-mono font-bold ${isRunning ? "text-white" : statusCfg.color}`}>
-                      {task.task_name}
-                    </span>
-                    <div className="flex items-center space-x-1">
-                      {task.retry_count !== undefined && task.retry_count > 0 && (
-                        <span className="text-[9px] bg-amber/20 text-amber px-1 rounded">
-                          &#8635; 重试中
-                        </span>
-                      )}
-                      {task.status === "passed" ? (
-                        <span className="text-[9px] bg-emerald/10 text-emerald px-1 rounded">&#10003; 通过</span>
-                      ) : isRunning ? (
-                        <span className={`text-[9px] ${statusCfg.color} animate-pulse font-bold`}>&#9679; {statusCfg.label}</span>
-                      ) : task.status === "failed" ? (
-                        <span className="text-[9px] bg-rose/10 text-rose px-1 rounded">&#10007; 失败</span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="w-full bg-border h-1 mb-3">
+                  return (
                     <div
-                      className={`h-full ${
-                        task.status === "passed"
-                          ? "bg-emerald w-full"
-                          : task.status === "failed"
-                            ? "bg-rose w-full"
-                            : tddCfg
-                              ? `${tddCfg.color === "text-rose" ? "bg-rose" : tddCfg.color === "text-violet" ? "bg-violet" : "bg-emerald"} w-[65%]`
-                              : "bg-border w-0"
-                      } ${isRunning ? "shadow-[0_0_8px_rgba(139,92,246,0.6)]" : ""}`}
-                    ></div>
-                  </div>
-                </div>
+                      key={`p${phase}:${task.task_name}`}
+                      className={`w-64 shrink-0 ${statusCfg.bgColor} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden`}
+                    >
+                      {/* Running pulse overlay */}
+                      {isRunning && tddCfg && (
+                        <div className={`absolute inset-0 ${tddCfg.bgPulse} animate-pulse-soft`}></div>
+                      )}
 
-                <div className="relative z-10 flex items-center justify-between text-[9px] font-mono text-text-muted">
-                  <span className={`${tddCfg?.color || "text-text-muted"} font-bold`}>
-                    {tddCfg ? `${tddCfg.icon} ${tddCfg.label}` : `[${task.task_index}/${task.task_total}]`}
-                  </span>
-                  <span className={isRunning ? "text-white" : ""}>
-                    {new Date(task.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                </div>
+                      <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={`text-[11px] font-mono font-bold ${isRunning ? "text-white" : statusCfg.color}`}>
+                            {task.task_name}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            {task.retry_count !== undefined && task.retry_count > 0 && (
+                              <span className="text-[9px] bg-amber/20 text-amber px-1 rounded">
+                                &#8635; 重试中
+                              </span>
+                            )}
+                            {task.status === "passed" ? (
+                              <span className="text-[9px] bg-emerald/10 text-emerald px-1 rounded">&#10003; 通过</span>
+                            ) : isRunning ? (
+                              <span className={`text-[9px] ${statusCfg.color} animate-pulse font-bold`}>&#9679; {statusCfg.label}</span>
+                            ) : task.status === "failed" ? (
+                              <span className="text-[9px] bg-rose/10 text-rose px-1 rounded">&#10007; 失败</span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="w-full bg-border h-1 mb-3">
+                          <div
+                            className={`h-full ${
+                              task.status === "passed"
+                                ? "bg-emerald w-full"
+                                : task.status === "failed"
+                                  ? "bg-rose w-full"
+                                  : tddCfg
+                                    ? `${tddCfg.color === "text-rose" ? "bg-rose" : tddCfg.color === "text-violet" ? "bg-violet" : "bg-emerald"} w-[65%]`
+                                    : "bg-border w-0"
+                            } ${isRunning ? "shadow-[0_0_8px_rgba(139,92,246,0.6)]" : ""}`}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 flex items-center justify-between text-[9px] font-mono text-text-muted">
+                        <span className={`${tddCfg?.color || "text-text-muted"} font-bold`}>
+                          {tddCfg ? `${tddCfg.icon} ${tddCfg.label}` : `[${task.task_index}/${task.task_total}]`}
+                        </span>
+                        <span className={isRunning ? "text-white" : ""}>
+                          {new Date(task.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </section>

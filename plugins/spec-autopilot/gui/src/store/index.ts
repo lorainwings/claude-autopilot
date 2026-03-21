@@ -42,6 +42,7 @@ export interface ParallelPlanSummary {
 
 interface TaskProgress {
   task_name: string;
+  phase: number;
   status: "running" | "passed" | "failed" | "retrying";
   tdd_step?: "red" | "green" | "refactor";
   retry_count?: number;
@@ -384,8 +385,10 @@ export const useStore = create<AppState>((set) => ({
       for (const event of newEvents) {
         if (event.type === "task_progress" && isTaskProgressPayload(event.payload)) {
           const p = event.payload;
-          newTaskProgress.set(p.task_name, {
+          const progressKey = `p${event.phase}:${p.task_name}`;
+          newTaskProgress.set(progressKey, {
             task_name: p.task_name,
+            phase: event.phase,
             status: p.status,
             tdd_step: p.tdd_step,
             retry_count: p.retry_count,
