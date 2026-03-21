@@ -8,7 +8,7 @@
 
 import { useState, useMemo } from "react";
 import { useStore } from "../store";
-import type { AgentInfo } from "../store";
+import type { AgentInfo, ParallelPlanSummary } from "../store";
 import type { AutopilotEvent } from "../lib/ws-bridge";
 
 const TDD_STEP_CONFIG = {
@@ -74,7 +74,7 @@ const PHASE_LABELS: Record<number, string> = {
 };
 
 export function ParallelKanban() {
-  const { taskProgress, agentMap, events } = useStore();
+  const { taskProgress, agentMap, events, parallelPlan } = useStore();
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
 
   if (taskProgress.size === 0 && agentMap.size === 0) {
@@ -102,9 +102,9 @@ export function ParallelKanban() {
   const agents = Array.from(agentMap.values());
   const passedCount = allTasks.filter((t) => t.status === "passed").length;
 
-  // G6: Infer parallel mode from concurrent running tasks, TDD from tdd_step fields
-  const runningTasks = allTasks.filter((t) => t.status === "running");
-  const isParallel = runningTasks.length > 1 || allTasks.some((t) => t.task_total > 1);
+  // 优先使用 parallelPlan 状态判断并行模式（比推断更准确）
+  const isParallelFromPlan = parallelPlan.updated_at !== null && parallelPlan.scheduler_decision === "batch_parallel";
+  const isParallel = isParallelFromPlan || allTasks.some((t) => t.task_total > 1);
   const hasTdd = allTasks.some((t) => t.tdd_step !== undefined);
   const hasAgents = agents.length > 0;
 
@@ -127,7 +127,7 @@ export function ParallelKanban() {
   return (
     <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-3">
           <div className="font-display text-xs font-bold uppercase tracking-widest text-text-bright">执行流水线</div>
           <div className="h-4 w-px bg-border"></div>
@@ -147,6 +147,9 @@ export function ParallelKanban() {
           )}
         </div>
       </div>
+
+      {/* Parallel Plan Info Bar (v5.8) */}
+      <ParallelPlanInfoBar plan={parallelPlan} />
 
       {/* Task + Agent Cards — Horizontal Scroll */}
       {allTasks.length === 0 && agents.length === 0 ? (
@@ -335,5 +338,41 @@ export function ParallelKanban() {
         </div>
       )}
     </section>
+  );
+}
+
+// --- Parallel Plan Info Bar (v5.8) ---
+function ParallelPlanInfoBar({ plan }: { plan: ParallelPlanSummary }) {
+  if (!plan.updated_at) return null;
+
+  const isFallback = plan.fallback_to_serial;
+  const decisionColor = isFallback ? "text-amber" : plan.scheduler_decision === "batch_parallel" ? "text-cyan" : "text-text-muted";
+
+  return (
+    <div className="mb-3 flex items-center flex-wrap gap-3 text-[9px] font-mono text-text-muted border border-border/40 bg-deep/50 px-2 py-1 rounded">
+      <span className={`font-bold ${decisionColor}`}>{plan.scheduler_decision}</span>
+      <span className="text-border">|</span>
+      <span>{plan.total_tasks} tasks / {plan.batch_count} batches</span>
+      <span className="text-border">|</span>
+      <span className="text-cyan">max ‖{plan.max_parallelism}</span>
+      {plan.current_batch_index !== null && (
+        <>
+          <span className="text-border">|</span>
+          <span className="text-violet">batch #{plan.current_batch_index}</span>
+        </>
+      )}
+      {isFallback && plan.fallback_reason && (
+        <>
+          <span className="text-border">|</span>
+          <span className="text-amber">⚠ {plan.fallback_reason.slice(0, 60)}</span>
+        </>
+      )}
+      {plan.diagnostics.length > 0 && (
+        <>
+          <span className="text-border">|</span>
+          <span className="text-amber/70">{plan.diagnostics[0]!.slice(0, 60)}</span>
+        </>
+      )}
+    </div>
   );
 }

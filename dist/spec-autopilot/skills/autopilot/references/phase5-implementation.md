@@ -74,10 +74,14 @@
 
 > **参考协议**: `references/parallel-dispatch.md`（通用并行编排）+ `references/parallel-phase5.md`（Phase 5 专属配置与模板）
 
-### 混合模式核心流程（v3.4.0: 域级单 Agent）
+### 并行模式核心流程（v3.4.0: 域级单 Agent）
 
 > **v3.4.0 变更**: 每个域（backend/frontend/node）严格只分配 1 个 Agent，
 > 该 Agent 批量处理域内所有 tasks。跨域并行（backend ‖ frontend ‖ node），域内串行。
+>
+> **v5.8 强制约束**: `parallel.enabled = true` 时，**主线程禁止自行编码实施任何 task**。
+> 所有实施工作必须通过子 Agent（Task 工具）完成。主线程角色严格限于编排：
+> 解析任务清单、分域、dispatch Task、等待结果、合并 worktree、写 checkpoint。
 
 ```
 1. 解析任务清单 → 按域分组（从 config.domain_agents 路径前缀匹配 + auto 自动发现）
@@ -245,13 +249,21 @@ cross_cutting 串行执行
 - 子 Agent 不直接写入 checkpoint（隔离约束）
 - 主线程从子 Agent 返回的 JSON 信封提取 artifacts 和 summary
 
-### 降级决策树（v3.4.0 更新）
+### 降级决策树（v5.8 更新）
+
+> **关键约束**: `parallel.enabled = true` 时，降级目标为"子 Agent 串行模式"（路径 B），
+> **绝不允许**主线程自行编码实施任务。降级仅改变 Task 的 `run_in_background` 参数（改为 false），
+> 主线程始终通过 Task 工具派发子 Agent。
 
 ```
-IF worktree 创建失败（磁盘空间/权限） → 立即降级为串行
-IF 域级合并冲突 > 3 个文件 → 回退该域 worktree → 串行执行该域所有 task
-IF 2 个域合并失败 → 全面降级为串行
-IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
+IF worktree 创建失败（磁盘空间/权限）
+  → AskUserQuestion: "worktree 创建失败，是否切换到前台串行子 Agent 模式（路径 B）？"
+  → 用户确认后：每域改用 Task(run_in_background: false) 逐个前台执行
+  → 禁止主线程直接实施任务
+IF 域级合并冲突 > 3 个文件
+  → 回退该域 worktree → 改用 Task(run_in_background: false) 串行重执行该域所有 task
+IF 2 个域合并失败 → AskUserQuestion → 用户确认后全域改用前台 Task 串行执行
+IF 用户在 AskUserQuestion 选择 "切换串行" → 全域改用前台 Task 串行执行
 降级原因记录到 checkpoint: _metrics.parallel_fallback_reason
 ```
 
@@ -301,7 +313,8 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全面降级
 
 > **条件检查**：仅当 `config.phases.implementation.parallel.enabled = false`（默认值）且未从路径 A 降级时才执行本节。
 > 如果 `parallel.enabled = true`，必须执行上方「并行执行模式」章节，**禁止进入本节**。
-> 如果从路径 A 降级到串行模式，本节作为降级后的执行路径。
+> 如果从路径 A 降级，降级后的执行路径依然通过 Task 工具派发子 Agent（见路径 A 降级决策树），
+> **主线程不在任何路径下直接编码实施任务**。
 
 ### 前台 Task 逐个派发（串行模式）
 

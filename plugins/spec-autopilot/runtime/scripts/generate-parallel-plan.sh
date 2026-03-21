@@ -78,25 +78,7 @@ def main():
     task_map = {t["task_name"]: t for t in tasks}
     n = len(tasks)
 
-    # --- 1. 构建文件所有权图 (Union-Find) ---
-    parent = list(range(n))
-    rank = [0] * n
-
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra == rb:
-            return
-        if rank[ra] < rank[rb]:
-            ra, rb = rb, ra
-        parent[rb] = ra
-        if rank[ra] == rank[rb]:
-            rank[ra] += 1
+    # --- 1. 构建依赖图（文件冲突隐式依赖 + 显式 depends_on）---
 
     # v5.7: 诊断 — 检测 affected_files 缺失（输出到 JSON diagnostics 字段）
     diagnostics = []
@@ -247,6 +229,6 @@ def main():
     print(json.dumps(plan, ensure_ascii=False))
 
 main()
-' "$TASKS_JSON" 2>/dev/null
+' "$TASKS_JSON"
 
 exit $?

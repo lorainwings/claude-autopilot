@@ -101,7 +101,10 @@ function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): st
   let detail = "";
   const p = event.payload;
   switch (event.type) {
-    case "gate_block":
+    case "phase_start":
+      detail = ` ${dimGray}label=${reset}${String(p.label ?? event.phase_label ?? "--")}`;
+      if (p.mode) detail += ` ${dimGray}mode=${reset}${String(p.mode)}`;
+      break;
       detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
       if (typeof p.error_message === "string") detail += ` ${dimGray}err=${reset}${p.error_message.slice(0, 80)}`;
       break;
@@ -182,6 +185,9 @@ function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): st
     case "parallel_plan":
       detail = ` ${dimGray}decision=${reset}${String(p.scheduler_decision ?? "--")} ${dimGray}tasks=${reset}${String(p.total_tasks ?? "--")} ${dimGray}batches=${reset}${String(p.batch_count ?? "--")} ${dimGray}max_parallel=${reset}${String(p.max_parallelism ?? "--")}`;
       if (p.fallback_to_serial) detail += ` \x1b[33m[FALLBACK]${reset}`;
+      if (Array.isArray(p.diagnostics) && (p.diagnostics as string[]).length > 0) {
+        detail += ` ${dimGray}diag=${reset}${(p.diagnostics as string[]).join("; ").slice(0, 100)}`;
+      }
       break;
     case "parallel_batch_start":
       detail = ` ${dimGray}batch=${reset}#${String(p.batch_index ?? "--")} ${dimGray}tasks=${reset}${String(p.task_count ?? "--")}`;

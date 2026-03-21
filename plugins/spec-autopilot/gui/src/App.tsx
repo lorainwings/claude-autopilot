@@ -4,7 +4,7 @@
  * 逻辑骨架: WSBridge + Zustand Store 保持不变
  */
 
-import { useEffect } from "react";
+import { useEffect, memo, useState } from "react";
 import { WSBridge } from "./lib/ws-bridge";
 import { useStore } from "./store";
 import { PhaseTimeline } from "./components/PhaseTimeline";
@@ -12,14 +12,73 @@ import { GateBlockCard } from "./components/GateBlockCard";
 import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
 import { LogWorkbench } from "./components/LogWorkbench";
+import type { ModelRoutingState } from "./store";
 
 declare const __PLUGIN_VERSION__: string;
 
 const wsBridge = new WSBridge();
 
+// --- Model Routing Banner (v5.8) ---
+// 显示在中心主视区，醒目提示当前 Phase 的模型路由决策
+const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routing: ModelRoutingState }) {
+  const [visible, setVisible] = useState(false);
+  const [prev, setPrev] = useState<string | null>(null);
+
+  // 每次 updated_at 变化（新路由事件）时显示 banner，8 秒后自动淡出
+  useEffect(() => {
+    if (!routing.updated_at || routing.updated_at === prev) return;
+    setPrev(routing.updated_at);
+    setVisible(true);
+    const t = setTimeout(() => setVisible(false), 8000);
+    return () => clearTimeout(t);
+  }, [routing.updated_at, prev]);
+
+  if (!visible || !routing.updated_at) return null;
+
+  const isFallback = routing.fallback_applied;
+  const isEscalated = (routing as Record<string, unknown>).escalated_from != null;
+  const borderColor = isFallback ? "border-rose/60" : isEscalated ? "border-amber/60" : "border-cyan/60";
+  const titleColor = isFallback ? "text-rose" : isEscalated ? "text-amber" : "text-cyan";
+
+  return (
+    <div className={`mx-4 mt-3 px-4 py-2 bg-deep border ${borderColor} rounded font-mono text-[11px] z-20`}>
+      <div className="flex items-center gap-2">
+        <span className={`font-bold ${titleColor}`}>
+          🤖 Phase {routing.phase} Model:
+        </span>
+        <span className="text-text-bright font-bold">
+          {routing.requested_model ?? "--"}
+        </span>
+        <span className="text-text-muted">
+          ({routing.requested_tier ?? "--"})
+        </span>
+        {routing.requested_effort && (
+          <span className="text-text-muted">| Effort: {routing.requested_effort}</span>
+        )}
+        {routing.routing_reason && (
+          <span className="text-text-muted truncate">| {routing.routing_reason}</span>
+        )}
+        {isFallback && routing.fallback_model && (
+          <span className="text-rose font-bold ml-1">⚠️ Fallback → {routing.fallback_model}</span>
+        )}
+        {isEscalated && (
+          <span className="text-amber ml-1">⬆️ Escalated</span>
+        )}
+        <button
+          className="ml-auto text-text-muted hover:text-text-bright shrink-0"
+          onClick={() => setVisible(false)}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+});
+
 export function App() {
   const { connected, setConnected, setHttpOk, addEvents, setDecisionAcked, setLastAckedBlockSequence, changeName, sessionId, mode } = useStore();
   const hasEvents = useStore((s) => s.events.length > 0);
+  const modelRouting = useStore((s) => s.modelRouting);
 
   useEffect(() => {
     wsBridge.connect();
@@ -130,6 +189,9 @@ export function App() {
               <GateBlockCard onDecision={handleDecision} />
             </div>
           </div>
+
+          {/* Model Routing Banner — 中心醒目展示当前 Phase 模型路由 (v5.8) */}
+          <ModelRoutingBanner routing={modelRouting} />
 
           {/* Empty state placeholder when no events yet */}
           {!hasEvents && (

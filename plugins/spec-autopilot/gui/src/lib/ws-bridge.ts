@@ -73,8 +73,8 @@ export class WSBridge {
               handler();
             }
           }
-        } catch {
-          // Ignore malformed messages
+        } catch (err) {
+          console.warn("[WSBridge] Malformed message discarded:", err, e.data?.slice?.(0, 200));
         }
       };
 

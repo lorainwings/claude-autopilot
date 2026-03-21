@@ -32,8 +32,8 @@ fi
 KEY_PARAM=""
 case "$TOOL_NAME" in
   Bash)
-    # Extract command field from tool_input
-    if [[ "$STDIN_DATA" =~ \"command\"[[:space:]]*:[[:space:]]*\"([^\"]{0,80}) ]]; then
+    # Extract command field from tool_input — up to 300 chars for meaningful diagnostics
+    if [[ "$STDIN_DATA" =~ \"command\"[[:space:]]*:[[:space:]]*\"([^\"]{0,300}) ]]; then
       KEY_PARAM="${BASH_REMATCH[1]}"
     fi
     ;;
@@ -64,11 +64,11 @@ case "$TOOL_NAME" in
     ;;
 esac
 
-# --- Extract output_preview (first 200 chars of result/stdout) ---
+# --- Extract output_preview (first 500 chars of result/stdout) ---
 OUTPUT_PREVIEW=""
-if [[ "$STDIN_DATA" =~ \"stdout\"[[:space:]]*:[[:space:]]*\"([^\"]{0,200}) ]]; then
+if [[ "$STDIN_DATA" =~ \"stdout\"[[:space:]]*:[[:space:]]*\"([^\"]{0,500}) ]]; then
   OUTPUT_PREVIEW="${BASH_REMATCH[1]}"
-elif [[ "$STDIN_DATA" =~ \"output\"[[:space:]]*:[[:space:]]*\"([^\"]{0,200}) ]]; then
+elif [[ "$STDIN_DATA" =~ \"output\"[[:space:]]*:[[:space:]]*\"([^\"]{0,500}) ]]; then
   OUTPUT_PREVIEW="${BASH_REMATCH[1]}"
 fi
 
@@ -177,7 +177,7 @@ if exit_code:
 
 output_preview = sys.argv[12]
 if output_preview:
-    event['payload']['output_preview'] = output_preview[:200]
+    event['payload']['output_preview'] = output_preview[:500]
 
 agent_id = sys.argv[13] if len(sys.argv) > 13 else ''
 if agent_id:

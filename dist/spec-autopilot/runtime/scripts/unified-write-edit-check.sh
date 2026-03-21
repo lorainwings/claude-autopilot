@@ -146,6 +146,58 @@ EOF
 fi
 
 # ============================================================
+# CHECK 0.5: Parallel Mode File Ownership (Phase 5 only, pure bash, ~2ms)
+# When phase5-ownership/ dir exists, the orchestrator is running in parallel mode.
+# Each agent has an exclusive ownership file listing its allowed files.
+# ============================================================
+
+if [ "$IN_PHASE5" = "yes" ]; then
+  OWNERSHIP_DIR="$PHASE_RESULTS/phase5-ownership"
+  if [ -d "$OWNERSHIP_DIR" ]; then
+    # Resolve current agent ID from session marker file
+    CURRENT_AGENT_ID=""
+    if [[ "$STDIN_DATA" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+      _SID="${BASH_REMATCH[1]}"
+      _SESSION_AGENT_FILE="$PROJECT_ROOT_QUICK/logs/.agent-id-${_SID}"
+      if [ -f "$_SESSION_AGENT_FILE" ]; then
+        CURRENT_AGENT_ID=$(head -1 "$_SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
+      fi
+    fi
+    if [ -z "$CURRENT_AGENT_ID" ] && [ -f "$PROJECT_ROOT_QUICK/logs/.active-agent-id" ]; then
+      CURRENT_AGENT_ID=$(head -1 "$PROJECT_ROOT_QUICK/logs/.active-agent-id" 2>/dev/null | tr -d '[:space:]')
+    fi
+
+    if [ -n "$CURRENT_AGENT_ID" ]; then
+      # Find ownership file: try {agent_id}.json first, then scan all files
+      OWNERSHIP_FILE="$OWNERSHIP_DIR/${CURRENT_AGENT_ID}.json"
+      if [ ! -f "$OWNERSHIP_FILE" ]; then
+        for _f in "$OWNERSHIP_DIR"/*.json; do
+          [ -f "$_f" ] || continue
+          if grep -qF "\"$CURRENT_AGENT_ID\"" "$_f" 2>/dev/null; then
+            OWNERSHIP_FILE="$_f"
+            break
+          fi
+        done
+      fi
+
+      if [ -f "$OWNERSHIP_FILE" ]; then
+        # Check that FILE_PATH appears in the owned_files array
+        if ! grep -qF "\"$FILE_PATH\"" "$OWNERSHIP_FILE" 2>/dev/null; then
+          cat <<EOF
+{
+  "decision": "block",
+  "reason": "File ownership violation (parallel Phase 5): Agent '${CURRENT_AGENT_ID}' attempted to modify '${FILE_PATH}', which is not in its owned_files assignment. In parallel mode each agent may only modify files within its assigned domain.",
+  "fix_suggestion": "Only modify files listed in your owned_files assignment. If this file needs to change, coordinate with the orchestrator to update domain boundaries."
+}
+EOF
+          exit 0
+        fi
+      fi
+    fi
+  fi
+fi
+
+# ============================================================
 # CHECK 1: TDD Phase Isolation (Phase 5 only, pure bash, ~1ms)
 # ============================================================
 

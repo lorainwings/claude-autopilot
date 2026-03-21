@@ -436,7 +436,13 @@ export const useStore = create<AppState>((set) => ({
             timestamp: event.timestamp,
           };
           // v5.4: 从 statusLine 推断 effective_model
-          if (latestStatus.model && modelRouting.requested_model && modelRouting.model_status === "requested") {
+          // 仅在尚未收到 model_effective 事件时推断（避免与 model_effective 路径竞争覆盖）
+          if (
+            latestStatus.model &&
+            modelRouting.requested_model &&
+            modelRouting.model_status === "requested" &&
+            modelRouting.inference_source === null
+          ) {
             const inferredModel = latestStatus.model;
             const match = inferredModel.includes(modelRouting.requested_model) ||
               modelRouting.requested_model === "auto";
@@ -484,6 +490,8 @@ export const useStore = create<AppState>((set) => ({
             agent_id: (p.agent_id as string) ?? modelRouting.agent_id,
             updated_at: event.timestamp,
           };
+          // 推入历史（与 model_routing / model_fallback 保持一致）
+          modelRoutingHistory.push({ ...modelRouting });
         } else if (event.type === "model_fallback") {
           // v5.4: 模型降级
           const p = event.payload as Record<string, unknown>;

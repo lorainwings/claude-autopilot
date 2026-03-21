@@ -347,7 +347,9 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
   - 每组完成后: 按 task 编号合并 worktree -> 快速验证 -> 批量 review -> checkpoint
   - 降级: 合并失败超过 3 文件 -> 切换到路径 B
 
-- **路径 B: 串行模式**（当 `parallel.enabled = false` 或从路径 A 降级时执行）：
+- **路径 B: 串行模式**（当 `parallel.enabled = false` 时执行，或从路径 A 降级后以前台 Task 形式执行）：
+  > **v5.8 约束**: 从路径 A 降级时，路径 B 仍通过 `Task(run_in_background: false)` 派发子 Agent，
+  > **主线程不直接编码实施任何 task**。
   - 主线程逐个派发**前台 Task**（同步阻塞），按域动态选择 Agent（v3.4.0）：
     ```
     # 三步域检测（与并行模式相同算法）：前缀匹配 → auto 发现 → fallback
