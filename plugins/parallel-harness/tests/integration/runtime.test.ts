@@ -2,7 +2,16 @@
  * parallel-harness: 集成测试 — OrchestratorRuntime 完整生命周期
  */
 import { describe, expect, it } from "bun:test";
-import { OrchestratorRuntime, type WorkerAdapter } from "../../runtime/engine/orchestrator-runtime";
+import {
+  OrchestratorRuntime,
+  DefaultPolicyEngine,
+  type WorkerAdapter,
+  type PolicyEngine,
+  type PolicyEvalResult,
+  type ExecutionContext,
+} from "../../runtime/engine/orchestrator-runtime";
+import { ApprovalWorkflow } from "../../runtime/governance/governance";
+import { RuntimeBridgeDataProvider } from "../../runtime/server/control-plane";
 import type { WorkerInput, WorkerOutput } from "../../runtime/orchestrator/role-contracts";
 import { generateId, SCHEMA_VERSION, type RunRequest } from "../../runtime/schemas/ga-schemas";
 
@@ -13,7 +22,7 @@ import { generateId, SCHEMA_VERSION, type RunRequest } from "../../runtime/schem
 class MockSuccessAdapter implements WorkerAdapter {
   async execute(input: WorkerInput): Promise<WorkerOutput> {
     const paths = input.contract.allowed_paths.length > 0
-      ? [input.contract.allowed_paths[0] + "result.ts"]
+      ? [input.contract.allowed_paths[0].replace(/\/?$/, "/") + "result.ts"]
       : ["src/result.ts"];
     return {
       status: "ok",
@@ -186,5 +195,150 @@ describe("OrchestratorRuntime 集成测试", () => {
     const runtime = new OrchestratorRuntime();
     const bus = runtime.getEventBus();
     expect(bus).toBeDefined();
+  });
+});
+
+// ============================================================
+// 回归测试：task-level approveAndResume 跨进程恢复
+// ============================================================
+
+describe("approveAndResume 回归测试", () => {
+  /** PolicyEngine：对所有 worker_execute 动作要求审批（不自动通过） */
+  class AlwaysApproveRequiredPolicy implements PolicyEngine {
+    evaluate(_ctx: ExecutionContext, action: string, _params: Record<string, unknown>): PolicyEvalResult {
+      if (action === "worker_execute") {
+        return { allowed: true, violations: [], requires_approval: true, message: "需要审批" };
+      }
+      return { allowed: true, violations: [], requires_approval: false, message: "允许" };
+    }
+  }
+
+  it("task-level 审批阻断后 approveAndResume 能恢复并成功完成", async () => {
+    // 不传 autoApproveRules → ApprovalWorkflow 不自动批准
+    const approvalWorkflow = new ApprovalWorkflow([]);
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+      policyEngine: new AlwaysApproveRequiredPolicy(),
+      approvalWorkflow,
+    });
+
+    const request = createRunRequest("实现一个工具函数", { auto_approve_rules: [] });
+    // 第一次执行应该 blocked
+    const blockedResult = await runtime.executeRun(request);
+    expect(blockedResult.final_status).toBe("blocked");
+
+    // 从 execution 中取审批 ID（已持久化到 checkpoint）
+    const execution = await runtime.getRun(blockedResult.run_id);
+    expect(execution).toBeDefined();
+    expect(execution!.status).toBe("blocked");
+
+    // 取 pending approval_id：从 approval_records 找 pending，或从 approvalWorkflow
+    const pending = approvalWorkflow.getPending();
+    expect(pending.length).toBeGreaterThan(0);
+    const approvalId = pending[0].approval_id;
+
+    // 恢复执行
+    const resumedResult = await runtime.approveAndResume(blockedResult.run_id, approvalId, "test-admin");
+    expect(resumedResult.final_status).not.toBe("blocked");
+    // 恢复后任务应完成
+    expect(resumedResult.completed_tasks.length + resumedResult.failed_tasks.length).toBeGreaterThan(0);
+  });
+});
+
+// ============================================================
+// 回归测试：Control Plane listRuns / getRunDetail 读 runtime 数据
+// ============================================================
+
+describe("Control Plane 读模型回归测试", () => {
+  it("listRuns 返回 runtime 中已完成的 run", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("测试 listRuns");
+    const result = await runtime.executeRun(request);
+
+    const runs = await runtime.listRuns();
+    expect(runs.length).toBeGreaterThan(0);
+    const found = runs.find((r) => r.run_id === result.run_id);
+    expect(found).toBeDefined();
+    expect(found!.status).toBeDefined();
+    expect(found!.intent).toBe("测试 listRuns");
+  });
+
+  it("getRunDetail 返回包含 tasks / cost / timeline 的结构化详情", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("测试 getRunDetail");
+    const result = await runtime.executeRun(request);
+
+    const detail = await runtime.getRunDetail(result.run_id);
+    expect(detail).toBeDefined();
+    expect(detail!.run_id).toBe(result.run_id);
+    expect(Array.isArray(detail!.tasks)).toBe(true);
+    expect(detail!.cost).toBeDefined();
+    expect(detail!.cost.total_cost).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(detail!.timeline)).toBe(true);
+    expect(detail!.timeline.length).toBeGreaterThan(0);
+  });
+
+  it("RuntimeBridgeDataProvider.listRuns 通过 bridge 读取 runtime 数据而非空 inner store", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("测试 bridge listRuns");
+    const result = await runtime.executeRun(request);
+
+    const provider = new RuntimeBridgeDataProvider(runtime as any);
+    const runs = await provider.listRuns();
+    expect(runs.length).toBeGreaterThan(0);
+    const found = runs.find((r) => r.run_id === result.run_id);
+    expect(found).toBeDefined();
+  });
+});
+
+// ============================================================
+// 回归测试：generic intent ownership fallback
+// ============================================================
+
+describe("Generic intent ownership fallback 回归测试", () => {
+  it("general 域任务使用 project_root 作 allowed_paths，产出路径不被判定为越界", async () => {
+    const runtime = new OrchestratorRuntime({
+      // MockSuccessAdapter 对 allowed_paths 为空时产出 src/result.ts
+      // 对有 root_path 时产出 root_path/result.ts
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    // 模糊请求，不含任何域关键词 → general 域 → allowed_paths = [project.root_path]
+    const request = createRunRequest("实现一个功能模块", {
+      auto_approve_rules: ["all"],
+      enabled_gates: [],
+    });
+    const result = await runtime.executeRun(request);
+
+    // 不应该出现 ownership_conflict 失败
+    const hasOwnershipConflict = result.failed_tasks.some(
+      (t) => t.failure_class === "ownership_conflict"
+    );
+    expect(hasOwnershipConflict).toBe(false);
+    // run 应完成（succeeded 或 partially_failed，但不是纯 ownership 失败）
+    expect(result.final_status).not.toBe("failed");
+  });
+
+  it("general 域 allowed_paths 包含 project_root 而不是空数组", async () => {
+    const { buildTaskGraph } = await import("../../runtime/orchestrator/task-graph-builder");
+    const { analyzeIntent } = await import("../../runtime/orchestrator/intent-analyzer");
+
+    const analysis = analyzeIntent("实现一个功能", { root_path: "/project", known_modules: [] });
+    const graph = buildTaskGraph(analysis, {}, "/project");
+
+    // 所有任务的 allowed_paths 不应为空（general 域应 fallback 到 project_root）
+    for (const task of graph.tasks) {
+      expect(task.allowed_paths.length).toBeGreaterThan(0);
+      expect(task.allowed_paths).toContain("/project");
+    }
   });
 });

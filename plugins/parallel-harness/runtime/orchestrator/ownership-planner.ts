@@ -210,6 +210,8 @@ function findPathOverlaps(paths1: string[], paths2: string[]): string[] {
 }
 
 function pathMatches(path: string, pattern: string): boolean {
+  // "." 或 "./" 代表项目根目录，匹配所有路径
+  if (pattern === "." || pattern === "./") return true;
   // 简单匹配：精确匹配或前缀匹配
   if (path === pattern) return true;
   if (pattern.endsWith("/**") || pattern.endsWith("/*")) {

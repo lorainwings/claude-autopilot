@@ -60,12 +60,13 @@ const DEFAULT_CONFIG: BuilderConfig = {
  */
 export function buildTaskGraph(
   analysis: IntentAnalysis,
-  config: Partial<BuilderConfig> = {}
+  config: Partial<BuilderConfig> = {},
+  project_root?: string
 ): TaskGraph {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
   // 1. 为每个子目标创建任务节点
-  const tasks = createTaskNodes(analysis, cfg);
+  const tasks = createTaskNodes(analysis, cfg, project_root);
 
   // 2. 推断依赖关系
   const edges = inferDependencies(tasks, analysis);
@@ -107,7 +108,8 @@ export function buildTaskGraph(
 
 function createTaskNodes(
   analysis: IntentAnalysis,
-  config: BuilderConfig
+  config: BuilderConfig,
+  project_root?: string
 ): TaskNode[] {
   const tasks: TaskNode[] = [];
 
@@ -137,7 +139,11 @@ function createTaskNodes(
       status: "pending" as TaskStatus,
       risk_level: analysis.risk_estimation.overall,
       complexity,
-      allowed_paths: domain?.paths || [],
+      // general 域 paths 为空时，用 project_root 收窄权限（最小权限原则）
+      // 若连 project_root 也没有，则保持空数组（validateOwnership 视为不限制）
+      allowed_paths: domain?.paths.length
+        ? domain.paths
+        : (project_root ? [project_root] : []),
       forbidden_paths: [],
       acceptance_criteria: [`完成: ${subGoal}`],
       required_tests: [],

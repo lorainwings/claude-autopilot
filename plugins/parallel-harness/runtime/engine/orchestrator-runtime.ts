@@ -636,7 +636,7 @@ export class OrchestratorRuntime {
     });
 
     // 2. 构建任务图 (buildTaskGraph 内部调用 scoreComplexity)
-    const taskGraph = buildTaskGraph(intentResult);
+    const taskGraph = buildTaskGraph(intentResult, {}, request.project.root_path);
 
     // 4. 所有权规划
     const ownershipPlan = planOwnership(taskGraph);
