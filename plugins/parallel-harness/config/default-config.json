@@ -1,0 +1,23 @@
+{
+  "$schema": "./run-config-schema.json",
+  "version": "1.0.0",
+  "description": "parallel-harness 默认运行配置",
+  "run_config": {
+    "max_concurrency": 5,
+    "high_risk_max_concurrency": 2,
+    "prioritize_critical_path": true,
+    "budget_limit": 100000,
+    "max_model_tier": "tier-3",
+    "enabled_gates": ["test", "lint_type", "review", "policy"],
+    "auto_approve_rules": [],
+    "timeout_ms": 600000,
+    "pr_strategy": "single_pr",
+    "enable_autofix": false
+  },
+  "gate_overrides": {},
+  "connector_configs": [],
+  "instructions": {
+    "org_level": [],
+    "repo_level": []
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "./policy-schema.json",
+  "version": "1.0.0",
+  "description": "parallel-harness 默认策略配置",
+  "rules": [
+    {
+      "rule_id": "path-001",
+      "name": "禁止修改 .env 文件",
+      "category": "sensitive_directory",
+      "condition": {
+        "type": "path_match",
+        "params": { "pattern": ".env" }
+      },
+      "enforcement": "block",
+      "enabled": true,
+      "priority": 1
+    },
+    {
+      "rule_id": "path-002",
+      "name": "禁止修改 credentials 文件",
+      "category": "sensitive_directory",
+      "condition": {
+        "type": "path_match",
+        "params": { "pattern": "credentials" }
+      },
+      "enforcement": "block",
+      "enabled": true,
+      "priority": 1
+    },
+    {
+      "rule_id": "budget-001",
+      "name": "低预算警告",
+      "category": "budget_limit",
+      "condition": {
+        "type": "budget_threshold",
+        "params": { "threshold": 1000 }
+      },
+      "enforcement": "warn",
+      "enabled": true,
+      "priority": 5
+    },
+    {
+      "rule_id": "risk-001",
+      "name": "高风险任务需要审批",
+      "category": "approval_required",
+      "condition": {
+        "type": "risk_level",
+        "params": { "min_risk": "critical" }
+      },
+      "enforcement": "approve",
+      "enabled": true,
+      "priority": 3
+    },
+    {
+      "rule_id": "tier-001",
+      "name": "限制最高模型等级",
+      "category": "model_tier_limit",
+      "condition": {
+        "type": "model_tier",
+        "params": { "max_tier": "tier-3" }
+      },
+      "enforcement": "block",
+      "enabled": false,
+      "priority": 10
+    }
+  ]
+}

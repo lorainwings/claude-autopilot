@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "parallel-harness Policy Config",
+  "type": "object",
+  "required": ["version", "rules"],
+  "properties": {
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string" },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "name", "category", "condition", "enforcement", "enabled", "priority"],
+        "properties": {
+          "rule_id": { "type": "string" },
+          "name": { "type": "string" },
+          "category": {
+            "type": "string",
+            "enum": ["path_boundary", "model_tier_limit", "network_access", "sensitive_directory", "approval_required", "max_concurrency", "budget_limit", "tool_restriction", "data_classification"]
+          },
+          "condition": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string", "enum": ["path_match", "budget_threshold", "risk_level", "model_tier", "action_type", "always"] },
+              "params": { "type": "object" }
+            }
+          },
+          "enforcement": { "type": "string", "enum": ["block", "warn", "approve", "log"] },
+          "enabled": { "type": "boolean" },
+          "priority": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

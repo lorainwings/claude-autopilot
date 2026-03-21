@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.49] - 2026-03-21
+
+### Fixed
+
+- **release-discipline 回归测试同步**: 更新 `test_release_discipline_ci.sh` 断言，与脚本重构后的成功输出 "All release discipline checks passed" 对齐
+
 ## [5.1.48] - 2026-03-20
 
 ### Fixed
