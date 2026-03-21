@@ -3,11 +3,16 @@
 # 用途：类型检查 → 运行测试 → 生成 dist 产物 → 更新 BUILD_MANIFEST
 set -euo pipefail
 
+PLUGIN_NAME="parallel-harness"
 PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$PLUGIN_DIR/../.." && pwd)"
+DIST_DIR="$REPO_ROOT/dist/$PLUGIN_NAME"
+
 cd "$PLUGIN_DIR"
 
 echo "=== parallel-harness 构建流程 ==="
 echo "插件目录: $PLUGIN_DIR"
+echo "dist 目标: $DIST_DIR"
 echo ""
 
 # 1. 安装依赖
@@ -28,51 +33,57 @@ TEST_OUTPUT=$(bun test 2>&1) || true
 echo "$TEST_OUTPUT" | tail -5
 
 # 提取测试计数
-PASS_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ pass' | grep -oE '[0-9]+' || echo "0")
-FAIL_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ fail' | grep -oE '[0-9]+' || echo "0")
-EXPECT_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ expect' | grep -oE '[0-9]+' || echo "0")
+PASS_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ pass' | grep -oE '[0-9]+' | head -1 || echo "0")
+FAIL_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ fail' | grep -oE '[0-9]+' | head -1 || echo "0")
+EXPECT_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ expect' | grep -oE '[0-9]+' | head -1 || echo "0")
 
-if [ "$FAIL_COUNT" != "0" ]; then
-  echo "警告: ${FAIL_COUNT} 个测试失败"
+if [ "${FAIL_COUNT:-0}" != "0" ]; then
+  echo "ERROR: ${FAIL_COUNT} 个测试失败，终止构建"
+  exit 1
+fi
+echo "测试全部通过: ${PASS_COUNT} pass / ${EXPECT_COUNT} expect()"
+
+# 4. 构建 dist（输出到仓库级 dist/parallel-harness/，与 dist/spec-autopilot/ 结构对齐）
+echo ""
+echo "--- 步骤 4/5: 构建 dist 产物 → $DIST_DIR ---"
+rm -rf "$DIST_DIR"
+mkdir -p "$DIST_DIR"
+
+# 复制插件元数据（市场安装所需最小集）
+cp -r .claude-plugin "$DIST_DIR/"
+cp -r runtime       "$DIST_DIR/"
+cp -r skills        "$DIST_DIR/"
+cp -r config        "$DIST_DIR/"
+
+# CLAUDE.md — 裁剪 dev-only 段落（如有标记）
+if grep -q "<!-- DEV-ONLY-BEGIN -->" CLAUDE.md 2>/dev/null; then
+  sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' CLAUDE.md > "$DIST_DIR/CLAUDE.md"
+else
+  cp CLAUDE.md "$DIST_DIR/"
 fi
 
-# 4. 构建 dist
-echo ""
-echo "--- 步骤 4/5: 构建 dist 产物 ---"
-rm -rf dist
-mkdir -p dist
+# 校验：dist 不包含 node_modules / tests / tools
+for forbidden in node_modules tests tools bun.lock "*.tsbuildinfo"; do
+  if compgen -G "$DIST_DIR/$forbidden" > /dev/null 2>&1; then
+    echo "ERROR: dist 包含不应存在的路径: $forbidden"
+    exit 1
+  fi
+done
 
-# 复制运行时源码
-cp -r runtime dist/
-# 复制配置
-cp -r config dist/
-# 复制插件元数据
-cp -r .claude-plugin dist/
-# 复制文档
-cp -r docs dist/
-cp -r skills dist/
-# 复制元文件
-cp package.json dist/
-cp tsconfig.json dist/
-cp README.md dist/
-cp README.zh.md dist/
-cp CLAUDE.md dist/
+SRC_SIZE=$(du -sh "$PLUGIN_DIR" 2>/dev/null | cut -f1)
+DIST_SIZE=$(du -sh "$DIST_DIR" 2>/dev/null | cut -f1)
+echo "dist built: $DIST_SIZE (source: $SRC_SIZE)"
 
-echo "dist 产物已生成: dist/"
-
-# 5. 更新 BUILD_MANIFEST
+# 5. 更新 BUILD_MANIFEST（写到插件目录，被 .gitignore 忽略）
 echo ""
 echo "--- 步骤 5/5: 更新 BUILD_MANIFEST ---"
 VERSION=$(grep '"version"' package.json | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-SCHEMA_VERSION=$(grep 'SCHEMA_VERSION' runtime/schemas/ga-schemas.ts | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' || echo "1.0.0")
+SCHEMA_VERSION=$(grep 'SCHEMA_VERSION' runtime/schemas/ga-schemas.ts | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' 2>/dev/null | head -1 || echo "1.0.0")
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILT_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# 计算模块列表
-MODULES=$(find runtime -mindepth 1 -maxdepth 1 -type d | sort | while read -r dir; do
-  echo "    \"${dir}\""
-done | paste -sd ',' -)
+MODULES=$(find runtime -mindepth 1 -maxdepth 1 -type d | sort | sed 's|^|    "|' | sed 's|$|"|' | paste -sd ',' -)
 
 cat > BUILD_MANIFEST.json << EOFMANIFEST
 {
@@ -91,9 +102,10 @@ ${MODULES}
 }
 EOFMANIFEST
 
-echo "BUILD_MANIFEST.json 已更新"
+echo "BUILD_MANIFEST.json 已更新（本地，不跟踪）"
 echo ""
 echo "=== 构建完成 ==="
 echo "  版本: ${VERSION}"
-echo "  测试: ${PASS_COUNT} pass / ${FAIL_COUNT} fail"
-echo "  Git: ${GIT_BRANCH}@${GIT_COMMIT}"
+echo "  测试: ${PASS_COUNT} pass / ${FAIL_COUNT} fail / ${EXPECT_COUNT} expect()"
+echo "  Git:  ${GIT_BRANCH}@${GIT_COMMIT}"
+echo "  dist: $DIST_DIR"

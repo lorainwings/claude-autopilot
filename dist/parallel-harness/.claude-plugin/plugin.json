@@ -1,0 +1,32 @@
+{
+  "name": "parallel-harness",
+  "version": "1.0.0",
+  "description": "并行 AI 工程控制面插件 — 商业化 GA 级",
+  "author": "lorainwings",
+  "license": "MIT",
+  "schema_version": "1.0.0",
+  "entry": {
+    "skills": "../skills",
+    "runtime": "../runtime",
+    "config": "../config"
+  },
+  "dependencies": {
+    "bun": ">=1.0.0",
+    "typescript": ">=5.0.0"
+  },
+  "capabilities": [
+    "task-graph-orchestration",
+    "parallel-worker-dispatch",
+    "model-routing",
+    "gate-system",
+    "ownership-enforcement",
+    "policy-engine",
+    "audit-trail",
+    "pr-integration",
+    "rbac-governance"
+  ],
+  "compatibility": {
+    "claude-code": ">=1.0.0",
+    "platforms": ["darwin", "linux"]
+  }
+}

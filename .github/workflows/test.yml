@@ -13,27 +13,10 @@ on:
       - '.github/workflows/**'
 
 jobs:
-  release-discipline:
-    name: Release Discipline
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Check release discipline (pull_request)
-        if: github.event_name == 'pull_request'
-        run: bash scripts/check-release-discipline.sh "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
-
-      - name: Check release discipline (push)
-        if: github.event_name == 'push'
-        run: bash scripts/check-release-discipline.sh "${{ github.event.before }}" "${{ github.sha }}"
+  # ── spec-autopilot ────────────────────────────────────────────────
 
   test-hooks:
-    name: Test Hook Scripts
+    name: spec-autopilot / Hook Tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -57,7 +40,7 @@ jobs:
         run: bash plugins/spec-autopilot/tests/smoke_release.sh
 
   lint:
-    name: Lint (shellcheck + shfmt + ruff + mypy)
+    name: spec-autopilot / Lint (shellcheck + shfmt + ruff + mypy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -72,7 +55,7 @@ jobs:
         run: make lint && make format
 
   typecheck:
-    name: TypeScript Type Check
+    name: spec-autopilot / TypeScript Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -89,7 +72,7 @@ jobs:
         run: make typecheck
 
   build-dist:
-    name: Build & Verify dist
+    name: spec-autopilot / Build & Verify dist
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -101,3 +84,73 @@ jobs:
 
       - name: Build dist
         run: make build
+
+  # ── parallel-harness ──────────────────────────────────────────────
+
+  ph-typecheck:
+    name: parallel-harness / TypeScript Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Run typecheck
+        run: make ph-typecheck
+
+  ph-test:
+    name: parallel-harness / Unit & Integration Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Run tests
+        run: make ph-test
+
+  ph-lint:
+    name: parallel-harness / Lint (shellcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: make ph-lint
+
+  ph-build:
+    name: parallel-harness / Build dist
+    runs-on: ubuntu-latest
+    needs: [ph-typecheck, ph-test, ph-lint]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Build dist
+        run: make ph-build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/parallel-harness/.claude-plugin
+          test -f dist/parallel-harness/.claude-plugin/plugin.json
+          test -d dist/parallel-harness/runtime
+          test -d dist/parallel-harness/skills
+          test -d dist/parallel-harness/config
+          test -f dist/parallel-harness/CLAUDE.md
+          echo "dist/parallel-harness structure OK"

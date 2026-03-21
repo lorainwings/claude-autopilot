@@ -64,3 +64,8 @@ plugins/spec-autopilot/logs/
 # Worktrees
 .worktrees/
 .parallel-harness
+
+# parallel-harness 动态构建产物（由 tools/build-dist.sh 生成）
+plugins/parallel-harness/BUILD_MANIFEST.json
+# dist/parallel-harness/ 是插件市场产物，与 dist/spec-autopilot/ 一样需要跟踪
+!dist/parallel-harness/
