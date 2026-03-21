@@ -98,11 +98,11 @@ def main():
         if rank[ra] == rank[rb]:
             rank[ra] += 1
 
-    # v5.7: 诊断 — 检测 affected_files 缺失
+    # v5.7: 诊断 — 检测 affected_files 缺失（输出到 JSON diagnostics 字段）
+    diagnostics = []
     missing_af = [t["task_name"] for t in tasks if not t.get("affected_files")]
     if missing_af:
-        import sys as _sys
-        _sys.stderr.write(f"[DIAG] {len(missing_af)}/{n} tasks 缺少 affected_files: {missing_af[:5]}\n")
+        diagnostics.append(f"{len(missing_af)}/{n} tasks 缺少 affected_files: {missing_af[:5]}")
 
     # 文件 -> 任务索引映射
     file_to_tasks = defaultdict(list)
@@ -241,6 +241,7 @@ def main():
         "fallback_to_serial": fallback_to_serial,
         "fallback_reason": fallback_reason,
         "scheduler_decision": scheduler_decision,
+        "diagnostics": diagnostics,
     }
 
     print(json.dumps(plan, ensure_ascii=False))

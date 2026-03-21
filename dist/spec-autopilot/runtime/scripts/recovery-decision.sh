@@ -115,6 +115,7 @@ fi
 # --- Detect fixup commits (scoped to current session, not entire history) ---
 HAS_FIXUP_COMMITS=false
 FIXUP_COMMIT_COUNT=0
+ANCHOR_SHA=""
 if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null && command -v git &>/dev/null; then
   # Try to scope fixup scan to commits since anchor_sha (autopilot session start)
   ANCHOR_SHA=""
@@ -278,6 +279,7 @@ git_state = json.loads(sys.argv[5])
 has_fixup_commits = sys.argv[6] == 'true'
 fixup_commit_count = int(sys.argv[7])
 auto_continue_cfg = sys.argv[8] == 'true'
+anchor_sha = sys.argv[9] if len(sys.argv) > 9 and sys.argv[9] else None
 
 # Phase sequence and labels
 if mode == 'lite':
@@ -420,13 +422,15 @@ result = {
     'effective_mode': mode,
     'has_fixup_commits': has_fixup_commits,
     'fixup_commit_count': fixup_commit_count,
+    'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and anchor_sha is not None,
+    'anchor_sha': anchor_sha,
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,
     'git_risk_level': git_risk_level
 }
 
 print(json.dumps(result, ensure_ascii=False))
-" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" "$HAS_FIXUP_COMMITS" "$FIXUP_COMMIT_COUNT" "$AUTO_CONTINUE_SINGLE_CANDIDATE" 2>/dev/null)
+" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" "$HAS_FIXUP_COMMITS" "$FIXUP_COMMIT_COUNT" "$AUTO_CONTINUE_SINGLE_CANDIDATE" "$ANCHOR_SHA" 2>/dev/null)
 
 if [ -n "$RESULT_JSON" ]; then
   echo "$RESULT_JSON"

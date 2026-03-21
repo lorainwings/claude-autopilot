@@ -3,7 +3,7 @@
 # v5.2 Phase 5 细粒度进度事件发射器
 # Purpose: 在 Phase 5 每个 task 完成后发射 task_progress 事件到 events.jsonl
 # Usage:
-#   emit-task-progress.sh <task_name> <status> <task_index> <task_total> <mode> [tdd_step] [retry_count]
+#   emit-task-progress.sh <task_name> <status> <task_index> <task_total> <mode> [tdd_step] [retry_count] [phase]
 #   task_name: task 标识（如 "task-1-add-login"）
 #   status: running | passed | failed | retrying
 #   task_index: 当前 task 序号（1-based）
@@ -11,6 +11,7 @@
 #   mode: full | lite | minimal
 #   tdd_step: (optional) red | green | refactor
 #   retry_count: (optional) 重试次数
+#   phase: (optional) 阶段编号，默认 5
 #
 # Output: Appends one JSON line to logs/events.jsonl AND prints to stdout
 
@@ -26,9 +27,10 @@ TASK_TOTAL="${4:-}"
 MODE="${5:-full}"
 TDD_STEP="${6:-}"
 RETRY_COUNT="${7:-0}"
+PHASE="${8:-5}"
 
 if [ -z "$TASK_NAME" ] || [ -z "$STATUS" ] || [ -z "$TASK_INDEX" ] || [ -z "$TASK_TOTAL" ]; then
-  echo "Usage: emit-task-progress.sh <task_name> <status> <task_index> <task_total> <mode> [tdd_step] [retry_count]" >&2
+  echo "Usage: emit-task-progress.sh <task_name> <status> <task_index> <task_total> <mode> [tdd_step] [retry_count] [phase]" >&2
   exit 1
 fi
 
@@ -57,7 +59,7 @@ SESSION_ID="${AUTOPILOT_SESSION_ID:-}"
 [ -z "$SESSION_ID" ] && SESSION_ID=$(read_lock_json_field "$LOCK_FILE" "session_id" "")
 [ -z "$SESSION_ID" ] && SESSION_ID=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || date +%s)
 
-PHASE_LABEL=$(get_phase_label "5")
+PHASE_LABEL=$(get_phase_label "$PHASE")
 TOTAL_PHASES=$(get_total_phases "$MODE")
 SEQUENCE=$(next_event_sequence "$PROJECT_ROOT")
 
@@ -67,7 +69,7 @@ import json, sys
 
 event = {
     'type': 'task_progress',
-    'phase': 5,
+    'phase': int(sys.argv[14]),
     'mode': sys.argv[1],
     'timestamp': sys.argv[2],
     'change_name': sys.argv[3],
@@ -93,7 +95,7 @@ if retry > 0:
     event['payload']['retry_count'] = retry
 
 print(json.dumps(event, ensure_ascii=False))
-" "$MODE" "$TIMESTAMP" "$CHANGE_NAME" "$SESSION_ID" "$PHASE_LABEL" "$TOTAL_PHASES" "$SEQUENCE" "$TASK_NAME" "$STATUS" "$TASK_INDEX" "$TASK_TOTAL" "$TDD_STEP" "$RETRY_COUNT" 2>/dev/null)
+" "$MODE" "$TIMESTAMP" "$CHANGE_NAME" "$SESSION_ID" "$PHASE_LABEL" "$TOTAL_PHASES" "$SEQUENCE" "$TASK_NAME" "$STATUS" "$TASK_INDEX" "$TASK_TOTAL" "$TDD_STEP" "$RETRY_COUNT" "$PHASE" 2>/dev/null)
 
 if [ -z "$EVENT_JSON" ]; then
   echo "ERROR: Failed to construct task_progress event JSON" >&2
