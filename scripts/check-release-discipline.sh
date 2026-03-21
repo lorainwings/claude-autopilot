@@ -142,6 +142,21 @@ check_plugin() {
     MISMATCH=1
   fi
 
+  # 交叉校验：当以 package.json 为版本源时，.claude-plugin/plugin.json 也必须同步
+  if [ "$VERSION_SOURCE" = "package_json" ]; then
+    local CLAUDE_PLUGIN_JSON="$PLUGIN_ROOT/.claude-plugin/plugin.json"
+    if [ -f "$CLAUDE_PLUGIN_JSON" ]; then
+      local CLAUDE_PLUGIN_VERSION
+      CLAUDE_PLUGIN_VERSION="$(jq -r '.version' "$CLAUDE_PLUGIN_JSON")"
+      if [ "$HEAD_VERSION" != "$CLAUDE_PLUGIN_VERSION" ]; then
+        echo "❌ Error: $CLAUDE_PLUGIN_JSON version mismatch with $PLUGIN_JSON."
+        echo "   package.json:           $HEAD_VERSION"
+        echo "   .claude-plugin/plugin.json: $CLAUDE_PLUGIN_VERSION"
+        MISMATCH=1
+      fi
+    fi
+  fi
+
   # README badge check (optional — skip if badge not present)
   if [ -f "$README_MD" ]; then
     local HEAD_README_VERSION

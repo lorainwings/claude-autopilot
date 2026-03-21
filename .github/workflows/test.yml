@@ -183,3 +183,24 @@ jobs:
           test -d dist/parallel-harness/config
           test -f dist/parallel-harness/CLAUDE.md
           echo "dist/parallel-harness structure OK"
+
+      - name: Check dist not stale (committed dist must match fresh build)
+        run: |
+          STALE=0
+          # 检查已跟踪文件的变更
+          if ! git diff --exit-code dist/parallel-harness; then
+            echo "❌ dist/parallel-harness has modified tracked files"
+            STALE=1
+          fi
+          # 检查未跟踪的新产物（fresh build 生成但未 git add 的文件）
+          UNTRACKED=$(git ls-files --others --exclude-standard dist/parallel-harness)
+          if [ -n "$UNTRACKED" ]; then
+            echo "❌ dist/parallel-harness has untracked files:"
+            echo "$UNTRACKED"
+            STALE=1
+          fi
+          if [ "$STALE" -eq 1 ]; then
+            echo "Run 'make ph-build' and commit the result"
+            exit 1
+          fi
+          echo "✅ dist/parallel-harness is up-to-date"

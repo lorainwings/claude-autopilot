@@ -53,22 +53,28 @@ lint: hooks ## Run spec-autopilot linters (shellcheck + ruff + mypy)
 	@echo "── shellcheck ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ shellcheck is required in CI but not found"; exit 1; \
 	else \
-	  echo "[skip] shellcheck not found"; \
+	  echo "[skip] shellcheck not found (install it or run in CI for enforcement)"; \
 	fi
 	@echo ""
 	@echo "── ruff ──"
 	@if command -v ruff >/dev/null 2>&1; then \
 	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff check --config $(SA)/pyproject.toml; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ ruff is required in CI but not found"; exit 1; \
 	else \
-	  echo "[skip] ruff not found"; \
+	  echo "[skip] ruff not found (install it or run in CI for enforcement)"; \
 	fi
 	@echo ""
 	@echo "── mypy ──"
 	@if command -v mypy >/dev/null 2>&1; then \
 	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 mypy --config-file $(SA)/pyproject.toml; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ mypy is required in CI but not found"; exit 1; \
 	else \
-	  echo "[skip] mypy not found"; \
+	  echo "[skip] mypy not found (install it or run in CI for enforcement)"; \
 	fi
 
 format: hooks ## Run spec-autopilot formatters (shfmt + ruff format)
@@ -140,8 +146,11 @@ ph-lint: ## Lint parallel-harness build script (shellcheck)
 	@echo "── shellcheck: parallel-harness ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  shellcheck $(PH)/tools/build-dist.sh; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ shellcheck is required in CI but not found"; \
+	  exit 1; \
 	else \
-	  echo "[skip] shellcheck not found"; \
+	  echo "[skip] shellcheck not found (install it or run in CI for enforcement)"; \
 	fi
 
 ph-ci: ph-lint ph-typecheck ph-test ph-build ## parallel-harness CI: lint → typecheck → test → build
