@@ -105,6 +105,7 @@ function formatEventLine(event: AutopilotEvent, allEvents: AutopilotEvent[]): st
       detail = ` ${dimGray}label=${reset}${String(p.label ?? event.phase_label ?? "--")}`;
       if (p.mode) detail += ` ${dimGray}mode=${reset}${String(p.mode)}`;
       break;
+    case "gate_block":
       detail = ` ${dimGray}score=${reset}${String(p.gate_score ?? "--")}/8`;
       if (typeof p.error_message === "string") detail += ` ${dimGray}err=${reset}${p.error_message.slice(0, 80)}`;
       break;

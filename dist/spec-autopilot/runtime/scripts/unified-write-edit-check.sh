@@ -158,7 +158,7 @@ if [ "$IN_PHASE5" = "yes" ]; then
     CURRENT_AGENT_ID=""
     if [[ "$STDIN_DATA" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
       _SID="${BASH_REMATCH[1]}"
-      _SESSION_AGENT_FILE="$PROJECT_ROOT_QUICK/logs/.agent-id-${_SID}"
+      _SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT_QUICK" "$_SID")
       if [ -f "$_SESSION_AGENT_FILE" ]; then
         CURRENT_AGENT_ID=$(head -1 "$_SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
       fi
