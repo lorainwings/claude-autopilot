@@ -87,20 +87,41 @@ check_plugin() {
 
   # Version bump check
   local BASE_VERSION HEAD_VERSION HEAD_MARKETPLACE_VERSION
+  local NEW_PLUGIN=0
   if ! git show "$BASE_REF:$PLUGIN_JSON" >/dev/null 2>&1; then
-    echo "ℹ️  $PLUGIN_JSON not found in base ref — skipping version bump check (new plugin)"
-    return 0
+    echo "ℹ️  $PLUGIN_JSON not found in base ref — new plugin, skipping version bump check"
+    NEW_PLUGIN=1
   fi
 
   if [ "$VERSION_SOURCE" = "package_json" ]; then
-    BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
     HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
   else
-    BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
     HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
   fi
 
-  HEAD_MARKETPLACE_VERSION="$(jq -r --arg name "$MARKETPLACE_NAME" '.plugins[] | select(.name == $name) | .version' "$MARKETPLACE_JSON")"
+  # Always verify marketplace entry exists and version matches
+  HEAD_MARKETPLACE_VERSION="$(jq -r --arg name "$MARKETPLACE_NAME" '.plugins[] | select(.name == $name) | .version // empty' "$MARKETPLACE_JSON")"
+  if [ -z "$HEAD_MARKETPLACE_VERSION" ]; then
+    echo "❌ Error: $MARKETPLACE_NAME not found in $MARKETPLACE_JSON."
+    echo "   Add an entry with source ./dist/$MARKETPLACE_NAME and version $HEAD_VERSION"
+    OVERALL_FAIL=1
+    return 0
+  fi
+
+  if [ "$NEW_PLUGIN" -eq 1 ]; then
+    # New plugin: only check marketplace entry exists (already done above)
+    if [ "$HEAD_VERSION" != "$HEAD_MARKETPLACE_VERSION" ]; then
+      echo "❌ Error: $MARKETPLACE_NAME marketplace version mismatch (new plugin)."
+      echo "   $PLUGIN_JSON:  $HEAD_VERSION"
+      echo "   marketplace:   $HEAD_MARKETPLACE_VERSION"
+      OVERALL_FAIL=1
+    else
+      echo "✅ $PLUGIN_ROOT new plugin marketplace entry OK (version $HEAD_VERSION)"
+    fi
+    return 0
+  fi
+
+  BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
 
   if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
     echo "❌ Error: $PLUGIN_ROOT version was not bumped."

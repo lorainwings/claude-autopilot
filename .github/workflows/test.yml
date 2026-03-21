@@ -18,7 +18,6 @@ jobs:
   release-discipline:
     name: Release Discipline Check
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -27,9 +26,17 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Check spec-autopilot release discipline
-        run: bash scripts/check-release-discipline.sh ${{ github.event.pull_request.base.sha }} ${{ github.sha }}
-        continue-on-error: false
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check release discipline (both plugins)
+        run: bash scripts/check-release-discipline.sh ${{ steps.base.outputs.ref }} ${{ github.sha }}
 
   # ── spec-autopilot ────────────────────────────────────────────────
 
