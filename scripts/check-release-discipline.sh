@@ -57,7 +57,10 @@ check_plugin() {
   local VERSION_SOURCE="${3:-plugin_json}"
 
   local CHANGED_FILES
-  CHANGED_FILES="$(git diff --name-only "$BASE_REF" "$HEAD_REF" -- "$PLUGIN_ROOT" || true)"
+  # 使用 merge-base 三点语义：只比较本分支相对分叉点的改动，不把 base 分支后续提交算进来
+  local MERGE_BASE
+  MERGE_BASE="$(git merge-base "$BASE_REF" "$HEAD_REF" 2>/dev/null || echo "$BASE_REF")"
+  CHANGED_FILES="$(git diff --name-only "$MERGE_BASE" "$HEAD_REF" -- "$PLUGIN_ROOT" || true)"
 
   if [ -z "$CHANGED_FILES" ]; then
     echo "✅ No $PLUGIN_ROOT changes between $BASE_REF and $HEAD_REF"
