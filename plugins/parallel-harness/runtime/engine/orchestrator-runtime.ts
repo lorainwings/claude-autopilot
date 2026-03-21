@@ -69,6 +69,9 @@ export interface ExecutionContext {
   /** Run ID */
   run_id: string;
 
+  /** 关联的 Request ID，用于跨进程恢复时回填 checkpoint */
+  request_id?: string;
+
   /** Batch ID */
   batch_id: string;
 
@@ -831,13 +834,32 @@ export class OrchestratorRuntime {
             });
             // 继续正常执行（不 break/continue）
           } else {
-            // 需要人工审批 — 阻断整个 run
+            // 需要人工审批 — 阻断整个 run，并写 checkpoint 支持跨进程恢复
             emitAudit(ctx, "approval_requested", {
               approval_id: approvalResult.approval_id,
               task_id: task.id,
               reason: failedCheck.message,
             });
             transitionRunStatus(execution, "blocked", `任务 ${task.id} 需要审批: ${failedCheck.message}`);
+
+            // 持久化 checkpoint（仿 plan-level 审批分支）
+            const taskSession = await this.sessionStore.getByRunId(ctx.run_id);
+            if (taskSession) {
+              await this.sessionStore.updateCheckpoint(taskSession.session_id, {
+                blocked_at: "task_approval",
+                plan_id: plan.plan_id,
+                pending_approval_id: approvalResult.approval_id,
+                pending_approval_request: approvalResult,
+                request_id: ctx.request_id,
+              });
+            }
+            execution.cost_ledger = ctx.costLedger;
+            await this.runStore.saveExecution(execution);
+            await this.auditTrail.recordBatch(ctx.auditLog);
+            const blockedResult = this.finalizeRun(ctx, execution, plan);
+            blockedResult.final_status = "blocked";
+            await this.runStore.saveResult(blockedResult);
+
             throw new Error(`任务 ${task.id} 被审批阻断`);
           }
         } else {
@@ -879,6 +901,8 @@ export class OrchestratorRuntime {
         const executionResult = await this.workerController.execute({
           contract,
           model_tier: attempt.model_tier,
+          project_root: ctx.project.root_path,
+          max_idle_ms: ctx.config.timeout_ms,
         });
         const workerOutput = executionResult.output;
 
@@ -1047,6 +1071,7 @@ export class OrchestratorRuntime {
 
     return {
       run_id,
+      request_id: request.request_id,
       batch_id,
       actor: request.actor,
       project: request.project,
@@ -1453,6 +1478,118 @@ export class OrchestratorRuntime {
 
   async getRun(run_id: string): Promise<RunExecution | undefined> {
     return this.runStore.getExecution(run_id);
+  }
+
+  /**
+   * Control Plane 专用：将 RunExecution 转换为前端可消费的 RunDetail 格式
+   */
+  async getRunDetail(run_id: string): Promise<import("../server/control-plane").RunDetail | undefined> {
+    const execution = await this.runStore.getExecution(run_id);
+    if (!execution) return undefined;
+    const result = await this.runStore.getResult(run_id);
+    // 从 audit trail 取 intent（run_created 事件携带）
+    const auditEvents = await this.auditTrail.query({ run_id });
+    const createdEvent = auditEvents.find((e) => e.type === "run_created");
+    const intent = (createdEvent?.payload as Record<string, unknown>)?.intent as string || "";
+    // 构建任务摘要
+    const tasks: import("../server/control-plane").TaskSummary[] = [];
+    for (const [taskId, attempts] of Object.entries(execution.completed_attempts)) {
+      const latest = attempts[attempts.length - 1];
+      if (!latest) continue;
+      const totalTokens = attempts.reduce((s, a) => s + (a.tokens_used || 0), 0);
+      tasks.push({
+        id: taskId,
+        title: latest.task_id,
+        status: latest.status,
+        model_tier: latest.model_tier,
+        attempts: attempts.length,
+        tokens_used: totalTokens,
+        duration_ms: latest.duration_ms ?? 0,
+        risk_level: "medium",
+      });
+    }
+    // gate_results from RunResult
+    const gateResultViews: import("../server/control-plane").GateResultView[] = (result?.quality_report?.gate_results || []).map((g) => ({
+      gate_type: g.gate_type,
+      level: g.gate_level,
+      passed: g.passed,
+      blocking: g.blocking,
+      findings_count: g.conclusion.findings.length,
+      summary: g.conclusion.summary,
+    }));
+    // timeline from status_history
+    const timeline: import("../server/control-plane").TimelineEvent[] = execution.status_history.map((h) => ({
+      timestamp: h.timestamp,
+      type: h.to,
+      message: h.reason || "",
+    }));
+    const startedAt = execution.started_at;
+    const completedAt = result?.completed_at;
+    const durationMs = completedAt
+      ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
+      : Date.now() - new Date(startedAt).getTime();
+    return {
+      run_id: execution.run_id,
+      status: execution.status,
+      intent,
+      tasks,
+      batches: [],
+      cost: {
+        total_tokens: execution.cost_ledger.entries.reduce((s, e) => s + e.tokens_used, 0),
+        total_cost: execution.cost_ledger.total_cost,
+        budget_limit: execution.cost_ledger.budget_limit,
+        budget_utilization: execution.cost_ledger.budget_limit > 0
+          ? execution.cost_ledger.total_cost / execution.cost_ledger.budget_limit
+          : 0,
+        tier_breakdown: Object.entries(execution.cost_ledger.tier_distribution || {}).map(([tier, v]) => ({
+          tier,
+          tokens: (v as { tokens: number }).tokens,
+          cost: (v as { cost: number }).cost,
+        })),
+      },
+      gate_results: gateResultViews,
+      timeline,
+      started_at: startedAt,
+      completed_at: completedAt,
+      duration_ms: durationMs,
+    };
+  }
+
+  /**
+   * Control Plane 专用：列出所有 runs 的摘要
+   */
+  async listRuns(): Promise<import("../server/control-plane").RunSummary[]> {
+    const executions = await this.runStore.listExecutions();
+    const summaries: import("../server/control-plane").RunSummary[] = [];
+    for (const execution of executions) {
+      const auditEvents = await this.auditTrail.query({ run_id: execution.run_id });
+      const createdEvent = auditEvents.find((e) => e.type === "run_created");
+      const intent = (createdEvent?.payload as Record<string, unknown>)?.intent as string || "";
+      const result = await this.runStore.getResult(execution.run_id);
+      const taskCount = Object.keys(execution.completed_attempts).length;
+      const completedAt = result?.completed_at;
+      const durationMs = completedAt
+        ? new Date(completedAt).getTime() - new Date(execution.started_at).getTime()
+        : Date.now() - new Date(execution.started_at).getTime();
+      summaries.push({
+        run_id: execution.run_id,
+        status: execution.status,
+        intent,
+        task_count: taskCount,
+        started_at: execution.started_at,
+        duration_ms: durationMs,
+        total_cost: execution.cost_ledger.total_cost,
+      });
+    }
+    return summaries;
+  }
+
+  /**
+   * Control Plane 专用：获取 run 的 gate 结果
+   */
+  async getGateResults(run_id: string): Promise<GateResult[]> {
+    const result = await this.runStore.getResult(run_id);
+    return result?.quality_report?.gate_results || [];
   }
 
   async getRunResult(run_id: string): Promise<RunResult | undefined> {

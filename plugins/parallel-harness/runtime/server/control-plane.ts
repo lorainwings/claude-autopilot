@@ -186,12 +186,13 @@ export class InMemoryDataProvider implements ControlPlaneDataProvider {
 // ============================================================
 
 export interface RuntimeBridge {
-  cancelRun(runId: string): Promise<void>;
+  cancelRun(runId: string, cancelledBy?: string): Promise<void>;
   approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<unknown>;
   rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void>;
-  // 读操作
-  listRuns?(): Promise<RunSummary[]>;
+  // 读操作（现已强制实现，不再是可选）
+  listRuns(): Promise<RunSummary[]>;
   getRun?(runId: string): Promise<RunDetail | undefined>;
+  getRunDetail?(runId: string): Promise<RunDetail | undefined>;
   getAuditLog?(runId: string): Promise<AuditEvent[]>;
   getGateResults?(runId: string): Promise<GateResult[]>;
 }
@@ -207,10 +208,11 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
 
   // 读操作优先从 runtime 读取，fallback 到 inner
   async listRuns() {
-    if (this.runtime.listRuns) return this.runtime.listRuns();
-    return this.inner.listRuns();
+    return this.runtime.listRuns();
   }
   async getRun(runId: string) {
+    // 优先使用专用的 getRunDetail()，否则回落到 getRun()，最终 fallback 到 inner
+    if (this.runtime.getRunDetail) return this.runtime.getRunDetail(runId);
     if (this.runtime.getRun) return this.runtime.getRun(runId);
     return this.inner.getRun(runId);
   }
@@ -226,7 +228,7 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
   // 写操作桥接到 runtime
   async cancelRun(runId: string): Promise<{ ok: boolean; message: string }> {
     try {
-      await this.runtime.cancelRun(runId);
+      await this.runtime.cancelRun(runId, "control-plane");
       return { ok: true, message: `Run ${runId} 已取消` };
     } catch (e) {
       return { ok: false, message: e instanceof Error ? e.message : String(e) };

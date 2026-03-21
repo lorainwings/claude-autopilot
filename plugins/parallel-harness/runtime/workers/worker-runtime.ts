@@ -320,9 +320,7 @@ export class WorkerExecutionController {
     // 基本验证：确保 contract 包含必要字段
     if (!contract.task_id) throw new Error("TaskContract 缺少 task_id");
     if (!contract.goal) throw new Error("TaskContract 缺少 goal");
-    if (!contract.allowed_paths || contract.allowed_paths.length === 0) {
-      throw new Error("TaskContract 缺少 allowed_paths");
-    }
+    // 注意：allowed_paths 为空数组表示"不限制路径"（general 域场景），不视为非法契约
   }
 
   private async executeWithTimeout(input: WorkerInput): Promise<WorkerOutput> {

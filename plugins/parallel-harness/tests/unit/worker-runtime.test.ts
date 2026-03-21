@@ -173,17 +173,14 @@ describe("WorkerExecutionController", () => {
     }
   });
 
-  it("缺少 allowed_paths 报错", async () => {
+  it("allowed_paths 为空时不报错（视为不限制路径）", async () => {
     const controller = new WorkerExecutionController(new MockWorkerAdapter());
-    try {
-      await controller.execute({
-        contract: { task_id: "t1", goal: "test", dependencies: [], allowed_paths: [], forbidden_paths: [], acceptance_criteria: [], test_requirements: [], preferred_model_tier: "tier-1", retry_policy: { max_retries: 1, escalate_on_retry: false, compact_context_on_retry: false }, verifier_set: ["test"], context: {} as any },
-        model_tier: "tier-1",
-      });
-      expect(true).toBe(false);
-    } catch (e) {
-      expect((e as Error).message).toContain("allowed_paths");
-    }
+    // 空 allowed_paths 表示 general 域无路径限制，不应抛错
+    const result = await controller.execute({
+      contract: { task_id: "t1", goal: "test", dependencies: [], allowed_paths: [], forbidden_paths: [], acceptance_criteria: [], test_requirements: [], preferred_model_tier: "tier-1", retry_policy: { max_retries: 1, escalate_on_retry: false, compact_context_on_retry: false }, verifier_set: ["test"], context: {} as any },
+      model_tier: "tier-1",
+    });
+    expect(result.output.status).toBe("ok");
   });
 });
 

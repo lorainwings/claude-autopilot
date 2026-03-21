@@ -248,6 +248,10 @@ export class RunStore {
     return this.resultStore.list();
   }
 
+  async listExecutions(): Promise<RunExecution[]> {
+    return this.executionStore.list();
+  }
+
   static createDurable(basePath: string): RunStore {
     return new RunStore({
       requestStore: new FileStore(`${basePath}/requests`),
