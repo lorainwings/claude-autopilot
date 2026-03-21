@@ -150,12 +150,10 @@ export function validateOwnership(
 ): OwnershipViolation[] {
   const violations: OwnershipViolation[] = [];
 
-  for (const path of modifiedPaths) {
-    // 检查是否在独占路径内
-    const isAllowed = assignment.exclusive_paths.some(
-      (allowed) => pathMatches(path, allowed)
-    );
+  // exclusive_paths 为空表示不限制路径（general 域场景），跳过越界检查
+  const hasPathRestriction = assignment.exclusive_paths.length > 0;
 
+  for (const path of modifiedPaths) {
     // 检查是否在禁止路径内
     const isForbidden = assignment.forbidden_paths.some(
       (forbidden) => pathMatches(path, forbidden)
@@ -168,13 +166,19 @@ export function validateOwnership(
         type: "forbidden_path_write",
         message: `任务 ${assignment.task_id} 写入了禁止路径: ${path}`,
       });
-    } else if (!isAllowed) {
-      violations.push({
-        path,
-        task_id: assignment.task_id,
-        type: "out_of_scope_write",
-        message: `任务 ${assignment.task_id} 写入了所有权范围外的路径: ${path}`,
-      });
+    } else if (hasPathRestriction) {
+      // 只有在有路径限制时才检查越界
+      const isAllowed = assignment.exclusive_paths.some(
+        (allowed) => pathMatches(path, allowed)
+      );
+      if (!isAllowed) {
+        violations.push({
+          path,
+          task_id: assignment.task_id,
+          type: "out_of_scope_write",
+          message: `任务 ${assignment.task_id} 写入了所有权范围外的路径: ${path}`,
+        });
+      }
     }
   }
 

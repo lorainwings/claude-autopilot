@@ -804,7 +804,7 @@ export class OrchestratorRuntime {
 
       // Pre-checks
       transitionAttemptStatus(attempt, "pre_check", "执行前检查");
-      const preChecks = this.runPreChecks(ctx, task, ownership, attempt);
+      const preChecks = this.runPreChecks(ctx, task, ownership, attempt, execution);
       attempt.pre_checks = preChecks;
 
       const blocked = preChecks.some((c) => !c.passed);
@@ -1167,7 +1167,8 @@ export class OrchestratorRuntime {
     ctx: ExecutionContext,
     task: TaskNode,
     ownership: OwnershipPlan,
-    attempt: TaskAttempt
+    attempt: TaskAttempt,
+    execution?: RunExecution
   ): PreCheckResult[] {
     const results: PreCheckResult[] = [];
 
@@ -1193,14 +1194,19 @@ export class OrchestratorRuntime {
       details: { violations: policyResult.violations },
     });
 
-    // 2b. Approval 检查 — 如果策略要求审批，标记为需审批
+    // 2b. Approval 检查 — 如果策略要求审批，但该任务已有批准记录则跳过
     if (policyResult.requires_approval) {
-      results.push({
-        check_type: "approval",
-        passed: false,
-        message: `策略要求审批: ${policyResult.message}`,
-        details: { requires_approval: true, task_id: task.id },
-      });
+      const alreadyApproved = execution?.approval_records?.some(
+        (r) => r.task_id === task.id && r.decision === "approved"
+      );
+      if (!alreadyApproved) {
+        results.push({
+          check_type: "approval",
+          passed: false,
+          message: `策略要求审批: ${policyResult.message}`,
+          details: { requires_approval: true, task_id: task.id },
+        });
+      }
     }
 
     // 3. Budget 检查
