@@ -106,7 +106,7 @@ AskUserQuestion:
 {if has_fixup_commits == true && git_risk_level != "high" && fixup_squash_safe == true}
 **自动清理 fixup 提交（v5.7 恢复前预清理）**:
 1. 获取 anchor SHA: `anchor_sha`（由 recovery-decision.sh 提供）
-2. 执行: `Bash('git rebase -i --autosquash $ANCHOR_SHA')`
+2. 执行: `Bash('GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash $ANCHOR_SHA~1')`
 3. 成功 → fixup 提交已合并，继续恢复流程
 4. 失败 → `Bash('git rebase --abort')` 回退，保留 fixup 提交，Phase 7 归档时兜底清理
 {end if}

@@ -129,7 +129,8 @@ except: pass" "$LOCK_FILE" 2>/dev/null) || true
     # Scan only commits since anchor (current autopilot session)
     FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format='%s' "${ANCHOR_SHA}..HEAD" 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
   else
-    # No anchor — fall back to last 50 commits (bounded, not entire history)
+    # No valid anchor — clear it and fall back to last 50 commits
+    ANCHOR_SHA=""
     FIXUP_COMMIT_COUNT=$(git -C "$PROJECT_ROOT" log --oneline --format='%s' -50 2>/dev/null | grep -c "^fixup! " 2>/dev/null) || FIXUP_COMMIT_COUNT=0
   fi
   [ "$FIXUP_COMMIT_COUNT" -gt 0 ] && HAS_FIXUP_COMMITS=true
@@ -422,7 +423,7 @@ result = {
     'effective_mode': mode,
     'has_fixup_commits': has_fixup_commits,
     'fixup_commit_count': fixup_commit_count,
-    'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and anchor_sha is not None,
+    'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and bool(anchor_sha) and not git_state.get('rebase_in_progress', False) and not git_state.get('merge_in_progress', False),
     'anchor_sha': anchor_sha,
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,

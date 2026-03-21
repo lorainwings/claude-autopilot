@@ -394,6 +394,12 @@ const ParallelSchedulingCard = memo(function ParallelSchedulingCard({
               <span className="font-bold">降级原因: </span>{plan.fallback_reason}
             </div>
           )}
+          {plan.diagnostics.length > 0 && (
+            <div className="mt-1 px-2 py-1 bg-surface border border-amber/30 rounded text-[10px] text-amber">
+              <span className="font-bold">诊断: </span>
+              {plan.diagnostics.map((d, i) => <div key={i}>{d}</div>)}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-[11px] font-mono text-text-muted">暂无并行调度事件</div>

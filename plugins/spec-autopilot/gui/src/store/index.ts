@@ -35,6 +35,7 @@ export interface ParallelPlanSummary {
   max_parallelism: number;
   fallback_to_serial: boolean;
   fallback_reason: string | null;
+  diagnostics: string[];
   current_batch_index: number | null;
   updated_at: string | null;
 }
@@ -316,6 +317,7 @@ const DEFAULT_PARALLEL_PLAN: ParallelPlanSummary = {
   max_parallelism: 0,
   fallback_to_serial: false,
   fallback_reason: null,
+  diagnostics: [],
   current_batch_index: null,
   updated_at: null,
 };
@@ -380,7 +382,7 @@ export const useStore = create<AppState>((set) => ({
       let parallelPlan = state.parallelPlan;
 
       for (const event of newEvents) {
-        if (event.type === "task_progress" && event.phase === 5 && isTaskProgressPayload(event.payload)) {
+        if (event.type === "task_progress" && isTaskProgressPayload(event.payload)) {
           const p = event.payload;
           newTaskProgress.set(p.task_name, {
             task_name: p.task_name,
@@ -503,6 +505,7 @@ export const useStore = create<AppState>((set) => ({
             max_parallelism: Number(p.max_parallelism ?? 0),
             fallback_to_serial: Boolean(p.fallback_to_serial),
             fallback_reason: p.fallback_reason ? String(p.fallback_reason) : null,
+            diagnostics: Array.isArray(p.diagnostics) ? (p.diagnostics as string[]) : [],
             current_batch_index: parallelPlan.current_batch_index,
             updated_at: event.timestamp,
           };

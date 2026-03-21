@@ -202,6 +202,70 @@ assert_contains "49i: OLD flow: start-time.txt still in commit (bug)" "$RESULTS_
 
 rm -rf "$TMPDIR_49" "$TMPDIR_49B"
 
+# --- 49j-49l: lite mode archive (git squash only, no OpenSpec archive) ---
+echo "  49j-49l. lite/minimal archive (git squash only)"
+TMPDIR_49C=$(mktemp -d)
+TMPDIR_49C_REPO="$TMPDIR_49C/repo"
+TMPDIR_49C_OUT="$TMPDIR_49C/results.txt"
+mkdir -p "$TMPDIR_49C_REPO"
+(
+  cd "$TMPDIR_49C_REPO" || exit 1
+  git init -q 2>/dev/null
+  git config user.email "test@test.com"
+  git config user.name "Test"
+
+  echo "initial" > README.md
+  git add README.md
+  git commit -q --no-verify -m "initial commit" 2>/dev/null
+
+  git commit -q --allow-empty -m "autopilot: start lite-change" 2>/dev/null
+  ANCHOR_SHA=$(git rev-parse HEAD)
+
+  # Simulate Phase 5 (lite mode: no Phase 2-4)
+  mkdir -p openspec/changes/lite-change/context/phase-results
+  echo '{"status":"ok","phase":5,"summary":"impl done"}' > openspec/changes/lite-change/context/phase-results/phase-5-implementation.json
+  echo "main code" > src_file.txt
+  git add -A 2>/dev/null
+  git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start lite-change — Phase 5" 2>/dev/null
+
+  # Phase 7 (lite): only git squash, no OpenSpec archive
+  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"lite-change","mode":"lite"}' > openspec/changes/lite-change/context/phase-results/phase-7-summary.json
+  git add -A 2>/dev/null
+  git diff --cached --quiet || git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start lite-change — final" 2>/dev/null
+
+  GIT_SEQUENCE_EDITOR=: git rebase -q -i --autosquash "${ANCHOR_SHA}~1" 2>/dev/null
+  git commit -q --amend -m "feat(autopilot): lite-change — lite mode test" 2>/dev/null
+
+  # Check: should be exactly 2 commits
+  COMMIT_COUNT=$(git rev-list --count HEAD)
+  echo "LITE_COMMIT_COUNT=$COMMIT_COUNT"
+
+  # Check: git clean
+  DIRTY=$(git status --porcelain)
+  if [ -z "$DIRTY" ]; then
+    echo "LITE_GIT_CLEAN=true"
+  else
+    echo "LITE_GIT_CLEAN=false"
+  fi
+
+  # Check: mode field in committed phase-7-summary.json
+  COMMITTED_MODE=$(git show HEAD:openspec/changes/lite-change/context/phase-results/phase-7-summary.json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")
+  echo "LITE_COMMITTED_MODE=$COMMITTED_MODE"
+) > "$TMPDIR_49C_OUT" 2>&1
+
+RESULTS_49C=$(cat "$TMPDIR_49C_OUT")
+
+# 49j: lite mode squashes to 2 commits
+assert_contains "49j: lite mode squash → 2 commits" "$RESULTS_49C" "LITE_COMMIT_COUNT=2"
+
+# 49k: lite mode leaves clean working tree
+assert_contains "49k: lite mode git clean after squash" "$RESULTS_49C" "LITE_GIT_CLEAN=true"
+
+# 49l: lite mode committed with mode=lite
+assert_contains "49l: lite mode committed with mode=lite" "$RESULTS_49C" "LITE_COMMITTED_MODE=lite"
+
+rm -rf "$TMPDIR_49C"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

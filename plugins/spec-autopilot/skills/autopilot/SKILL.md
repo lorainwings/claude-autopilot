@@ -237,10 +237,16 @@ Step 4: 解析子 Agent 返回的 JSON 信封
         → **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} agent_complete in_progress \'{"status":"{envelope.status}"}\'')
 Step 4.5: 发射 Agent 完成事件（v5.3 Agent 生命周期）
         → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-agent-event.sh agent_complete {N} {mode} "phase{N}-{slug}" "{agent_label}" \'{"status":"{envelope.status}","summary":"{envelope.summary前120字符}","duration_ms":{agent_elapsed}}\'')
-Step 4.7: GUI 周期性健康检查（v5.7 — Phase 5 中途崩溃覆盖）
-        → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
+Step 4.7: GUI 周期性健康检查（v5.7 — 长任务中途保活）
+        → **仅 Phase 5 生效**: 在子 Agent dispatch prompt 中注入以下保活指令：
+          ```
+          ## GUI 保活（Phase 5 强制）
+          每完成 3 个 task（或每 15 分钟，取先到者），执行：
+          Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
+          失败不阻断（GUI 为可选增强功能）。
+          ```
+        → **非 Phase 5**: 主线程在 agent 完成后执行一次 `start-gui-server.sh --check-health`
         → 脚本自动处理：存活则静默返回；死掉则重启
-        → 失败不阻断流程（GUI 为可选增强功能）
         → 与 Step -0.5 互补：Step -0.5 覆盖 Phase 入口，Step 4.7 覆盖长时间运行的 Phase 中途崩溃
 Step 5+7: 派发后台 Checkpoint Agent（v3.4.3 上下文保护增强, v5.1 原子写入 + 状态隔离）
         → 将 checkpoint 写入 + git fixup commit 合并为一个后台 Agent，避免 Write/Bash 输出污染主窗口上下文
