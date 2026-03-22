@@ -128,17 +128,17 @@ TMPDIR_49B_REPO="$TMPDIR_49B/repo"
 TMPDIR_49B_OUT="$TMPDIR_49B/results.txt"
 mkdir -p "$TMPDIR_49B_REPO"
 (
-  cd "$TMPDIR_49B_REPO"
+  cd "$TMPDIR_49B_REPO" || exit 1
   git init -q 2>/dev/null
   git config user.email "test@test.com"
   git config user.name "Test"
-  git config core.hooksPath /dev/null
 
+  # --no-verify instead of hooksPath=/dev/null to avoid polluting any repo config
   echo "initial" > README.md
   git add README.md
-  git commit -q -m "initial commit" 2>/dev/null
+  git commit -q --no-verify -m "initial commit" 2>/dev/null
 
-  git commit -q --allow-empty -m "autopilot: start test-change" 2>/dev/null
+  git commit -q --no-verify --allow-empty -m "autopilot: start test-change" 2>/dev/null
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/test-change/context/phase-results
@@ -146,21 +146,21 @@ mkdir -p "$TMPDIR_49B_REPO"
   echo "1741500000" > openspec/changes/test-change/context/phase-results/phase5-start-time.txt
   echo "main code" > src_file.txt
   git add -A 2>/dev/null
-  git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 5" 2>/dev/null
+  git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 5" 2>/dev/null
 
   echo '{"status":"in_progress","phase":7,"description":"Archive and cleanup"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json
   git add -A 2>/dev/null
-  git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 7 start" 2>/dev/null
+  git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 7 start" 2>/dev/null
 
   # --- OLD flow (broken): git add -A FIRST, then cleanup AFTER ---
 
   # Step 4a (old): git add -A → fixup commit (nothing new to commit)
   git add -A 2>/dev/null
-  git diff --cached --quiet || git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — final" 2>/dev/null
+  git diff --cached --quiet || git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — final" 2>/dev/null
 
   # Step 4a (old): autosquash
   GIT_SEQUENCE_EDITOR=: git rebase -q -i --autosquash "${ANCHOR_SHA}~1" 2>/dev/null
-  git commit -q --amend -m "feat(autopilot): test-change — old flow" 2>/dev/null
+  git commit -q --no-verify --amend -m "feat(autopilot): test-change — old flow" 2>/dev/null
 
   # Step 4c (old): Update checkpoint AFTER squash
   echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"test-change","mode":"full"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json

@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.50] - 2026-03-23
+
+### Fixed
+
+- **测试脚本 git config 污染主仓库**: `test_phase7_archive.sh` 在子 shell 中执行 `git config core.hooksPath /dev/null`，当 `cd` 失败时会污染主仓库 `.git/config`，导致 pre-commit hook 被禁用。改用 `--no-verify` 替代 `hooksPath=/dev/null`，并补充 `|| exit 1` 防护
+- **test_clean_phase_artifacts.sh 加固**: 使用 `git -C` 确保 `git config` 作用于临时仓库而非主仓库，commit 加 `--no-verify` 避免触发主仓库 hooks
+
 ## [5.1.49] - 2026-03-21
 
 ### Fixed

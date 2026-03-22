@@ -294,11 +294,12 @@ mkdir -p "$PR" "$REPO/logs"
 ORIG_PWD=$(pwd)
 cd "$REPO" || exit 1
 git init -q
-git config user.email test@example.com
-git config user.name test
+# Use -C to ensure config targets the temp repo, not the parent repo
+git -C "$REPO" config user.email test@example.com
+git -C "$REPO" config user.name test
 echo "base" > tracked.txt
 git add tracked.txt
-git commit -q -m init
+git commit -q --no-verify -m init
 echo "user-change" > tracked.txt
 echo '{"status":"ok"}' > "$PR/phase-5-implement.json"
 OUTPUT=$(bash "$CLEAN_SCRIPT" 5 full "$CHANGE" --git-target-sha HEAD 2>/dev/null)
