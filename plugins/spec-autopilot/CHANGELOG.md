@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.51] - 2026-03-23
+
+### Fixed
+
+- **GUI TS2352 类型错误**: `App.tsx` 中 `routing as Record<string, unknown>` 改为双重断言 `routing as unknown as Record<string, unknown>`，修复 `ModelRoutingState` 缺少索引签名导致的 typecheck 失败
+
 ## [5.1.50] - 2026-03-23
 
 ### Fixed

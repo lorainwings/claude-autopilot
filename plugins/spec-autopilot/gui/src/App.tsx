@@ -36,7 +36,7 @@ const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routi
   if (!visible || !routing.updated_at) return null;
 
   const isFallback = routing.fallback_applied;
-  const isEscalated = (routing as Record<string, unknown>).escalated_from != null;
+  const isEscalated = (routing as unknown as Record<string, unknown>).escalated_from != null;
   const borderColor = isFallback ? "border-rose/60" : isEscalated ? "border-amber/60" : "border-cyan/60";
   const titleColor = isFallback ? "text-rose" : isEscalated ? "text-amber" : "text-cyan";
 
