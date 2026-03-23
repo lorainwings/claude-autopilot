@@ -195,9 +195,12 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
      "audit_passed": true
    }
    ```
-6. `audit_passed === false` → 阻断 Phase 6
+6. `audit_passed === false` → 阻断 Phase 6（full 模式硬门禁）
 
-## Phase 6.5 代码审查门禁（可选，v3.2.2 三路并行）
+> **模式降级说明 (v5.1.51)**: lite/minimal 模式下，若 `audit_passed === false`，降级为 warning（不阻断 Phase 6），
+> 因为这两种模式跳过了 Phase 2-4，TDD 覆盖不完整属于预期行为。full 模式下始终硬阻断。
+
+## Phase 6.5 代码审查门禁（可选，v3.2.2 三路并行）[Advisory Gate — 不阻断 Phase 7]
 
 当 `config.phases.code_review.enabled = true` 时，Phase 7 步骤 2.a 收集代码审查结果后检查：
 
@@ -211,6 +214,10 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer 2（Hook predecessor check）。
 Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 Phase 7 汇合点收集。
+
+> **Advisory Gate 语义 (v5.1.51)**: Phase 6.5 是建议性旁路门禁（Advisory Gate），其 blocked 状态
+> 不阻止 Phase 7 的 predecessor 条件。Phase 7 收集 6.5 结果后展示 findings，但即使 6.5 blocked
+> 也不阻断归档流程（用户可选择忽略或修复后继续）。
 
 ## 可选 Layer 3 补充：语义验证
 

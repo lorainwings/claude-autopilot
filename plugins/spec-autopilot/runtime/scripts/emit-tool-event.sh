@@ -12,14 +12,30 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
+# --- Read stdin first (before PROJECT_ROOT resolution, so cwd can inform it) ---
+STDIN_DATA=""
+if [ ! -t 0 ]; then
+  STDIN_DATA=$(cat)
+fi
+
+# --- Resolve PROJECT_ROOT: stdin cwd > PROJECT_ROOT_QUICK env > git fallback ---
+# Mirrors _hook_preamble.sh:33 pattern: parse cwd from stdin JSON as highest priority
+_STDIN_CWD=""
+if [ -n "$STDIN_DATA" ]; then
+  _STDIN_CWD=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
+if [ -n "$_STDIN_CWD" ]; then
+  PROJECT_ROOT="$_STDIN_CWD"
+elif [ -n "${PROJECT_ROOT_QUICK:-}" ]; then
+  PROJECT_ROOT="$PROJECT_ROOT_QUICK"
+else
+  PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+
 # --- Fast path: skip if no active autopilot session ---
-PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 if ! has_active_autopilot "$PROJECT_ROOT"; then
   exit 0
 fi
-
-# --- Read stdin ---
-STDIN_DATA=$(cat)
 
 # --- Extract tool_name from stdin JSON (pure bash regex) ---
 TOOL_NAME=""

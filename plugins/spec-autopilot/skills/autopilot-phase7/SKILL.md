@@ -73,11 +73,11 @@ a0. **Phase 6 测试执行**（路径 A，后台 Task）：
   - ok/warning → 继续收集路径 B/C
   - blocked/failed → 展示给用户，但不阻断路径 B/C 的收集
 
-a. **Phase 6.5 代码审查**（路径 B，仅当 `config.phases.code_review.enabled = true`）：
+a. **Phase 6.5 代码审查**（路径 B，仅当 `config.phases.code_review.enabled = true`，**optional/advisory — 不作为 Phase 7 硬性前置条件**）：
   - 检查后台 Agent 完成通知
   - ok → 写入 `phase-6.5-code-review.json` checkpoint
   - warning → 展示 findings，不阻断归档
-  - blocked → 展示 critical findings，阻断步骤 4 归档操作
+  - blocked → 展示 critical findings，向用户展示但**不阻断** Phase 7 整体流程（用户可选择修复后重试或忽略继续归档）
   - code_review 未启用 → 跳过
   - JSON 解析失败 → 展示原始文本，标记 warning
 

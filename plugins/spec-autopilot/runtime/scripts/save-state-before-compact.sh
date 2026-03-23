@@ -96,10 +96,19 @@ state_file = sys.argv[4]
 exec_mode = sys.argv[5] if len(sys.argv) > 5 else 'full'
 anchor_sha = sys.argv[6] if len(sys.argv) > 6 else ''
 
-# Scan all checkpoints
+# Scan all checkpoints — mode-aware phase sequence
 phases = {}
 last_completed = 0
-for phase_num in [1, 2, 3, 4, 5, 6, 7]:
+
+# Build phase scan list based on exec_mode (v5.1.51: fix P0-2)
+if exec_mode == 'lite':
+    phase_scan_list = [1, 5, 6, 7]
+elif exec_mode == 'minimal':
+    phase_scan_list = [1, 5, 7]
+else:
+    phase_scan_list = [1, 2, 3, 4, 5, 6, 7]
+
+for phase_num in phase_scan_list:
     pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
     files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
     if files:
@@ -120,7 +129,16 @@ if not phases:
     # No checkpoints yet, nothing to save
     sys.exit(0)
 
-next_phase = last_completed + 1 if last_completed < 7 else 7
+# next_phase: mode-aware — take the next element in the phase sequence (v5.1.51: fix P0-2)
+next_phase = 7  # default: done
+if last_completed < phase_scan_list[-1]:
+    for i, p in enumerate(phase_scan_list):
+        if p == last_completed and i + 1 < len(phase_scan_list):
+            next_phase = phase_scan_list[i + 1]
+            break
+    else:
+        # last_completed not in scan list (e.g. 0) → start from first phase
+        next_phase = phase_scan_list[0]
 
 # v5.3: Read phase context snapshots
 context_snapshots = {}
@@ -225,7 +243,7 @@ lines.extend([
 ])
 
 phase_names = {1: 'Requirements', 2: 'OpenSpec', 3: 'FF Generate', 4: 'Test Design', 5: 'Implementation', 6: 'Test Report', 7: 'Archive'}
-for phase_num in [1, 2, 3, 4, 5, 6, 7]:
+for phase_num in phase_scan_list:
     name = phase_names.get(phase_num, f'Phase {phase_num}')
     if phase_num in phases:
         p = phases[phase_num]

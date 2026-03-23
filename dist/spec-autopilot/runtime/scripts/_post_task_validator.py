@@ -152,10 +152,10 @@ if phase_num == 5 and envelope.get("status") == "ok":
                 f"Phase 5 TDD metrics check failed: red_violations={red_violations} (expected 0). "
                 "All TDD RED phases must have verified failing tests before GREEN implementation."
             )
-        cycles_completed = tdd_metrics.get("cycles_completed", 0)
-        if cycles_completed < 1:
+        total_cycles = tdd_metrics.get("total_cycles", 0)
+        if total_cycles < 1:
             output_block(
-                f"Phase 5 TDD metrics check failed: cycles_completed={cycles_completed} (expected >= 1). "
+                f"Phase 5 TDD metrics check failed: total_cycles={total_cycles} (expected >= 1). "
                 "At least one complete RED-GREEN-REFACTOR cycle must be recorded."
             )
 

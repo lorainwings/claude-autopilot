@@ -27,8 +27,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 14c. save-state scans Phase 1 (included in 1-7 range)
-if grep -q 'for phase_num in \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+# 14c. save-state scans Phase 1 (mode-aware: full includes 1-7, lite/minimal subset)
+if grep -q 'phase_scan_list = \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
   green "  PASS: PreCompact state save includes Phase 1"
   PASS=$((PASS + 1))
 else

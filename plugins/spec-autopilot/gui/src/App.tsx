@@ -76,7 +76,7 @@ const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routi
 });
 
 export function App() {
-  const { connected, setConnected, setHttpOk, addEvents, setDecisionAcked, setLastAckedBlockSequence, changeName, sessionId, mode } = useStore();
+  const { connected, setConnected, setHttpOk, addEvents, changeName, sessionId, mode } = useStore();
   const hasEvents = useStore((s) => s.events.length > 0);
   const modelRouting = useStore((s) => s.modelRouting);
 
@@ -92,15 +92,13 @@ export function App() {
       useStore.getState().reset();
     });
 
-    // v5.2: Listen for decision_ack to dismiss GateBlockCard (event-driven, no timer)
+    // v5.1.51: decision_ack only for UI feedback — does not control GateBlockCard visibility
+    // Merged into single atomic setState to avoid intermediate render (P0-3 fix)
     const unsubscribeAck = wsBridge.onDecisionAck(() => {
-      // Record the sequence of the latest gate_block being acked
       const state = useStore.getState();
       const blockEvents = state.events.filter((e) => e.type === "gate_block");
-      if (blockEvents.length > 0) {
-        setLastAckedBlockSequence(blockEvents[blockEvents.length - 1]!.sequence);
-      }
-      setDecisionAcked(true);
+      const lastBlockSeq = blockEvents.length > 0 ? blockEvents[blockEvents.length - 1]!.sequence : -1;
+      useStore.setState({ decisionAcked: true, lastAckedBlockSequence: lastBlockSeq });
     });
 
     const checkConnection = setInterval(() => {
@@ -126,7 +124,7 @@ export function App() {
       unsubscribeAck();
       wsBridge.disconnect();
     };
-  }, [addEvents, setConnected, setHttpOk, setDecisionAcked, setLastAckedBlockSequence]);
+  }, [addEvents, setConnected, setHttpOk]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {

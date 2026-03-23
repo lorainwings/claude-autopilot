@@ -103,10 +103,14 @@ if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null; then
   [ -d "$PROJECT_ROOT/.git/rebase-merge" ] || [ -d "$PROJECT_ROOT/.git/rebase-apply" ] && REBASE_IN_PROGRESS=true
   [ -f "$PROJECT_ROOT/.git/MERGE_HEAD" ] && MERGE_IN_PROGRESS=true
 
-  # Detect worktree residuals
+  # Detect worktree residuals (v5.1.51: use python3 for safe JSON with spaces in paths)
   if command -v git &>/dev/null; then
-    WORKTREE_RESIDUALS=$(git -C "$PROJECT_ROOT" worktree list 2>/dev/null | grep "autopilot-task" | awk '{print "\"" $1 "\""}' | paste -sd',' - 2>/dev/null) || true
-    [ -n "$WORKTREE_RESIDUALS" ] && WORKTREE_RESIDUALS="[$WORKTREE_RESIDUALS]" || WORKTREE_RESIDUALS="[]"
+    WORKTREE_RESIDUALS=$(git -C "$PROJECT_ROOT" worktree list 2>/dev/null | grep "autopilot-task" | awk '{print $1}' | python3 -c "
+import json, sys
+paths = [line.strip() for line in sys.stdin if line.strip()]
+print(json.dumps(paths))
+" 2>/dev/null) || WORKTREE_RESIDUALS="[]"
+    [ -z "$WORKTREE_RESIDUALS" ] && WORKTREE_RESIDUALS="[]"
   fi
 
   GIT_STATE="{\"rebase_in_progress\":${REBASE_IN_PROGRESS},\"merge_in_progress\":${MERGE_IN_PROGRESS},\"worktree_residuals\":${WORKTREE_RESIDUALS}}"
@@ -386,9 +390,11 @@ if selected_change:
             recommended_phase = recovery_phase
 
 # --- Compute git_risk_level ---
-# rebase_in_progress or merge_in_progress → high; has fixup → low; else → none
+# rebase_in_progress or merge_in_progress → high; worktree_residuals → medium; has fixup → low; else → none
 if git_state.get('rebase_in_progress') or git_state.get('merge_in_progress'):
     git_risk_level = 'high'
+elif git_state.get('worktree_residuals', []):
+    git_risk_level = 'medium'
 elif has_fixup_commits:
     git_risk_level = 'low'
 else:
@@ -404,10 +410,10 @@ if selected_change is not None and recovery_options.get('continue') is not None:
     # Single candidate determined (no ambiguity)
     num_candidates = len([c for c in changes if c['total_checkpoints'] > 0 or c.get('phase1_interim') is not None])
     no_ambiguity = (num_candidates <= 1) or (selected is not None)
-    no_dangerous_git = git_risk_level != 'high'
+    no_git_risk = git_risk_level == 'none'
     is_continue_path = True  # recovery_options.continue exists
 
-    if no_ambiguity and no_dangerous_git and is_continue_path and auto_continue_cfg:
+    if no_ambiguity and no_git_risk and is_continue_path and auto_continue_cfg:
         auto_continue_eligible = True
         recovery_interaction_required = False
 
@@ -423,7 +429,7 @@ result = {
     'effective_mode': mode,
     'has_fixup_commits': has_fixup_commits,
     'fixup_commit_count': fixup_commit_count,
-    'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and bool(anchor_sha) and not git_state.get('rebase_in_progress', False) and not git_state.get('merge_in_progress', False),
+    'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and bool(anchor_sha) and not git_state.get('rebase_in_progress', False) and not git_state.get('merge_in_progress', False) and not git_state.get('worktree_residuals', []),
     'anchor_sha': anchor_sha,
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,

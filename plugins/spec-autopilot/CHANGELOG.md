@@ -5,6 +5,15 @@
 ### Fixed
 
 - **GUI TS2352 类型错误**: `App.tsx` 中 `routing as Record<string, unknown>` 改为双重断言 `routing as unknown as Record<string, unknown>`，修复 `ModelRoutingState` 缺少索引签名导致的 typecheck 失败
+- **P0: emit-tool-event.sh 项目根解析**: stdin 读取提前到 PROJECT_ROOT 之前，从 JSON 提取 `cwd` 作为最高优先级来源，与 `_hook_preamble.sh` 行为一致
+- **P0: save-state-before-compact.sh mode-aware**: 根据 exec_mode 构建 mode-aware phase 扫描列表，lite/minimal 模式不再扫描不存在的 phase；next_phase 从序列取下一项而非硬编码 +1
+- **P0: GateBlockCard 状态机修正**: 删除不可靠的 `decisionAcked` 早退逻辑，仅依赖 `gate_pass` 事件控制 GateBlockCard 显隐；App.tsx `decision_ack` 合并为单次原子 `setState`
+- **P0: TDD 协议字段统一**: `_post_task_validator.py` 中 `cycles_completed` → `total_cycles`，与 `protocol.md` 定义一致
+- **P0: TDD 阻断策略统一**: `phase5-implementation.md` 的 tdd_unverified 策略从"警告不阻断"更新为与 gate 文档一致：full 模式硬阻断，lite/minimal 降级为 warning
+- **P1: recovery-decision.sh 风险分层**: 新增 `medium` 风险级别（worktree 残留）；`auto_continue_eligible` 收紧为仅 `none` 时允许；`fixup_squash_safe` 增加 worktree 条件；python3 安全构建 JSON 修复路径含空格问题
+- **P1: Phase 1 调研策略统一**: SKILL.md 添加前置 flags 预检和复杂度分级路由，调研 agent 数量从固定三路改为按复杂度自适应
+- **P1: Phase 6.5 门禁语义明确化**: autopilot-gate/SKILL.md 标注 Phase 6.5 为 Advisory Gate，不阻断 Phase 7；autopilot-phase7/SKILL.md 标注 6.5 为 optional
+- **P2: test_background_agent_bypass.sh 断言修复**: 6 处 `assert_not_contains` 参数顺序从 `(haystack, needle, name)` 修正为 `(name, haystack, needle)`，消除假阳性
 
 ## [5.1.50] - 2026-03-23
 

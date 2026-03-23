@@ -24,7 +24,7 @@ function isOverrideAllowed(payload: Record<string, unknown>): boolean {
 }
 
 export function GateBlockCard({ onDecision }: GateBlockCardProps) {
-  const { events, decisionAcked, connected } = useStore();
+  const { events, connected } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
   const [fixInstructions, setFixInstructions] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +40,8 @@ export function GateBlockCard({ onDecision }: GateBlockCardProps) {
   const latestPass = passEvents.length > 0 ? passEvents[passEvents.length - 1]! : null;
   if (latestPass && latestPass.sequence > latest.sequence) return null;
 
-  // v5.2: Decision ACK received — hide the card immediately
-  if (decisionAcked) return null;
+  // v5.1.51: decision_ack no longer hides GateBlockCard — only gate_pass (above) is reliable
+  // decisionAcked is used for UI feedback toast only, not card visibility control
   const { phase, phase_label, payload } = latest;
   const overrideAllowed = isOverrideAllowed(payload);
   const overrideBlockedReason = typeof payload.override_denied_reason === "string" && payload.override_denied_reason

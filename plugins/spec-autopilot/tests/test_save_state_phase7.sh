@@ -9,8 +9,8 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- 18. save-state Phase 7 scan ---"
 setup_autopilot_fixture
 
-# 18a. save-state-before-compact.sh scans Phase 1-7 (not 1-6)
-if grep -q 'for phase_num in \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+# 18a. save-state-before-compact.sh scans Phase 1-7 in full mode (mode-aware)
+if grep -q 'phase_scan_list = \[1, 2, 3, 4, 5, 6, 7\]' "$SCRIPT_DIR/save-state-before-compact.sh"; then
   green "  PASS: PreCompact state save scans Phase 1-7"
   PASS=$((PASS + 1))
 else

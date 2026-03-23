@@ -237,7 +237,7 @@ cross_cutting 串行执行
 1. 检查每个 task 的 checkpoint JSON（`phase5-tasks/task-N.json`）中 `tdd_cycle` 字段完整性
 2. 验证 `tdd_metrics` 存在且 `red_violations === 0`
 3. 如果 task checkpoint 缺少 `tdd_cycle`，标记该 task 为 `tdd_unverified`
-4. `tdd_unverified` 的 task 数 > 0 → 警告（stderr 输出），但不阻断（v4.1 宽松策略）
+4. `tdd_unverified` 的 task 数 > 0 → `audit_passed = false`，阻断 Phase 6 gate（full 模式下由 L3 层硬门禁强制执行；lite/minimal 模式下降级为 warning）
 5. 全量测试验证通过后继续
 
 > **设计意图**: 并行模式下域 Agent 以 `run_in_background: true` 运行，L2 Hook 被跳过。

@@ -115,14 +115,21 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 概要流程:
 1. 获取需求来源（$ARGUMENTS 解析）
-2. **并行调研**（v3.2.0 增强, v3.3.7 搜索策略重构）→ 读取 `references/parallel-phase1.md` 并行配置。
+2. **前置决策：Requirement Lint + 复杂度路由**（v5.1.51 策略统一）
+   - 执行 requirement lint（参见 `references/phase1-requirements.md` Step 1.1.7）
+   - 如 `flags >= 2` → 先进入澄清预检（Step 1.1.7），完成后再派发调研
+   - 按 `references/parallel-phase1.md:85-93` 复杂度分级路由决定调研 agent 数量：
+     - 低复杂度（纯 bugfix/chore）→ 单路调研（Auto-Scan only）
+     - 中复杂度 → 双路调研（Auto-Scan + 技术调研）
+     - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
+3. **并行调研**（v3.2.0 增强, v3.3.7 搜索策略重构）→ 读取 `references/parallel-phase1.md` 并行配置。
    > **v5.3 Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
    **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
-   同时派发：
+   按复杂度路由结果自适应派发（不再固定三路同时）：
    ```
-   ┌─ Auto-Scan (general-purpose agent) → Steering Documents
-   ├─ 技术调研 (general-purpose agent) → research-findings.md        ← 三者并行
-   └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 默认搜索，规则判定跳过
+   ┌─ Auto-Scan (general-purpose agent) → Steering Documents         ← 始终执行
+   ├─ 技术调研 (general-purpose agent) → research-findings.md        ← 中/高复杂度
+   └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 高复杂度 + 规则判定
    ```
    **联网搜索决策**（v3.3.7）：默认执行搜索（`search_policy.default: search`），仅当任务**同时满足所有跳过条件**时才跳过：
    - ✓ 纯内部代码变更（重构、bug 修复、样式微调）
