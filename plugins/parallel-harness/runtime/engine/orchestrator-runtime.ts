@@ -565,12 +565,24 @@ export class OrchestratorRuntime {
         await this.executeHookPhase("pre_pr", ctx);
         try {
           const { renderPRSummary, renderReviewComments } = await import("../integrations/pr-provider");
+
+          // 汇总本次 run 所有成功 attempt 的 modified_files
+          const allModifiedFiles = new Set<string>();
+          for (const attempts of Object.values(execution.completed_attempts)) {
+            for (const attempt of attempts) {
+              if (attempt.status === "succeeded" && attempt.modified_files) {
+                for (const f of attempt.modified_files) allModifiedFiles.add(f);
+              }
+            }
+          }
+
           const prResult = await this.prProvider.createPR({
             title: `[parallel-harness] ${request.intent.slice(0, 50)}`,
             body: renderPRSummary(result, plan, ctx.collectedGateResults),
             head_branch: `ph/${ctx.run_id}`,
             base_branch: "main",
             labels: ["parallel-harness"],
+            modified_files: [...allModifiedFiles],
           });
           result.pr_artifacts = {
             pr_url: prResult.pr_url,

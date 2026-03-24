@@ -384,16 +384,18 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
         return Response.json({ status: "ok", version: "1.0.0" });
       }
 
-      // GUI — 注入 apiToken 到前端（如已配置）
+      // GUI — 启用 apiToken 时，dashboard 本身也需鉴权（通过 query param ?token=xxx）
       if (path === "/" || path === "/index.html") {
-        let html = DASHBOARD_HTML;
         if (cfg.apiToken) {
-          html = html.replace(
-            "/*__API_TOKEN_PLACEHOLDER__*/",
-            `const __API_TOKEN__ = "${cfg.apiToken}";`
-          );
+          const token = url.searchParams.get("token");
+          if (token !== cfg.apiToken) {
+            return new Response("Unauthorized. 请在 URL 中附加 ?token=<apiToken> 访问 Dashboard。", {
+              status: 401,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            });
+          }
         }
-        return new Response(html, {
+        return new Response(DASHBOARD_HTML, {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
@@ -515,8 +517,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 </div>
 
 <script>
-/*__API_TOKEN_PLACEHOLDER__*/
-const __HEADERS__ = typeof __API_TOKEN__ !== 'undefined' ? { 'Authorization': 'Bearer ' + __API_TOKEN__ } : {};
+const __URL_TOKEN__ = new URLSearchParams(window.location.search).get('token');
+const __HEADERS__ = __URL_TOKEN__ ? { 'Authorization': 'Bearer ' + __URL_TOKEN__ } : {};
 function apiFetch(url, opts) {
   opts = opts || {};
   opts.headers = Object.assign({}, __HEADERS__, opts.headers || {});

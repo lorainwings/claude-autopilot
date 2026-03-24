@@ -291,7 +291,7 @@ export class WorkerExecutionController {
     const gitDiffEnabled = input.project_root && input.project_root.startsWith("/");
     const preSnapshot = gitDiffEnabled
       ? await captureGitSnapshot(input.project_root!)
-      : { tracked_changes: [], head_ref: "" };
+      : { file_status: new Map(), tracked_changes: [], head_ref: "" };
 
     // 4. 带超时的执行 + 心跳
     const heartbeatInterval = 5000; // 5秒心跳
@@ -515,6 +515,9 @@ export function decideDowngrade(
 // ============================================================
 
 export interface GitSnapshot {
+  /** 文件路径 → 状态码 (如 "M ", "??", "A " 等) 的映射 */
+  file_status: Map<string, string>;
+  /** 便捷属性：所有文件路径列表 */
   tracked_changes: string[];
   head_ref: string;
 }
@@ -537,16 +540,23 @@ export async function captureGitSnapshot(cwd: string): Promise<GitSnapshot> {
     const headRef = (await new Response(headProc.stdout).text()).trim();
     await headProc.exited;
 
+    const lines = stdout.trim().split("\n").filter(Boolean);
+    const fileStatus = new Map<string, string>();
+    const paths: string[] = [];
+    for (const line of lines) {
+      const status = line.slice(0, 2);
+      const filePath = line.slice(3).trim();
+      fileStatus.set(filePath, status);
+      paths.push(filePath);
+    }
+
     return {
-      tracked_changes: stdout
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((l) => l.slice(3).trim()),
+      file_status: fileStatus,
+      tracked_changes: paths,
       head_ref: headRef,
     };
   } catch {
-    return { tracked_changes: [], head_ref: "" };
+    return { file_status: new Map(), tracked_changes: [], head_ref: "" };
   }
 }
 
@@ -568,22 +578,39 @@ export async function captureRealDiff(cwd: string, preSnapshot: GitSnapshot): Pr
     const statusOut = await new Response(statusProc.stdout).text();
     await statusProc.exited;
 
-    const currentFiles = statusOut
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => l.slice(3).trim());
+    const postLines = statusOut.trim().split("\n").filter(Boolean);
+    const postStatus = new Map<string, string>();
+    for (const line of postLines) {
+      postStatus.set(line.slice(3).trim(), line.slice(0, 2));
+    }
 
     const diffFiles = stdout.trim().split("\n").filter(Boolean);
 
-    // 精确差分：只保留本次 worker 执行期间新增的改动
-    const preSet = new Set(preSnapshot.tracked_changes);
-    // diffFiles 中扣除执行前已存在的 dirty tracked 文件
-    const newDiffFiles = diffFiles.filter((f) => !preSet.has(f));
-    // status 中新出现的文件（untracked 或新 dirty）
-    const newStatusFiles = currentFiles.filter((f) => !preSet.has(f));
+    const result = new Set<string>();
 
-    return [...new Set([...newDiffFiles, ...newStatusFiles])];
+    // 1. git diff HEAD 中，扣除执行前已存在的 dirty tracked 文件
+    for (const f of diffFiles) {
+      if (!preSnapshot.file_status.has(f)) {
+        result.add(f);
+      }
+    }
+
+    // 2. status 中新出现的文件（执行前不存在）
+    for (const [filePath] of postStatus) {
+      if (!preSnapshot.file_status.has(filePath)) {
+        result.add(filePath);
+      }
+    }
+
+    // 3. 执行前已存在的 untracked 文件，如果状态码发生了变化（如 ?? → M, ?? → A 等），说明被修改了
+    for (const [filePath, postCode] of postStatus) {
+      const preCode = preSnapshot.file_status.get(filePath);
+      if (preCode && preCode !== postCode) {
+        result.add(filePath);
+      }
+    }
+
+    return [...result];
   } catch {
     return [];
   }
