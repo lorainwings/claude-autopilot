@@ -344,6 +344,16 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
         }
       }
 
+      // GET API Routes — 统一鉴权（除 /api/health 外）
+      if (req.method === "GET" && path.startsWith("/api/") && path !== "/api/health") {
+        if (cfg.apiToken) {
+          const auth = req.headers.get("Authorization");
+          if (auth !== `Bearer ${cfg.apiToken}`) {
+            return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+          }
+        }
+      }
+
       // GET API Routes
       if (path === "/api/runs") {
         const runs = await provider.listRuns();

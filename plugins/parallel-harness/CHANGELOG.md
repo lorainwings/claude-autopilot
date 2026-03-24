@@ -4,6 +4,22 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-03-24
+
+### Added
+- Full bilingual documentation (12 English + 12 Chinese docs)
+- Orchestrator runtime enhanced error handling and recovery
+- Gate system improvements for parallel verification
+- Worker runtime retry and degradation enhancements
+- PR provider integration improvements
+- Task graph builder dependency validation
+- Session persistence checkpoint recovery
+- Control plane dashboard updates
+
+### Fixed
+- Version metadata sync across all plugin files
+- Dist build alignment with source changes
+
 ## [1.0.0] - 2025-03-23
 
 ### Added

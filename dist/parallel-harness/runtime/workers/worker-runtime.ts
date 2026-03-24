@@ -286,7 +286,14 @@ export class WorkerExecutionController {
       root_path: this.config.path_sandbox.root_path,
     };
 
-    // 3. 带超时的执行 + 心跳
+    // 3. 执行前快照：记录当前 git 状态（用于真实 diff 采集）
+    // 仅在显式指定 project_root（绝对路径）时启用，避免在测试/沙箱环境采集到无关改动
+    const gitDiffEnabled = input.project_root && input.project_root.startsWith("/");
+    const preSnapshot = gitDiffEnabled
+      ? await captureGitSnapshot(input.project_root!)
+      : { tracked_changes: [], head_ref: "" };
+
+    // 4. 带超时的执行 + 心跳
     const heartbeatInterval = 5000; // 5秒心跳
     let heartbeatCount = 0;
     const heartbeatTimer = setInterval(() => { heartbeatCount++; }, heartbeatInterval);
@@ -298,7 +305,16 @@ export class WorkerExecutionController {
       clearInterval(heartbeatTimer);
     }
 
-    // 4. 验证输出路径
+    // 5. 真实 diff 采集：从文件系统获取实际修改路径，覆盖 worker 自报
+    if (gitDiffEnabled) {
+      const realModifiedPaths = await captureRealDiff(input.project_root!, preSnapshot);
+      if (realModifiedPaths.length > 0 || output.modified_paths.length > 0) {
+        const merged = new Set([...realModifiedPaths, ...output.modified_paths]);
+        output.modified_paths = [...merged];
+      }
+    }
+
+    // 6. 验证输出路径
     this.validateOutputPaths(output, sandbox);
 
     const endedAt = new Date().toISOString();
@@ -492,4 +508,80 @@ export function decideDowngrade(
     strategy: "none",
     reason: "无需降级",
   };
+}
+
+// ============================================================
+// Git Diff Ownership — 真实文件变更采集
+// ============================================================
+
+export interface GitSnapshot {
+  tracked_changes: string[];
+  head_ref: string;
+}
+
+export async function captureGitSnapshot(cwd: string): Promise<GitSnapshot> {
+  try {
+    const statusProc = Bun.spawn(["git", "status", "--porcelain"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = await new Response(statusProc.stdout).text();
+    await statusProc.exited;
+
+    const headProc = Bun.spawn(["git", "rev-parse", "HEAD"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const headRef = (await new Response(headProc.stdout).text()).trim();
+    await headProc.exited;
+
+    return {
+      tracked_changes: stdout
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => l.slice(3).trim()),
+      head_ref: headRef,
+    };
+  } catch {
+    return { tracked_changes: [], head_ref: "" };
+  }
+}
+
+export async function captureRealDiff(cwd: string, preSnapshot: GitSnapshot): Promise<string[]> {
+  try {
+    const proc = Bun.spawn(["git", "diff", "--name-only", "HEAD"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = await new Response(proc.stdout).text();
+    await proc.exited;
+
+    const statusProc = Bun.spawn(["git", "status", "--porcelain"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const statusOut = await new Response(statusProc.stdout).text();
+    await statusProc.exited;
+
+    const currentFiles = statusOut
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => l.slice(3).trim());
+
+    const diffFiles = stdout.trim().split("\n").filter(Boolean);
+
+    // 新增的文件 = 当前 status 中有但快照中没有的
+    const preSet = new Set(preSnapshot.tracked_changes);
+    const newFiles = currentFiles.filter((f) => !preSet.has(f));
+
+    return [...new Set([...diffFiles, ...newFiles])];
+  } catch {
+    return [];
+  }
 }
