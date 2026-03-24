@@ -576,11 +576,14 @@ export async function captureRealDiff(cwd: string, preSnapshot: GitSnapshot): Pr
 
     const diffFiles = stdout.trim().split("\n").filter(Boolean);
 
-    // 新增的文件 = 当前 status 中有但快照中没有的
+    // 精确差分：只保留本次 worker 执行期间新增的改动
     const preSet = new Set(preSnapshot.tracked_changes);
-    const newFiles = currentFiles.filter((f) => !preSet.has(f));
+    // diffFiles 中扣除执行前已存在的 dirty tracked 文件
+    const newDiffFiles = diffFiles.filter((f) => !preSet.has(f));
+    // status 中新出现的文件（untracked 或新 dirty）
+    const newStatusFiles = currentFiles.filter((f) => !preSet.has(f));
 
-    return [...new Set([...diffFiles, ...newFiles])];
+    return [...new Set([...newDiffFiles, ...newStatusFiles])];
   } catch {
     return [];
   }

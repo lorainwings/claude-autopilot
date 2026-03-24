@@ -253,8 +253,9 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
     }
   }
 
-  async retryTask(runId: string, taskId: string): Promise<{ ok: boolean; message: string }> {
-    return this.inner.retryTask(runId, taskId);
+  async retryTask(_runId: string, _taskId: string): Promise<{ ok: boolean; message: string }> {
+    // runtime 模式下 retry 需要完整的 orchestrator 级重调度，当前未实现
+    return { ok: false, message: "runtime 模式下 retryTask 尚未实现，请使用 CLI 重新执行" };
   }
 
   /** 暴露 inner 以支持数据注入 */
@@ -383,9 +384,16 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
         return Response.json({ status: "ok", version: "1.0.0" });
       }
 
-      // GUI
+      // GUI — 注入 apiToken 到前端（如已配置）
       if (path === "/" || path === "/index.html") {
-        return new Response(DASHBOARD_HTML, {
+        let html = DASHBOARD_HTML;
+        if (cfg.apiToken) {
+          html = html.replace(
+            "/*__API_TOKEN_PLACEHOLDER__*/",
+            `const __API_TOKEN__ = "${cfg.apiToken}";`
+          );
+        }
+        return new Response(html, {
           headers: { "Content-Type": "text/html; charset=utf-8" },
         });
       }
@@ -507,11 +515,18 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 </div>
 
 <script>
+/*__API_TOKEN_PLACEHOLDER__*/
+const __HEADERS__ = typeof __API_TOKEN__ !== 'undefined' ? { 'Authorization': 'Bearer ' + __API_TOKEN__ } : {};
+function apiFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, __HEADERS__, opts.headers || {});
+  return fetch(url, opts);
+}
 let currentRuns = [];
 
 async function refresh() {
   try {
-    const res = await fetch('/api/runs');
+    const res = await apiFetch('/api/runs');
     currentRuns = await res.json();
     renderList();
   } catch(e) { console.error(e); }
@@ -539,9 +554,9 @@ function renderList() {
 async function showDetail(runId) {
   try {
     const [run, gates, audit] = await Promise.all([
-      fetch('/api/runs/' + runId).then(r=>r.json()),
-      fetch('/api/runs/' + runId + '/gates').then(r=>r.json()),
-      fetch('/api/runs/' + runId + '/audit').then(r=>r.json()),
+      apiFetch('/api/runs/' + runId).then(r=>r.json()),
+      apiFetch('/api/runs/' + runId + '/gates').then(r=>r.json()),
+      apiFetch('/api/runs/' + runId + '/audit').then(r=>r.json()),
     ]);
     document.getElementById('list').style.display = 'none';
     document.getElementById('detail').style.display = '';
@@ -610,7 +625,7 @@ setInterval(refresh, 10000);
 async function cancelRun(runId) {
   if (!confirm('确认取消 Run ' + runId.slice(0,12) + '?')) return;
   try {
-    const res = await fetch('/api/runs/' + runId + '/cancel', { method: 'POST' });
+    const res = await apiFetch('/api/runs/' + runId + '/cancel', { method: 'POST' });
     const data = await res.json();
     alert(data.message);
     refresh();
@@ -619,7 +634,7 @@ async function cancelRun(runId) {
 
 async function retryTask(runId, taskId) {
   try {
-    const res = await fetch('/api/runs/' + runId + '/tasks/' + taskId + '/retry', { method: 'POST' });
+    const res = await apiFetch('/api/runs/' + runId + '/tasks/' + taskId + '/retry', { method: 'POST' });
     const data = await res.json();
     alert(data.message);
   } catch(e) { alert('重试失败: ' + e); }
@@ -627,7 +642,7 @@ async function retryTask(runId, taskId) {
 
 async function approveAction(runId, approvalId) {
   try {
-    const res = await fetch('/api/runs/' + runId + '/approve/' + approvalId, { method: 'POST' });
+    const res = await apiFetch('/api/runs/' + runId + '/approve/' + approvalId, { method: 'POST' });
     const data = await res.json();
     alert(data.message);
   } catch(e) { alert('审批失败: ' + e); }

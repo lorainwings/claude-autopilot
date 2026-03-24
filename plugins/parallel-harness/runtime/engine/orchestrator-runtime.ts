@@ -1677,9 +1677,15 @@ export class OrchestratorRuntime {
    */
   private mapApprovalPermission(action?: string): import("../governance/governance").Permission {
     const mapping: Record<string, import("../governance/governance").Permission> = {
+      // 真实 action（由 orchestrator 发出）
+      "execute_with_conflicts": "task.approve_sensitive_write",
+      "worker_execute": "task.approve_sensitive_write",
+      // 扩展 action
       "sensitive_file_write": "task.approve_sensitive_write",
       "budget_override": "gate.override",
-      "high_risk_execution": "task.approve_sensitive_write",
+      "high_risk_execution": "task.approve_model_upgrade",
+      "model_upgrade": "task.approve_model_upgrade",
+      "gate_override": "gate.override",
     };
     return (action && mapping[action]) || "task.approve_sensitive_write";
   }
