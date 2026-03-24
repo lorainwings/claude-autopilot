@@ -13,6 +13,7 @@ Usage from bash (inline python with importlib):
 
 import os
 import re
+import subprocess
 import sys
 
 
@@ -121,8 +122,109 @@ def load_constraints(root):
         "forbidden_patterns": forbidden_patterns,
         "allowed_dirs": allowed_dirs,
         "max_lines": max_lines,
+        "required_patterns": [],
+        "naming_patterns": [],
         "found": found,
     }
+
+
+def load_scanner_constraints(root):
+    """Load constraints from rules-scanner.sh output.
+
+    Calls rules-scanner.sh and parses its JSON output to extract
+    required patterns and naming conventions that complement
+    the config-based constraints.
+
+    Returns dict with keys:
+        required_patterns: list[str]  (patterns files must contain)
+        naming_patterns: list[str]    (file naming conventions)
+        forbidden_patterns: list[str] (additional forbidden patterns from scanner)
+        found: bool
+    """
+    required_patterns = []
+    naming_patterns = []
+    forbidden_patterns = []
+    found = False
+
+    # Locate rules-scanner.sh relative to this module
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    scanner_path = os.path.join(scripts_dir, "rules-scanner.sh")
+
+    if not os.path.isfile(scanner_path):
+        return {
+            "required_patterns": required_patterns,
+            "naming_patterns": naming_patterns,
+            "forbidden_patterns": forbidden_patterns,
+            "found": found,
+        }
+
+    try:
+        result = subprocess.run(
+            ["bash", scanner_path, root],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return {
+                "required_patterns": required_patterns,
+                "naming_patterns": naming_patterns,
+                "forbidden_patterns": forbidden_patterns,
+                "found": found,
+            }
+
+        import json
+
+        data = json.loads(result.stdout)
+        if not data.get("rules_found"):
+            return {
+                "required_patterns": required_patterns,
+                "naming_patterns": naming_patterns,
+                "forbidden_patterns": forbidden_patterns,
+                "found": found,
+            }
+
+        found = True
+        for c in data.get("constraints", []):
+            ctype = c.get("type", "")
+            pattern = c.get("pattern", "")
+            if not pattern:
+                continue
+            if ctype == "required":
+                required_patterns.append(pattern)
+            elif ctype == "naming":
+                naming_patterns.append(pattern)
+            elif ctype == "forbidden":
+                forbidden_patterns.append(pattern)
+
+    except Exception as e:
+        print(f"WARNING: constraint-loader scanner: {e}", file=sys.stderr)
+
+    return {
+        "required_patterns": list(dict.fromkeys(required_patterns)),
+        "naming_patterns": list(dict.fromkeys(naming_patterns)),
+        "forbidden_patterns": list(dict.fromkeys(forbidden_patterns)),
+        "found": found,
+    }
+
+
+def merge_constraints(base, scanner):
+    """Merge base constraints (from config/CLAUDE.md) with scanner constraints.
+
+    Returns a new dict combining both sources.
+    """
+    merged = dict(base)
+    merged["forbidden_patterns"] = list(
+        dict.fromkeys(base.get("forbidden_patterns", []) + scanner.get("forbidden_patterns", []))
+    )
+    merged["required_patterns"] = list(
+        dict.fromkeys(base.get("required_patterns", []) + scanner.get("required_patterns", []))
+    )
+    merged["naming_patterns"] = list(
+        dict.fromkeys(base.get("naming_patterns", []) + scanner.get("naming_patterns", []))
+    )
+    merged["found"] = base.get("found", False) or scanner.get("found", False)
+    return merged
 
 
 def check_file_violations(file_path, root, constraints):
@@ -131,7 +233,7 @@ def check_file_violations(file_path, root, constraints):
     Args:
         file_path: relative or absolute path to the file
         root: project root directory
-        constraints: dict from load_constraints()
+        constraints: dict from load_constraints() or merge_constraints()
 
     Returns list of violation strings (empty if compliant).
     """
@@ -139,6 +241,8 @@ def check_file_violations(file_path, root, constraints):
     forbidden_patterns = constraints["forbidden_patterns"]
     allowed_dirs = constraints["allowed_dirs"]
     max_lines = constraints["max_lines"]
+    required_patterns = constraints.get("required_patterns", [])
+    naming_patterns = constraints.get("naming_patterns", [])
 
     rel = os.path.relpath(file_path, root) if os.path.isabs(file_path) else file_path
     base = os.path.basename(rel)
@@ -155,7 +259,28 @@ def check_file_violations(file_path, root, constraints):
     if allowed_dirs and not any(rel.startswith(d) for d in allowed_dirs):
         violations.append(f"Out of scope: {rel} (allowed: {allowed_dirs})")
 
-    # File line count + forbidden patterns (only for existing files)
+    # Naming convention check
+    for naming in naming_patterns:
+        naming_lower = naming.lower()
+        if naming_lower == "kebab-case":
+            # File name (without extension) should be kebab-case
+            name_part = os.path.splitext(base)[0]
+            if name_part and not re.match(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$", name_part):
+                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+        elif naming_lower == "camelcase":
+            name_part = os.path.splitext(base)[0]
+            if name_part and not re.match(r"^[a-z][a-zA-Z0-9]*$", name_part):
+                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+        elif naming_lower == "pascalcase":
+            name_part = os.path.splitext(base)[0]
+            if name_part and not re.match(r"^[A-Z][a-zA-Z0-9]*$", name_part):
+                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+        elif naming_lower == "snake_case":
+            name_part = os.path.splitext(base)[0]
+            if name_part and not re.match(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$", name_part):
+                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+
+    # File line count + forbidden patterns + required patterns (only for existing files)
     if os.path.isfile(abs_path):
         try:
             with open(abs_path, "r", errors="ignore") as f:
@@ -171,6 +296,14 @@ def check_file_violations(file_path, root, constraints):
                     # Fallback to literal match if pattern is invalid regex
                     if pat in content:
                         violations.append(f'Forbidden pattern "{pat}" in {rel}')
+            # Required patterns: file content must contain these patterns
+            for pat in required_patterns:
+                try:
+                    if not re.search(pat, content):
+                        violations.append(f'Required pattern "{pat}" not found in {rel}')
+                except re.error:
+                    if pat not in content:
+                        violations.append(f'Required pattern "{pat}" not found in {rel}')
         except Exception:
             pass
 

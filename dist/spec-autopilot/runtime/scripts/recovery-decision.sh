@@ -431,6 +431,7 @@ result = {
     'fixup_commit_count': fixup_commit_count,
     'fixup_squash_safe': has_fixup_commits and git_risk_level != 'high' and bool(anchor_sha) and not git_state.get('rebase_in_progress', False) and not git_state.get('merge_in_progress', False) and not git_state.get('worktree_residuals', []),
     'anchor_sha': anchor_sha,
+    'anchor_needs_rebuild': bool(has_fixup_commits) and not bool(anchor_sha),
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,
     'git_risk_level': git_risk_level

@@ -56,6 +56,15 @@ export function createHttpServer() {
 
       if (url.pathname === "/api/info") {
         const version = await ensurePluginVersion();
+        // Derive currentPhase from events (latest phase field from phase_start/phase_end events)
+        let currentPhase: number | null = null;
+        for (let i = snapshotState.events.length - 1; i >= 0; i--) {
+          const e = snapshotState.events[i]!;
+          if ((e.type === "phase_start" || e.type === "phase_end") && e.phase != null) {
+            currentPhase = e.phase;
+            break;
+          }
+        }
         return new Response(JSON.stringify({
           version,
           projectRoot: sanitizePath(projectRoot),
@@ -67,6 +76,8 @@ export function createHttpServer() {
           journalPath: snapshotState.journalPath ? sanitizePath(snapshotState.journalPath) : null,
           telemetryAvailable: snapshotState.telemetryAvailable,
           transcriptAvailable: snapshotState.transcriptAvailable,
+          mode: snapshotState.mode || null,
+          currentPhase,
         }), {
           headers: { "Content-Type": "application/json", ...corsHeaders(req) },
         });

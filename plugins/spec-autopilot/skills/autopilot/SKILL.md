@@ -124,7 +124,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
      - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
 3. **并行调研**（v3.2.0 增强, v3.3.7 搜索策略重构）→ 读取 `references/parallel-phase1.md` 并行配置。
    > **v5.3 Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
-   **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
+   **v5.3 进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
    按复杂度路由结果自适应派发（不再固定三路同时）：
    ```
    ┌─ Auto-Scan (general-purpose agent) → Steering Documents         ← 始终执行
@@ -164,7 +164,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 4. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
 5. Task 调度 business-analyst 分析需求（`run_in_background: true`）：
    > **v5.3 Agent 事件**: Hook 自动发射 agent_dispatch/complete，无需手动调用。
-   **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 ba_dispatched in_progress')
+   **v5.3 进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 ba_dispatched in_progress')
    - 子 Agent 自行 Read context/ 全部文件，将完整分析 Write 到 `context/requirements-analysis.md`
    - 等待 Claude Code 自动完成通知
    - 从 JSON 信封提取：`decision_points`、`requirements_summary`、`open_questions`
@@ -210,7 +210,7 @@ Step 0: 发射 Phase 开始事件（v4.2 Event Bus）
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
         → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
         → Gate 通过后: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-gate-event.sh gate_pass {N} {mode} \'{"gate_score":"8/8"}\'')
-        → **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} gate_passed in_progress')
+        → **v5.3 进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} gate_passed in_progress')
         → Gate 阻断时: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-gate-event.sh gate_block {N} {mode} \'{"status":"blocked","error_message":"..."}\'')
           → 阻断后立即启动决策轮询（v5.1 双向反控）:
             DECISION=$(Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/poll-gate-decision.sh "${change_dir}/" {N} {mode} \'{"blocked_step":M,"error_message":"..."}\''))
@@ -229,7 +229,7 @@ Step 2.5: 发射 Agent 派发事件（v5.3 Agent 生命周期）
 Step 3: 使用 Task 工具派发子 Agent
         → prompt 开头必须包含 <!-- autopilot-phase:N --> 标记
         → Hook 脚本自动校验前置 checkpoint 和返回 JSON
-        → **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} agent_dispatched in_progress \'{"agent_id":"phase{N}-{slug}"}\'')
+        → **v5.3 进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} agent_dispatched in_progress \'{"agent_id":"phase{N}-{slug}"}\'')
         → **Phase 2/3 必须使用 `run_in_background: true`**：这两个阶段为机械性操作（OpenSpec 创建和 FF 生成），
           不应占用主窗口上下文。派发后等待 Claude Code 自动完成通知，收到通知后继续 Step 4。
         → **Phase 4 非并行模式也必须使用 `run_in_background: true`**：测试用例生成不需要交互，
@@ -241,7 +241,7 @@ Step 4: 解析子 Agent 返回的 JSON 信封
         → ok → 继续
         → warning → **Phase 4 特殊处理**（见下方）
         → blocked/failed → 暂停展示给用户
-        → **v5.3 进度写入**: Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} agent_complete in_progress \'{"status":"{envelope.status}"}\'')
+        → **v5.3 进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh {N} agent_complete in_progress \'{"status":"{envelope.status}"}\'')
 Step 4.5: 发射 Agent 完成事件（v5.3 Agent 生命周期）
         → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-agent-event.sh agent_complete {N} {mode} "phase{N}-{slug}" "{agent_label}" \'{"status":"{envelope.status}","summary":"{envelope.summary前120字符}","duration_ms":{agent_elapsed}}\'')
 Step 4.7: GUI 周期性健康检查（v5.7 — 长任务中途保活）
@@ -278,7 +278,7 @@ Step 6.5: 发射 Phase 结束事件（v4.2 Event Bus）
         → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end {N} {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":{artifacts_json}}\'')
 Step 6.7: 保存上下文快照（v5.3 上下文保护）
         → 用 python3 构造 JSON 参数避免 shell 引号问题:
-          Bash("python3 -c \"import json,subprocess,sys; subprocess.run(['bash','${CLAUDE_PLUGIN_ROOT}/runtime/scripts/save-phase-context.sh','{N}','{mode}',json.dumps({'summary':sys.argv[1],'decisions':[],'constraints':[],'artifacts':[],'next_phase_context':sys.argv[2]})],check=False)\" 'Phase {N} 产出摘要（由编排器填入实际内容）' '下阶段需要的关键上下文'")
+          Bash("AUTOPILOT_PROJECT_ROOT=$(pwd) python3 -c \"import json,subprocess,sys; subprocess.run(['bash','${CLAUDE_PLUGIN_ROOT}/runtime/scripts/save-phase-context.sh','{N}','{mode}',json.dumps({'summary':sys.argv[1],'decisions':[],'constraints':[],'artifacts':[],'next_phase_context':sys.argv[2]})],check=False)\" 'Phase {N} 产出摘要（由编排器填入实际内容）' '下阶段需要的关键上下文'")
 Step 8: 等待 Step 5+7 后台 Agent 完成通知
         → 从 Agent 返回的 JSON 提取 checkpoint 文件名和 commit SHA
         → 输出格式化进度行（让用户看到关键状态）：

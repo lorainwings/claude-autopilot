@@ -39,6 +39,7 @@ emit-task-progress.sh
 install-statusline-config.sh
 parallel-merge-guard.sh
 poll-gate-decision.sh
+rebuild-anchor.sh
 recovery-decision.sh
 resolve-model-routing.sh
 rules-scanner.sh

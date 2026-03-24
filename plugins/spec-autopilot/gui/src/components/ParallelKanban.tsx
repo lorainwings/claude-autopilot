@@ -8,6 +8,7 @@
 
 import { useState, useMemo } from "react";
 import { useStore } from "../store";
+import { selectPhaseDurations, selectGateStats } from "../store";
 import type { AgentInfo, ParallelPlanSummary } from "../store";
 import type { AutopilotEvent } from "../lib/ws-bridge";
 
@@ -74,11 +75,11 @@ const PHASE_LABELS: Record<number, string> = {
 };
 
 export function ParallelKanban() {
-  const { taskProgress, agentMap, events, parallelPlan } = useStore();
+  const { taskProgress, agentMap, events, parallelPlan, currentPhase, mode } = useStore();
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
 
   if (taskProgress.size === 0 && agentMap.size === 0) {
-    return null;
+    return <PhasePipelineOverview events={events} currentPhase={currentPhase} mode={mode} />;
   }
 
   // v5.8: 按 phase 分组任务
@@ -335,6 +336,91 @@ export function ParallelKanban() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// --- Phase Pipeline Overview (P2-1: orchestration state when no tasks/agents) ---
+const PHASE_STATUS_CONFIG = {
+  pending: { icon: "\u25CB", color: "text-text-muted", bg: "bg-border/20" },
+  running: { icon: "\u25CF", color: "text-violet animate-pulse", bg: "bg-violet/10" },
+  ok: { icon: "\u2713", color: "text-emerald", bg: "bg-emerald/10" },
+  warning: { icon: "\u26A0", color: "text-amber", bg: "bg-amber/10" },
+  blocked: { icon: "\u2716", color: "text-rose", bg: "bg-rose/10" },
+  failed: { icon: "\u2716", color: "text-rose", bg: "bg-rose/10" },
+} as const;
+
+const ALL_LABELS = [
+  "环境初始化", "需求理解", "OpenSpec 创建", "快速生成",
+  "测试设计", "代码实施", "测试报告", "归档清理",
+];
+
+function PhasePipelineOverview({ events, currentPhase, mode }: {
+  events: AutopilotEvent[];
+  currentPhase: number | null;
+  mode: "full" | "lite" | "minimal" | null;
+}) {
+  const phaseDurations = useMemo(() => selectPhaseDurations(events), [events]);
+  const gateStats = useMemo(() => selectGateStats(events), [events]);
+  const hasEvents = events.length > 0;
+
+  return (
+    <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-3">
+          <div className="font-display text-xs font-bold uppercase tracking-widest text-text-bright">编排流水线</div>
+          {mode && (
+            <>
+              <div className="h-4 w-px bg-border"></div>
+              <span className="text-[10px] font-mono text-cyan">{mode.toUpperCase()}</span>
+            </>
+          )}
+          {currentPhase != null && (
+            <>
+              <div className="h-4 w-px bg-border"></div>
+              <span className="text-[10px] font-mono text-violet">Phase {currentPhase}: {ALL_LABELS[currentPhase] || `Phase ${currentPhase}`}</span>
+            </>
+          )}
+        </div>
+        {hasEvents && (
+          <div className="flex space-x-3 text-[9px] font-mono text-text-muted">
+            <span className="text-emerald">{gateStats.passed} 通过</span>
+            {gateStats.blocked > 0 && <span className="text-rose">{gateStats.blocked} 阻断</span>}
+            {gateStats.passRate > 0 && <span className="text-cyan">{gateStats.passRate}% 通过率</span>}
+          </div>
+        )}
+      </div>
+
+      {!hasEvents ? (
+        <div className="flex-1 flex items-center justify-center text-text-muted text-sm font-mono">
+          等待编排启动...
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col justify-center space-y-1">
+          {phaseDurations.map((pd) => {
+            const cfg = PHASE_STATUS_CONFIG[pd.status];
+            const isActive = pd.status === "running";
+            return (
+              <div
+                key={pd.phase}
+                className={`flex items-center px-3 py-1.5 rounded ${cfg.bg} ${isActive ? "ring-1 ring-violet/30" : ""}`}
+              >
+                <span className={`w-4 text-center text-[10px] ${cfg.color}`}>{cfg.icon}</span>
+                <span className="text-[10px] font-mono text-text-muted w-6 ml-2">P{pd.phase}</span>
+                <span className={`text-[10px] font-mono flex-1 ${isActive ? "text-text-bright" : "text-text-muted"}`}>
+                  {pd.label}
+                </span>
+                <span className={`text-[9px] font-mono ${cfg.color} font-bold w-12 text-right`}>
+                  {pd.status === "pending" ? "--" : pd.status}
+                </span>
+                <span className="text-[9px] font-mono text-text-muted/60 w-16 text-right">
+                  {pd.durationMs > 0 ? formatDuration(pd.durationMs) : "--"}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </section>

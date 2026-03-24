@@ -193,11 +193,21 @@ Phase 2: [摘要...]
 
 #### Anchor SHA 验证
 
-从锁文件 `lock_file.anchor_sha` 字段（由 Step 1 JSON 提供）：
+从 `recovery-decision.sh` 输出的 `anchor_needs_rebuild` 和 `anchor_sha` 字段（由 Step 1 JSON 提供）：
 
-1. **空字符串** → 创建新锚定 commit：`Bash("git commit --allow-empty -m 'autopilot: anchor (recovery)'")`，将新 SHA 写回锁文件的 `anchor_sha` 字段
-2. **非空但 `git rev-parse ${anchor_sha}^{commit}` 失败** → 同上，创建新锚定 commit 并更新锁文件
-3. **有效** → 继续使用现有 anchor_sha，输出 `Anchor SHA verified: ${anchor_sha}`
+1. **`anchor_needs_rebuild` 为 `true`**（有 fixup commits 但无有效 anchor）→ 强制调用确定性脚本重建：
+   ```
+   Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/rebuild-anchor.sh $(pwd) ${LOCK_FILE}')
+   ```
+   - 退出码 0 → 使用 stdout 输出的新 anchor SHA，输出 `Anchor SHA rebuilt: ${new_sha}`
+   - 退出码非 0 → **报错终止恢复流程**，不静默继续
+2. **`anchor_sha` 为空字符串且 `anchor_needs_rebuild` 为 `false`** → 调用同一脚本创建新锚定：
+   ```
+   Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/rebuild-anchor.sh $(pwd) ${LOCK_FILE}')
+   ```
+   退出码非 0 → 报错终止
+3. **`anchor_sha` 非空但 `git rev-parse ${anchor_sha}^{commit}` 失败** → 同上，调用 `rebuild-anchor.sh` 重建
+4. **有效** → 继续使用现有 anchor_sha，输出 `Anchor SHA verified: ${anchor_sha}`
 
 ### 5. Mode 恢复
 
