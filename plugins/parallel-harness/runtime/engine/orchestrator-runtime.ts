@@ -421,6 +421,8 @@ export class OrchestratorRuntime {
   private auditTrail: AuditTrail;
   private prProvider?: import("../integrations/pr-provider").PRProvider;
   private rbacEngine?: import("../governance/governance").RBACEngine;
+  private hookRegistry?: import("../capabilities/capability-registry").HookRegistry;
+  private instructionRegistry?: import("../capabilities/capability-registry").InstructionRegistry;
 
   constructor(options: OrchestratorOptions = {}) {
     this.eventBus = options.eventBus || new EventBus();
@@ -436,6 +438,8 @@ export class OrchestratorRuntime {
     this.auditTrail = options.auditTrail || AuditTrail.createDurable(`${dataDir}/audit`);
     this.prProvider = options.prProvider;
     this.rbacEngine = options.rbacEngine;
+    this.hookRegistry = options.hookRegistry;
+    this.instructionRegistry = options.instructionRegistry;
   }
 
   /**
@@ -463,10 +467,13 @@ export class OrchestratorRuntime {
 
     try {
       // Phase 1: Plan
+      await this.executeHookPhase("pre_plan", ctx);
       transitionRunStatus(execution, "planned", "规划完成");
       const plan = await this.planPhase(ctx, request);
       await this.runStore.savePlan(plan);
+      await this.executeHookPhase("post_plan", ctx);
       emitAudit(ctx, "run_planned", {
+        plan_id: plan.plan_id,
         task_count: plan.task_graph.tasks.length,
         batch_count: plan.schedule_plan.total_batches,
       });
@@ -506,6 +513,7 @@ export class OrchestratorRuntime {
             execution.cost_ledger = ctx.costLedger;
             await this.runStore.saveExecution(execution);
             await this.auditTrail.recordBatch(ctx.auditLog);
+            await this.auditTrail.forceFlush();
 
             const blockedResult = this.finalizeRun(ctx, execution, plan);
             blockedResult.final_status = "blocked";
@@ -516,17 +524,21 @@ export class OrchestratorRuntime {
       }
 
       // Phase 3: Schedule + Execute
+      await this.executeHookPhase("pre_dispatch", ctx);
       transitionRunStatus(execution, "scheduled", "已调度");
       transitionRunStatus(execution, "running", "开始执行");
       emitAudit(ctx, "run_started", {});
 
       ctx.ownershipPlan = plan.ownership_plan;
       await this.executePhase(ctx, execution, plan);
+      await this.executeHookPhase("post_dispatch", ctx);
 
       // Phase 4: Verify (Run-level gates)
       if (execution.status === "running") {
+        await this.executeHookPhase("pre_verify", ctx);
         transitionRunStatus(execution, "verifying", "运行级验证");
         await this.runLevelGates(ctx, execution, plan);
+        await this.executeHookPhase("post_verify", ctx);
       }
 
       // Phase 5: Finalize
@@ -550,6 +562,7 @@ export class OrchestratorRuntime {
 
       // Phase 5b: PR 产出（如果配置了 PR 策略且有 provider）
       if (ctx.config.pr_strategy !== "none" && this.prProvider && execution.status === "succeeded") {
+        await this.executeHookPhase("pre_pr", ctx);
         try {
           const { renderPRSummary, renderReviewComments } = await import("../integrations/pr-provider");
           const prResult = await this.prProvider.createPR({
@@ -600,10 +613,12 @@ export class OrchestratorRuntime {
           emitAudit(ctx, "run_failed", { phase: "pr_creation", error: String(prError) });
           // PR 创建失败不阻断 run 结果
         }
+        await this.executeHookPhase("post_pr", ctx);
       }
 
       // 持久化审计日志 + 最终状态
       await this.auditTrail.recordBatch(ctx.auditLog);
+      await this.auditTrail.forceFlush();
       await this.runStore.saveExecution(execution);
 
       // 完成 session
@@ -618,6 +633,7 @@ export class OrchestratorRuntime {
       // 异常路径完整持久化
       execution.cost_ledger = ctx.costLedger;
       await this.auditTrail.recordBatch(ctx.auditLog);
+      await this.auditTrail.forceFlush();
       await this.runStore.saveExecution(execution);
       await this.sessionStore.complete(session.session_id);
       throw error;
@@ -648,7 +664,10 @@ export class OrchestratorRuntime {
       prioritize_critical_path: ctx.config.prioritize_critical_path,
     });
 
-    // 6. 模型路由决策
+    // 6. 模型路由决策（受 max_model_tier 约束）
+    const tierOrder: ModelTier[] = ["tier-1", "tier-2", "tier-3"];
+    const maxTierIdx = tierOrder.indexOf(ctx.config.max_model_tier || "tier-3");
+
     const routingDecisions: RoutingDecision[] = taskGraph.tasks.map((task) => {
       const result = routeModel({
         complexity: task.complexity.level,
@@ -656,12 +675,18 @@ export class OrchestratorRuntime {
         token_budget: ctx.config.budget_limit,
         retry_count: 0,
       });
+      // 应用 max_model_tier 约束
+      let finalTier = result.recommended_tier;
+      const recIdx = tierOrder.indexOf(finalTier);
+      if (recIdx > maxTierIdx) {
+        finalTier = tierOrder[maxTierIdx];
+      }
       return {
         schema_version: SCHEMA_VERSION,
         decision_id: generateId("route"),
         task_id: task.id,
         phase: "worker" as const,
-        recommended_tier: result.recommended_tier,
+        recommended_tier: finalTier,
         reasoning: result.reasoning,
         inputs: {
           complexity: task.complexity.level,
@@ -1351,13 +1376,16 @@ export class OrchestratorRuntime {
    * 审批通过被阻断的 run，并恢复执行剩余任务图
    */
   async approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<RunResult> {
-    this.requirePermission(decidedBy, "task.approve_sensitive_write");
+    // 根据审批类型映射到对应权限
+    const session = await this.sessionStore.getByRunId(runId);
+    const approvalAction = (session?.checkpoint?.pending_approval_request as ApprovalRequest)?.action;
+    const permission = this.mapApprovalPermission(approvalAction);
+    this.requirePermission(decidedBy, permission);
     const execution = await this.runStore.getExecution(runId);
     if (!execution) throw new Error(`Run ${runId} 不存在`);
     if (execution.status !== "blocked") throw new Error(`Run ${runId} 不在 blocked 状态，当前: ${execution.status}`);
 
     // 跨进程恢复：从 checkpoint 回填 pending approval 到内存
-    const session = await this.sessionStore.getByRunId(runId);
     if (session?.checkpoint?.pending_approval_request) {
       this.approvalWorkflow.rehydrate(
         session.checkpoint.pending_approval_request as ApprovalRequest,
@@ -1426,6 +1454,7 @@ export class OrchestratorRuntime {
 
     await this.runStore.saveResult(result);
     await this.auditTrail.recordBatch(ctx.auditLog);
+    await this.auditTrail.forceFlush();
     await this.runStore.saveExecution(execution);
     if (session) await this.sessionStore.complete(session.session_id);
 
@@ -1436,12 +1465,15 @@ export class OrchestratorRuntime {
    * 拒绝审批，标记 run 为 failed
    */
   async rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void> {
-    this.requirePermission(decidedBy, "task.approve_sensitive_write");
+    // 根据审批类型映射到对应权限
+    const session = await this.sessionStore.getByRunId(runId);
+    const approvalAction = (session?.checkpoint?.pending_approval_request as ApprovalRequest)?.action;
+    const permission = this.mapApprovalPermission(approvalAction);
+    this.requirePermission(decidedBy, permission);
     const execution = await this.runStore.getExecution(runId);
     if (!execution) throw new Error(`Run ${runId} 不存在`);
 
     // 跨进程恢复：从 checkpoint 回填 pending approval 到内存
-    const session = await this.sessionStore.getByRunId(runId);
     if (session?.checkpoint?.pending_approval_request) {
       this.approvalWorkflow.rehydrate(
         session.checkpoint.pending_approval_request as ApprovalRequest,
@@ -1497,21 +1529,27 @@ export class OrchestratorRuntime {
     const auditEvents = await this.auditTrail.query({ run_id });
     const createdEvent = auditEvents.find((e) => e.type === "run_created");
     const intent = (createdEvent?.payload as Record<string, unknown>)?.intent as string || "";
+    // 从 audit trail 获取 plan_id，再查 plan 以获取真实任务元数据
+    const plannedEvent = auditEvents.find((e) => e.type === "run_planned");
+    const planId = (plannedEvent?.payload as Record<string, unknown>)?.plan_id as string | undefined;
+    const plan = planId ? await this.runStore.getPlan(planId) : undefined;
+    const taskNodeMap = new Map((plan?.task_graph.tasks || []).map((t) => [t.id, t]));
     // 构建任务摘要
     const tasks: import("../server/control-plane").TaskSummary[] = [];
     for (const [taskId, attempts] of Object.entries(execution.completed_attempts)) {
       const latest = attempts[attempts.length - 1];
       if (!latest) continue;
       const totalTokens = attempts.reduce((s, a) => s + (a.tokens_used || 0), 0);
+      const taskNode = taskNodeMap.get(taskId);
       tasks.push({
         id: taskId,
-        title: latest.task_id,
+        title: taskNode?.title || latest.task_id,
         status: latest.status,
         model_tier: latest.model_tier,
         attempts: attempts.length,
         tokens_used: totalTokens,
         duration_ms: latest.duration_ms ?? 0,
-        risk_level: "medium",
+        risk_level: taskNode?.risk_level || "medium",
       });
     }
     // gate_results from RunResult
@@ -1539,7 +1577,11 @@ export class OrchestratorRuntime {
       status: execution.status,
       intent,
       tasks,
-      batches: [],
+      batches: (plan?.schedule_plan.batches || []).map((b, i) => ({
+        batch_index: i,
+        task_count: b.task_ids.length,
+        has_critical_path: b.task_ids.some((tid: string) => plan?.task_graph.critical_path.includes(tid)),
+      })),
       cost: {
         total_tokens: execution.cost_ledger.entries.reduce((s, e) => s + e.tokens_used, 0),
         total_cost: execution.cost_ledger.total_cost,
@@ -1630,6 +1672,39 @@ export class OrchestratorRuntime {
     }
   }
 
+  /**
+   * 将审批动作类型映射到对应的 RBAC 权限
+   */
+  private mapApprovalPermission(action?: string): import("../governance/governance").Permission {
+    const mapping: Record<string, import("../governance/governance").Permission> = {
+      "sensitive_file_write": "task.approve_sensitive_write",
+      "budget_override": "gate.override",
+      "high_risk_execution": "task.approve_sensitive_write",
+    };
+    return (action && mapping[action]) || "task.approve_sensitive_write";
+  }
+
+  /**
+   * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks
+   */
+  private async executeHookPhase(
+    phase: import("../capabilities/capability-registry").HookPhase,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    if (!this.hookRegistry) return;
+    try {
+      await this.hookRegistry.executePhase(phase, {
+        run_id: ctx.run_id,
+        data: { timestamp: new Date().toISOString() },
+      });
+    } catch (err) {
+      emitAudit(ctx, "run_failed", {
+        phase: `hook_${phase}`,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   getEventBus(): EventBus {
     return this.eventBus;
   }
@@ -1650,7 +1725,7 @@ export class LocalWorkerAdapter implements WorkerAdapter {
     const contract = input.contract;
 
     // 构造 prompt：将结构化 task contract 转换为 claude CLI 可执行的指令
-    const prompt = [
+    const promptParts = [
       `任务: ${contract.goal}`,
       `验收标准: ${contract.acceptance_criteria.join("; ")}`,
       `允许修改的文件: ${contract.allowed_paths.join(", ")}`,
@@ -1658,8 +1733,19 @@ export class LocalWorkerAdapter implements WorkerAdapter {
       contract.test_requirements.length > 0
         ? `测试要求: ${contract.test_requirements.join("; ")}`
         : "",
-      `执行完成后，请在输出中列出所有实际修改的文件路径（每行一个，以 "MODIFIED:" 为前缀）。`,
-    ].filter(Boolean).join("\n");
+    ];
+
+    // 注入 ContextPack：相关文件和代码片段
+    if (contract.context?.relevant_files && contract.context.relevant_files.length > 0) {
+      promptParts.push(`\n相关文件:\n${contract.context.relevant_files.map((f) => `- ${f}`).join("\n")}`);
+    }
+    if (contract.context?.relevant_snippets && contract.context.relevant_snippets.length > 0) {
+      promptParts.push(`\n参考代码片段:\n${contract.context.relevant_snippets.map((s) => `--- ${s.file_path} ---\n${s.content}`).join("\n\n")}`);
+    }
+
+    promptParts.push(`执行完成后，请在输出中列出所有实际修改的文件路径（每行一个，以 "MODIFIED:" 为前缀）。`);
+
+    const prompt = promptParts.filter(Boolean).join("\n");
 
     try {
       const proc = Bun.spawn(
@@ -1841,6 +1927,8 @@ export interface OrchestratorOptions {
   auditTrail?: AuditTrail;
   prProvider?: import("../integrations/pr-provider").PRProvider;
   rbacEngine?: import("../governance/governance").RBACEngine;
+  hookRegistry?: import("../capabilities/capability-registry").HookRegistry;
+  instructionRegistry?: import("../capabilities/capability-registry").InstructionRegistry;
   /** 持久化数据目录，设置后默认使用 FileStore */
   dataDir?: string;
 }

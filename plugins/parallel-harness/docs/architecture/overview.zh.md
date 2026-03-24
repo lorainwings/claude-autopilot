@@ -124,28 +124,23 @@ VerificationResult -> Result Synthesizer -> SynthesizerOutput
 - 每次重试提升一级
 - tier-3 为封顶
 
-## 6. MVP 范围
+## 6. 模块成熟度
 
-已实现（v0.1.0）：
-- Task Graph Schema（完整类型定义）
-- Intent Analyzer（基于规则的意图分析）
-- Task Graph Builder（DAG 构建 + 环检测 + 关键路径）
-- Complexity Scorer（多维度复杂度评分）
-- Ownership Planner（路径隔离 + 冲突检测 + 越界验证）
-- Context Packager（最小上下文包 + 自动摘要）
-- Model Router（3-tier 自动路由 + 升级策略）
-- Scheduler MVP（基于依赖的批次调度）
-- Event Bus（可观测性基础设施）
-- Role Contracts（四类角色标准接口）
-- Verifier Result Schema（统一验证结果结构）
+**GA（生产就绪）**：
+- Engine — 统一运行时 Orchestrator，生命周期管理
+- Orchestrator — 意图分析、任务图构建、复杂度评分、所有权规划
+- Scheduler — DAG 批次调度，关键路径优先
+- Models — 三层模型路由（tier-1/2/3），失败自动升级
+- Session — 上下文打包、最小上下文原则
+- Verifiers — 验证结果 Schema
+- Observability — EventBus 事件总线（38 种事件类型）
+- Workers — Worker 运行时、能力注册、重试、降级
+- Guards — Merge Guard（所有权/策略/接口三层检查）
+- Gates — 9 类门禁系统（可阻断/可扩展）
+- Persistence — Session/Run/Audit 持久化，回放引擎
+- Governance — RBAC、审批工作流、人工介入
+- Schemas — GA 级数据契约（统一 ID、版本、类型）
 
-接口预留（后续实现）：
-- Worker Dispatch（实际派发到 Claude Code 子 Agent）
-- Merge Guard（合并前冲突检测）
-- Retry Manager（局部重试策略执行）
-- Downgrade Manager（自动降级串行）
-- Verifier 具体实现（test/review/security/perf）
-- Result Synthesizer 具体实现
-- Observability Server（HTTP/WS 服务）
-- GUI 面板
-- CI/PR 集成
+**Beta（功能可用，接口可能调整）**：
+- Integrations — GitHub PR/CI 集成（仅 GitHub）
+- Capabilities — Skill/Hook/Instruction 扩展层

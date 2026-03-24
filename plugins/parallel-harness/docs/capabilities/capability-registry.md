@@ -50,32 +50,32 @@ Each capability includes: name, intent, required_context, worker_policy, verifie
 - **Worker policy**: Local computation
 - **Verifier policy**: DAG consistency check
 
-## Reserved Interface Capabilities
+## Extended Capabilities
 
-### 7. worker-dispatch
+### 7. worker-dispatch [GA]
 - **Purpose**: Dispatch task contracts to Claude Code sub-agents
-- **Status**: Interface defined, implementation pending
+- **Status**: Fully implemented — WorkerExecutionController with retry, downgrade, git-diff ownership enforcement
 
-### 8. merge-guard
+### 8. merge-guard [GA]
 - **Purpose**: Check for out-of-bounds access and conflicts before merging
-- **Status**: Basic checks implemented via validateOwnership in ownership-planner
+- **Status**: Fully implemented — 4-layer checking (ownership / policy / interface / conflict)
 
-### 9. verify-test
+### 9. verify-test [GA]
 - **Purpose**: Independently check test coverage and pass status
-- **Status**: VerifierOutput schema defined
+- **Status**: Fully implemented — Gate evaluator with `bun test` / `pytest` execution
 
-### 10. verify-review
+### 10. verify-review [GA]
 - **Purpose**: Independently review implementation-to-goal alignment
-- **Status**: VerifierOutput schema defined
+- **Status**: Fully implemented — Gate evaluator with AI-based review
 
-### 11. verify-security
+### 11. verify-security [GA]
 - **Purpose**: Scan for security patterns and configuration risks
-- **Status**: VerifierOutput schema defined
+- **Status**: Fully implemented — Gate evaluator with pattern matching + bandit/semgrep
 
-### 12. pr-review
+### 12. pr-review [Beta]
 - **Purpose**: Automated PR review with task history integration
-- **Status**: Architecture reserved
+- **Status**: Implemented — GitHubPRProvider with real git pipeline (branch → commit → push → PR)
 
-### 13. ci-analyze
+### 13. ci-analyze [Beta]
 - **Purpose**: CI failure analysis with automated fix attempts
-- **Status**: Architecture reserved
+- **Status**: Implemented — CIProvider with GitHub Actions log parsing and failure categorization

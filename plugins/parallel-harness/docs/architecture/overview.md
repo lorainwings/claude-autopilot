@@ -124,28 +124,23 @@ Automatic routing rules:
 - Each retry escalates by one tier
 - tier-3 is the ceiling
 
-## 6. MVP Scope
+## 6. Module Maturity
 
-Implemented (v0.1.0):
-- Task Graph Schema (complete type definitions)
-- Intent Analyzer (rule-based intent analysis)
-- Task Graph Builder (DAG construction + cycle detection + critical path)
-- Complexity Scorer (multi-dimensional complexity scoring)
-- Ownership Planner (path isolation + conflict detection + boundary enforcement)
-- Context Packager (minimal context packages + automatic summarization)
-- Model Router (3-tier automatic routing + escalation strategy)
-- Scheduler MVP (dependency-based batch scheduling)
-- Event Bus (observability infrastructure)
-- Role Contracts (standard interfaces for all four roles)
-- Verifier Result Schema (unified verification result structure)
+**GA (Production-Ready)**:
+- Engine — Unified Orchestrator Runtime, lifecycle management
+- Orchestrator — Intent analysis, task graph building, complexity scoring, ownership planning
+- Scheduler — DAG batch scheduling, critical path priority
+- Models — 3-tier model router (tier-1/2/3), automatic escalation on failure
+- Session — Context packing, minimal context principle
+- Verifiers — Verification result schema
+- Observability — EventBus (38 event types)
+- Workers — Worker runtime, capability registry, retry, downgrade
+- Guards — Merge Guard (ownership/policy/interface 3-layer checking)
+- Gates — 9-type gate system (blocking/extensible)
+- Persistence — Session/Run/Audit persistence, replay engine
+- Governance — RBAC, approval workflows, human-in-the-loop
+- Schemas — GA-level data contracts (unified ID, version, types)
 
-Interfaces reserved (for future implementation):
-- Worker Dispatch (actual dispatch to Claude Code sub-agents)
-- Merge Guard (pre-merge conflict detection)
-- Retry Manager (local retry strategy execution)
-- Downgrade Manager (automatic fallback to serial execution)
-- Verifier implementations (test/review/security/perf)
-- Result Synthesizer implementation
-- Observability Server (HTTP/WS service)
-- GUI dashboard
-- CI/PR integration
+**Beta (Functional, interfaces may change)**:
+- Integrations — GitHub PR/CI integration (GitHub only)
+- Capabilities — Skill/Hook/Instruction extension layer

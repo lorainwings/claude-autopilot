@@ -53,22 +53,24 @@ The orchestrator automatically executes:
 
 ```
 runtime/
-├── engine/          — Unified Orchestrator Runtime (entry API)
-├── orchestrator/    — Task Graph, Intent Analysis, Complexity, Ownership
-├── scheduler/       — DAG Batch Scheduling
-├── models/          — 3-Tier Model Router
-├── session/         — Context Packing
-├── verifiers/       — Verification Result Schema
-├── observability/   — Event Bus (38 event types)
-├── workers/         — Worker Runtime, Retry, Downgrade
-├── guards/          — Merge Guard (4-layer checking)
-├── gates/           — Gate System (9 gate types)
-├── persistence/     — Session/Run/Audit Persistence
-├── integrations/    — PR/CI Integration (GitHub)
-├── governance/      — RBAC, Approval, Human-in-the-loop
-├── capabilities/    — Skill/Hook/Instruction Extension Layer
-└── schemas/         — GA-Level Data Contracts
+├── engine/          — Unified Orchestrator Runtime (entry API)         [GA]
+├── orchestrator/    — Task Graph, Intent Analysis, Complexity, Ownership [GA]
+├── scheduler/       — DAG Batch Scheduling                             [GA]
+├── models/          — 3-Tier Model Router                              [GA]
+├── session/         — Context Packing                                  [GA]
+├── verifiers/       — Verification Result Schema                       [GA]
+├── observability/   — Event Bus (38 event types)                       [GA]
+├── workers/         — Worker Runtime, Retry, Downgrade                 [GA]
+├── guards/          — Merge Guard (4-layer checking)                   [GA]
+├── gates/           — Gate System (9 gate types)                       [GA]
+├── persistence/     — Session/Run/Audit Persistence                    [GA]
+├── integrations/    — PR/CI Integration (GitHub only)                  [Beta]
+├── governance/      — RBAC, Approval, Human-in-the-loop                [GA]
+├── capabilities/    — Skill/Hook/Instruction Extension Layer           [Beta]
+└── schemas/         — GA-Level Data Contracts                          [GA]
 ```
+
+> **Maturity**: GA = production-ready, fully tested; Beta = functional but interfaces may change
 
 ### Data Flow
 

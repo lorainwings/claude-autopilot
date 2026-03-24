@@ -303,18 +303,18 @@ export class LintTypeGateEvaluator implements SingleGateEvaluator {
             });
           }
         }
+      }
 
-        // 执行 lint（如果 ruff 可用）
-        const pyFiles = input.workerOutput.modified_paths.filter((p) => p.endsWith(".py"));
-        if (pyFiles.length > 0) {
-          const lintResult = await execShell(`ruff check ${pyFiles.join(" ")} 2>&1`, cwd);
-          if (lintResult.exitCode !== 0) {
-            findings.push({
-              severity: "error",
-              message: `Ruff lint 失败: ${lintResult.stdout.slice(0, 200)}`,
-              rule_id: "LINT-001",
-            });
-          }
+      // Python lint（独立于 TypeScript 条件块）
+      const pyFiles = input.workerOutput.modified_paths.filter((p) => p.endsWith(".py"));
+      if (pyFiles.length > 0) {
+        const lintResult = await execShell(`ruff check ${pyFiles.join(" ")} 2>&1`, cwd);
+        if (lintResult.exitCode !== 0) {
+          findings.push({
+            severity: "error",
+            message: `Ruff lint 失败: ${lintResult.stdout.slice(0, 200)}`,
+            rule_id: "LINT-001",
+          });
         }
       }
     }

@@ -71,6 +71,9 @@ export function buildTaskGraph(
   // 2. 推断依赖关系
   const edges = inferDependencies(tasks, analysis);
 
+  // 2.5 统一真相：从 edges 反写 task.dependencies
+  syncEdgesToTaskDependencies(tasks, edges);
+
   // 3. 验证 DAG（无环检测）
   if (hasCycle(tasks, edges)) {
     // 如果检测到环，回退为串行链
@@ -430,4 +433,20 @@ function selectModelTier(complexity: ComplexityScore): ModelTier {
 
 function generateGraphId(): string {
   return `graph-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+}
+
+/**
+ * 统一 DAG 依赖真相：从 edges 反写到 task.dependencies
+ * 确保 edges 和 task.dependencies 始终一致
+ */
+function syncEdgesToTaskDependencies(tasks: TaskNode[], edges: TaskEdge[]): void {
+  const depMap = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (!depMap.has(edge.to)) depMap.set(edge.to, new Set());
+    depMap.get(edge.to)!.add(edge.from);
+  }
+  for (const task of tasks) {
+    const deps = depMap.get(task.id);
+    task.dependencies = deps ? [...deps] : [];
+  }
 }

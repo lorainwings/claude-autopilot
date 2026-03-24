@@ -50,32 +50,32 @@
 - **Worker 策略**: 本地计算
 - **Verifier 策略**: DAG 一致性检查
 
-## 接口预留能力
+## 已实现扩展能力
 
-### 7. worker-dispatch
+### 7. worker-dispatch [GA]
 - **用途**: 将任务契约派发给 Claude Code 子 Agent
-- **状态**: 接口已定义，实现待完成
+- **状态**: 已完整实现 — WorkerExecutionController 支持重试、降级、git-diff 所有权强制
 
-### 8. merge-guard
+### 8. merge-guard [GA]
 - **用途**: 合并前检查越界和冲突
-- **状态**: ownership-planner 中 validateOwnership 已实现基础检查
+- **状态**: 已完整实现 — 4 层检查（所有权/策略/接口/冲突）
 
-### 9. verify-test
+### 9. verify-test [GA]
 - **用途**: 独立检查测试覆盖和通过情况
-- **状态**: VerifierOutput schema 已定义
+- **状态**: 已完整实现 — Gate 评估器，执行 `bun test` / `pytest`
 
-### 10. verify-review
+### 10. verify-review [GA]
 - **用途**: 独立审查实现与目标的一致性
-- **状态**: VerifierOutput schema 已定义
+- **状态**: 已完整实现 — Gate 评估器，AI 驱动的代码审查
 
-### 11. verify-security
+### 11. verify-security [GA]
 - **用途**: 扫描安全模式和配置风险
-- **状态**: VerifierOutput schema 已定义
+- **状态**: 已完整实现 — Gate 评估器，模式匹配 + bandit/semgrep
 
-### 12. pr-review
+### 12. pr-review [Beta]
 - **用途**: 自动化 PR review，接入任务历史
-- **状态**: 架构预留
+- **状态**: 已实现 — GitHubPRProvider 真实 git 管道（branch → commit → push → PR）
 
-### 13. ci-analyze
+### 13. ci-analyze [Beta]
 - **用途**: CI 失败分析并尝试修复
-- **状态**: 架构预留
+- **状态**: 已实现 — CIProvider 解析 GitHub Actions 日志，分类失败原因
