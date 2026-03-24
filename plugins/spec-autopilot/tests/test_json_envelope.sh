@@ -28,7 +28,7 @@ assert_exit "no marker → skip" 0 $exit_code
 
 # 3c. Autopilot Task with valid JSON envelope in tool_response → exit 0, no block
 exit_code=0
-output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Done.\n```json\n{\"status\":\"ok\",\"summary\":\"All good\",\"artifacts\":[]}\n```"}') || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:3 -->\nPhase 3"},"tool_response":"Done.\n```json\n{\"status\":\"ok\",\"summary\":\"All good\",\"artifacts\":[],\"plan\":\"Build endpoints\",\"test_strategy\":\"unit + integration\"}\n```"}') || exit_code=$?
 assert_exit "valid envelope → exit 0" 0 $exit_code
 assert_not_contains "valid envelope → no block decision" "$output" "block"
 

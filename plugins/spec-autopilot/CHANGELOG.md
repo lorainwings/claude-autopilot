@@ -1,9 +1,13 @@
 # Changelog
 
-## [5.1.53] - 2026-03-24
+## [5.1.53] - 2026-03-25
 
 ### Fixed
 
+- **P0: 根目录解析修复**: `_fixtures.sh` / hook 脚本 `resolve_project_root()` 在 bare repo 环境下路径不一致问题修复
+- **P1: 规则 + anchor 闭环**: `rebuild-anchor.sh` 新增，recovery-decision 支持 anchor 检测；dispatch/phase7/recovery SKILL.md 协议更新
+- **P1-4: 生产 Hook 接入 scanner 约束合并**: `write-edit-constraint-check.sh` / `unified-write-edit-check.sh` 入口调用 `_constraint_loader.py` 的 `load_scanner_constraints()` + `merge_constraints()`，闭合规则系统检测链
+- **P2: GUI 空状态 + Kanban 增强**: `ParallelKanban.tsx` 增加空状态处理；`routes.ts` 新增 API 路由
 - **P0-2: 测试 fixture 项目根解析**: `_fixtures.sh` 导出 `AUTOPILOT_PROJECT_ROOT=$REPO_ROOT`，修复脚本 `resolve_project_root()` 与 fixture 路径不一致（bare repo 环境下 `git rev-parse` 返回不同路径）
 - **P0-5: TDD 门禁 mode-aware**: `autopilot-gate/SKILL.md` Phase 5→6 TDD 阻断策略区分执行模式 — full 硬阻断，lite/minimal 降级为 warning
 - **P1-5: subagent_type 审计链**: `auto-emit-agent-dispatch.sh` 和 `auto-emit-agent-complete.sh` 从 stdin 提取 `subagent_type`，写入 `agent_dispatch`/`agent_complete` 事件 payload

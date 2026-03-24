@@ -146,14 +146,28 @@ import json, sys, os, glob
 
 changes_dir = sys.argv[1]
 mode = sys.argv[2]
+scripts_dir = sys.argv[3] if len(sys.argv) > 3 else ''
 
-# Determine phase sequence
-if mode == 'lite':
-    phases = [1, 5, 6, 7]
-elif mode == 'minimal':
-    phases = [1, 5, 7]
-else:
-    phases = [1, 2, 3, 4, 5, 6, 7]
+# import _phase_graph for consistent phase sequences
+phases = None
+if scripts_dir:
+    try:
+        import importlib.util
+        _pg_spec = importlib.util.spec_from_file_location('_phase_graph', os.path.join(scripts_dir, '_phase_graph.py'))
+        if _pg_spec and _pg_spec.loader:
+            _pg = importlib.util.module_from_spec(_pg_spec)
+            _pg_spec.loader.exec_module(_pg)
+            phases = _pg.get_phase_sequence(mode)
+    except Exception:
+        pass
+
+if phases is None:
+    if mode == 'lite':
+        phases = [1, 5, 6, 7]
+    elif mode == 'minimal':
+        phases = [1, 5, 7]
+    else:
+        phases = [1, 2, 3, 4, 5, 6, 7]
 
 phase_labels = {0:'Environment Setup',1:'Requirements',2:'OpenSpec',3:'Fast-Forward',4:'Test Design',5:'Implementation',6:'Test Report',7:'Archive'}
 
@@ -270,7 +284,7 @@ for entry in sorted(os.listdir(changes_dir)):
     })
 
 print(json.dumps(changes))
-" "$CHANGES_DIR" "$MODE" 2>/dev/null) || CHANGES_JSON="[]"
+" "$CHANGES_DIR" "$MODE" "$SCRIPT_DIR" 2>/dev/null) || CHANGES_JSON="[]"
 
 # --- Compute recovery options ---
 RESULT_JSON=$(python3 -c "
@@ -285,14 +299,28 @@ has_fixup_commits = sys.argv[6] == 'true'
 fixup_commit_count = int(sys.argv[7])
 auto_continue_cfg = sys.argv[8] == 'true'
 anchor_sha = sys.argv[9] if len(sys.argv) > 9 and sys.argv[9] else None
+scripts_dir = sys.argv[10] if len(sys.argv) > 10 else ''
 
-# Phase sequence and labels
-if mode == 'lite':
-    phase_seq = [1, 5, 6, 7]
-elif mode == 'minimal':
-    phase_seq = [1, 5, 7]
-else:
-    phase_seq = [1, 2, 3, 4, 5, 6, 7]
+# import _phase_graph for consistent phase sequences
+phase_seq = None
+if scripts_dir:
+    try:
+        import importlib.util, os
+        _pg_spec = importlib.util.spec_from_file_location('_phase_graph', os.path.join(scripts_dir, '_phase_graph.py'))
+        if _pg_spec and _pg_spec.loader:
+            _pg = importlib.util.module_from_spec(_pg_spec)
+            _pg_spec.loader.exec_module(_pg)
+            phase_seq = _pg.get_phase_sequence(mode)
+    except Exception:
+        pass
+
+if phase_seq is None:
+    if mode == 'lite':
+        phase_seq = [1, 5, 6, 7]
+    elif mode == 'minimal':
+        phase_seq = [1, 5, 7]
+    else:
+        phase_seq = [1, 2, 3, 4, 5, 6, 7]
 
 phase_labels = {0:'Environment Setup',1:'Requirements',2:'OpenSpec',3:'Fast-Forward',4:'Test Design',5:'Implementation',6:'Test Report',7:'Archive'}
 
@@ -438,7 +466,7 @@ result = {
 }
 
 print(json.dumps(result, ensure_ascii=False))
-" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" "$HAS_FIXUP_COMMITS" "$FIXUP_COMMIT_COUNT" "$AUTO_CONTINUE_SINGLE_CANDIDATE" "$ANCHOR_SHA" 2>/dev/null)
+" "$CHANGES_JSON" "$MODE" "$SELECTED_CHANGE" "$LOCK_JSON" "$GIT_STATE" "$HAS_FIXUP_COMMITS" "$FIXUP_COMMIT_COUNT" "$AUTO_CONTINUE_SINGLE_CANDIDATE" "$ANCHOR_SHA" "$SCRIPT_DIR" 2>/dev/null)
 
 if [ -n "$RESULT_JSON" ]; then
   echo "$RESULT_JSON"

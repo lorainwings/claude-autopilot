@@ -54,9 +54,14 @@ except (json.JSONDecodeError, ValueError) as e:
 prompt = data.get("tool_input", {}).get("prompt", "")
 phase_match = re.search(r"<!--\s*autopilot-phase:(\d+)\s*-->", prompt)
 if not phase_match:
-    sys.exit(0)
-
-phase_num = int(phase_match.group(1))
+    # Fallback: AUTOPILOT_PHASE_ID env var
+    env_phase = os.environ.get("AUTOPILOT_PHASE_ID", "")
+    if env_phase.isdigit():
+        phase_num = int(env_phase)
+    else:
+        sys.exit(0)
+else:
+    phase_num = int(phase_match.group(1))
 output = _ep.normalize_tool_response(data)
 
 if not output.strip():
@@ -170,6 +175,22 @@ if phase_num in phase_recommended:
 # Phase 4: warning not acceptable
 if phase_num == 4 and envelope["status"] == "warning":
     output_block('Phase 4 returned "warning" but only "ok" or "blocked" are accepted. Re-dispatch Phase 4.')
+
+# Phase 2: artifacts and alternatives required
+if phase_num == 2:
+    artifacts = envelope.get("artifacts", [])
+    if not isinstance(artifacts, list) or len(artifacts) == 0:
+        output_block('Phase 2 "artifacts" is empty or missing. Phase 2 must produce OpenSpec artifacts.')
+    if "alternatives" not in envelope:
+        output_block("Phase 2 envelope missing required field: alternatives. Must include considered alternatives.")
+
+# Phase 3: plan and test_strategy required
+if phase_num == 3:
+    plan = envelope.get("plan", "")
+    if not isinstance(plan, str) or not plan.strip():
+        output_block('Phase 3 "plan" is empty or missing. Phase 3 must include an implementation plan.')
+    if "test_strategy" not in envelope:
+        output_block("Phase 3 envelope missing required field: test_strategy. Must include a test strategy.")
 
 # Phase 4 and 6: artifacts must be non-empty
 if phase_num in (4, 6):
@@ -630,6 +651,13 @@ if phase_num == 5:
 # ============================================================
 
 if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
+    # Phase 1: requirement_type is required (check before decisions format)
+    if "requirement_type" not in envelope:
+        output_block(
+            "Phase 1 envelope missing required field: requirement_type. "
+            "Must include requirement_type (feature/bugfix/refactor/chore)."
+        )
+
     decisions = envelope.get("decisions")
     if not isinstance(decisions, list) or len(decisions) == 0:
         output_block('Phase 1 envelope missing or empty "decisions" array. At least one DecisionPoint is required.')

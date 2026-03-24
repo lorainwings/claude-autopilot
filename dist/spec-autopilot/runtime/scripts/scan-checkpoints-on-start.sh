@@ -96,12 +96,19 @@ except: print('full')
       mode="full"
     fi
 
+    # v5.6: Use _phase_graph.py for consistent mode-aware phase sequence
     local -a phases_seq
-    case "$mode" in
-      lite) phases_seq=(1 5 6 7) ;;
-      minimal) phases_seq=(1 5 7) ;;
-      *) phases_seq=(1 2 3 4 5 6 7) ;;
-    esac
+    local _pg_json
+    _pg_json=$(python3 "$SCRIPT_DIR/_phase_graph.py" get_phase_sequence "$mode" 2>/dev/null) || _pg_json=""
+    if [ -n "$_pg_json" ] && [ "$_pg_json" != "[]" ]; then
+      phases_seq=($(echo "$_pg_json" | python3 -c "import json,sys; print(' '.join(str(x) for x in json.load(sys.stdin)))" 2>/dev/null))
+    else
+      case "$mode" in
+        lite) phases_seq=(1 5 6 7) ;;
+        minimal) phases_seq=(1 5 7) ;;
+        *) phases_seq=(1 2 3 4 5 6 7) ;;
+      esac
+    fi
 
     # Calculate suggested resume phase from mode-aware sequence
     local suggested_resume=1

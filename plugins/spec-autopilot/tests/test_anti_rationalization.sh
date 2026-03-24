@@ -38,7 +38,7 @@ assert_not_contains "anti-rational: blocked status → no block" "$output" "bloc
 
 # 22d. Phase 2 (non-critical phase for anti-rationalization) → skip patterns check
 exit_code=0
-output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nCreate openspec"},"tool_response":"{\"status\":\"ok\",\"summary\":\"Skipped this test because not needed\",\"artifacts\":[\"openspec/proposal.md\"]}"}') || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nCreate openspec"},"tool_response":"{\"status\":\"ok\",\"summary\":\"Skipped this test because not needed\",\"artifacts\":[\"openspec/proposal.md\"],\"alternatives\":[\"Option A\",\"Option B\"]}"}') || exit_code=$?
 assert_exit "anti-rational: phase 2 → skip" 0 $exit_code
 assert_not_contains "anti-rational: phase 2 → no block" "$output" "block"
 

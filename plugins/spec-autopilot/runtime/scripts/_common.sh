@@ -624,9 +624,15 @@ is_background_agent() {
 # Args:
 #   phase_pattern: optional regex digit pattern (default: [0-9])
 # Reads from global $STDIN_DATA. Returns 0 if marker found, 1 otherwise.
+# Fallback: AUTOPILOT_PHASE_ID env var (for env-var-based phase detection)
 has_phase_marker() {
   local pattern="${1:-[0-9]}"
-  echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:'"$pattern"
+  echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:'"$pattern" && return 0
+  # Fallback: AUTOPILOT_PHASE_ID env var
+  if [ -n "${AUTOPILOT_PHASE_ID:-}" ]; then
+    echo "${AUTOPILOT_PHASE_ID}" | grep -qE "^${pattern}" && return 0
+  fi
+  return 1
 }
 
 # --- Require python3 for hook execution ---

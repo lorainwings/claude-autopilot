@@ -95,18 +95,32 @@ phase_results_dir = sys.argv[3]
 state_file = sys.argv[4]
 exec_mode = sys.argv[5] if len(sys.argv) > 5 else 'full'
 anchor_sha = sys.argv[6] if len(sys.argv) > 6 else ''
+scripts_dir = sys.argv[7] if len(sys.argv) > 7 else ''
 
 # Scan all checkpoints — mode-aware phase sequence
 phases = {}
 last_completed = 0
 
-# Build phase scan list based on exec_mode (v5.1.51: fix P0-2)
-if exec_mode == 'lite':
-    phase_scan_list = [1, 5, 6, 7]
-elif exec_mode == 'minimal':
-    phase_scan_list = [1, 5, 7]
-else:
-    phase_scan_list = [1, 2, 3, 4, 5, 6, 7]
+# import _phase_graph for consistent phase sequences
+phase_scan_list = None
+if scripts_dir:
+    try:
+        import importlib.util
+        _pg_spec = importlib.util.spec_from_file_location('_phase_graph', os.path.join(scripts_dir, '_phase_graph.py'))
+        if _pg_spec and _pg_spec.loader:
+            _pg = importlib.util.module_from_spec(_pg_spec)
+            _pg_spec.loader.exec_module(_pg)
+            phase_scan_list = _pg.get_phase_sequence(exec_mode)
+    except Exception:
+        pass
+
+if phase_scan_list is None:
+    if exec_mode == 'lite':
+        phase_scan_list = [1, 5, 6, 7]
+    elif exec_mode == 'minimal':
+        phase_scan_list = [1, 5, 7]
+    else:
+        phase_scan_list = [1, 2, 3, 4, 5, 6, 7]
 
 for phase_num in phase_scan_list:
     pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
@@ -289,6 +303,6 @@ with open(state_file, 'w') as f:
     f.write('\n'.join(lines))
 
 print(f'Autopilot state saved: {state_file}', file=sys.stderr)
-" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" "$EXEC_MODE" "$ANCHOR_SHA" 2>/dev/null
+" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" "$EXEC_MODE" "$ANCHOR_SHA" "$SCRIPT_DIR" 2>/dev/null
 
 exit 0

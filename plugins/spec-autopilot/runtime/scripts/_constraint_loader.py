@@ -266,19 +266,19 @@ def check_file_violations(file_path, root, constraints):
             # File name (without extension) should be kebab-case
             name_part = os.path.splitext(base)[0]
             if name_part and not re.match(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$", name_part):
-                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+                violations.append(f"Naming convention violation: {rel} (expected {naming})")
         elif naming_lower == "camelcase":
             name_part = os.path.splitext(base)[0]
             if name_part and not re.match(r"^[a-z][a-zA-Z0-9]*$", name_part):
-                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+                violations.append(f"Naming convention violation: {rel} (expected {naming})")
         elif naming_lower == "pascalcase":
             name_part = os.path.splitext(base)[0]
             if name_part and not re.match(r"^[A-Z][a-zA-Z0-9]*$", name_part):
-                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+                violations.append(f"Naming convention violation: {rel} (expected {naming})")
         elif naming_lower == "snake_case":
             name_part = os.path.splitext(base)[0]
             if name_part and not re.match(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$", name_part):
-                violations.append(f'Naming convention violation: {rel} (expected {naming})')
+                violations.append(f"Naming convention violation: {rel} (expected {naming})")
 
     # File line count + forbidden patterns + required patterns (only for existing files)
     if os.path.isfile(abs_path):
