@@ -105,10 +105,50 @@ async function execGh(args: string[]): Promise<{ stdout: string; exitCode: numbe
   }
 }
 
+async function execShellForGit(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  try {
+    const proc = Bun.spawn(["sh", "-c", cmd], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const exitCode = await proc.exited;
+    return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
+  } catch {
+    return { stdout: "", stderr: "command failed", exitCode: 127 };
+  }
+}
+
 export class GitHubPRProvider implements PRProvider {
   name = "github";
 
+  /**
+   * 创建 PR：先执行完整 git pipeline (branch → commit → push)，再创建 PR
+   */
   async createPR(request: CreatePRRequest): Promise<PRResult> {
+    // Step 1: 创建并切换到 head branch
+    await execShellForGit(
+      `git checkout -b ${request.head_branch} 2>/dev/null || git checkout ${request.head_branch}`
+    );
+
+    // Step 2: 暂存所有变更并提交
+    await execShellForGit("git add -A");
+    await execShellForGit(
+      `git commit -m "[parallel-harness] ${request.title}" --allow-empty`
+    );
+
+    // Step 3: Push 到远端
+    const pushResult = await execShellForGit(
+      `git push -u origin ${request.head_branch}`
+    );
+    if (pushResult.exitCode !== 0) {
+      throw new Error(`git push 失败: ${pushResult.stderr || pushResult.stdout}`);
+    }
+
+    // Step 4: 创建 PR
     const args = [
       "pr", "create",
       "--title", request.title,

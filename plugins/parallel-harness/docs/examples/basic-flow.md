@@ -1,18 +1,18 @@
-> [English](basic-flow.md) | 中文
+> **[中文版](basic-flow.zh.md)** | English (default)
 
-# parallel-harness 基本流程示例
+# parallel-harness Basic Flow Examples
 
-> 版本: v1.0.0 (GA) | 最后更新: 2026-03-20
+> Version: v1.0.0 (GA) | Last updated: 2026-03-20
 
-## 示例 1：需求拆图
+## Example 1: Requirement Decomposition into a Task Graph
 
-### 用户输入
+### User Input
 
 ```
-将 utils.ts 中的所有 helper 函数拆分到独立模块，并为每个模块添加单元测试
+Split all helper functions in utils.ts into separate modules and add unit tests for each module
 ```
 
-### 意图分析（Intent Analyzer）
+### Intent Analysis (Intent Analyzer)
 
 ```json
 {
@@ -21,11 +21,11 @@
   "risk_level": "medium",
   "estimated_complexity": "medium",
   "affected_modules": ["src/utils.ts"],
-  "output_expectations": ["模块拆分", "单元测试"]
+  "output_expectations": ["module splitting", "unit tests"]
 }
 ```
 
-### 复杂度评分（Complexity Scorer）
+### Complexity Scoring (Complexity Scorer)
 
 ```json
 {
@@ -39,7 +39,7 @@
 }
 ```
 
-### 任务图构建（Task Graph Builder）
+### Task Graph Construction (Task Graph Builder)
 
 ```json
 {
@@ -47,8 +47,8 @@
   "tasks": [
     {
       "id": "task_1",
-      "title": "分析 utils.ts 导出函数",
-      "goal": "识别所有需要拆分的 helper 函数和它们的依赖关系",
+      "title": "Analyze utils.ts exported functions",
+      "goal": "Identify all helper functions to be split and their dependency relationships",
       "type": "planning",
       "complexity": "low",
       "risk_level": "low",
@@ -58,8 +58,8 @@
     },
     {
       "id": "task_2",
-      "title": "拆分 string helpers",
-      "goal": "将字符串相关 helper 函数移到 src/helpers/string.ts",
+      "title": "Split string helpers",
+      "goal": "Move string-related helper functions to src/helpers/string.ts",
       "type": "implementation",
       "complexity": "medium",
       "risk_level": "medium",
@@ -69,8 +69,8 @@
     },
     {
       "id": "task_3",
-      "title": "拆分 array helpers",
-      "goal": "将数组相关 helper 函数移到 src/helpers/array.ts",
+      "title": "Split array helpers",
+      "goal": "Move array-related helper functions to src/helpers/array.ts",
       "type": "implementation",
       "complexity": "medium",
       "risk_level": "medium",
@@ -80,8 +80,8 @@
     },
     {
       "id": "task_4",
-      "title": "编写 string helpers 测试",
-      "goal": "为 src/helpers/string.ts 添加单元测试",
+      "title": "Write string helpers tests",
+      "goal": "Add unit tests for src/helpers/string.ts",
       "type": "test-writing",
       "complexity": "low",
       "risk_level": "low",
@@ -91,8 +91,8 @@
     },
     {
       "id": "task_5",
-      "title": "编写 array helpers 测试",
-      "goal": "为 src/helpers/array.ts 添加单元测试",
+      "title": "Write array helpers tests",
+      "goal": "Add unit tests for src/helpers/array.ts",
       "type": "test-writing",
       "complexity": "low",
       "risk_level": "low",
@@ -102,8 +102,8 @@
     },
     {
       "id": "task_6",
-      "title": "更新导入路径",
-      "goal": "更新所有引用 utils.ts 的文件，改为引用新模块",
+      "title": "Update import paths",
+      "goal": "Update all files that reference utils.ts to import from the new modules",
       "type": "implementation",
       "complexity": "medium",
       "risk_level": "high",
@@ -115,20 +115,20 @@
 }
 ```
 
-### DAG 可视化
+### DAG Visualization
 
 ```
-task_1 (分析)
-  ├── task_2 (拆分 string) ──── task_4 (测试 string)
-  ├── task_3 (拆分 array) ───── task_5 (测试 array)
-  └── task_6 (更新导入，依赖 task_2 + task_3)
+task_1 (analyze)
+  ├── task_2 (split string) ──── task_4 (test string)
+  ├── task_3 (split array) ───── task_5 (test array)
+  └── task_6 (update imports, depends on task_2 + task_3)
 ```
 
 ---
 
-## 示例 2：并行执行流程
+## Example 2: Parallel Execution Flow
 
-### 所有权规划（Ownership Planner）
+### Ownership Planning (Ownership Planner)
 
 ```json
 {
@@ -175,7 +175,7 @@ task_1 (分析)
 }
 ```
 
-### 调度计划（Scheduler）
+### Scheduling Plan (Scheduler)
 
 ```json
 {
@@ -205,36 +205,36 @@ task_1 (分析)
 }
 ```
 
-### 执行时间线
+### Execution Timeline
 
 ```
-时间 ─────────────────────────────────────────▶
+Time ─────────────────────────────────────────▶
 
-批次 0:  [task_1: 分析 utils.ts]
-              │
-批次 1:  [task_2: 拆分 string] [task_3: 拆分 array]  ← 并行
-              │                        │
-批次 2:  [task_4: 测试]  [task_5: 测试]  [task_6: 更新导入]  ← 并行
+Batch 0:  [task_1: analyze utils.ts]
+               │
+Batch 1:  [task_2: split string] [task_3: split array]  ← parallel
+               │                        │
+Batch 2:  [task_4: test]  [task_5: test]  [task_6: update imports]  ← parallel
 ```
 
-### 模型路由决策
+### Model Routing Decisions
 
-| 任务 | 复杂度 | 风险 | 推荐 Tier | 理由 |
-|------|--------|------|----------|------|
-| task_1 | low | low | tier-1 | 简单分析任务 |
-| task_2 | medium | medium | tier-2 | 一般实现任务 |
-| task_3 | medium | medium | tier-2 | 一般实现任务 |
-| task_4 | low | low | tier-2 | 测试编写（tier-2 基准） |
-| task_5 | low | low | tier-2 | 测试编写（tier-2 基准） |
-| task_6 | medium | high | tier-3 | 高风险提升 |
+| Task | Complexity | Risk | Recommended Tier | Rationale |
+|------|-----------|------|-----------------|-----------|
+| task_1 | low | low | tier-1 | Simple analysis task |
+| task_2 | medium | medium | tier-2 | Standard implementation task |
+| task_3 | medium | medium | tier-2 | Standard implementation task |
+| task_4 | low | low | tier-2 | Test writing (tier-2 baseline) |
+| task_5 | low | low | tier-2 | Test writing (tier-2 baseline) |
+| task_6 | medium | high | tier-3 | Escalated due to high risk |
 
 ---
 
-## 示例 3：Gate 验证流程
+## Example 3: Gate Verification Flow
 
-### Task-Level Gate（每个任务完成后）
+### Task-Level Gate (after each task completes)
 
-以 task_2 为例，Worker 完成后触发的 Gate 评估：
+Using task_2 as an example, gate evaluations triggered after the worker completes:
 
 ```json
 [
@@ -244,7 +244,7 @@ task_1 (分析)
     "passed": true,
     "blocking": true,
     "conclusion": {
-      "summary": "测试 gate 通过",
+      "summary": "Test gate passed",
       "findings": [],
       "risk": "low"
     }
@@ -255,11 +255,11 @@ task_1 (分析)
     "passed": true,
     "blocking": true,
     "conclusion": {
-      "summary": "Lint/Type gate 通过",
+      "summary": "Lint/Type gate passed",
       "findings": [
         {
           "severity": "info",
-          "message": "TypeScript 文件已修改: src/helpers/string.ts"
+          "message": "TypeScript file modified: src/helpers/string.ts"
         }
       ],
       "risk": "low"
@@ -271,7 +271,7 @@ task_1 (分析)
     "passed": true,
     "blocking": true,
     "conclusion": {
-      "summary": "Policy gate 通过",
+      "summary": "Policy gate passed",
       "findings": [],
       "risk": "low"
     }
@@ -279,7 +279,7 @@ task_1 (分析)
 ]
 ```
 
-### Run-Level Gate（所有任务完成后）
+### Run-Level Gate (after all tasks complete)
 
 ```json
 [
@@ -289,11 +289,11 @@ task_1 (分析)
     "passed": true,
     "blocking": false,
     "conclusion": {
-      "summary": "Review gate 通过 (1 个建议)",
+      "summary": "Review gate passed (1 suggestion)",
       "findings": [
         {
           "severity": "warning",
-          "message": "修改了 6 个文件，建议检查导入路径一致性"
+          "message": "6 files modified — recommend verifying import path consistency"
         }
       ],
       "risk": "low"
@@ -305,7 +305,7 @@ task_1 (分析)
     "passed": true,
     "blocking": true,
     "conclusion": {
-      "summary": "Security gate 通过",
+      "summary": "Security gate passed",
       "findings": [],
       "risk": "low"
     }
@@ -316,7 +316,7 @@ task_1 (分析)
     "passed": true,
     "blocking": true,
     "conclusion": {
-      "summary": "Release readiness gate 通过",
+      "summary": "Release readiness gate passed",
       "findings": [],
       "risk": "low"
     }
@@ -324,9 +324,9 @@ task_1 (分析)
 ]
 ```
 
-### Gate 阻断场景
+### Gate Blocking Scenario
 
-如果 Worker 修改了 `.env` 文件，Security Gate 会阻断：
+If a worker modifies the `.env` file, the Security Gate will block:
 
 ```json
 {
@@ -334,46 +334,46 @@ task_1 (分析)
   "passed": false,
   "blocking": true,
   "conclusion": {
-    "summary": "Security gate 阻断: 1 个安全问题",
+    "summary": "Security gate blocked: 1 security issue",
     "findings": [
       {
         "severity": "critical",
-        "message": "修改了敏感文件: .env",
+        "message": "Sensitive file modified: .env",
         "file_path": ".env",
         "rule_id": "SEC-001",
-        "suggestion": "请确认该修改是否必要，是否包含敏感信息"
+        "suggestion": "Please confirm whether this modification is necessary and whether it contains sensitive information"
       }
     ],
     "risk": "critical",
-    "required_actions": ["修改了敏感文件: .env"]
+    "required_actions": ["Sensitive file modified: .env"]
   }
 }
 ```
 
 ---
 
-## 示例 4：审批流程
+## Example 4: Approval Flow
 
-### 触发审批
+### Triggering Approval
 
-当策略规则的 enforcement 为 `approve` 时，系统暂停执行并创建审批请求：
+When a policy rule's enforcement is set to `approve`, the system pauses execution and creates an approval request:
 
 ```json
 {
   "approval_id": "appr_abc123",
   "run_id": "run_xyz",
   "task_id": "task_6",
-  "action": "执行高风险任务",
-  "reason": "任务 task_6 风险等级为 critical，需要人工审批",
+  "action": "Execute high-risk task",
+  "reason": "Task task_6 has critical risk level and requires manual approval",
   "triggered_rules": ["risk-001"],
   "status": "pending",
   "requested_at": "2026-03-20T10:00:00Z"
 }
 ```
 
-### 自动审批
+### Automatic Approval
 
-如果在 `default-config.json` 中配置了 `auto_approve_rules`：
+If `auto_approve_rules` is configured in `default-config.json`:
 
 ```json
 {
@@ -383,77 +383,77 @@ task_1 (分析)
 }
 ```
 
-匹配到 `risk-001` 规则触发的审批请求会自动通过。
+Approval requests triggered by the `risk-001` rule will be automatically approved.
 
-### 手动审批
+### Manual Approval
 
-管理员或 reviewer 可以通过 `ApprovalWorkflow.decide()` 处理审批：
+Administrators or reviewers can process approvals via `ApprovalWorkflow.decide()`:
 
 ```typescript
 const record = workflow.decide(
-  "appr_abc123",          // 审批 ID
-  "approved",             // 决策: "approved" | "denied"
-  "reviewer@example.com", // 审批者
-  "已确认风险可控"          // 审批意见（可选）
+  "appr_abc123",          // approval ID
+  "approved",             // decision: "approved" | "denied"
+  "reviewer@example.com", // approver
+  "Risk confirmed as acceptable"  // approval comment (optional)
 );
 ```
 
-审批被拒绝时，Task Attempt 状态迁移到 `failed`，失败分类为 `approval_denied`。
+When an approval is denied, the Task Attempt status transitions to `failed` with a failure classification of `approval_denied`.
 
-### 人工反馈
+### Human Feedback
 
-在执行过程中需要用户输入时，通过 `HumanInteractionManager` 请求反馈：
+When user input is needed during execution, feedback is requested via `HumanInteractionManager`:
 
 ```typescript
 const requestId = manager.requestFeedback({
   run_id: "run_xyz",
   task_id: "task_6",
-  question: "更新导入路径时发现 src/legacy.ts 也引用了 utils.ts，是否一并更新？",
-  options: ["是，一并更新", "否，跳过 legacy 文件"],
-  context: "legacy.ts 是遗留代码，修改可能影响其他模块",
+  question: "While updating import paths, src/legacy.ts was found to also reference utils.ts. Should it be updated as well?",
+  options: ["Yes, update it too", "No, skip the legacy file"],
+  context: "legacy.ts is legacy code — modifications may affect other modules",
   urgency: "medium",
 });
 ```
 
-用户提交反馈后，Worker 继续执行。
+The worker resumes execution after the user submits feedback.
 
 ---
 
-## 完整 Run 生命周期示例
+## Complete Run Lifecycle Example
 
 ```
-1. 用户输入意图
+1. User provides intent
    └── RunStatus: pending
 
-2. Intent Analyzer 分析意图
-   └── Task Graph Builder 构建 DAG
-   └── Complexity Scorer 评分
-   └── Ownership Planner 分配所有权
-   └── Model Router 路由模型
+2. Intent Analyzer processes intent
+   └── Task Graph Builder constructs DAG
+   └── Complexity Scorer assigns scores
+   └── Ownership Planner assigns file ownership
+   └── Model Router selects models
    └── RunStatus: planned
 
-3. 策略检查，发现需要审批
+3. Policy check finds approval required
    └── RunStatus: awaiting_approval
-   └── 管理员审批通过
+   └── Admin approves
    └── RunStatus: scheduled
 
-4. Scheduler 生成批次
-   └── 批次 0 启动
+4. Scheduler generates batches
+   └── Batch 0 starts
    └── RunStatus: running
 
-5. Worker 执行
-   └── 批次 0 完成 → 批次 1 启动 → 批次 2 启动
-   └── Merge Guard 检查每个 Worker 输出
+5. Workers execute
+   └── Batch 0 completes → Batch 1 starts → Batch 2 starts
+   └── Merge Guard checks each worker output
 
-6. Gate System 评估
+6. Gate System evaluates
    └── RunStatus: verifying
-   └── 所有 blocking gate 通过
+   └── All blocking gates pass
 
-7. PR 创建
-   └── PR Summary 生成
-   └── Review 评论添加
+7. PR creation
+   └── PR summary generated
+   └── Review comments added
 
-8. 完成
+8. Completion
    └── RunStatus: succeeded
-   └── 审计日志导出
+   └── Audit log exported
 ```

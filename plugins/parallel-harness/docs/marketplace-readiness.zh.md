@@ -1,3 +1,5 @@
+> [English](marketplace-readiness.md) | 中文
+
 # parallel-harness 市场接入准备
 
 > 版本: v1.0.0 (GA) | 最后更新: 2026-03-20

@@ -6,7 +6,17 @@
     "name": "lorainwings"
   },
   "license": "MIT",
-  "keywords": [
+  "schema_version": "1.0.2",
+  "entry": {
+    "skills": "../skills",
+    "runtime": "../runtime",
+    "config": "../config"
+  },
+  "dependencies": [
+    "bun>=1.0.0",
+    "typescript>=5.0.0"
+  ],
+  "capabilities": [
     "task-graph-orchestration",
     "parallel-worker-dispatch",
     "model-routing",

@@ -1,3 +1,5 @@
+> [English](policy-guide.md) | 中文
+
 # parallel-harness 策略配置指南
 
 > 版本: v1.0.0 (GA) | 最后更新: 2026-03-20

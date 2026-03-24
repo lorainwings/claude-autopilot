@@ -290,6 +290,14 @@ export class AuditTrail {
     }
   }
 
+  /**
+   * 强制 flush：确保所有缓冲事件写入持久化存储
+   * 应在 run_completed / run_failed / approval_blocked / cancelled 后调用
+   */
+  async forceFlush(): Promise<void> {
+    await this.flush();
+  }
+
   async flush(): Promise<void> {
     for (const event of this.buffer) {
       await this.store.set(event.event_id, event);

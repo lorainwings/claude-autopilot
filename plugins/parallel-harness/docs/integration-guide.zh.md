@@ -1,3 +1,5 @@
+> [English](integration-guide.md) | 中文
+
 # parallel-harness 集成指南
 
 > 版本: v1.0.0 (GA) | 最后更新: 2026-03-20

@@ -1,3 +1,5 @@
+> [English](security-compliance.md) | 中文
+
 # parallel-harness 安全与合规说明
 
 > 版本: 1.0.0 | 适用角色: 安全工程师、合规审计人员

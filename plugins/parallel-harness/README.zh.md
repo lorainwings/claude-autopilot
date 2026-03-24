@@ -1,3 +1,5 @@
+> [English](README.md) | 中文
+
 # parallel-harness v1.0.0
 
 > Claude Code 并行 AI 工程控制面插件 — 商业化 GA 版本
@@ -27,23 +29,25 @@
 
 runtime 包含 15 个核心模块：
 
-| 序号 | 模块 | 路径 | 职责 |
-|------|------|------|------|
-| 1 | Engine | `runtime/engine/` | 统一运行时 Orchestrator，生命周期管理 |
-| 2 | Orchestrator | `runtime/orchestrator/` | 意图分析、任务图、复杂度评分、所有权规划 |
-| 3 | Scheduler | `runtime/scheduler/` | DAG 批次调度，关键路径优先 |
-| 4 | Models | `runtime/models/` | 三层模型路由（tier-1/2/3），失败自动升级 |
-| 5 | Session | `runtime/session/` | 上下文打包、最小上下文原则 |
-| 6 | Verifiers | `runtime/verifiers/` | 验证结果 Schema |
-| 7 | Observability | `runtime/observability/` | EventBus 事件总线 |
-| 8 | Workers | `runtime/workers/` | Worker 运行时、能力注册、重试、降级 |
-| 9 | Guards | `runtime/guards/` | Merge Guard（所有权/策略/接口三层检查） |
-| 10 | Gates | `runtime/gates/` | 9 类门禁系统（可阻断/可扩展） |
-| 11 | Persistence | `runtime/persistence/` | Session/Run/Audit 持久化，回放引擎 |
-| 12 | Integrations | `runtime/integrations/` | GitHub PR/CI 集成 |
-| 13 | Governance | `runtime/governance/` | RBAC、审批工作流、人工介入 |
-| 14 | Capabilities | `runtime/capabilities/` | Skill/Hook/Instruction 扩展层 |
-| 15 | Schemas | `runtime/schemas/` | GA 级数据契约（统一 ID、版本、类型） |
+| 序号 | 模块 | 路径 | 职责 | 成熟度 |
+|------|------|------|------|--------|
+| 1 | Engine | `runtime/engine/` | 统一运行时 Orchestrator，生命周期管理 | GA |
+| 2 | Orchestrator | `runtime/orchestrator/` | 意图分析、任务图、复杂度评分、所有权规划 | GA |
+| 3 | Scheduler | `runtime/scheduler/` | DAG 批次调度，关键路径优先 | GA |
+| 4 | Models | `runtime/models/` | 三层模型路由（tier-1/2/3），失败自动升级 | GA |
+| 5 | Session | `runtime/session/` | 上下文打包、最小上下文原则 | GA |
+| 6 | Verifiers | `runtime/verifiers/` | 验证结果 Schema | GA |
+| 7 | Observability | `runtime/observability/` | EventBus 事件总线 | GA |
+| 8 | Workers | `runtime/workers/` | Worker 运行时、能力注册、重试、降级 | GA |
+| 9 | Guards | `runtime/guards/` | Merge Guard（所有权/策略/接口三层检查） | GA |
+| 10 | Gates | `runtime/gates/` | 9 类门禁系统（可阻断/可扩展） | GA |
+| 11 | Persistence | `runtime/persistence/` | Session/Run/Audit 持久化，回放引擎 | GA |
+| 12 | Integrations | `runtime/integrations/` | GitHub PR/CI 集成（仅 GitHub） | Beta |
+| 13 | Governance | `runtime/governance/` | RBAC、审批工作流、人工介入 | GA |
+| 14 | Capabilities | `runtime/capabilities/` | Skill/Hook/Instruction 扩展层 | Beta |
+| 15 | Schemas | `runtime/schemas/` | GA 级数据契约（统一 ID、版本、类型） | GA |
+
+> **成熟度说明**: GA = 生产就绪，已测试覆盖；Beta = 功能可用但接口可能调整
 
 ## 安装
 
@@ -222,14 +226,19 @@ pending → pre_check → executing → post_check → succeeded/failed/timed_ou
 ## 文档索引
 
 - [运维指南](docs/operator-guide.zh.md)
+- [管理员指南](docs/admin-guide.zh.md)
 - [策略配置指南](docs/policy-guide.zh.md)
 - [集成指南](docs/integration-guide.zh.md)
 - [故障排查](docs/troubleshooting.zh.md)
+- [FAQ](docs/FAQ.zh.md)
+- [安全与合规](docs/security-compliance.zh.md)
 - [发布检查清单](docs/release-checklist.zh.md)
 - [基本流程示例](docs/examples/basic-flow.zh.md)
 - [市场接入准备](docs/marketplace-readiness.zh.md)
 - [架构概览](docs/architecture/overview.zh.md)
 - [能力注册](docs/capabilities/capability-registry.zh.md)
+
+> 所有文档均提供 [English](docs/README.md) 和 [中文](docs/README.zh.md) 双语版本。
 
 ## 许可证
 
