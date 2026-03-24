@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.1.53] - 2026-03-24
+
+### Fixed
+
+- **P0-2: 测试 fixture 项目根解析**: `_fixtures.sh` 导出 `AUTOPILOT_PROJECT_ROOT=$REPO_ROOT`，修复脚本 `resolve_project_root()` 与 fixture 路径不一致（bare repo 环境下 `git rev-parse` 返回不同路径）
+- **P0-5: TDD 门禁 mode-aware**: `autopilot-gate/SKILL.md` Phase 5→6 TDD 阻断策略区分执行模式 — full 硬阻断，lite/minimal 降级为 warning
+- **P1-5: subagent_type 审计链**: `auto-emit-agent-dispatch.sh` 和 `auto-emit-agent-complete.sh` 从 stdin 提取 `subagent_type`，写入 `agent_dispatch`/`agent_complete` 事件 payload
+- **P2-3: 6 个废弃测试迁移至 unified validator**: `test_json_envelope`/`test_anti_rationalization`/`test_change_coverage`/`test_phase4_missing_fields`/`test_phase6_allure`/`test_pyramid_threshold` 从已废弃的 `validate-json-envelope.sh` 重写为调用 `_post_task_validator.py`，所有 Phase 4 输入补充 `sad_path_counts` 必填字段
+- **test_guard_no_verify bare-repo 兼容**: Part 1 测试创建隔离 git fixture，不再依赖父仓库为非 bare 状态
+
 ## [5.1.51] - 2026-03-23
 
 ### Fixed

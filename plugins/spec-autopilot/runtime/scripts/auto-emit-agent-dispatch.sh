@@ -123,6 +123,12 @@ if echo "$STDIN_DATA" | grep -q '"run_in_background"[[:space:]]*:[[:space:]]*tru
   IS_BG=true
 fi
 
+# --- Extract subagent_type for audit trail (P1-5) ---
+SUBAGENT_TYPE=""
+if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+  SUBAGENT_TYPE="${BASH_REMATCH[1]}"
+fi
+
 # --- Write active agent marker (for WS4 tool_use correlation) ---
 # Uses per-phase marker file to reduce collision in parallel dispatch.
 # Global file is also written for backward compat (last-writer-wins in parallel).
@@ -139,8 +145,13 @@ fi
 DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"
 python3 -c "import time; print(int(time.time()*1000))" >"$DISPATCH_TS_FILE" 2>/dev/null || date +%s000 >"$DISPATCH_TS_FILE" 2>/dev/null || true
 
+# --- Build dispatch payload with audit trail fields ---
+DISPATCH_PAYLOAD="{\"background\":$IS_BG"
+[ -n "$SUBAGENT_TYPE" ] && DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD,\"subagent_type\":\"$SUBAGENT_TYPE\""
+DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD}"
+
 # --- Emit agent_dispatch event (log errors to stderr, never deny) ---
-bash "$SCRIPT_DIR/emit-agent-event.sh" agent_dispatch "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "{\"background\":$IS_BG}" >/dev/null 2>&1 ||
+bash "$SCRIPT_DIR/emit-agent-event.sh" agent_dispatch "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "$DISPATCH_PAYLOAD" >/dev/null 2>&1 ||
   echo "WARNING: agent_dispatch event emission failed for $AGENT_ID" >&2
 
 exit 0

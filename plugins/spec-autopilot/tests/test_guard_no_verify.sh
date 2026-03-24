@@ -19,9 +19,17 @@ GITHOOKS_DIR="$REPO_ROOT/.githooks"
 # ============================================
 echo "--- guard-no-verify.sh: bypass detection ---"
 
+# Create isolated git repo with expected structure for guard scope check.
+# The guard requires: $GIT_ROOT/plugins/spec-autopilot/hooks/hooks.json
+# Using a temp repo avoids dependency on parent repo state (bare vs non-bare).
+GUARD_TEST_REPO=$(mktemp -d)
+git -C "$GUARD_TEST_REPO" init -q 2>/dev/null
+mkdir -p "$GUARD_TEST_REPO/plugins/spec-autopilot/hooks"
+echo '{}' > "$GUARD_TEST_REPO/plugins/spec-autopilot/hooks/hooks.json"
+
 # Helper: run guard with a given command and cwd
 run_guard() {
-  local cmd="$1" cwd="${2:-$REPO_ROOT}"
+  local cmd="$1" cwd="${2:-$GUARD_TEST_REPO}"
   local escaped_cmd
   escaped_cmd=$(echo "$cmd" | sed 's/"/\\"/g')
   echo "{\"tool_input\":{\"command\":\"${escaped_cmd}\"},\"cwd\":\"${cwd}\"}" | bash "$GUARD_SCRIPT" 2>/dev/null
@@ -92,6 +100,9 @@ assert_exit "3a. other repo --no-verify allowed" 0 $?
 output=$(run_guard "git commit --no-verify -m \"test\"" "/nonexistent/path")
 [ -z "$output" ]
 assert_exit "3b. non-existent path allowed" 0 $?
+
+# Cleanup guard test fixture
+rm -rf "$GUARD_TEST_REPO"
 
 # ============================================
 # Part 2: setup-hooks.sh tests

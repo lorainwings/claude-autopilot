@@ -14,6 +14,9 @@ setup_autopilot_fixture() {
     echo '{"change":"test-fixture","pid":"99999","started":"2026-01-01T00:00:00Z"}' > "$FIXTURE_LOCK_FILE"
     FIXTURE_LOCK_CREATED=true
   fi
+  # P0-2 fix: export AUTOPILOT_PROJECT_ROOT so scripts resolve to the same root
+  # as fixtures, regardless of git rev-parse --show-toplevel result
+  export AUTOPILOT_PROJECT_ROOT="$REPO_ROOT"
 }
 
 teardown_autopilot_fixture() {
@@ -22,6 +25,7 @@ teardown_autopilot_fixture() {
     rmdir "$FIXTURE_LOCK_DIR" 2>/dev/null || true
     rmdir "$REPO_ROOT/openspec" 2>/dev/null || true
   fi
+  unset AUTOPILOT_PROJECT_ROOT
 }
 
 setup_phase_results() {

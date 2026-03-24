@@ -175,7 +175,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 - [ ] 每个 task 的 tdd_cycle 完整（red + green 都 verified）
 ```
 
-任何条件不满足 → 阻断 Phase 6。
+任何条件不满足 → **full 模式**阻断 Phase 6；**lite/minimal 模式**降级为 warning（记录但不阻断）。
 
 ## TDD 完整性审计（L3 层保障）
 

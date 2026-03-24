@@ -101,6 +101,13 @@ AGENT_ID="phase${PHASE}-${SLUG}"
 STATUS="ok"
 SUMMARY=""
 OUTPUT_FILES=""
+SUBAGENT_TYPE=""
+
+# --- Extract subagent_type from tool_input for audit trail (P1-5) ---
+if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+  SUBAGENT_TYPE="${BASH_REMATCH[1]}"
+fi
+
 if command -v python3 &>/dev/null; then
   _EXTRACTED=$(python3 -c "
 import json, sys, re
@@ -185,8 +192,11 @@ if output_files:
         p['output_files'] = json.loads(output_files)
     except (json.JSONDecodeError, ValueError):
         pass
+subagent_type = sys.argv[5]
+if subagent_type:
+    p['subagent_type'] = subagent_type
 print(json.dumps(p, ensure_ascii=False))
-" "$STATUS" "$DURATION_MS" "$SUMMARY" "$OUTPUT_FILES" 2>/dev/null) || PAYLOAD="{\"status\":\"${STATUS}\",\"duration_ms\":${DURATION_MS}}"
+" "$STATUS" "$DURATION_MS" "$SUMMARY" "$OUTPUT_FILES" "$SUBAGENT_TYPE" 2>/dev/null) || PAYLOAD="{\"status\":\"${STATUS}\",\"duration_ms\":${DURATION_MS}}"
 
 # --- Emit agent_complete event (log errors to stderr, never block) ---
 bash "$SCRIPT_DIR/emit-agent-event.sh" agent_complete "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "$PAYLOAD" >/dev/null 2>&1 ||

@@ -37,6 +37,12 @@
 
 > 按插件版本分子目录存放，逆序排列（最新版本在上）。
 
+### v5.1.51
+
+| 文档 | 说明 |
+|------|------|
+| [holistic-architecture-review-v5.1.51.md](reports/v5.1.51/holistic-architecture-review-v5.1.51.md) | 整体架构并行深度评审：三模式、GUI、compact/recovery、TDD、rules、fixup 全链路问题清单 |
+
 ### v5.0.10
 
 | 文档 | 说明 |

@@ -37,6 +37,12 @@
 
 > Organized by plugin version in subdirectories, reverse chronological order (newest first).
 
+### v5.1.51
+
+| Document | Description |
+|----------|-------------|
+| [holistic-architecture-review-v5.1.51.md](reports/v5.1.51/holistic-architecture-review-v5.1.51.md) | Holistic architecture review covering modes, GUI, compact/recovery, TDD, rules, subagents, and fixup flow |
+
 ### v5.0.10
 
 | Document | Description |

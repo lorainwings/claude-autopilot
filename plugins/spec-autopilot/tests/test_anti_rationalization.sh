@@ -1,42 +1,44 @@
 #!/usr/bin/env bash
-# test_anti_rationalization.sh — Section 22: anti-rationalization-check.sh
-# NOTE: anti-rationalization-check.sh is DEPRECATED since v4.0 (replaced by post-task-validator.sh).
-#       This test is retained during the compatibility window to ensure the script still functions.
+# test_anti_rationalization.sh — Section 22: anti-rationalization validation
+# Production target: _post_task_validator.py Validator 2 (v4.0+)
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 source "$TEST_DIR/_fixtures.sh"
 
-echo "--- 22. anti-rationalization-check.sh tests ---"
+echo "--- 22. anti-rationalization tests (_post_task_validator.py) ---"
 setup_autopilot_fixture
+export SCRIPT_DIR
+
+# Helper: run validator with given JSON input
+run_validator() {
+  echo "$1" | python3 "$SCRIPT_DIR/_post_task_validator.py" 2>/dev/null
+}
 
 # 22a. Non-autopilot task → exit 0, no output
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"Do something"},"tool_response":"Done"}' \
-  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","tool_input":{"prompt":"Do something"},"tool_response":"Done"}') || exit_code=$?
 assert_exit "anti-rational: non-autopilot → allow" 0 $exit_code
 assert_not_contains "anti-rational: non-autopilot → no block" "$output" "block"
 
-# 22b. Phase 4 with rationalization pattern → block
+# 22b. Phase 5 with strong rationalization patterns → block
+# Score: "skipped because" (3) + "out of scope" (2) + "not needed" (1) = 6 ≥ 5 threshold
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nDesign tests"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Done\",\"test_counts\":{\"unit\":10},\"dry_run_results\":{\"unit\":0},\"test_pyramid\":{\"unit_pct\":80},\"artifacts\":[\"test.py\"]} Note: Some tests were skipped because they are out of scope for this phase and not needed at this time."}' \
-  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nImplement feature"},"tool_response":"Results: {\"status\":\"ok\",\"summary\":\"Done\",\"test_results_path\":\"tests/\",\"tasks_completed\":3,\"zero_skip_check\":{\"passed\":true},\"artifacts\":[\"src/auth.ts\"]} Note: Some tests were skipped because they are out of scope for this phase and not needed at this time."}') || exit_code=$?
 assert_exit "anti-rational: pattern detected → exit 0" 0 $exit_code
 assert_contains "anti-rational: pattern detected → block" "$output" "block"
-assert_contains "anti-rational: pattern mentions rationalization" "$output" "rationalization"
+assert_contains "anti-rational: block mentions rationalization" "$output" "rationalization"
 
-# 22c. Phase 4 with blocked status → no check (legitimate stop)
+# 22c. Phase 5 with blocked status → no anti-rationalization check (legitimate stop)
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:4 -->\nDesign tests"},"tool_response":"{\"status\":\"blocked\",\"summary\":\"Cannot proceed, out of scope\"}"}' \
-  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nImplement feature"},"tool_response":"{\"status\":\"blocked\",\"summary\":\"Cannot proceed, out of scope\",\"test_results_path\":\"tests/\",\"tasks_completed\":0,\"zero_skip_check\":{\"passed\":false}}"}') || exit_code=$?
 assert_exit "anti-rational: blocked status → allow" 0 $exit_code
 assert_not_contains "anti-rational: blocked status → no block" "$output" "block"
 
-# 22d. Phase 2 (non-critical phase) → skip even with patterns
+# 22d. Phase 2 (non-critical phase for anti-rationalization) → skip patterns check
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nCreate openspec"},"tool_response":"{\"status\":\"ok\",\"summary\":\"Skipped this test because not needed\"}"}' \
-  | bash "$SCRIPT_DIR/anti-rationalization-check.sh" 2>/dev/null) || exit_code=$?
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:2 -->\nCreate openspec"},"tool_response":"{\"status\":\"ok\",\"summary\":\"Skipped this test because not needed\",\"artifacts\":[\"openspec/proposal.md\"]}"}') || exit_code=$?
 assert_exit "anti-rational: phase 2 → skip" 0 $exit_code
 assert_not_contains "anti-rational: phase 2 → no block" "$output" "block"
 
