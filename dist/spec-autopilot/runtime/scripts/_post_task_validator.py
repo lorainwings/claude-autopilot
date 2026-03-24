@@ -438,6 +438,8 @@ if phase_num in (4, 5, 6) and envelope.get("status") in ("ok", "warning"):
     if isinstance(artifacts, list) and artifacts:
         root = _ep.find_project_root(data)
         constraints = _cl.load_constraints(root)
+        scanner = _cl.load_scanner_constraints(root)
+        constraints = _cl.merge_constraints(constraints, scanner)
         if constraints["found"] or constraints["forbidden_files"] or constraints["forbidden_patterns"]:
             violations = []
             for art in artifacts:

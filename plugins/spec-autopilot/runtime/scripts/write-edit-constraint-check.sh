@@ -134,8 +134,10 @@ _spec.loader.exec_module(_cl)
 file_path = '''$FILE_PATH'''
 root = '''$PROJECT_ROOT_QUICK'''
 
-# Load constraints using shared module
+# Load constraints using shared module (config + scanner merged)
 constraints = _cl.load_constraints(root)
+scanner = _cl.load_scanner_constraints(root)
+constraints = _cl.merge_constraints(constraints, scanner)
 if not constraints['found'] and not constraints['forbidden_files'] and not constraints['forbidden_patterns']:
     sys.exit(0)
 
