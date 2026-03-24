@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.1.55] - 2026-03-25
+
+### Fixed
+
+- **SC2207 shellcheck 修复**: `scan-checkpoints-on-start.sh` 中 `phases_seq=($(cmd))` 改用 `read -ra` 消除 CI shellcheck 警告
+- **Phase 1/2/3 硬门禁验证**: `_post_task_validator.py` 新增 Phase 1 (requirement_type/decisions)、Phase 2 (artifacts/alternatives)、Phase 3 (plan/test_strategy) 字段校验
+- **_phase_graph 统一接入**: `scan-checkpoints`/`save-state`/`recovery-decision` 三脚本替换硬编码 phase 序列为 `_phase_graph.py` 动态导入
+- **环境变量 phase 检测回退**: `_common.sh` `has_phase_marker()` 和 `_post_task_validator.py` 增加 `AUTOPILOT_PHASE_ID` 回退路径
+- **CI ruff format**: `_constraint_loader.py` f-string 单引号→双引号
+
 ## [5.1.53] - 2026-03-25
 
 ### Fixed

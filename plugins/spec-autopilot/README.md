@@ -4,7 +4,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.54-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.55-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
