@@ -2,7 +2,7 @@
 
 # lorainwings-plugins
 
-> Claude Code 插件市场 — 规范驱动的全自动交付流水线编排。
+> Claude Code 插件市场 — 规范驱动的全自动交付流水线编排 + 并行 AI 工程控制面。
 
 [![Plugin Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -11,7 +11,8 @@
 
 | 插件 | 版本 | 说明 |
 |------|------|------|
-| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.1.25 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
+| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.1.50 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
+| [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.0.0 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 
 ## 快速安装
 
@@ -19,10 +20,13 @@
 # 1. 添加市场
 claude plugin marketplace add lorainwings/claude-autopilot
 
-# 2. 安装插件（项目级）
+# 2. 安装 spec-autopilot（项目级）
 claude plugin install spec-autopilot@lorainwings-plugins --scope project
 
-# 3. 重启 Claude Code
+# 3. 安装 parallel-harness（项目级）
+claude plugin install parallel-harness@lorainwings-plugins --scope project
+
+# 4. 重启 Claude Code
 ```
 
 ## 什么是 spec-autopilot？
@@ -75,7 +79,46 @@ graph TB
     style P5 fill:#fff3e0
 ```
 
+## 什么是 parallel-harness？
+
+**parallel-harness** 是一个 Claude Code 插件，提供任务图驱动的并行 AI 工程平台。它支持多 Agent 编排，具备严格的治理体系、成本控制和质量门禁。
+
+### 核心特性
+
+- **任务图编排** — 将复杂需求拆解为结构化 DAG，自动依赖追踪
+- **多 Agent 并行调度** — 独立任务并发执行，文件所有权严格隔离
+- **成本感知模型路由** — 三层自动路由，支持升级、降级和预算控制
+- **9 类门禁系统** — test、lint、review、security、perf、coverage、policy、documentation、release readiness
+- **策略即代码** — 声明式策略规则，支持路径边界、预算限制、模型档位上限
+- **RBAC 治理** — 4 种内置角色（admin/developer/reviewer/viewer），12 种细粒度权限
+- **审计追踪** — 完整事件级审计，支持时间线回放、JSON/CSV 导出
+- **PR/CI 集成** — GitHub PR 创建、Review 评论、CI 失败分析（基于 `gh` CLI）
+- **Session 持久化** — 内存/文件双适配器，支持断点恢复
+
+### 架构
+
+```
+runtime/
+├── engine/          — 统一运行时 Orchestrator（入口 API）
+├── orchestrator/    — 任务图、意图分析、复杂度评分、所有权规划
+├── scheduler/       — DAG 批次调度
+├── models/          — 三层模型路由
+├── session/         — 上下文打包
+├── verifiers/       — 验证结果 Schema
+├── observability/   — 事件总线（38 种事件类型）
+├── workers/         — Worker 运行时、重试、降级
+├── guards/          — Merge Guard
+├── gates/           — 门禁系统（9 类门禁）
+├── persistence/     — Session/Run/Audit 持久化
+├── integrations/    — PR/CI 集成（GitHub）
+├── governance/      — RBAC、审批、人工介入
+├── capabilities/    — Skill/Hook/Instruction 扩展层
+└── schemas/         — GA 级数据契约
+```
+
 ## 文档
+
+### spec-autopilot
 
 | 文档 | 说明 |
 |------|------|
@@ -92,10 +135,25 @@ graph TB
 
 > 所有文档均提供 [English](plugins/spec-autopilot/docs/README.md) 和 [中文](plugins/spec-autopilot/docs/README.zh.md) 双语版本。
 
+### parallel-harness
+
+| 文档 | 说明 |
+|------|------|
+| [架构总览](plugins/parallel-harness/docs/architecture/overview.zh.md) | 系统架构概述 |
+| [运维指南](plugins/parallel-harness/docs/operator-guide.zh.md) | 安装、部署、运维 |
+| [策略指南](plugins/parallel-harness/docs/policy-guide.zh.md) | 策略规则配置 |
+| [集成指南](plugins/parallel-harness/docs/integration-guide.zh.md) | GitHub PR、CI、自定义门禁、Hooks |
+| [管理指南](plugins/parallel-harness/docs/admin-guide.zh.md) | 管理与 RBAC 设置 |
+| [故障排查](plugins/parallel-harness/docs/troubleshooting.zh.md) | 常见错误与解决方案 |
+| [示例](plugins/parallel-harness/docs/examples/basic-flow.zh.md) | 分步流程示例 |
+| [常见问题](plugins/parallel-harness/docs/FAQ.zh.md) | 常见问题解答 |
+| [插件 README](plugins/parallel-harness/README.zh.md) | 完整插件文档 |
+
 ## 系统要求
 
 - **Claude Code** CLI (v1.0.0+)
-- **python3** (3.8+) — Hook 脚本依赖
+- **python3** (3.8+) — spec-autopilot Hook 脚本依赖
+- **bun** (1.0+) — parallel-harness 运行时和测试依赖
 - **bash** (4.0+) — Hook 脚本执行
 - **git** — 版本控制集成
 
@@ -109,15 +167,23 @@ claude-autopilot/
 │   └── test.yml
 ├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # 构建产出（用于市场安装）
-│   └── spec-autopilot/
+│   ├── spec-autopilot/
+│   └── parallel-harness/
 ├── plugins/                 # 插件源码
-│   └── spec-autopilot/
-│       ├── skills/          # 7 个 Skill 定义
-│       ├── scripts/         # Hook 脚本 + 工具
-│       ├── hooks/           # Hook 注册
-│       ├── gui/             # GUI V2 大盘 (React + Tailwind)
-│       ├── tests/           # 76 个测试文件，692+ 个断言
-│       └── docs/            # 完整文档 (中英双语)
+│   ├── spec-autopilot/
+│   │   ├── skills/          # 7 个 Skill 定义
+│   │   ├── scripts/         # Hook 脚本 + 工具
+│   │   ├── hooks/           # Hook 注册
+│   │   ├── gui/             # GUI V2 大盘 (React + Tailwind)
+│   │   ├── tests/           # 76 个测试文件，692+ 个断言
+│   │   └── docs/            # 完整文档 (中英双语)
+│   └── parallel-harness/
+│       ├── runtime/         # 15 个核心模块 (engine, orchestrator, scheduler 等)
+│       ├── skills/          # Skill 定义 (harness, plan, dispatch, verify)
+│       ├── config/          # 默认配置 + 策略文件
+│       ├── tools/           # CLI 工具和辅助脚本
+│       ├── tests/           # 219 个测试，499 个断言
+│       └── docs/            # 完整文档
 ├── Makefile                 # 构建、测试、初始化快捷入口
 ├── README.md                # 英文说明
 ├── README.zh.md             # 本文件

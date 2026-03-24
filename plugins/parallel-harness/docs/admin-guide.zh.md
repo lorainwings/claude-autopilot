@@ -1,3 +1,5 @@
+> [English](admin-guide.md) | 中文
+
 # parallel-harness 管理员指南
 
 > 版本: 1.0.0 | 适用角色: 平台管理员、组织所有者

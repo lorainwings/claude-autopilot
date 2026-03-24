@@ -1,3 +1,5 @@
+> [English](FAQ.md) | 中文
+
 # parallel-harness 常见问题 (FAQ)
 
 ## 基本概念

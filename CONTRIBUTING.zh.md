@@ -11,6 +11,7 @@
 - Claude Code CLI (v1.0.0+)
 - python3 (3.8+)
 - bash (4.0+)
+- bun (1.0+) 用于 parallel-harness
 - git
 
 ### 初始化
@@ -39,7 +40,8 @@ git checkout -b feature/my-feature
 
 ### 2. 修改代码
 
-- 在 `plugins/spec-autopilot/` 中编辑源文件
+- 在 `plugins/spec-autopilot/` 中编辑 spec-autopilot 插件源文件
+- 在 `plugins/parallel-harness/` 中编辑 parallel-harness 插件源文件
 - **禁止直接编辑** `dist/` 中的文件 — 它们是自动生成的
 
 ### 3. 测试修改
@@ -47,12 +49,18 @@ git checkout -b feature/my-feature
 ```bash
 # 运行完整测试套件
 make test
+
+# 运行 parallel-harness 测试
+make ph-test
 ```
 
 ### 4. 重新构建分发包
 
 ```bash
 make build
+
+# 构建 parallel-harness
+make ph-build
 ```
 
 ### 5. 提交并推送
@@ -75,6 +83,13 @@ git push origin feature/my-feature
 - 适当使用 `set -euo pipefail`
 - 所有 Hook 必须配置超时
 - Hook 退出码：始终 `exit 0`（通过 stdout JSON 传递决策）
+
+### TypeScript (parallel-harness)
+
+- 所有 TypeScript 必须通过 `bunx tsc --noEmit`
+- 使用 strict 模式，ESNext 目标
+- 测试使用 `bun test`
+- 必须维持最低 219 个测试基线
 
 ### 测试纪律
 

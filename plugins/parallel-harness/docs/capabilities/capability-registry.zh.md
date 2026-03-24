@@ -1,3 +1,5 @@
+> [English](capability-registry.md) | 中文
+
 # parallel-harness 能力清单
 
 > 来源设计：superpowers 的 capability 清单化 + 低摩擦能力入口

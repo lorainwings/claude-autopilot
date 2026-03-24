@@ -1,3 +1,5 @@
+> [English](README.md) | 中文
+
 # parallel-harness v1.0.0
 
 > Claude Code 并行 AI 工程控制面插件 — 商业化 GA 版本
@@ -222,14 +224,19 @@ pending → pre_check → executing → post_check → succeeded/failed/timed_ou
 ## 文档索引
 
 - [运维指南](docs/operator-guide.zh.md)
+- [管理员指南](docs/admin-guide.zh.md)
 - [策略配置指南](docs/policy-guide.zh.md)
 - [集成指南](docs/integration-guide.zh.md)
 - [故障排查](docs/troubleshooting.zh.md)
+- [FAQ](docs/FAQ.zh.md)
+- [安全与合规](docs/security-compliance.zh.md)
 - [发布检查清单](docs/release-checklist.zh.md)
 - [基本流程示例](docs/examples/basic-flow.zh.md)
 - [市场接入准备](docs/marketplace-readiness.zh.md)
 - [架构概览](docs/architecture/overview.zh.md)
 - [能力注册](docs/capabilities/capability-registry.zh.md)
+
+> 所有文档均提供 [English](docs/README.md) 和 [中文](docs/README.zh.md) 双语版本。
 
 ## 许可证
 

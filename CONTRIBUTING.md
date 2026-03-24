@@ -11,6 +11,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 - Claude Code CLI (v1.0.0+)
 - python3 (3.8+)
 - bash (4.0+)
+- bun (1.0+) for parallel-harness
 - git
 
 ### Setup
@@ -39,7 +40,8 @@ git checkout -b feature/my-feature
 
 ### 2. Make Changes
 
-- Edit source files in `plugins/spec-autopilot/`
+- Edit source files in `plugins/spec-autopilot/` for spec-autopilot plugin
+- Edit source files in `plugins/parallel-harness/` for parallel-harness plugin
 - **Never edit** files in `dist/` directly — they are auto-generated
 
 ### 3. Test Your Changes
@@ -47,12 +49,18 @@ git checkout -b feature/my-feature
 ```bash
 # Run full test suite
 make test
+
+# Run parallel-harness tests
+make ph-test
 ```
 
 ### 4. Rebuild Distribution
 
 ```bash
 make build
+
+# Build parallel-harness
+make ph-build
 ```
 
 ### 5. Commit and Push
@@ -75,6 +83,13 @@ Open a PR against `main` with a clear description of your changes.
 - Use `set -euo pipefail` where appropriate
 - Include timeout configuration for all hooks
 - Hook exit codes: `exit 0` always (decisions via stdout JSON)
+
+### TypeScript (parallel-harness)
+
+- All TypeScript must pass `bunx tsc --noEmit`
+- Use strict mode, ESNext target
+- Tests use `bun test`
+- Minimum 219 test baseline must be maintained
 
 ### Test Discipline
 
