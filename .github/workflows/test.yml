@@ -36,7 +36,14 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            BEFORE="${{ github.event.before }}"
+            # force-push 会使 before SHA 失效，回退到父提交
+            if git rev-parse --verify "${BEFORE}^{commit}" >/dev/null 2>&1; then
+              echo "ref=${BEFORE}" >> "$GITHUB_OUTPUT"
+            else
+              echo "⚠️  before ref ${BEFORE} not found (force-push?), falling back to HEAD~1"
+              echo "ref=${{ github.sha }}~1" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Check release discipline (both plugins)
