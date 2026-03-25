@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.56] - 2026-03-25
+
+### Fixed
+
+- **mypy 类型注解修复**: `_phase_graph.py` 四处函数返回值注解从 `dict`/`int` 修正为 `dict | None`/`int | None`
+
 ## [5.1.55] - 2026-03-25
 
 ### Fixed
