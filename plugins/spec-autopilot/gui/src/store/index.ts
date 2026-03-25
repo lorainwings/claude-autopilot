@@ -97,6 +97,14 @@ export interface ServerHealth {
   statusLineInstalled: boolean;
 }
 
+/** 决策生命周期状态 (v5.2) */
+export interface DecisionLifecycle {
+  requestId: string;
+  phase: number;
+  action: string;
+  state: "idle" | "pending" | "accepted" | "applied" | "superseded" | "expired";
+}
+
 interface AppState {
   events: AutopilotEvent[];
   transcriptEvents: AutopilotEvent[];
@@ -110,6 +118,10 @@ interface AppState {
   taskProgress: Map<string, TaskProgress>;
   agentMap: Map<string, AgentInfo>;
   decisionAcked: boolean;
+  /** 决策生命周期 (v5.2) */
+  decisionLifecycle: DecisionLifecycle | null;
+  /** 恢复来源 (v5.2) */
+  recoverySource: "fresh" | "recovery" | null;
   /** 模型路由聚合状态 (v5.4) */
   modelRouting: ModelRoutingState;
   /** 模型路由历史记录 (v5.4) */
@@ -336,6 +348,8 @@ export const useStore = create<AppState>((set) => ({
   taskProgress: new Map(),
   agentMap: new Map(),
   decisionAcked: false,
+  decisionLifecycle: null,
+  recoverySource: null,
   lastAckedBlockSequence: -1,
   modelRouting: { ...DEFAULT_MODEL_ROUTING },
   modelRoutingHistory: [],
@@ -619,6 +633,8 @@ export const useStore = create<AppState>((set) => ({
       taskProgress: new Map(),
       agentMap: new Map(),
       decisionAcked: false,
+      decisionLifecycle: null,
+      recoverySource: null,
       lastAckedBlockSequence: -1,
       modelRouting: { ...DEFAULT_MODEL_ROUTING },
       modelRoutingHistory: [],

@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.59] - 2026-03-25
+
+### Fixed
+
+- **GUI typecheck**: `OrchestrationPanel.tsx` 依赖的 `DecisionLifecycle` 类型、`decisionLifecycle`/`recoverySource` 状态字段补入 store
+
 ## [5.1.58] - 2026-03-25
 
 ### Fixed
