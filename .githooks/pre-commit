@@ -13,15 +13,6 @@ if [ "$_CURRENT_HP" = "/dev/null" ]; then
   exec .githooks/pre-commit "$@"
 fi
 
-# Cross-platform in-place sed (BSD vs GNU)
-sedi() {
-  if sed --version 2>/dev/null | grep -q GNU; then
-    sed -i "$@"
-  else
-    sed -i '' "$@"
-  fi
-}
-
 # ============================================
 # Part 1: Hook Test Suite
 # ============================================
@@ -105,13 +96,12 @@ if [ -n "$STAGED" ]; then
 fi
 
 # ============================================
-# Part 2: Version & Documentation Sync
+# Part 2: Documentation & Version Consistency (read-only)
 # ============================================
 # Strategy (keepachangelog best practice):
-#   - Developers write `## [Unreleased]` in CHANGELOG.md, never guess version numbers
-#   - This hook auto-bumps patch version for substantive code changes
-#   - On bump, replaces `[Unreleased]` with `[X.Y.Z] - YYYY-MM-DD`
-#   - Metadata-only changes (docs, CHANGELOG fixes, format) skip bump entirely
+#   - Developers accumulate changes under ## [Unreleased] across multiple commits
+#   - This hook only validates consistency (read-only), never modifies files
+#   - When ready to release: bash tools/release.sh <patch|minor|major> <plugin>
 
 PLUGIN_CHANGED=$(git diff --cached --name-only | grep -q "plugins/spec-autopilot/" && echo "yes" || echo "no")
 
@@ -119,13 +109,8 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   echo "📚 Checking documentation sync..."
   echo ""
 
-  PLUGIN_JSON="plugins/spec-autopilot/.claude-plugin/plugin.json"
-  README_MD="plugins/spec-autopilot/README.md"
-  CHANGELOG_MD="plugins/spec-autopilot/CHANGELOG.md"
-  MARKETPLACE_JSON=".claude-plugin/marketplace.json"
-
   if ! command -v jq &>/dev/null; then
-    echo "❌ Error: jq is required for version sync. Install: brew install jq"
+    echo "❌ Error: jq is required for version checks. Install: brew install jq"
     exit 1
   fi
 
@@ -133,82 +118,20 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   METADATA_PATTERNS='(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json|/docs/|/reports/)'
   SUBSTANTIVE_PLUGIN_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' | grep -vE "$METADATA_PATTERNS" || true)
 
-  CURRENT_VERSION=$(jq -r '.version' "$PLUGIN_JSON" 2>/dev/null)
-  MANUAL_BUMP=false
-  NEED_BUMP=false
-
-  if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "null" ]; then
-    if git diff --cached -- "$PLUGIN_JSON" | grep -q '"version"'; then
-      MANUAL_BUMP=true
-      NEW_VERSION="$CURRENT_VERSION"
-      echo "✅ Version already bumped manually: $NEW_VERSION"
-    elif [ -n "$SUBSTANTIVE_PLUGIN_FILES" ]; then
-      NEED_BUMP=true
-      BASE_VERSION="${CURRENT_VERSION%%-*}"
-      MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
-      MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
-      PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
-
-      if ! [ "$PATCH" -eq "$PATCH" ] 2>/dev/null; then
-        echo "❌ Error: Cannot parse patch version from '$CURRENT_VERSION' (PATCH='$PATCH')"
-        exit 1
-      fi
-
-      NEW_PATCH=$((PATCH + 1))
-      NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-
-      jq --arg v "$NEW_VERSION" '.version = $v' "$PLUGIN_JSON" > "${PLUGIN_JSON}.tmp" || {
-        echo "❌ Error: Failed to update plugin.json version"
-        exit 1
-      }
-      mv "${PLUGIN_JSON}.tmp" "$PLUGIN_JSON"
-      echo "🔖 Auto-bumped version: ${CURRENT_VERSION} → ${NEW_VERSION}"
-    else
-      NEW_VERSION="$CURRENT_VERSION"
-      echo "📝 Metadata-only changes — version unchanged: $NEW_VERSION"
-    fi
-
-    # Sync marketplace.json
-    jq --arg v "$NEW_VERSION" '
-      .plugins = [.plugins[] | if .name == "spec-autopilot" then .version = $v else . end]
-    ' "$MARKETPLACE_JSON" > "${MARKETPLACE_JSON}.tmp" || {
-      echo "❌ Error: Failed to update marketplace.json version"
-      exit 1
-    }
-    mv "${MARKETPLACE_JSON}.tmp" "$MARKETPLACE_JSON"
-
-    # Sync README.md badge
-    sedi "s/version-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(--*[a-zA-Z0-9._-]*\)*-blue/version-${NEW_VERSION}-blue/" "$README_MD"
-
-    git add "$PLUGIN_JSON" "$README_MD" "$MARKETPLACE_JSON"
-    echo "✅ Version consistent: $NEW_VERSION"
-  fi
-
   # CHANGELOG enforcement (only for substantive changes)
   if [ -n "$SUBSTANTIVE_PLUGIN_FILES" ]; then
     if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
       echo "❌ Error: Plugin code modified but CHANGELOG.md not updated"
       echo ""
-      echo "Add a ## [Unreleased] section to CHANGELOG.md with your changes."
-      echo "The pre-commit hook will replace [Unreleased] with the actual version."
+      echo "在 CHANGELOG.md 的 ## [Unreleased] 段下记录变更，发版时运行 tools/release.sh"
       echo ""
       exit 1
     fi
   fi
 
-  # Replace [Unreleased] → [X.Y.Z] - YYYY-MM-DD (only when version was bumped)
-  if [ "$NEED_BUMP" = "true" ] || [ "$MANUAL_BUMP" = "true" ]; then
-    if [ -f "$CHANGELOG_MD" ] && grep -q '## \[Unreleased\]' "$CHANGELOG_MD"; then
-      TODAY=$(date +%Y-%m-%d)
-      sedi "s/## \[Unreleased\]/## [${NEW_VERSION}] - ${TODAY}/" "$CHANGELOG_MD"
-      git add "$CHANGELOG_MD"
-      echo "📋 CHANGELOG: [Unreleased] → [${NEW_VERSION}] - ${TODAY}"
-    fi
-  fi
-
-  # Version consistency check (plugin.json vs README.md vs marketplace.json)
+  # Version consistency check (read-only: plugin.json vs README.md vs marketplace.json)
   PLUGIN_VERSION=$(jq -r '.version' plugins/spec-autopilot/.claude-plugin/plugin.json 2>/dev/null)
-  README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' plugins/spec-autopilot/README.md 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//')
+  README_VERSION=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' plugins/spec-autopilot/README.md 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//' | sed 's/--/-/g')
   MARKETPLACE_VERSION=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' .claude-plugin/marketplace.json 2>/dev/null)
 
   if [ -n "$PLUGIN_VERSION" ]; then
@@ -227,6 +150,7 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       echo ""
       exit 1
     fi
+    echo "✅ Version consistent: $PLUGIN_VERSION"
   fi
 
   # Warn if Hook scripts changed but docs not updated
@@ -246,7 +170,7 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   fi
 
   # ============================================
-  # Part 2.5: Rebuild dist (AFTER version bump)
+  # Part 2.5: Rebuild dist
   # ============================================
   echo "📦 Rebuilding dist/plugin/..."
   if bash plugins/spec-autopilot/tools/build-dist.sh; then

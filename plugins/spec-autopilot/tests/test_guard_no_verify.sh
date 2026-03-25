@@ -122,12 +122,10 @@ assert_exit "4b. .githooks/pre-commit exists" 0 $?
 [ -x "$GITHOOKS_DIR/pre-commit" ]
 assert_exit "4c. .githooks/pre-commit is executable" 0 $?
 
-# 4d. .githooks/pre-commit uses sedi() not raw sed -i ''
-sedi_count=$(grep -c "^sedi()" "$GITHOOKS_DIR/pre-commit" || echo 0)
-# Skip sedi() function body (lines between "^sedi()" and next "^}"), then check for raw sed -i
-raw_sed_count=$(awk '/^sedi\(\)/{skip=1; next} /^\}/{if(skip) {skip=0; next}} !skip && /sed -i/' "$GITHOOKS_DIR/pre-commit" | wc -l | tr -d ' ')
-[ "$sedi_count" -ge 1 ] && [ "$raw_sed_count" -eq 0 ]
-assert_exit "4d. cross-platform sedi() used, no raw sed -i" 0 $?
+# 4d. .githooks/pre-commit is read-only for version files (no .tmp mutations)
+mutation_count=$(grep -c '\.tmp"' "$GITHOOKS_DIR/pre-commit" 2>/dev/null) || true
+[ "$mutation_count" -eq 0 ]
+assert_exit "4d. pre-commit is read-only (no .tmp file mutations)" 0 $?
 
 # ============================================
 # Part 3: End-to-end fresh clone simulation
@@ -206,10 +204,10 @@ echo "$commit_output" | grep -q "CHANGELOG.md not updated"
 assert_exit "5d. blocked reason is CHANGELOG.md missing (not other error)" 0 $?
 
 # ============================================
-# Part 4: marketplace.json version drift regression test
+# Part 4: marketplace.json version drift → blocked (read-only mode)
 # ============================================
 echo ""
-echo "--- E2E: marketplace.json version drift → auto-sync ---"
+echo "--- E2E: marketplace.json version drift → blocked ---"
 
 DRIFT_DIR="$TMP_ROOT/drift-repo"
 mkdir -p "$DRIFT_DIR/.githooks"
@@ -254,7 +252,7 @@ echo "// new feature" > "$DRIFT_DIR/plugins/spec-autopilot/feature.ts"
 cat > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
 # Changelog
 
-## [2.0.1] - 2026-01-02
+## [Unreleased]
 
 ### Added
 - new feature
@@ -268,24 +266,23 @@ git -C "$DRIFT_DIR" add "$DRIFT_DIR/plugins/spec-autopilot/feature.ts" "$DRIFT_D
 
 if command -v jq &>/dev/null; then
   drift_exit=0
-  drift_output=$(git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: test drift sync" 2>&1) || drift_exit=$?
+  drift_output=$(git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: test drift detection" 2>&1) || drift_exit=$?
 
-  # 6a. Commit must succeed
-  if [ "$drift_exit" -eq 0 ]; then
-    green "  PASS: 6a. commit succeeded with marketplace drift"
+  # 6a. Commit must be BLOCKED by version mismatch (read-only mode)
+  if [ "$drift_exit" -ne 0 ]; then
+    green "  PASS: 6a. commit blocked by version mismatch (read-only mode)"
     PASS=$((PASS + 1))
   else
-    red "  FAIL: 6a. commit failed (exit=$drift_exit): $drift_output"
+    red "  FAIL: 6a. commit should have been blocked by version mismatch"
     FAIL=$((FAIL + 1))
   fi
 
-  # 6b. marketplace.json must be exactly 2.0.1 (auto-bumped from plugin.json 2.0.0)
-  DRIFT_MKT_VER=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$DRIFT_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
-  if [ "$DRIFT_MKT_VER" = "2.0.1" ]; then
-    green "  PASS: 6b. marketplace.json synced to exact version 2.0.1"
+  # 6b. Error output mentions version mismatch
+  if echo "$drift_output" | grep -q "Version mismatch"; then
+    green "  PASS: 6b. error output mentions 'Version mismatch'"
     PASS=$((PASS + 1))
   else
-    red "  FAIL: 6b. marketplace.json expected 2.0.1, got '$DRIFT_MKT_VER'"
+    red "  FAIL: 6b. expected 'Version mismatch' in output, got: $drift_output"
     FAIL=$((FAIL + 1))
   fi
 else
@@ -298,10 +295,10 @@ fi
 rm -rf "$DRIFT_DIR"
 
 # ============================================
-# Part 5: pre-release version auto-bump regression test
+# Part 5: pre-release version consistency test (read-only mode)
 # ============================================
 echo ""
-echo "--- E2E: pre-release version auto-bump ---"
+echo "--- E2E: pre-release version consistency (read-only) ---"
 
 PREREL_DIR="$TMP_ROOT/prerel-repo"
 mkdir -p "$PREREL_DIR/.githooks"
@@ -319,7 +316,7 @@ cp "$SETUP_SCRIPT" "$PREREL_DIR/scripts/setup-hooks.sh"
 echo '#!/usr/bin/env bash' > "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 chmod +x "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 
-# Plugin at pre-release version 1.0.0-beta.1
+# Plugin at pre-release version 1.0.0-beta.1, all files consistent
 echo '{"version": "1.0.0-beta.1"}' > "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
 echo '![](https://img.shields.io/badge/version-1.0.0--beta.1-blue)' > "$PREREL_DIR/plugins/spec-autopilot/README.md"
 cat > "$PREREL_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
@@ -335,12 +332,12 @@ git -C "$PREREL_DIR" add -A
 git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 (cd "$PREREL_DIR" && bash scripts/setup-hooks.sh) >/dev/null 2>&1
 
-# Stage a change + CHANGELOG
+# Stage a change + CHANGELOG with [Unreleased] (read-only mode: no auto-bump)
 echo "// beta feature" > "$PREREL_DIR/plugins/spec-autopilot/beta.ts"
 cat > "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
 # Changelog
 
-## [1.0.1] - 2026-01-02
+## [Unreleased]
 
 ### Added
 - beta feature
@@ -353,44 +350,44 @@ CLOG
 git -C "$PREREL_DIR" add "$PREREL_DIR/plugins/spec-autopilot/beta.ts" "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md"
 
 prerel_exit=0
-prerel_output=$(git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: pre-release bump" 2>&1) || prerel_exit=$?
+prerel_output=$(git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "feat: pre-release dev commit" 2>&1) || prerel_exit=$?
 
-# 7a. Commit must succeed (pre-release auto-bump must not crash)
+# 7a. Commit must succeed (version consistent, no mutations needed)
 if [ "$prerel_exit" -eq 0 ]; then
-  green "  PASS: 7a. commit succeeded with pre-release version"
+  green "  PASS: 7a. commit succeeded with pre-release version (read-only mode)"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 7a. commit failed (exit=$prerel_exit): $prerel_output"
   FAIL=$((FAIL + 1))
 fi
 
-# 7b. Version bumped to 1.0.1 (strip -beta.1 suffix, increment patch)
+# 7b. Version NOT bumped (read-only: plugin.json unchanged at 1.0.0-beta.1)
 PREREL_VER=$(jq -r '.version' "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json" 2>/dev/null)
-if [ "$PREREL_VER" = "1.0.1" ]; then
-  green "  PASS: 7b. plugin.json bumped to 1.0.1 (pre-release stripped)"
+if [ "$PREREL_VER" = "1.0.0-beta.1" ]; then
+  green "  PASS: 7b. plugin.json unchanged at 1.0.0-beta.1 (no auto-bump)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 7b. plugin.json expected 1.0.1, got '$PREREL_VER'"
+  red "  FAIL: 7b. plugin.json expected 1.0.0-beta.1 (unchanged), got '$PREREL_VER'"
   FAIL=$((FAIL + 1))
 fi
 
-# 7c. marketplace.json also synced to 1.0.1
+# 7c. marketplace.json unchanged
 PREREL_MKT=$(jq -r '.plugins[] | select(.name == "spec-autopilot") | .version' "$PREREL_DIR/.claude-plugin/marketplace.json" 2>/dev/null)
-if [ "$PREREL_MKT" = "1.0.1" ]; then
-  green "  PASS: 7c. marketplace.json synced to 1.0.1"
+if [ "$PREREL_MKT" = "1.0.0-beta.1" ]; then
+  green "  PASS: 7c. marketplace.json unchanged at 1.0.0-beta.1 (no auto-sync)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 7c. marketplace.json expected 1.0.1, got '$PREREL_MKT'"
+  red "  FAIL: 7c. marketplace.json expected 1.0.0-beta.1 (unchanged), got '$PREREL_MKT'"
   FAIL=$((FAIL + 1))
 fi
 
-# 7d. README badge synced to 1.0.1 (pre-release double-dash stripped)
-PREREL_README_VER=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$PREREL_DIR/plugins/spec-autopilot/README.md" 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//')
-if [ "$PREREL_README_VER" = "1.0.1" ]; then
-  green "  PASS: 7d. README badge synced to 1.0.1"
+# 7d. README badge unchanged (shields.io escaped format preserved)
+PREREL_README_RAW=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+(--?[a-zA-Z0-9._-]*)*-blue' "$PREREL_DIR/plugins/spec-autopilot/README.md" 2>/dev/null | head -1 | sed 's/^version-//;s/-blue$//')
+if [ "$PREREL_README_RAW" = "1.0.0--beta.1" ]; then
+  green "  PASS: 7d. README badge unchanged (shields.io format preserved)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 7d. README badge expected 1.0.1, got '$PREREL_README_VER'"
+  red "  FAIL: 7d. README badge expected '1.0.0--beta.1', got '$PREREL_README_RAW'"
   FAIL=$((FAIL + 1))
 fi
 

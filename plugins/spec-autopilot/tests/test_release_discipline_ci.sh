@@ -95,6 +95,8 @@ MD
 cat > "$PASS_REPO/plugins/spec-autopilot/CHANGELOG.md" << 'MD'
 # Changelog
 
+## [Unreleased]
+
 ## [1.0.1] - 2026-03-21
 
 ### Added

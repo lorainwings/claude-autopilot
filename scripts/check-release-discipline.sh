@@ -147,11 +147,31 @@ check_plugin() {
   BASE_VERSION="$(git show "$BASE_REF:$PLUGIN_JSON" | jq -r '.version')"
 
   if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
-    echo "❌ Error: $PLUGIN_ROOT version was not bumped."
-    echo "   base: $BASE_VERSION  head: $HEAD_VERSION"
-    OVERALL_FAIL=1
+    # ── 开发提交: 版本未 bump ──
+    # 正常开发提交不需要版本 bump，仅检查 [Unreleased] 段有实质内容
+    echo "ℹ️  $PLUGIN_ROOT: dev commit (no version bump)"
+    if [ -f "$CHANGELOG_MD" ]; then
+      if ! grep -q '## \[Unreleased\]' "$CHANGELOG_MD"; then
+        echo "❌ Error: $CHANGELOG_MD has no [Unreleased] section."
+        echo "   Add a ## [Unreleased] section with your changes."
+        OVERALL_FAIL=1
+      else
+        local UNRELEASED_CONTENT
+        UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[[0-9]/{f=0} f && NF' "$CHANGELOG_MD")
+        if [ -z "$UNRELEASED_CONTENT" ]; then
+          echo "❌ Error: $CHANGELOG_MD [Unreleased] section is empty."
+          echo "   Add entries describing your changes under ## [Unreleased]."
+          OVERALL_FAIL=1
+        else
+          echo "✅ $PLUGIN_ROOT dev commit: [Unreleased] has content"
+        fi
+      fi
+    fi
     return 0
   fi
+
+  # ── 发版提交: 版本已 bump — 执行完整发版纪律检查 ──
+  echo "🔖 $PLUGIN_ROOT: release commit ($BASE_VERSION → $HEAD_VERSION)"
 
   local MISMATCH=0
 
@@ -191,11 +211,18 @@ check_plugin() {
 
   # CHANGELOG top version check (if CHANGELOG exists)
   if [ -f "$CHANGELOG_MD" ]; then
-    # Check for leftover [Unreleased] — means pre-commit hook didn't run
+    # 发版提交: [Unreleased] 段应存在但为空（release.sh 新建空段）
     if grep -q '## \[Unreleased\]' "$CHANGELOG_MD"; then
-      echo "❌ Error: $CHANGELOG_MD still contains [Unreleased] section."
-      echo "   The pre-commit hook should have replaced it with the actual version."
-      echo "   This likely means the commit was made with --no-verify or hooks were disabled."
+      local UNRELEASED_CONTENT
+      UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[[0-9]/{f=0} f && NF' "$CHANGELOG_MD")
+      if [ -n "$UNRELEASED_CONTENT" ]; then
+        echo "❌ Error: $CHANGELOG_MD [Unreleased] section still has content after release."
+        echo "   Use 'bash tools/release.sh <bump-type> $MARKETPLACE_NAME' to handle releases properly."
+        MISMATCH=1
+      fi
+    else
+      echo "❌ Error: $CHANGELOG_MD should have an empty [Unreleased] section after release."
+      echo "   Use 'bash tools/release.sh <bump-type> $MARKETPLACE_NAME' to handle releases properly."
       MISMATCH=1
     fi
 
