@@ -1,15 +1,10 @@
 # Changelog
 
-## [5.1.62] - 2026-03-25
-
-### Fixed
-
-- **hooksPath 防护**: 恢复被污染的 `core.hooksPath=/dev/null`，增加五层防护——pre-commit 自保护、teardown 完整性校验、run_all.sh 终检、CLAUDE.md 铁律、测试 cd 全部加 `|| exit 1`
-
 ## [5.1.61] - 2026-03-25
 
 ### Fixed
 
+- **hooksPath 防护**: 恢复被污染的 `core.hooksPath=/dev/null`，增加五层防护——pre-commit 自保护、teardown 完整性校验、run_all.sh 终检、CLAUDE.md 铁律、测试 cd 全部加 `|| exit 1`
 - **P0: save-phase-context.sh 占位符修复** — Step 6.7 从信封提取实际内容而非占位符文本
 - **P0: 压缩恢复确定性增强** — 注入所有阶段快照 + 确定性恢复指令区块 + 快照截断 500→1000 字符
 - **P1: 门禁路径统一** — `_phase_graph.py` 新增 `get_predecessor()` 取代硬编码 case

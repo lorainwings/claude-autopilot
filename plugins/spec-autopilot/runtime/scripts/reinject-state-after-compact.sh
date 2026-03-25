@@ -66,7 +66,7 @@ SNAPSHOTS_DIR="$(dirname "$STATE_FILE")/phase-context-snapshots"
 if [ -d "$SNAPSHOTS_DIR" ]; then
   SNAP_COUNT=0
   TOTAL_CHARS=0
-  MAX_TOTAL_CHARS=4000  # Total budget across all snapshots
+  MAX_TOTAL_CHARS=4000 # Total budget across all snapshots
   for snap in "$SNAPSHOTS_DIR"/phase-*-context.md; do
     [ -f "$snap" ] || continue
     SNAP_COUNT=$((SNAP_COUNT + 1))
