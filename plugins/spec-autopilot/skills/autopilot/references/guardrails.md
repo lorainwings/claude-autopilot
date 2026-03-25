@@ -69,7 +69,9 @@
 1. 读取 `autopilot-state.md` 获取进度（last completed phase、next phase、execution mode、anchor SHA）
 2. 重新加载 `autopilot.config.yaml` 配置
 3. 读取 `context/phase-results/` 确认 checkpoint 一致性
-4. 从下一个未完成阶段继续执行，调用 `autopilot-gate` 验证后 dispatch
-5. 如果 next_phase == 5 且 Phase 5 状态为 in_progress，扫描 `phase5-tasks/` 目录确定 task 级恢复点
+4. 读取 `=== DETERMINISTIC RECOVERY INSTRUCTION ===` 区块中的确定性指令，严格按指令执行恢复
+5. 从下一个未完成阶段继续执行，调用 `autopilot-gate` 验证后 dispatch
+6. 如果 next_phase == 5 且 Phase 5 状态为 in_progress，扫描 `phase5-tasks/` 目录确定 task 级恢复点
 
 > **禁止**：恢复后重复执行已标记 `ok`/`warning` 的阶段。
+> **v5.8 增强**：恢复注入现在包含所有已完成阶段的上下文快照（而非仅最新一个），以及确定性的下一步操作指令，减少 AI 解析歧义。

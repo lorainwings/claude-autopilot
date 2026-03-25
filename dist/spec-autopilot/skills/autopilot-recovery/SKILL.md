@@ -137,6 +137,15 @@ AskUserQuestion:
 - `recovery_phase = recovery_options.continue.phase`
 - 编排主线程在 TaskCreate 时将已完成阶段标记为 completed
 - 不清理任何制品
+- **v5.8 worktree 恢复一致性检查**: 当 `recovery_phase == 5` 且 `git_state.uncommitted_changes == true` 时：
+  1. 输出警告：`[WARNING] 工作区存在未提交的变更，可能因 Phase 5 崩溃导致部分合并`
+  2. 执行 `git diff --stat` 展示变更文件列表
+  3. AskUserQuestion：
+     - "保留当前变更，继续 Phase 5"
+     - "丢弃未提交变更，从最后成功的 task checkpoint 重新开始"
+- **v5.8 worktree 残留清理**: 当 `git_state.worktree_residuals` 非空时：
+  1. 展示残留 worktree 列表
+  2. 自动清理：`git worktree remove --force <path>` 逐个删除
 
 #### 路径 B：从指定阶段恢复
 

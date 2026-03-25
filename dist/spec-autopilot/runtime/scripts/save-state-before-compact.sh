@@ -167,8 +167,8 @@ if os.path.isdir(snapshots_dir):
                 snap_phase = int(m.group(1))
                 with open(snap_file) as f:
                     content = f.read()
-                # Extract summary section (first 500 chars)
-                context_snapshots[snap_phase] = content[:500]
+                # v5.8: Increased from 500 to 1000 chars per snapshot for better recovery
+                context_snapshots[snap_phase] = content[:1000]
         except Exception:
             pass
 

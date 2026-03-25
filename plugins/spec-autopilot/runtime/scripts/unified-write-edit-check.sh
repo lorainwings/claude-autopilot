@@ -303,6 +303,45 @@ EOF
 fi
 
 # ============================================================
+# CHECK 3.5: Assertion-Free Test Detection (v5.8, pure grep, ~3ms)
+# Detects test functions/blocks that contain no assertions at all.
+# These tests "cover" code but verify nothing — inflating coverage.
+# ============================================================
+
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then
+  ASSERTION_FREE_BLOCKS=""
+
+  # JavaScript/TypeScript: detect it/test blocks without expect/assert
+  # Strategy: count test blocks and assertion calls; if blocks > assertions, flag
+  JS_TEST_BLOCKS=$(grep -cE '^\s*(it|test)\s*\(' "$FILE_PATH" 2>/dev/null || echo 0)
+  JS_ASSERTIONS=$(grep -cE '(expect\s*\(|assert\s*[\.(]|should\s*[\.(])' "$FILE_PATH" 2>/dev/null || echo 0)
+
+  # Python: detect def test_ functions without assert
+  PY_TEST_FUNCS=$(grep -cE '^\s*def\s+test_' "$FILE_PATH" 2>/dev/null || echo 0)
+  PY_ASSERTIONS=$(grep -cE '(self\.assert|assert\s+|pytest\.raises)' "$FILE_PATH" 2>/dev/null || echo 0)
+
+  # Java/Kotlin: detect @Test methods without assert
+  JAVA_TEST_METHODS=$(grep -cE '@Test' "$FILE_PATH" 2>/dev/null || echo 0)
+  JAVA_ASSERTIONS=$(grep -cE '(assert(True|False|Equals|NotNull|Throws|That)|verify\s*\()' "$FILE_PATH" 2>/dev/null || echo 0)
+
+  # Sum up
+  TOTAL_TEST_BLOCKS=$((JS_TEST_BLOCKS + PY_TEST_FUNCS + JAVA_TEST_METHODS))
+  TOTAL_ASSERTIONS=$((JS_ASSERTIONS + PY_ASSERTIONS + JAVA_ASSERTIONS))
+
+  # Flag if there are test blocks but zero assertions, or if test count greatly exceeds assertion count
+  if [ "$TOTAL_TEST_BLOCKS" -gt 0 ] && [ "$TOTAL_ASSERTIONS" -eq 0 ]; then
+    cat <<EOF
+{
+  "decision": "block",
+  "reason": "Assertion-free tests detected in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) found but 0 assertions. Tests must contain meaningful assertions that verify behavior. Calling code without asserting results creates a false sense of test coverage.",
+  "fix_suggestion": "Add assertions (expect/assert/should) to each test block that verify the return values, state changes, or side effects of the code under test."
+}
+EOF
+    exit 0
+  fi
+fi
+
+# ============================================================
 # CHECK 4: Code Constraints (Delivery phases 4/5/6, requires python3)
 # ============================================================
 

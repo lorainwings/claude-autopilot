@@ -120,6 +120,16 @@ def get_next_phase(last_valid: int, mode: str = "full") -> int | None:
     return None  # all done
 
 
+def get_predecessor(target: int, mode: str = "full") -> int:
+    """返回 target phase 在 mode-aware graph 中的前置 phase，无前置则返回 0。
+    v5.8: 新增函数，取代 check-predecessor-checkpoint.sh 中的硬编码 case 语句。"""
+    phases = get_phase_sequence(mode)
+    for i, p in enumerate(phases):
+        if p == target:
+            return phases[i - 1] if i > 0 else 0
+    return 0  # target not in sequence
+
+
 def get_gap_phases(phase_results_dir: str, mode: str = "full") -> list:
     """返回第一个有效 phase 之后的所有 gap phase（missing/failed/error）"""
     phases = get_phase_sequence(mode)
@@ -171,6 +181,11 @@ def _cli():
         mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         result = get_next_phase(last_valid, mode)
         print(result if result is not None else "done")
+
+    elif cmd == "get_predecessor":
+        target = int(sys.argv[2])
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
+        print(get_predecessor(target, mode))
 
     elif cmd == "get_gap_phases":
         phase_results_dir = sys.argv[2]
@@ -243,6 +258,16 @@ def _run_self_tests():
     assert_eq("next after 0 (full) → 1", get_next_phase(0, "full"), 1)
     assert_eq("next after 1 (lite) → 5", get_next_phase(1, "lite"), 5)
     assert_eq("next after 5 (minimal) → 7", get_next_phase(5, "minimal"), 7)
+
+    # Test 3.5: get_predecessor (v5.8)
+    assert_eq("predecessor of 2 (full) → 1", get_predecessor(2, "full"), 1)
+    assert_eq("predecessor of 5 (full) → 4", get_predecessor(5, "full"), 4)
+    assert_eq("predecessor of 5 (lite) → 1", get_predecessor(5, "lite"), 1)
+    assert_eq("predecessor of 7 (lite) → 6", get_predecessor(7, "lite"), 6)
+    assert_eq("predecessor of 7 (minimal) → 5", get_predecessor(7, "minimal"), 5)
+    assert_eq("predecessor of 5 (minimal) → 1", get_predecessor(5, "minimal"), 1)
+    assert_eq("predecessor of 1 (full) → 0", get_predecessor(1, "full"), 0)
+    assert_eq("predecessor of 3 (lite) → 0 (not in seq)", get_predecessor(3, "lite"), 0)
 
     # Test 4: gap_phases
     with tempfile.TemporaryDirectory() as tmpdir:

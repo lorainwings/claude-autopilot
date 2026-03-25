@@ -94,14 +94,22 @@ else
 fi
 
 # --- Detect git state ---
-GIT_STATE='{"rebase_in_progress":false,"merge_in_progress":false,"worktree_residuals":[]}'
+GIT_STATE='{"rebase_in_progress":false,"merge_in_progress":false,"worktree_residuals":[],"uncommitted_changes":false}'
 if [ -d "$PROJECT_ROOT/.git" ] 2>/dev/null; then
   REBASE_IN_PROGRESS=false
   MERGE_IN_PROGRESS=false
   WORKTREE_RESIDUALS="[]"
+  UNCOMMITTED_CHANGES=false
 
   [ -d "$PROJECT_ROOT/.git/rebase-merge" ] || [ -d "$PROJECT_ROOT/.git/rebase-apply" ] && REBASE_IN_PROGRESS=true
   [ -f "$PROJECT_ROOT/.git/MERGE_HEAD" ] && MERGE_IN_PROGRESS=true
+
+  # v5.8: Check for uncommitted changes (worktree recovery consistency)
+  if command -v git &>/dev/null; then
+    if ! git -C "$PROJECT_ROOT" diff --quiet 2>/dev/null || ! git -C "$PROJECT_ROOT" diff --cached --quiet 2>/dev/null; then
+      UNCOMMITTED_CHANGES=true
+    fi
+  fi
 
   # Detect worktree residuals (v5.1.51: use python3 for safe JSON with spaces in paths)
   if command -v git &>/dev/null; then
@@ -113,7 +121,7 @@ print(json.dumps(paths))
     [ -z "$WORKTREE_RESIDUALS" ] && WORKTREE_RESIDUALS="[]"
   fi
 
-  GIT_STATE="{\"rebase_in_progress\":${REBASE_IN_PROGRESS},\"merge_in_progress\":${MERGE_IN_PROGRESS},\"worktree_residuals\":${WORKTREE_RESIDUALS}}"
+  GIT_STATE="{\"rebase_in_progress\":${REBASE_IN_PROGRESS},\"merge_in_progress\":${MERGE_IN_PROGRESS},\"worktree_residuals\":${WORKTREE_RESIDUALS},\"uncommitted_changes\":${UNCOMMITTED_CHANGES}}"
 fi
 
 # --- Detect fixup commits (scoped to current session, not entire history) ---

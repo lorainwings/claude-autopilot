@@ -215,9 +215,11 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer 2（Hook predecessor check）。
 Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 Phase 7 汇合点收集。
 
-> **Advisory Gate 语义 (v5.1.51)**: Phase 6.5 是建议性旁路门禁（Advisory Gate），其 blocked 状态
-> 不阻止 Phase 7 的 predecessor 条件。Phase 7 收集 6.5 结果后展示 findings，但即使 6.5 blocked
-> 也不阻断归档流程（用户可选择忽略或修复后继续）。
+> **Advisory Gate 语义 (v5.1.51, v5.8 澄清)**: Phase 6.5 是建议性旁路门禁（Advisory Gate），其 blocked 状态
+> 不阻止 Phase 7 的 predecessor 条件（L2 Hook 不检查 6.5 checkpoint）。Phase 7 收集 6.5 结果后展示 findings。
+> **block_on_critical 行为**: 当 `config.phases.code_review.block_on_critical = true` 时，Phase 7 Step 3
+> 会在归档确认前检查是否存在 critical findings——如有，向用户展示并要求显式确认是忽略还是修复，
+> 但不会自动阻断 Phase 7（用户有最终决策权）。
 
 ## 可选 Layer 3 补充：语义验证
 

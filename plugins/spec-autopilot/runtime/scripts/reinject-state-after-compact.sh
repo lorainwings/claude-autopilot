@@ -61,33 +61,68 @@ echo "=== AUTOPILOT STATE RESTORED AFTER CONTEXT COMPACTION ==="
 echo ""
 cat "$STATE_FILE"
 
-# v5.3: Output most recent phase context snapshot for reasoning continuity
+# v5.3: Output all phase context snapshots for reasoning continuity (v5.8: all snapshots, not just latest)
 SNAPSHOTS_DIR="$(dirname "$STATE_FILE")/phase-context-snapshots"
 if [ -d "$SNAPSHOTS_DIR" ]; then
-  LATEST_SNAPSHOT=""
-  LATEST_SNAP_MTIME=0
+  SNAP_COUNT=0
+  TOTAL_CHARS=0
+  MAX_TOTAL_CHARS=4000  # Total budget across all snapshots
   for snap in "$SNAPSHOTS_DIR"/phase-*-context.md; do
     [ -f "$snap" ] || continue
-    snap_mtime=$(stat -f "%m" "$snap" 2>/dev/null || stat -c "%Y" "$snap" 2>/dev/null || echo 0)
-    if [ "$snap_mtime" -gt "$LATEST_SNAP_MTIME" ]; then
-      LATEST_SNAP_MTIME=$snap_mtime
-      LATEST_SNAPSHOT="$snap"
-    fi
+    SNAP_COUNT=$((SNAP_COUNT + 1))
   done
-  if [ -n "$LATEST_SNAPSHOT" ] && [ -f "$LATEST_SNAPSHOT" ]; then
+
+  if [ "$SNAP_COUNT" -gt 0 ]; then
     echo ""
-    echo "--- Latest Phase Context Snapshot ---"
+    echo "--- Phase Context Snapshots ($SNAP_COUNT phases) ---"
     echo ""
-    # Limit snapshot output to 2000 chars to avoid context bloat
-    head -c 2000 "$LATEST_SNAPSHOT"
-    SNAP_SIZE=$(wc -c <"$LATEST_SNAPSHOT" 2>/dev/null || echo 0)
-    if [ "$SNAP_SIZE" -gt 2000 ]; then
+    for snap in $(ls -1 "$SNAPSHOTS_DIR"/phase-*-context.md 2>/dev/null | sort); do
+      [ -f "$snap" ] || continue
+      SNAP_SIZE=$(wc -c <"$snap" 2>/dev/null || echo 0)
+      REMAINING=$((MAX_TOTAL_CHARS - TOTAL_CHARS))
+      if [ "$REMAINING" -le 100 ]; then
+        echo "... (remaining snapshots truncated, see files in phase-context-snapshots/)"
+        break
+      fi
+      echo "### $(basename "$snap")"
+      if [ "$SNAP_SIZE" -le "$REMAINING" ]; then
+        cat "$snap"
+        TOTAL_CHARS=$((TOTAL_CHARS + SNAP_SIZE))
+      else
+        head -c "$REMAINING" "$snap"
+        TOTAL_CHARS=$MAX_TOTAL_CHARS
+        echo ""
+        echo "... (truncated)"
+      fi
       echo ""
-      echo "... (truncated, full snapshot: $(basename "$LATEST_SNAPSHOT"))"
-    fi
-    echo ""
-    echo "--- End Phase Context Snapshot ---"
+    done
+    echo "--- End Phase Context Snapshots ---"
   fi
+fi
+
+# v5.8: Deterministic recovery instruction — tell orchestrator exactly what to do next
+echo ""
+echo "=== DETERMINISTIC RECOVERY INSTRUCTION ==="
+echo ""
+# Extract next_phase from state file
+NEXT_PHASE=$(grep -oP '(?<=\*\*Next phase to execute\*\*: )\d+' "$STATE_FILE" 2>/dev/null || echo "")
+EXEC_MODE=$(grep -oP '(?<=\*\*Execution mode\*\*: `)\w+' "$STATE_FILE" 2>/dev/null || echo "full")
+CHANGE_NAME_RESTORE=$(grep -oP '(?<=\*\*Active change\*\*: `)[^`]+' "$STATE_FILE" 2>/dev/null || echo "")
+
+if [ -n "$NEXT_PHASE" ]; then
+  echo "ACTION REQUIRED: Resume autopilot from Phase ${NEXT_PHASE} (mode: ${EXEC_MODE}, change: ${CHANGE_NAME_RESTORE})."
+  echo ""
+  echo "Steps:"
+  echo "1. Re-read config: .claude/autopilot.config.yaml"
+  echo "2. Call Skill(spec-autopilot:autopilot-gate) for Phase ${NEXT_PHASE}"
+  echo "3. If gate passes, call Skill(spec-autopilot:autopilot-dispatch) and dispatch Phase ${NEXT_PHASE}"
+  echo "4. DO NOT re-execute any Phase marked 'ok' or 'warning' in the Phase Status table above"
+  if [ "$NEXT_PHASE" = "5" ]; then
+    echo "5. Phase 5 in-progress: scan phase5-tasks/ for task-level recovery point before dispatching"
+  fi
+else
+  echo "ACTION REQUIRED: Read autopilot-state.md above and resume from the next incomplete phase."
+  echo "DO NOT re-execute completed phases."
 fi
 
 echo ""

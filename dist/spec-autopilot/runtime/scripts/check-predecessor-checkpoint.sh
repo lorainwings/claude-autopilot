@@ -212,40 +212,31 @@ _get_tdd_mode() {
 }
 
 # --- Define expected phase sequences per mode ---
-# full:    1 → 2 → 3 → 4 → 5 → 6 → 7
-# lite:    1 → 5 → 6 → 7
-# minimal: 1 → 5 → 7
+# v5.8: Delegates to _phase_graph.py for consistent mode-aware predecessor lookup.
+# Eliminates hardcoded case statements that could desync from _phase_graph.py.
 get_predecessor_phase() {
   local mode="$1"
   local target="$2"
-  case "$mode" in
-    lite)
-      case "$target" in
-        5) echo 1 ;;
-        6) echo 5 ;;
-        7) echo 6 ;;
-        *) echo 0 ;;
-      esac
-      ;;
-    minimal)
-      case "$target" in
-        5) echo 1 ;;
-        7) echo 5 ;;
-        *) echo 0 ;;
-      esac
-      ;;
-    *) # full
-      # TDD mode check only needed for full mode (lite/minimal skip Phase 4 regardless)
-      if [ "$(_get_tdd_mode)" = "true" ] && [ "$target" -eq 5 ]; then
-        # TDD mode: Phase 5 depends on Phase 3 (Phase 4 skipped)
-        echo 3
-      elif [ "$target" -ge 2 ] && [ "$target" -le 7 ]; then
-        echo $((target - 1))
-      else
-        echo 0
-      fi
-      ;;
-  esac
+
+  # TDD mode override: Phase 5 predecessor is Phase 3 (Phase 4 skipped)
+  # This is a runtime override not captured in the static phase graph.
+  if [ "$mode" = "full" ] && [ "$target" -eq 5 ] && [ "$(_get_tdd_mode)" = "true" ]; then
+    echo 3
+    return
+  fi
+
+  local result
+  result=$(python3 "$SCRIPT_DIR/_phase_graph.py" get_predecessor "$target" "$mode" 2>/dev/null)
+  if [ -n "$result" ]; then
+    echo "$result"
+  else
+    # Fallback: if python3 fails, use simple arithmetic for full mode
+    if [ "$target" -ge 2 ] && [ "$target" -le 7 ]; then
+      echo $((target - 1))
+    else
+      echo 0
+    fi
+  fi
 }
 
 PRED_PHASE=$(get_predecessor_phase "$EXEC_MODE" "$TARGET_PHASE")
