@@ -17,6 +17,7 @@ on:
       - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
+  workflow_dispatch:
 
 jobs:
   # ── release discipline ────────────────────────────────────────────
