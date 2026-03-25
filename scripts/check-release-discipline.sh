@@ -191,6 +191,14 @@ check_plugin() {
 
   # CHANGELOG top version check (if CHANGELOG exists)
   if [ -f "$CHANGELOG_MD" ]; then
+    # Check for leftover [Unreleased] — means pre-commit hook didn't run
+    if grep -q '## \[Unreleased\]' "$CHANGELOG_MD"; then
+      echo "❌ Error: $CHANGELOG_MD still contains [Unreleased] section."
+      echo "   The pre-commit hook should have replaced it with the actual version."
+      echo "   This likely means the commit was made with --no-verify or hooks were disabled."
+      MISMATCH=1
+    fi
+
     local HEAD_CHANGELOG_VERSION
     HEAD_CHANGELOG_VERSION="$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?\]' "$CHANGELOG_MD" 2>/dev/null | head -1 | sed 's/^## \[//;s/\]$//' || true)"
     if [ -n "$HEAD_CHANGELOG_VERSION" ] && [ "$HEAD_VERSION" != "$HEAD_CHANGELOG_VERSION" ]; then

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **版本递增流程重构**: 采用 keepachangelog `[Unreleased]` 模式——开发者不再手写版本号，pre-commit 自动替换为实际版本 + 日期
+- **实质性变更才 bump**: 仅代码变更触发 patch 递增，纯文档/元数据变更跳过
+- **CI [Unreleased] 检测**: push 到 remote 的代码不允许残留 `[Unreleased]`，确保 pre-commit 已正确处理
+
 ## [5.1.62] - 2026-03-25
 
 ### Changed
