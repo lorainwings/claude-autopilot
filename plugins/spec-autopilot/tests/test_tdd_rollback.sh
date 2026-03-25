@@ -47,7 +47,7 @@ echo "refactor" > "$TEMP_CHANGE_DIR/context/.tdd-stage"
 # Set up a git repo for rollback testing
 GIT_TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_CHANGE_DIR" "$GIT_TMPDIR"' EXIT
-cd "$GIT_TMPDIR"
+cd "$GIT_TMPDIR" || exit 1
 git init -q
 echo "original-a" > file_a.txt
 echo "original-b" > file_b.txt
@@ -87,7 +87,7 @@ else
   red "  FAIL: 1e. .tdd-refactor-files not cleaned up"
   FAIL=$((FAIL + 1))
 fi
-cd "$TEST_DIR"
+cd "$TEST_DIR" || exit 1
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

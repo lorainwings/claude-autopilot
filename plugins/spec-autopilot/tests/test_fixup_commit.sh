@@ -21,7 +21,7 @@ assert_contains "51b: Step 7 forbids explicit add of lockfile" "$step7_git" '禁
 # 51c: Real git simulation — .gitignore blocks explicit add of .autopilot-active
 TMPDIR_51=$(mktemp -d)
 (
-  cd "$TMPDIR_51"
+  cd "$TMPDIR_51" || exit 1
   git init -q
   git commit --allow-empty -q -m "init"
   mkdir -p openspec/changes

@@ -3,6 +3,20 @@
 
 set -uo pipefail
 
+# ============================================
+# Part 0: hooksPath Self-Protection Guard
+# ============================================
+# If core.hooksPath got reset to /dev/null (e.g. by a misbehaving test or
+# external tool), this hook would never run.  When it *does* run, verify the
+# setting is still correct so any future pollution is caught immediately.
+_CURRENT_HP=$(git config --local core.hooksPath 2>/dev/null || echo "")
+if [ "$_CURRENT_HP" = "/dev/null" ]; then
+  echo "FATAL: core.hooksPath was set to /dev/null — restoring .githooks" >&2
+  git config --local core.hooksPath .githooks
+  # Re-exec ourselves via the correct path so the commit still gets checked
+  exec .githooks/pre-commit "$@"
+fi
+
 # Cross-platform in-place sed (BSD vs GNU)
 sedi() {
   if sed --version 2>/dev/null | grep -q GNU; then

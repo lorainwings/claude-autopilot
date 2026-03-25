@@ -124,7 +124,8 @@ assert_exit "4c. .githooks/pre-commit is executable" 0 $?
 
 # 4d. .githooks/pre-commit uses sedi() not raw sed -i ''
 sedi_count=$(grep -c "^sedi()" "$GITHOOKS_DIR/pre-commit" || echo 0)
-raw_sed_count=$(awk 'NR>13 && /sed -i/' "$GITHOOKS_DIR/pre-commit" | wc -l | tr -d ' ')
+# Skip sedi() function body (lines between "^sedi()" and next "^}"), then check for raw sed -i
+raw_sed_count=$(awk '/^sedi\(\)/{skip=1; next} /^\}/{if(skip) {skip=0; next}} !skip && /sed -i/' "$GITHOOKS_DIR/pre-commit" | wc -l | tr -d ' ')
 [ "$sedi_count" -ge 1 ] && [ "$raw_sed_count" -eq 0 ]
 assert_exit "4d. cross-platform sedi() used, no raw sed -i" 0 $?
 

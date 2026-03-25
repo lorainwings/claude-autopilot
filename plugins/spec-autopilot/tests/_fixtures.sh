@@ -26,6 +26,14 @@ teardown_autopilot_fixture() {
     rmdir "$REPO_ROOT/openspec" 2>/dev/null || true
   fi
   unset AUTOPILOT_PROJECT_ROOT
+
+  # Fail-closed guard: verify tests haven't polluted the main repo's hooksPath
+  _HP=$(git -C "$REPO_ROOT" config --local core.hooksPath 2>/dev/null || echo "")
+  if [ "$_HP" = "/dev/null" ]; then
+    echo "FATAL: test leaked core.hooksPath=/dev/null into main repo — restoring .githooks" >&2
+    git -C "$REPO_ROOT" config --local core.hooksPath .githooks
+    exit 1
+  fi
 }
 
 setup_phase_results() {

@@ -1,5 +1,29 @@
 # Changelog
 
+## [5.1.62] - 2026-03-25
+
+### Fixed
+
+- **hooksPath 防护**: 恢复被污染的 `core.hooksPath=/dev/null`，增加五层防护——pre-commit 自保护、teardown 完整性校验、run_all.sh 终检、CLAUDE.md 铁律、测试 cd 全部加 `|| exit 1`
+
+## [5.1.61] - 2026-03-25
+
+### Fixed
+
+- **P0: save-phase-context.sh 占位符修复** — Step 6.7 从信封提取实际内容而非占位符文本
+- **P0: 压缩恢复确定性增强** — 注入所有阶段快照 + 确定性恢复指令区块 + 快照截断 500→1000 字符
+- **P1: 门禁路径统一** — `_phase_graph.py` 新增 `get_predecessor()` 取代硬编码 case
+- **P1: fixup 完整性检查** — Phase 7 归档前 checkpoint vs fixup 数量对比 + 非 autopilot fixup 检测
+- **P1: block_on_critical 语义澄清** — Phase 7 Step 3 critical findings 检查 + Advisory Gate 文档更新
+
+### Added
+
+- **无断言测试检测**: unified-write-edit-check.sh CHECK 3.5 检测 JS/TS/Python/Java 无断言测试
+- **Phase 5 串行 CLAUDE.md 检测**: 每个 task dispatch 前检测 CLAUDE.md 变更
+- **上下文使用率监控**: 每阶段完成后输出 `[CTX]` 提示行
+- **Phase 5 worktree 恢复**: recovery-decision.sh 增加 uncommitted_changes 检测
+- **多维度评审报告**: `docs/reports/v5.8/multi-dimension-review-2026-03-25.md`
+
 ## [5.1.60] - 2026-03-25
 
 ### Fixed

@@ -12,7 +12,7 @@ setup_autopilot_fixture
 # 构建真实 git repo 用于 anchor_sha 测试
 ANCHOR_TEST_DIR=$(mktemp -d)
 (
-  cd "$ANCHOR_TEST_DIR"
+  cd "$ANCHOR_TEST_DIR" || exit 1
   git init -q
   git config user.email "test@test.com"
   git config user.name "test"
@@ -81,7 +81,7 @@ assert_not_contains "no lock file → no block" "$output" "block"
 # 重建：只有 scope 内的文件
 SCOPE_TEST_DIR=$(mktemp -d)
 (
-  cd "$SCOPE_TEST_DIR"
+  cd "$SCOPE_TEST_DIR" || exit 1
   git init -q
   git config user.email "test@test.com"
   git config user.name "test"

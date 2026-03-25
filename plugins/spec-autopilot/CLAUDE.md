@@ -96,6 +96,7 @@
 3. **禁止删除测试**: 删除现存 test case 必须在 commit message 中给出书面理由
 4. **禁止跳过测试**: 不得注释或条件跳过已有测试
 5. **禁止硬编码路径**: 所有路径基于 `$TEST_DIR` / `$SCRIPT_DIR` 动态推导
+6. **严禁设置 `core.hooksPath=/dev/null`**: 任何脚本（测试、CI、工具）不得对主仓库执行 `git config core.hooksPath /dev/null`。临时仓库中需要跳过 hook 时使用 `git commit --no-verify`，且必须以 `git -C $TMPDIR` 或 `(cd "$TMPDIR" || exit 1; ...)` 隔离，防止 cd 失败时污染主仓库配置
 
 ### 新功能测试清单
 

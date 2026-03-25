@@ -76,6 +76,17 @@ fi
 
 echo "============================================"
 
+# Fail-closed: verify tests haven't polluted the main repo's core.hooksPath
+REPO_ROOT="$(cd "$TEST_DIR/../../.." && pwd)"
+_HOOKS_PATH=$(git -C "$REPO_ROOT" config --local core.hooksPath 2>/dev/null || echo "")
+if [ "$_HOOKS_PATH" = "/dev/null" ]; then
+  echo ""
+  echo "FATAL: Test suite leaked core.hooksPath=/dev/null into main repo!"
+  echo "  Auto-restoring: core.hooksPath = .githooks"
+  git -C "$REPO_ROOT" config --local core.hooksPath .githooks
+  exit 1
+fi
+
 [ "$TOTAL_FAIL" -gt 0 ] && exit 1
 [ "$RAN" -eq 0 ] && { echo "WARNING: No test files found or matched"; exit 1; }
 exit 0
