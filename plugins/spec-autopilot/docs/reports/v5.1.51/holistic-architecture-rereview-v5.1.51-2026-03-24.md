@@ -1,211 +1,238 @@
-# spec-autopilot v5.1.51 架构问题复审报告
+# spec-autopilot v5.1.51 架构问题二次复审报告
 
 > 复审日期: 2026-03-24
-> 复审对象: `plugins/spec-autopilot/docs/reports/v5.1.51/holistic-architecture-review-v5.1.51.md`
-> 复审基线: `main@498a8e4`
-> 复审方式: 逐项静态核查 + 定向测试 + 全量测试复跑
-> 全量测试结果: `87 files, 909 passed, 0 failed`
+> 原始评审对象: `plugins/spec-autopilot/docs/reports/v5.1.51/holistic-architecture-review-v5.1.51.md`
+> 本次复审范围: 针对 claude 已提交修复后的重新核查
+> 关键修复提交: `9c1afde fix: Codex 评审 4 项问题全量修复 — P0 根目录解析/P1 规则+anchor 闭环/P2 GUI 空状态`
+> 复审方式: 静态代码复核 + 定向测试 + 全量回归
+> 全量测试结果: `87 files, 910 passed, 0 failed`
 
 ---
 
 ## 结论摘要
 
-旧报告列出的 13 个问题中：
+原报告中的 13 个问题，当前结论更新为：
 
-- **已彻底修复**: 9 项
-- **部分修复**: 2 项
-- **仍未彻底修复**: 2 项
+- **已彻底修复**: 11 项
+- **部分修复**: 1 项
+- **仍未彻底修复**: 1 项
 
-总体判断：本轮修复已经把大部分 **P0/P1 一致性和测试可信度问题** 收敛掉，但仍未把 **运行时项目根解析闭环** 和 **规则/GUI 编排态的一等建模** 完整补齐，因此不能判定为“全部问题已经彻底修复”。
+结论上，这次修复已经把上轮残留的 4 项问题中的 3 项推进到可接受状态：
+
+- `P0-2` 已修复
+- `P1-1` 已修复
+- `P2-1` 从未修复提升为部分修复
+- `P1-4` 仍未彻底修复
+
+因此，不能判定为“旧报告所有问题都已彻底关闭”；当前唯一仍然明确未闭环的问题，是 **规则扫描结果没有真正接入运行时 Hook 检测链**。
 
 ---
 
 ## 逐项复核结果
 
-| 编号 | 旧问题 | 复审结论 | 关键证据 |
+| 编号 | 原问题 | 本次结论 | 关键依据 |
 |------|------|------|------|
-| P0-1 | `emit-tool-event.sh` 项目根解析错误导致 tool/agent 关联失真 | 已修复 | `runtime/scripts/emit-tool-event.sh` 先读 stdin `cwd` 再定根；会优先读取 session-scoped marker 注入 `agent_id` |
-| P0-2 | `save-phase-context.sh` / `write-phase-progress.sh` 嵌套 repo 可能写错目录 | **部分修复** | 测试夹具通过 `AUTOPILOT_PROJECT_ROOT` 修复了测试基线，但生产脚本仍只走 `resolve_active_change_dir()` → `resolve_project_root()`，未直接消费 `cwd/session_cwd` |
-| P0-3 | compact `next_phase` 非 mode-aware | 已修复 | `save-state-before-compact.sh` 改为按 mode 构建 phase 序列并从序列求下一个阶段 |
-| P0-4 | GUI 把 `decision_ack` 误判为 gate 已解除 | 已修复 | `GateBlockCard` 仅以同 phase 的后续 `gate_pass` 决定隐藏；`decision_ack` 仅保留 UI 反馈 |
-| P0-5 | TDD 协议、validator、gate 文档不一致 | 已修复 | `protocol.md`、`_post_task_validator.py`、`phase5-implementation.md`、`autopilot-gate/SKILL.md` 已统一到 `total_cycles` 和 mode-aware 阻断语义 |
-| P1-1 | Recovery 只读取 `anchor_sha`，不负责失效时自动重建 | **部分修复** | `autopilot-recovery/SKILL.md` 已补 anchor 重建协议；但 `recovery-decision.sh` 仍是只读扫描，`autopilot-phase7/SKILL.md` 在 archive 路径仍是 anchor 无效即跳过 autosquash |
-| P1-2 | Phase 1 文档对“三路并行”和“先澄清”表述冲突 | 已修复 | `skills/autopilot/SKILL.md` 改为 `flags >= 2` 先澄清，再按复杂度自适应派发 |
-| P1-3 | Phase 6.5 code review 门禁语义不确定 | 已修复 | 文档和测试都已统一为 Advisory Gate，不阻断 Phase 7 |
-| P1-4 | rules / semantic rules / CLAUDE 约束无法形成可证明的运行时硬约束 | **未修复** | `rules-scanner.sh` 仍只做抽取；`_constraint_loader.py` 仍以 `code_constraints` 为主；`semantic_rules` 仍明确写着无法被 Hook 自动检测 |
-| P1-5 | 无法证明本次 task 真实使用了指定 `subagent_type` | 已修复 | `auto-emit-agent-dispatch.sh` / `auto-emit-agent-complete.sh` 已把 `subagent_type` 写入事件 payload，形成最基本审计链 |
-| P2-1 | GUI 中央区过度偏向 task/Phase 5，缺少一等 phase orchestration state | **未修复** | `ParallelKanban.tsx` 仍在无 task/agent 时直接 `return null`；`/api/info` 仍未提供 phase-state / recovery-state 一等视图 |
-| P2-2 | `git_risk_level` 粗糙 | 已修复 | `recovery-decision.sh` 已引入 `medium`，并把 `worktree_residuals` 纳入 auto-continue 判定 |
-| P2-3 | 大量测试仍锚定废弃脚本，主质量信号漂移 | 已修复 | 6 个测试已迁移到 `_post_task_validator.py`；全量测试通过 |
+| P0-1 | `emit-tool-event.sh` 项目根解析错误导致 tool/agent 关联失真 | 已修复 | 旧问题已闭环，本次未见回退；相关聚合与关联测试全绿 |
+| P0-2 | `save-phase-context.sh` / `write-phase-progress.sh` 嵌套 repo 可能写错目录 | **已修复** | 生产调用点已统一显式注入 `AUTOPILOT_PROJECT_ROOT=$(pwd)`；相关脚本测试与公共根解析测试通过 |
+| P0-3 | compact `next_phase` 非 mode-aware | 已修复 | 旧问题已闭环，本次未见回退 |
+| P0-4 | GUI 把 `decision_ack` 误判为 gate 已解除 | 已修复 | 旧问题已闭环，本次未见回退 |
+| P0-5 | TDD 协议、validator、gate 文档不一致 | 已修复 | 旧问题已闭环，本次未见回退 |
+| P1-1 | Recovery 只读取 `anchor_sha`，不负责失效时自动重建 | **已修复** | 新增 `rebuild-anchor.sh`，`recovery-decision.sh` 输出 `anchor_needs_rebuild`，recovery 与 Phase 7 都已接入重建路径 |
+| P1-2 | Phase 1 文档对“三路并行”和“先澄清”表述冲突 | 已修复 | 旧问题已闭环，本次未见回退 |
+| P1-3 | Phase 6.5 code review 门禁语义不确定 | 已修复 | 旧问题已闭环，本次未见回退 |
+| P1-4 | rules / semantic rules / CLAUDE 约束无法形成可证明的运行时硬约束 | **未修复** | `_constraint_loader.py` 虽新增 scanner 合并能力，但实际 Hook 入口仍只调用 `load_constraints()` |
+| P1-5 | 无法证明本次 task 真实使用了指定 `subagent_type` | 已修复 | 旧问题已闭环，本次未见回退 |
+| P2-1 | GUI 中央区过度偏向 task/Phase 5，缺少一等 phase orchestration state | **部分修复** | 无 task/agent 时已展示 phase overview，`/api/info` 补了 `mode/currentPhase`；但仍缺一等 `phase-state/recovery-state` 建模 |
+| P2-2 | `git_risk_level` 粗糙 | 已修复 | 旧问题已闭环，本次未见回退 |
+| P2-3 | 大量测试仍锚定废弃脚本，主质量信号漂移 | 已修复 | 全量回归 `87 files, 910 passed, 0 failed`，相关迁移未回退 |
 
 ---
 
-## 重点问题说明
+## 上轮遗留 4 项的逐项复核
 
-### 1. P0-2 仅修到了测试层，没有完全修到生产层
+### P0-2 已修复
 
-当前 `save-phase-context.sh` 和 `write-phase-progress.sh` 依旧通过：
+这项问题没有通过修改 `runtime/scripts/_common.sh` 的根解析逻辑来修，而是通过**补齐所有实际生产调用点**来修。
 
-`resolve_active_change_dir()` → `resolve_changes_dir()` → `resolve_project_root()`
+当前主线程里对 `write-phase-progress.sh` 和 `save-phase-context.sh` 的调用，已经统一显式注入：
 
-而 `resolve_project_root()` 仍然只支持：
+```bash
+AUTOPILOT_PROJECT_ROOT=$(pwd)
+```
 
-1. `AUTOPILOT_PROJECT_ROOT`
-2. `git rev-parse --show-toplevel`
-3. `pwd`
+关键证据：
 
-也就是说，这次变更真正落地的是 **测试夹具导出 `AUTOPILOT_PROJECT_ROOT`**，不是让生产调用链天然拿到 `session_cwd`。如果主线程未来在非目标 repo 根目录下调用这两个脚本，这个问题仍可能复现。
+- `skills/autopilot/SKILL.md:127`
+- `skills/autopilot/SKILL.md:167`
+- `skills/autopilot/SKILL.md:213`
+- `skills/autopilot/SKILL.md:232`
+- `skills/autopilot/SKILL.md:244`
+- `skills/autopilot/SKILL.md:281`
+- `skills/autopilot-phase7/SKILL.md:29`
+- `skills/autopilot-phase7/SKILL.md:102`
+- `skills/autopilot-phase7/SKILL.md:122`
+
+同时，底层公共函数依然保持 env var 优先：
+
+- `runtime/scripts/_common.sh:40`
+- `runtime/scripts/_common.sh:54`
+
+测试侧也补了同样的根路径约束，验证不再依赖外层仓库：
+
+- `tests/_fixtures.sh:17`
+- `tests/test_common_unit.sh:339`
+- `tests/test_common_unit.sh:367`
+- `tests/test_common_unit.sh:399`
+
+定向测试通过：
+
+- `test_common_unit`
+- `test_phase_context_snapshot`
+- `test_phase_progress`
+
+判断：这项旧问题在**真实编排调用链**上已经闭环，当前可判定为已修复。残留的只是脚本抽象层仍依赖 env 注入，不再属于原缺陷未修。
+
+### P1-1 已修复
+
+这项本次确实补全了恢复与归档两条链路。
+
+新增确定性脚本：
+
+- `runtime/scripts/rebuild-anchor.sh`
+
+恢复扫描现在会显式告诉上层是否需要重建 anchor：
+
+- `runtime/scripts/recovery-decision.sh:434`
+
+恢复 Skill 已把这个信号接入执行协议：
+
+- `skills/autopilot-recovery/SKILL.md:196`
+- `skills/autopilot-recovery/SKILL.md:198`
+- `skills/autopilot-recovery/SKILL.md:204`
+- `skills/autopilot-recovery/SKILL.md:209`
+
+Phase 7 归档路径也不再是“anchor 无效直接跳过 autosquash”，而是先尝试重建：
+
+- `skills/autopilot-phase7/SKILL.md:121`
+- `skills/autopilot-phase7/SKILL.md:125`
+- `skills/autopilot-phase7/SKILL.md:126`
+- `skills/autopilot-phase7/SKILL.md:128`
+
+定向测试通过：
+
+- `test_recovery_decision`
+- `test_recovery_auto_continue`
+- `test_phase7_archive`
+
+判断：相较上次“恢复协议写了，但 archive 仍未真正闭环”的状态，这次已经补上 recovery + archive 双路径，故应提升为已修复。
+
+### P1-4 仍未修复
+
+这次提交里，`_constraint_loader.py` 的确新增了两块关键能力：
+
+- `load_scanner_constraints(root)`
+- `merge_constraints(base, scanner)`
 
 证据：
 
-- `runtime/scripts/save-phase-context.sh`
-- `runtime/scripts/write-phase-progress.sh`
-- `runtime/scripts/_common.sh`
-- `tests/_fixtures.sh`
+- `runtime/scripts/_constraint_loader.py:131`
+- `runtime/scripts/_constraint_loader.py:211`
 
-### 2. P1-4 规约“可注入”，但仍非“可证明执行”
+并且 `check_file_violations()` 也新增了：
 
-当前系统仍然没有把以下信息固化成运行时可审计证据：
+- `required_patterns`
+- `naming_patterns`
 
-- 规则注入哈希
-- 规则来源优先级解析结果
-- semantic rules 的实际命中/校验结果
+但是，真正的运行时入口仍然没有调用这些新能力。
 
-`autopilot-dispatch/SKILL.md` 仍明确写着 semantic rules 无法被 Hook 自动检测，因此这条旧问题本质上还在。
+实际 Hook 链现状：
+
+- `runtime/scripts/write-edit-constraint-check.sh:138` 仍是 `constraints = _cl.load_constraints(root)`
+- `runtime/scripts/unified-write-edit-check.sh:323` 仍是 `constraints = _cl.load_constraints(root)`
+- `runtime/scripts/_post_task_validator.py:440` 仍是 `constraints = _cl.load_constraints(root)`
+
+也就是说：
+
+- scanner 可以扫出规则
+- loader 可以合并规则
+- violation checker 也能校验 required/naming
+- 但生产 Hook 从头到尾没有真正把 scanner 结果 merge 进去
+
+结果就是，`required_patterns` / `naming_patterns` 仍未形成可证明执行的 L2 硬约束。这一点与 `skills/autopilot-dispatch/SKILL.md` 中“已合并进 L2 Hook”的描述不一致。
+
+判断：这是当前唯一仍然明确未闭环的问题，维持“未修复”结论。
+
+### P2-1 部分修复
+
+这项相比上次已有明显改进。
+
+此前 `ParallelKanban` 在没有 task/agent 时直接空白；现在会退化为 phase 编排总览：
+
+- `gui/src/components/ParallelKanban.tsx:81`
+- `gui/src/components/ParallelKanban.tsx:345`
+
+新增的 `PhasePipelineOverview` 已能展示：
+
+- 当前模式 `mode`
+- 当前阶段 `currentPhase`
+- phase duration / status
+- gate 通过与阻断统计
+
+同时 `/api/info` 也新增：
+
+- `mode`
+- `currentPhase`
 
 证据：
 
-- `runtime/scripts/rules-scanner.sh`
-- `runtime/scripts/_constraint_loader.py`
-- `skills/autopilot-dispatch/SKILL.md`
+- `runtime/server/src/api/routes.ts:57`
+- `runtime/server/src/api/routes.ts:79`
+- `runtime/server/src/api/routes.ts:80`
 
-### 3. P2-1 GUI 仍不是单一编排态驱动
+但这项还不能算彻底修复，原因也很清楚：
 
-虽然 `decision_ack` 误隐藏卡片的问题已经修掉，但 GUI 主区仍然主要由 task/agent 事件驱动：
+- `currentPhase` 仍是从事件流反推出来的，不是一等 phase-state 模型
+- API 仍没有 `recovery-state`、`phase-state`、`orchestration-state` 这类明确状态对象
+- GUI 的 phase overview 仍然是事件派生视图，不是单一真相源
 
-- 无 task/agent 时 `ParallelKanban` 直接返回 `null`
-- `/api/info` 仍只暴露 session/change/telemetry 粗粒度信息
-- 没有单独的 `phase-state` / `recovery-state` API
-
-因此这项旧问题不能算“彻底修复”。
-
-证据：
-
-- `gui/src/components/ParallelKanban.tsx`
-- `runtime/server/src/api/routes.ts`
-
-### 4. P1-1 已补恢复协议，但 archive 异常路径仍未闭环
-
-恢复 skill 现在确实定义了 anchor 无效时自动重建，这解决了旧报告指出的“恢复阶段只读不自修复”主问题。
-
-但当前 archive 路径仍是：
-
-- Phase 7 读取 `anchor_sha`
-- 无效则跳过 autosquash 并警告
-
-因此这项应评为“部分修复”，而不是“完全闭环”。
-
-证据：
-
-- `skills/autopilot-recovery/SKILL.md`
-- `skills/autopilot-phase7/SKILL.md`
-- `runtime/scripts/recovery-decision.sh`
+判断：应从“未修复”提升为“部分修复”，但不能升到“已修复”。
 
 ---
 
-## 已验证的修复项
+## 运行结果与测试记录
 
-以下旧问题我认为已经可以判定为“修复完成”：
+本次实际执行的关键测试：
 
-### P0-1
-
-- `emit-tool-event.sh` 已在解析项目根前读取 stdin 中的 `cwd`
-- 同时优先读取 session-scoped `.active-agent-id`
-- `tests/test_agent_correlation.sh` 通过
-
-### P0-3
-
-- compact state 保存已改为 mode-aware phase 扫描
-- `next_phase` 不再写死 `last_completed + 1`
-- `tests/integration/test_e2e_checkpoint_recovery.sh` 和 `tests/test_save_state_phase7.sh` 通过
-
-### P0-4
-
-- `GateBlockCard` 不再由 `decision_ack` 控制显隐
-- `App.tsx` 的 ACK 状态更新合并为单次原子更新
-
-### P0-5
-
-- `tdd_metrics.total_cycles` 与协议统一
-- `tdd_unverified` / `audit_passed` 语义已对齐为 full 硬阻断、lite/minimal 降级 warning
-- `tests/test_json_envelope.sh`、`tests/test_post_task_validator.sh`、`tests/test_phase4_missing_fields.sh` 通过
-
-### P1-2
-
-- Phase 1 主流程已从“默认三路并行”改为“先 lint/澄清，再按复杂度决定 1/2/3 路”
-- `tests/test_phase1_clarification.sh` 通过
-
-### P1-3
-
-- 当前语义已统一为：Phase 6.5 是 Advisory Gate，不阻断 Phase 7
-- 文档、实现、测试一致
-- `tests/test_phase7_predecessor.sh` 通过
-
-### P1-5
-
-- 事件中已有 `subagent_type`
-- 对“本次 task 请求了什么 agent 类型”已形成基本证据链
-
-### P2-2
-
-- `git_risk_level` 已从 `none/low/high` 提升为包含 `medium`
-- `worktree_residuals` 已纳入 `auto_continue_eligible`
-- `tests/test_recovery_auto_continue.sh`、`tests/test_recovery_decision.sh` 通过
-
-### P2-3
-
-- 旧的废弃脚本测试已迁移到当前统一 validator
-- 全量测试已恢复为全绿
-
----
-
-## 测试记录
-
-本次复审实际执行并确认通过：
-
+- `bash plugins/spec-autopilot/tests/run_all.sh test_recovery_decision test_recovery_auto_continue test_phase_context_snapshot test_phase_progress test_phase7_archive test_phase7_predecessor test_common_unit`
 - `bash plugins/spec-autopilot/tests/run_all.sh`
 
 结果：
 
 ```text
-Test Summary: 87 files, 909 passed, 0 failed
+Test Summary: 87 files, 910 passed, 0 failed
 ```
 
-此外还单独复跑了与旧报告直接相关的定向测试，包括：
+这说明本次修复至少满足两点：
 
-- `test_agent_correlation`
-- `test_phase_context_snapshot`
-- `test_phase_progress`
-- `test_recovery_decision`
-- `test_recovery_auto_continue`
-- `test_phase7_predecessor`
-- `test_json_envelope`
-- `test_anti_rationalization`
-- `test_change_coverage`
-- `test_phase4_missing_fields`
-- `test_phase6_allure`
-- `test_pyramid_threshold`
-- `integration/test_e2e_checkpoint_recovery`
+- 新补的 recovery / anchor / 根路径 / GUI 空状态没有引入回归
+- 旧有主链路能力仍保持可通过状态
+
+但测试全绿并不能推翻 `P1-4` 的静态事实，因为目前测试覆盖的是“已有 Hook 行为”，而不是“scanner 规则是否真被生产 Hook 合并执行”。
 
 ---
 
 ## 最终结论
 
-如果标准是“相较旧报告，主要 P0/P1 缺陷是否已经明显收敛”，答案是 **是**。
+本次二次复审后，原报告的结论应更新为：
 
-如果标准是“旧报告中的所有问题是否已经全部彻底修复”，答案是 **否**。
+- **11 项已彻底修复**
+- **1 项部分修复**
+- **1 项未彻底修复**
 
-当前仍建议继续补两类收尾工作：
+唯一仍需继续修复的问题是：
 
-1. 让 `save-phase-context.sh` / `write-phase-progress.sh` 在生产路径中直接拿到 `session_cwd` 或等价根路径，而不是依赖测试注入的 `AUTOPILOT_PROJECT_ROOT`
-2. 为 GUI 和规则系统补真正的一等编排态与规约证明链，而不是继续依赖事件推断和 prompt 约定
+1. `P1-4`: 把 `load_scanner_constraints()` / `merge_constraints()` 真正接入 `write-edit-constraint-check.sh`、`unified-write-edit-check.sh`、`_post_task_validator.py` 的生产调用链，并补对应用例，证明 `required_patterns` / `naming_patterns` 已实际阻断。
+
+如果按“claude 是否已经把上次残留的大部分问题修完”来判断，答案是 **是**。
+
+如果按“原 13 个问题是否已全部彻底关闭”来判断，答案仍然是 **否**。
