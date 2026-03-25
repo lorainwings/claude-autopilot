@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.57] - 2026-03-25
+
+### Fixed
+
+- **shfmt 格式修复**: `scan-checkpoints-on-start.sh` `<<<` 前移除多余空格
+
 ## [5.1.56] - 2026-03-25
 
 ### Fixed
