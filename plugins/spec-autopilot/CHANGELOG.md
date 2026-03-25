@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.58] - 2026-03-25
+
+### Fixed
+
+- **ruff format**: `_phase_graph.py` 引号风格统一为双引号
+
 ## [5.1.57] - 2026-03-25
 
 ### Fixed

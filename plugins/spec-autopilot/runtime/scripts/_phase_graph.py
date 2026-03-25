@@ -26,64 +26,66 @@ import glob
 # ── Phase 序列定义 ──────────────────────────────────────────
 
 PHASE_SEQUENCES = {
-    'full':    [1, 2, 3, 4, 5, 6, 7],
-    'lite':    [1, 5, 6, 7],
-    'minimal': [1, 5, 7],
+    "full": [1, 2, 3, 4, 5, 6, 7],
+    "lite": [1, 5, 6, 7],
+    "minimal": [1, 5, 7],
 }
 
 PHASE_LABELS = {
-    0: 'Environment Setup',
-    1: 'Requirements',
-    2: 'OpenSpec',
-    3: 'Fast-Forward',
-    4: 'Test Design',
-    5: 'Implementation',
-    6: 'Test Report',
-    7: 'Archive',
+    0: "Environment Setup",
+    1: "Requirements",
+    2: "OpenSpec",
+    3: "Fast-Forward",
+    4: "Test Design",
+    5: "Implementation",
+    6: "Test Report",
+    7: "Archive",
 }
 
 
 def get_phase_sequence(mode: str) -> list:
     """返回 mode-aware phase 序列"""
-    return list(PHASE_SEQUENCES.get(mode, PHASE_SEQUENCES['full']))
+    return list(PHASE_SEQUENCES.get(mode, PHASE_SEQUENCES["full"]))
 
 
 def _find_best_checkpoint(phase_results_dir: str, phase_num: int) -> dict | None:
     """查找指定 phase 的最佳 checkpoint 文件，返回 {file, status, data} 或 None。
     排除 .tmp / -progress.json / -interim.json。"""
-    pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
+    pattern = os.path.join(phase_results_dir, f"phase-{phase_num}-*.json")
     files = sorted(glob.glob(pattern), key=lambda f: os.path.getmtime(f), reverse=True)
-    files = [f for f in files if not f.endswith('.tmp')
-             and not f.endswith('-progress.json')
-             and not f.endswith('-interim.json')]
+    files = [
+        f
+        for f in files
+        if not f.endswith(".tmp") and not f.endswith("-progress.json") and not f.endswith("-interim.json")
+    ]
     if not files:
         return None
     try:
         with open(files[0]) as fh:
             data = json.load(fh)
         return {
-            'file': os.path.basename(files[0]),
-            'status': data.get('status', 'unknown'),
-            'data': data,
+            "file": os.path.basename(files[0]),
+            "status": data.get("status", "unknown"),
+            "data": data,
         }
     except (json.JSONDecodeError, OSError):
-        return {'file': os.path.basename(files[0]), 'status': 'error', 'data': None}
+        return {"file": os.path.basename(files[0]), "status": "error", "data": None}
 
 
-def scan_checkpoints(phase_results_dir: str, mode: str = 'full') -> list:
+def scan_checkpoints(phase_results_dir: str, mode: str = "full") -> list:
     """扫描 checkpoints，返回 [{phase, file, status}]（所有 phase，含 missing）"""
     phases = get_phase_sequence(mode)
     results = []
     for p in phases:
         cp = _find_best_checkpoint(phase_results_dir, p)
         if cp:
-            results.append({'phase': p, 'file': cp['file'], 'status': cp['status']})
+            results.append({"phase": p, "file": cp["file"], "status": cp["status"]})
         else:
-            results.append({'phase': p, 'file': None, 'status': 'missing'})
+            results.append({"phase": p, "file": None, "status": "missing"})
     return results
 
 
-def get_last_valid_phase(phase_results_dir: str, mode: str = 'full') -> int:
+def get_last_valid_phase(phase_results_dir: str, mode: str = "full") -> int:
     """返回最后一个连续有效 phase（停于第一个 gap）。
 
     语义：从 phase 序列第一个开始，遇到非 ok/warning 的 phase 立即 break。
@@ -93,7 +95,7 @@ def get_last_valid_phase(phase_results_dir: str, mode: str = 'full') -> int:
     last_valid = 0
     for p in phases:
         cp = _find_best_checkpoint(phase_results_dir, p)
-        if cp and cp['status'] in ('ok', 'warning'):
+        if cp and cp["status"] in ("ok", "warning"):
             last_valid = p
         else:
             if last_valid > 0:
@@ -104,7 +106,7 @@ def get_last_valid_phase(phase_results_dir: str, mode: str = 'full') -> int:
     return last_valid
 
 
-def get_next_phase(last_valid: int, mode: str = 'full') -> int | None:
+def get_next_phase(last_valid: int, mode: str = "full") -> int | None:
     """返回 last_valid 之后的下一个 phase（基于 mode-aware graph），或 None 表示全部完成"""
     phases = get_phase_sequence(mode)
     if last_valid == 0:
@@ -118,14 +120,14 @@ def get_next_phase(last_valid: int, mode: str = 'full') -> int | None:
     return None  # all done
 
 
-def get_gap_phases(phase_results_dir: str, mode: str = 'full') -> list:
+def get_gap_phases(phase_results_dir: str, mode: str = "full") -> list:
     """返回第一个有效 phase 之后的所有 gap phase（missing/failed/error）"""
     phases = get_phase_sequence(mode)
     gaps = []
     first_valid_seen = False
     for p in phases:
         cp = _find_best_checkpoint(phase_results_dir, p)
-        if cp and cp['status'] in ('ok', 'warning'):
+        if cp and cp["status"] in ("ok", "warning"):
             if not first_valid_seen:
                 first_valid_seen = True
             # 有效 phase 出现在 gap 之后：不推进 last_valid，但也不再加 gap
@@ -135,17 +137,18 @@ def get_gap_phases(phase_results_dir: str, mode: str = 'full') -> list:
     return gaps
 
 
-def first_incomplete_phase(phase_results_dir: str, mode: str = 'full') -> int | None:
+def first_incomplete_phase(phase_results_dir: str, mode: str = "full") -> int | None:
     """返回第一个非 ok/warning 的 phase（恢复起点）。所有完成时返回 None。"""
     phases = get_phase_sequence(mode)
     for p in phases:
         cp = _find_best_checkpoint(phase_results_dir, p)
-        if not cp or cp['status'] not in ('ok', 'warning'):
+        if not cp or cp["status"] not in ("ok", "warning"):
             return p
     return None  # all done
 
 
 # ── CLI 入口 ─────────────────────────────────────────────────
+
 
 def _cli():
     if len(sys.argv) < 2:
@@ -154,38 +157,38 @@ def _cli():
 
     cmd = sys.argv[1]
 
-    if cmd == 'get_phase_sequence':
-        mode = sys.argv[2] if len(sys.argv) > 2 else 'full'
+    if cmd == "get_phase_sequence":
+        mode = sys.argv[2] if len(sys.argv) > 2 else "full"
         print(json.dumps(get_phase_sequence(mode)))
 
-    elif cmd == 'get_last_valid':
+    elif cmd == "get_last_valid":
         phase_results_dir = sys.argv[2]
-        mode = sys.argv[3] if len(sys.argv) > 3 else 'full'
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         print(get_last_valid_phase(phase_results_dir, mode))
 
-    elif cmd == 'get_next_phase':
+    elif cmd == "get_next_phase":
         last_valid = int(sys.argv[2])
-        mode = sys.argv[3] if len(sys.argv) > 3 else 'full'
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         result = get_next_phase(last_valid, mode)
-        print(result if result is not None else 'done')
+        print(result if result is not None else "done")
 
-    elif cmd == 'get_gap_phases':
+    elif cmd == "get_gap_phases":
         phase_results_dir = sys.argv[2]
-        mode = sys.argv[3] if len(sys.argv) > 3 else 'full'
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         print(json.dumps(get_gap_phases(phase_results_dir, mode)))
 
-    elif cmd == 'scan_checkpoints':
+    elif cmd == "scan_checkpoints":
         phase_results_dir = sys.argv[2]
-        mode = sys.argv[3] if len(sys.argv) > 3 else 'full'
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         print(json.dumps(scan_checkpoints(phase_results_dir, mode)))
 
-    elif cmd == 'first_incomplete':
+    elif cmd == "first_incomplete":
         phase_results_dir = sys.argv[2]
-        mode = sys.argv[3] if len(sys.argv) > 3 else 'full'
+        mode = sys.argv[3] if len(sys.argv) > 3 else "full"
         result = first_incomplete_phase(phase_results_dir, mode)
-        print(result if result is not None else 'done')
+        print(result if result is not None else "done")
 
-    elif cmd == '--test':
+    elif cmd == "--test":
         _run_self_tests()
 
     else:
@@ -196,6 +199,7 @@ def _cli():
 def _run_self_tests():
     """内置自测"""
     import tempfile
+
     passed = 0
     failed = 0
 
@@ -209,77 +213,69 @@ def _run_self_tests():
             print(f"  FAIL: {label}: expected {expected!r}, got {actual!r}")
 
     # Test 1: phase sequences
-    assert_eq("full sequence", get_phase_sequence('full'), [1, 2, 3, 4, 5, 6, 7])
-    assert_eq("lite sequence", get_phase_sequence('lite'), [1, 5, 6, 7])
-    assert_eq("minimal sequence", get_phase_sequence('minimal'), [1, 5, 7])
-    assert_eq("unknown defaults to full", get_phase_sequence('unknown'), [1, 2, 3, 4, 5, 6, 7])
+    assert_eq("full sequence", get_phase_sequence("full"), [1, 2, 3, 4, 5, 6, 7])
+    assert_eq("lite sequence", get_phase_sequence("lite"), [1, 5, 6, 7])
+    assert_eq("minimal sequence", get_phase_sequence("minimal"), [1, 5, 7])
+    assert_eq("unknown defaults to full", get_phase_sequence("unknown"), [1, 2, 3, 4, 5, 6, 7])
 
     # Test 2: gap-aware last_valid
     with tempfile.TemporaryDirectory() as tmpdir:
         # P1=ok, P2=ok, P3=missing → last_valid=2
-        for p, st in [(1, 'ok'), (2, 'ok')]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': st, 'summary': 'test'}, f)
-        assert_eq("gap-aware: P1=ok P2=ok P3=missing → last_valid=2",
-                   get_last_valid_phase(tmpdir, 'full'), 2)
+        for p, st in [(1, "ok"), (2, "ok")]:
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": st, "summary": "test"}, f)
+        assert_eq("gap-aware: P1=ok P2=ok P3=missing → last_valid=2", get_last_valid_phase(tmpdir, "full"), 2)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # P1=ok, P2=failed, P3=ok → last_valid=1 (stops at gap)
-        for p, st in [(1, 'ok'), (2, 'failed'), (3, 'ok')]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': st, 'summary': 'test'}, f)
-        assert_eq("gap-aware: P1=ok P2=failed P3=ok → last_valid=1",
-                   get_last_valid_phase(tmpdir, 'full'), 1)
+        for p, st in [(1, "ok"), (2, "failed"), (3, "ok")]:
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": st, "summary": "test"}, f)
+        assert_eq("gap-aware: P1=ok P2=failed P3=ok → last_valid=1", get_last_valid_phase(tmpdir, "full"), 1)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # all missing → last_valid=0
-        assert_eq("all missing → last_valid=0",
-                   get_last_valid_phase(tmpdir, 'full'), 0)
+        assert_eq("all missing → last_valid=0", get_last_valid_phase(tmpdir, "full"), 0)
 
     # Test 3: next_phase
-    assert_eq("next after 2 (full) → 3", get_next_phase(2, 'full'), 3)
-    assert_eq("next after 7 (full) → None", get_next_phase(7, 'full'), None)
-    assert_eq("next after 0 (full) → 1", get_next_phase(0, 'full'), 1)
-    assert_eq("next after 1 (lite) → 5", get_next_phase(1, 'lite'), 5)
-    assert_eq("next after 5 (minimal) → 7", get_next_phase(5, 'minimal'), 7)
+    assert_eq("next after 2 (full) → 3", get_next_phase(2, "full"), 3)
+    assert_eq("next after 7 (full) → None", get_next_phase(7, "full"), None)
+    assert_eq("next after 0 (full) → 1", get_next_phase(0, "full"), 1)
+    assert_eq("next after 1 (lite) → 5", get_next_phase(1, "lite"), 5)
+    assert_eq("next after 5 (minimal) → 7", get_next_phase(5, "minimal"), 7)
 
     # Test 4: gap_phases
     with tempfile.TemporaryDirectory() as tmpdir:
-        for p, st in [(1, 'ok'), (2, 'ok'), (4, 'ok')]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': st, 'summary': 'test'}, f)
-        gaps = get_gap_phases(tmpdir, 'full')
-        assert_eq("gap_phases: P1=ok P2=ok P3=missing P4=ok P5-P7=missing → gaps=[3,5,6,7]",
-                   gaps, [3, 5, 6, 7])
+        for p, st in [(1, "ok"), (2, "ok"), (4, "ok")]:
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": st, "summary": "test"}, f)
+        gaps = get_gap_phases(tmpdir, "full")
+        assert_eq("gap_phases: P1=ok P2=ok P3=missing P4=ok P5-P7=missing → gaps=[3,5,6,7]", gaps, [3, 5, 6, 7])
 
     # Test 5: first_incomplete
     with tempfile.TemporaryDirectory() as tmpdir:
-        for p, st in [(1, 'ok'), (2, 'ok')]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': st, 'summary': 'test'}, f)
-        assert_eq("first_incomplete: P1=ok P2=ok → 3",
-                   first_incomplete_phase(tmpdir, 'full'), 3)
+        for p, st in [(1, "ok"), (2, "ok")]:
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": st, "summary": "test"}, f)
+        assert_eq("first_incomplete: P1=ok P2=ok → 3", first_incomplete_phase(tmpdir, "full"), 3)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         for p in [1, 2, 3, 4, 5, 6, 7]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': 'ok', 'summary': 'test'}, f)
-        assert_eq("first_incomplete: all ok → None",
-                   first_incomplete_phase(tmpdir, 'full'), None)
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": "ok", "summary": "test"}, f)
+        assert_eq("first_incomplete: all ok → None", first_incomplete_phase(tmpdir, "full"), None)
 
     # Test 6: mode-aware — lite mode skips P2-P4
     with tempfile.TemporaryDirectory() as tmpdir:
-        for p, st in [(1, 'ok'), (5, 'ok')]:
-            with open(os.path.join(tmpdir, f'phase-{p}-test.json'), 'w') as f:
-                json.dump({'status': st, 'summary': 'test'}, f)
-        assert_eq("lite: P1=ok P5=ok → last_valid=5",
-                   get_last_valid_phase(tmpdir, 'lite'), 5)
-        assert_eq("lite: P1=ok P5=ok → next=6",
-                   get_next_phase(5, 'lite'), 6)
+        for p, st in [(1, "ok"), (5, "ok")]:
+            with open(os.path.join(tmpdir, f"phase-{p}-test.json"), "w") as f:
+                json.dump({"status": st, "summary": "test"}, f)
+        assert_eq("lite: P1=ok P5=ok → last_valid=5", get_last_valid_phase(tmpdir, "lite"), 5)
+        assert_eq("lite: P1=ok P5=ok → next=6", get_next_phase(5, "lite"), 6)
 
     print(f"\n结果: {passed} passed, {failed} failed")
     sys.exit(1 if failed > 0 else 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _cli()
