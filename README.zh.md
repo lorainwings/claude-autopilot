@@ -4,7 +4,8 @@
 
 > Claude Code 插件市场 — 规范驱动的全自动交付流水线编排 + 并行 AI 工程控制面。
 
-[![Plugin Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml)
+[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
+[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 插件列表
@@ -164,7 +165,8 @@ claude-autopilot/
 ├── .claude-plugin/          # 市场配置
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   └── test.yml
+│   ├── test-spec-autopilot.yml
+│   └── test-parallel-harness.yml
 ├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # 构建产出（用于市场安装）
 │   ├── spec-autopilot/

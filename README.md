@@ -4,7 +4,8 @@
 
 > A Claude Code plugin marketplace — spec-driven autopilot orchestration and parallel AI engineering control-plane.
 
-[![Plugin Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test.yml)
+[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
+[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Plugins
@@ -164,7 +165,8 @@ claude-autopilot/
 ├── .claude-plugin/          # Marketplace configuration
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   └── test.yml
+│   ├── test-spec-autopilot.yml
+│   └── test-parallel-harness.yml
 ├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # Built plugins (for marketplace install)
 │   ├── spec-autopilot/
