@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.60] - 2026-03-25
+
+### Fixed
+
+- **release-discipline CI 死循环修复**: `check-release-discipline.sh` 新增 metadata-only 检测——仅版本元数据文件（plugin.json/package.json/CHANGELOG.md/README.md）变动时跳过纪律检查，避免版本同步提交触发循环报错
+
 ## [5.1.59] - 2026-03-25
 
 ### Fixed

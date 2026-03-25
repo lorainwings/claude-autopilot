@@ -79,6 +79,16 @@ check_plugin() {
   README_MD="$PLUGIN_ROOT/README.md"
   CHANGELOG_MD="$PLUGIN_ROOT/CHANGELOG.md"
 
+  # Metadata-only check: if ALL changed files are version/release metadata,
+  # this is a version-sync commit and should not require CHANGELOG + bump again.
+  # Metadata files: CHANGELOG.md, plugin.json, package.json, README.md, .claude-plugin/plugin.json
+  local SUBSTANTIVE_FILES
+  SUBSTANTIVE_FILES=$(echo "$CHANGED_FILES" | grep -v -E "^(${CHANGELOG_MD}|${PLUGIN_JSON}|${PLUGIN_ROOT}/\.claude-plugin/plugin\.json|${PLUGIN_ROOT}/package\.json|${README_MD}|\.claude-plugin/marketplace\.json)$" || true)
+  if [ -z "$SUBSTANTIVE_FILES" ]; then
+    echo "✅ $PLUGIN_ROOT changes are metadata-only (version sync) — skipping discipline check"
+    return 0
+  fi
+
   # CHANGELOG check — parallel-harness may use README.zh.md or commit history instead
   if [ -f "$CHANGELOG_MD" ]; then
     if ! echo "$CHANGED_FILES" | grep -qx "$CHANGELOG_MD"; then

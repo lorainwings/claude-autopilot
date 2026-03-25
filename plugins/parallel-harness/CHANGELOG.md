@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 - 中文产品概览文档 (product-overview.zh.md)
 
+### Fixed
+- package.json 版本与 plugin.json 同步到 1.0.4
+
 ## [1.0.3] - 2026-03-24
 
 ### Added
