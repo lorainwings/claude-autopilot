@@ -3,9 +3,10 @@
 # CI guard for release metadata discipline when plugin files change.
 #
 # Usage:
-#   bash scripts/check-release-discipline.sh <base_ref> <head_ref>
+#   bash scripts/check-release-discipline.sh <base_ref> <head_ref> [plugin_filter]
 #
-# Checks both spec-autopilot and parallel-harness.
+# plugin_filter: spec-autopilot | parallel-harness | all (default)
+# Checks the specified plugin(s).
 # Fails when:
 #   1. files under plugins/<plugin>/ changed but CHANGELOG / CHANGELOG-equivalent did not
 #   2. files under plugins/<plugin>/ changed but plugin version did not bump
@@ -15,6 +16,7 @@ set -euo pipefail
 
 BASE_REF="${1:-}"
 HEAD_REF="${2:-HEAD}"
+PLUGIN_FILTER="${3:-all}"
 
 if [ -z "$BASE_REF" ]; then
   echo "❌ Usage: $0 <base_ref> <head_ref>"
@@ -199,8 +201,12 @@ check_plugin() {
   echo "✅ $PLUGIN_ROOT release discipline OK: $BASE_VERSION -> $HEAD_VERSION"
 }
 
-check_plugin "plugins/spec-autopilot"  "spec-autopilot"  "plugin_json"
-check_plugin "plugins/parallel-harness" "parallel-harness" "package_json"
+if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "spec-autopilot" ]; then
+  check_plugin "plugins/spec-autopilot" "spec-autopilot" "plugin_json"
+fi
+if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "parallel-harness" ]; then
+  check_plugin "plugins/parallel-harness" "parallel-harness" "package_json"
+fi
 
 if [ "$OVERALL_FAIL" -eq 1 ]; then
   exit 1

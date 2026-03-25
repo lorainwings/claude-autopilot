@@ -1,18 +1,18 @@
-name: Plugin Tests
+name: spec-autopilot Tests
 
 on:
   push:
     branches: [main]
     paths:
-      - 'plugins/**'
-      - '.github/workflows/**'
+      - 'plugins/spec-autopilot/**'
+      - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
   pull_request:
     branches: [main]
     paths:
-      - 'plugins/**'
-      - '.github/workflows/**'
+      - 'plugins/spec-autopilot/**'
+      - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
 
@@ -46,8 +46,8 @@ jobs:
             fi
           fi
 
-      - name: Check release discipline (both plugins)
-        run: bash scripts/check-release-discipline.sh ${{ steps.base.outputs.ref }} ${{ github.sha }}
+      - name: Check release discipline (spec-autopilot)
+        run: bash scripts/check-release-discipline.sh ${{ steps.base.outputs.ref }} ${{ github.sha }} spec-autopilot
 
   # ── spec-autopilot ────────────────────────────────────────────────
 
@@ -120,94 +120,3 @@ jobs:
 
       - name: Build dist
         run: make build
-
-  # ── parallel-harness ──────────────────────────────────────────────
-
-  ph-typecheck:
-    name: parallel-harness / TypeScript Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: cd plugins/parallel-harness && bun install --frozen-lockfile
-
-      - name: Run typecheck
-        run: make ph-typecheck
-
-  ph-test:
-    name: parallel-harness / Unit & Integration Tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: cd plugins/parallel-harness && bun install --frozen-lockfile
-
-      - name: Run tests
-        run: make ph-test
-
-  ph-lint:
-    name: parallel-harness / Lint (shellcheck)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
-
-      - name: Run shellcheck
-        run: make ph-lint
-
-  ph-build:
-    name: parallel-harness / Build dist
-    runs-on: ubuntu-latest
-    needs: [ph-typecheck, ph-test, ph-lint]
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: cd plugins/parallel-harness && bun install --frozen-lockfile
-
-      - name: Build dist
-        run: make ph-build
-
-      - name: Verify dist structure
-        run: |
-          test -d dist/parallel-harness/.claude-plugin
-          test -f dist/parallel-harness/.claude-plugin/plugin.json
-          test -d dist/parallel-harness/runtime
-          test -d dist/parallel-harness/skills
-          test -d dist/parallel-harness/config
-          test -f dist/parallel-harness/CLAUDE.md
-          echo "dist/parallel-harness structure OK"
-
-      - name: Check dist not stale (committed dist must match fresh build)
-        run: |
-          STALE=0
-          # 检查已跟踪文件的变更
-          if ! git diff --exit-code dist/parallel-harness; then
-            echo "❌ dist/parallel-harness has modified tracked files"
-            STALE=1
-          fi
-          # 检查未跟踪的新产物（fresh build 生成但未 git add 的文件）
-          UNTRACKED=$(git ls-files --others --exclude-standard dist/parallel-harness)
-          if [ -n "$UNTRACKED" ]; then
-            echo "❌ dist/parallel-harness has untracked files:"
-            echo "$UNTRACKED"
-            STALE=1
-          fi
-          if [ "$STALE" -eq 1 ]; then
-            echo "Run 'make ph-build' and commit the result"
-            exit 1
-          fi
-          echo "✅ dist/parallel-harness is up-to-date"
