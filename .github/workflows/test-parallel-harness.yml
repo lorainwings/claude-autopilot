@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'plugins/parallel-harness/**'
+      - 'dist/parallel-harness/**'
       - '.github/workflows/test-parallel-harness.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'plugins/parallel-harness/**'
+      - 'dist/parallel-harness/**'
       - '.github/workflows/test-parallel-harness.yml'
       - '.claude-plugin/**'
       - 'scripts/**'

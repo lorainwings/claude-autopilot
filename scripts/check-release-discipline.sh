@@ -18,6 +18,14 @@ BASE_REF="${1:-}"
 HEAD_REF="${2:-HEAD}"
 PLUGIN_FILTER="${3:-all}"
 
+case "$PLUGIN_FILTER" in
+  spec-autopilot|parallel-harness|all) ;;
+  *)
+    echo "❌ Invalid plugin_filter: '$PLUGIN_FILTER'. Must be spec-autopilot | parallel-harness | all"
+    exit 1
+    ;;
+esac
+
 if [ -z "$BASE_REF" ]; then
   echo "❌ Usage: $0 <base_ref> <head_ref>"
   exit 1
