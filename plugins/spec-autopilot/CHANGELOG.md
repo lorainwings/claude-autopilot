@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.62] - 2026-03-25
+
+### Changed
+
+- **版本递增策略优化**: pre-commit 仅对实质性代码变更自动 bump patch 版本，纯元数据/文档修改不再触发版本递增
+- **CI release discipline 同步**: metadata-only 跳过范围扩展到 docs/ 和 README.zh.md
+
 ## [5.1.61] - 2026-03-25
 
 ### Fixed
