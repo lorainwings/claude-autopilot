@@ -18,9 +18,7 @@
       "release-type": "simple",
       "component": "spec-autopilot",
       "extra-files": [
-        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
-        { "type": "generic", "path": "README.md" },
-        { "type": "generic", "path": "README.zh.md" }
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" }
       ]
     },
     "plugins/parallel-harness": {
@@ -28,10 +26,7 @@
       "component": "parallel-harness",
       "extra-files": [
         { "type": "json", "path": "package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
-        { "type": "generic", "path": "README.md" },
-        { "type": "generic", "path": "README.zh.md" },
-        { "type": "generic", "path": "CLAUDE.md" }
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" }
       ]
     }
   }

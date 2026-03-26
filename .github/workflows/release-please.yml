@@ -49,6 +49,23 @@ jobs:
           npm install --ignore-scripts 2>/dev/null || bun install --no-save 2>/dev/null || true
           npm run build 2>/dev/null || bun run build 2>/dev/null || true
 
+      - name: Update plugin README & CLAUDE.md versions
+        run: |
+          SA_VER="${{ needs.release-please.outputs.sa_version }}"
+          PH_VER="${{ needs.release-please.outputs.ph_version }}"
+
+          # spec-autopilot README badge
+          if [ -n "$SA_VER" ]; then
+            sed -i "s/version-[0-9][0-9.]*-blue/version-${SA_VER}-blue/g" plugins/spec-autopilot/README.md plugins/spec-autopilot/README.zh.md
+          fi
+
+          # parallel-harness README title + version info + CLAUDE.md
+          if [ -n "$PH_VER" ]; then
+            sed -i "s/# parallel-harness v[0-9][0-9.]*/# parallel-harness v${PH_VER}/" plugins/parallel-harness/README.md plugins/parallel-harness/README.zh.md
+            sed -i "s/\*\*Version\*\*: [0-9][0-9.]* (GA)/**Version**: ${PH_VER} (GA)/" plugins/parallel-harness/README.md
+            sed -i "s/版本: [0-9][0-9.]* (GA)/版本: ${PH_VER} (GA)/" plugins/parallel-harness/CLAUDE.md
+          fi
+
       - name: Update root README version table
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
