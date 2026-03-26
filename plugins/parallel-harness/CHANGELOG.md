@@ -4,6 +4,13 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.0...parallel-harness-v1.1.1) (2026-03-26)
+
+
+### Fixed
+
+* **parallel-harness:** plugin.json schema 合规性修复 ([1084796](https://github.com/lorainwings/claude-autopilot/commit/108479669a59616ecdd170b73e4cd5386696f946))
+
 ## [1.1.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.0.4...parallel-harness-v1.1.0) (2026-03-26)
 
 
