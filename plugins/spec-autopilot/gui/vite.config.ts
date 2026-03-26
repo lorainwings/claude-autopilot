@@ -21,6 +21,9 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name].[ext]",
         manualChunks(id) {
           if (id.includes("node_modules/react-dom") || id.includes("node_modules/react/")) {
             return "vendor-react";
