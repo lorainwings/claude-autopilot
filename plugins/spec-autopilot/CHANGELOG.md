@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.64](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.63...spec-autopilot-v5.1.64) (2026-03-26)
+
+
+### Fixed
+
+* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/lorainwings/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
+
 ## [5.1.63](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.62...spec-autopilot-v5.1.63) (2026-03-26)
 
 
