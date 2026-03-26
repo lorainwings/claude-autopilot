@@ -14,6 +14,8 @@ mkdir -p "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results"
 echo '{"change":"test-lite","mode":"lite"}' > "$LITE_TEST_DIR/openspec/changes/.autopilot-active"
 echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"test-results.json"}' \
   > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results/phase-5-implement.json"
+# Task file required by fail-closed Phase 6 gate
+echo "- [x] task 1" > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase5-task-breakdown.md"
 
 # 38a. Lite mode: Phase 5 → Phase 6 allowed
 exit_code=0

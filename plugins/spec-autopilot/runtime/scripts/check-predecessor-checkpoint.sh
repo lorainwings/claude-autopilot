@@ -379,11 +379,15 @@ except Exception:
     actual_tasks_file="$breakdown_file"
   fi
 
-  if [ -n "$actual_tasks_file" ]; then
-    unchecked=$(grep -c '\- \[ \]' "$actual_tasks_file" 2>/dev/null || echo "0")
-    if [ "$unchecked" -gt 0 ]; then
-      deny "$(basename "$actual_tasks_file") has $unchecked incomplete tasks. All must be [x] before Phase 6."
-    fi
+  # Fail-closed: at least one task file must exist before Phase 6
+  if [ -z "$actual_tasks_file" ]; then
+    deny "Neither tasks.md nor phase5-task-breakdown.md found. Phase 5 must produce a task file before Phase 6 can start."
+  fi
+
+  unchecked=$(grep -c '\- \[ \]' "$actual_tasks_file" 2>/dev/null) || true
+  : "${unchecked:=0}"
+  if [ "$unchecked" -gt 0 ]; then
+    deny "$(basename "$actual_tasks_file") has $unchecked incomplete tasks. All must be [x] before Phase 6."
   fi
 fi
 

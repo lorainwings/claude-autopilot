@@ -313,28 +313,45 @@ if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH
 
   # JavaScript/TypeScript: detect it/test blocks without expect/assert
   # Strategy: count test blocks and assertion calls; if blocks > assertions, flag
-  JS_TEST_BLOCKS=$(grep -cE '^\s*(it|test)\s*\(' "$FILE_PATH" 2>/dev/null || echo 0)
-  JS_ASSERTIONS=$(grep -cE '(expect\s*\(|assert\s*[\.(]|should\s*[\.(])' "$FILE_PATH" 2>/dev/null || echo 0)
+  # NOTE: grep -c outputs "0" on no match but exits 1; || true absorbs exit code
+  # without appending extra output (|| echo 0 would produce "0\n0" breaking arithmetic)
+  JS_TEST_BLOCKS=$(grep -cE '^\s*(it|test)\s*\(' "$FILE_PATH" 2>/dev/null) || true
+  JS_ASSERTIONS=$(grep -cE '(expect\s*\(|assert\s*[\.(]|should\s*[\.(])' "$FILE_PATH" 2>/dev/null) || true
 
   # Python: detect def test_ functions without assert
-  PY_TEST_FUNCS=$(grep -cE '^\s*def\s+test_' "$FILE_PATH" 2>/dev/null || echo 0)
-  PY_ASSERTIONS=$(grep -cE '(self\.assert|assert\s+|pytest\.raises)' "$FILE_PATH" 2>/dev/null || echo 0)
+  PY_TEST_FUNCS=$(grep -cE '^\s*def\s+test_' "$FILE_PATH" 2>/dev/null) || true
+  PY_ASSERTIONS=$(grep -cE '(self\.assert|assert\s+|pytest\.raises)' "$FILE_PATH" 2>/dev/null) || true
 
   # Java/Kotlin: detect @Test methods without assert
-  JAVA_TEST_METHODS=$(grep -cE '@Test' "$FILE_PATH" 2>/dev/null || echo 0)
-  JAVA_ASSERTIONS=$(grep -cE '(assert(True|False|Equals|NotNull|Throws|That)|verify\s*\()' "$FILE_PATH" 2>/dev/null || echo 0)
+  JAVA_TEST_METHODS=$(grep -cE '@Test' "$FILE_PATH" 2>/dev/null) || true
+  JAVA_ASSERTIONS=$(grep -cE '(assert(True|False|Equals|NotNull|Throws|That)|verify\s*\()' "$FILE_PATH" 2>/dev/null) || true
+
+  # Default empty to 0 (grep -c on non-existent file returns empty)
+  : "${JS_TEST_BLOCKS:=0}" "${JS_ASSERTIONS:=0}"
+  : "${PY_TEST_FUNCS:=0}" "${PY_ASSERTIONS:=0}"
+  : "${JAVA_TEST_METHODS:=0}" "${JAVA_ASSERTIONS:=0}"
 
   # Sum up
   TOTAL_TEST_BLOCKS=$((JS_TEST_BLOCKS + PY_TEST_FUNCS + JAVA_TEST_METHODS))
   TOTAL_ASSERTIONS=$((JS_ASSERTIONS + PY_ASSERTIONS + JAVA_ASSERTIONS))
 
-  # Flag if there are test blocks but zero assertions, or if test count greatly exceeds assertion count
+  # Flag if there are test blocks but zero assertions, or if test blocks significantly exceed assertions
+  # (e.g., 5 test blocks but only 1 assertion means 4 tests are assertion-free)
   if [ "$TOTAL_TEST_BLOCKS" -gt 0 ] && [ "$TOTAL_ASSERTIONS" -eq 0 ]; then
     cat <<EOF
 {
   "decision": "block",
   "reason": "Assertion-free tests detected in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) found but 0 assertions. Tests must contain meaningful assertions that verify behavior. Calling code without asserting results creates a false sense of test coverage.",
   "fix_suggestion": "Add assertions (expect/assert/should) to each test block that verify the return values, state changes, or side effects of the code under test."
+}
+EOF
+    exit 0
+  elif [ "$TOTAL_TEST_BLOCKS" -gt 1 ] && [ "$TOTAL_ASSERTIONS" -gt 0 ] && [ "$TOTAL_TEST_BLOCKS" -gt $((TOTAL_ASSERTIONS * 2)) ]; then
+    cat <<EOF
+{
+  "decision": "block",
+  "reason": "Insufficient assertions in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) but only ${TOTAL_ASSERTIONS} assertion(s). Most test blocks appear to lack assertions. Each test should contain at least one meaningful assertion.",
+  "fix_suggestion": "Add assertions (expect/assert/should) to each test block. Currently ${TOTAL_TEST_BLOCKS} test blocks share only ${TOTAL_ASSERTIONS} assertions — at least $((TOTAL_TEST_BLOCKS - TOTAL_ASSERTIONS)) blocks likely have no assertions."
 }
 EOF
     exit 0

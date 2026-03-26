@@ -15,6 +15,8 @@ mkdir -p "$TMPDIR_47a/openspec/changes/test-47a/context/phase-results"
 echo '{"change":"test-47a","mode":"full"}' > "$TMPDIR_47a/openspec/changes/.autopilot-active"
 echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"5/5","test_results_path":"r.json"}' \
   > "$TMPDIR_47a/openspec/changes/test-47a/context/phase-results/phase-5-implement.json"
+# Task file required by fail-closed Phase 6 gate
+echo "- [x] task 1" > "$TMPDIR_47a/openspec/changes/test-47a/tasks.md"
 exit_code=0
 OUT47a=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47a\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
@@ -28,6 +30,9 @@ mkdir -p "$TMPDIR_47b/openspec/changes/test-47b/context/phase-results"
 echo '{"change":"test-47b","mode":"lite"}' > "$TMPDIR_47b/openspec/changes/.autopilot-active"
 echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"5/5","test_results_path":"r.json"}' \
   > "$TMPDIR_47b/openspec/changes/test-47b/context/phase-results/phase-5-implement.json"
+# Task file required by fail-closed Phase 6 gate
+mkdir -p "$TMPDIR_47b/openspec/changes/test-47b/context"
+echo "- [x] task 1" > "$TMPDIR_47b/openspec/changes/test-47b/context/phase5-task-breakdown.md"
 exit_code=0
 OUT47b=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47b\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?

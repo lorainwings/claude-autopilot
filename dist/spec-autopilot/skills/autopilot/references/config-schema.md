@@ -117,7 +117,7 @@ phases:
   code_review:
     enabled: true              # Phase 6.5 代码审查（默认启用）
     auto_fix_minor: false      # 是否自动修复 minor findings
-    block_on_critical: true    # critical findings 是否阻断
+    block_on_critical: true    # critical findings 时是否要求用户显式确认（true: 展示 findings 并要求用户选择忽略/修复/暂停；false: 跳过检查直接归档确认）
     skip_patterns:             # 跳过审查的文件模式
       - "*.md"
       - "*.json"

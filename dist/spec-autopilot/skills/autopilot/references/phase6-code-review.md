@@ -94,7 +94,7 @@ Task(
 
 | 条件 | 状态 |
 |------|------|
-| critical findings > 0 且 `block_on_critical = true` | `blocked` |
+| critical findings > 0 且 `block_on_critical = true` | `blocked`（Phase 7 展示给用户，由用户决定忽略/修复/暂停） |
 | major findings > 3 | `warning` |
 | 其他 | `ok` |
 
@@ -104,7 +104,7 @@ Task(
 |------|------|
 | ok | 记录 checkpoint，继续质量扫描和 Phase 7 |
 | warning | 展示 findings 给用户，AskUserQuestion 确认是否继续 |
-| blocked | 展示 critical findings，要求修复后重新审查 |
+| blocked | 展示 critical findings，Phase 7 Step 3 要求用户显式选择：忽略继续归档 / 修复后再归档 / 暂不归档（用户有最终决策权） |
 
 ### Step 5: 写入 Checkpoint
 
@@ -117,7 +117,7 @@ phases:
   code_review:
     enabled: true              # 默认启用
     auto_fix_minor: false      # 是否自动修复 minor findings
-    block_on_critical: true    # critical findings 是否阻断流水线
+    block_on_critical: true    # critical findings 时要求用户显式确认（非硬阻断，用户可选择忽略）
     skip_patterns:             # 跳过审查的文件模式
       - "*.md"
       - "*.json"

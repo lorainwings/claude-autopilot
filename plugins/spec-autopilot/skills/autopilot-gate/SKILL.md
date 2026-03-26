@@ -206,7 +206,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 ```
 - [ ] phase-6.5-code-review.json 存在（由 Phase 7 步骤 2.a 写入）
-- [ ] findings 中 critical 数量为 0（当 block_on_critical = true 时）
+- [ ] 当 block_on_critical = true 且 findings 中 critical 数量 > 0 时：标记需用户确认（Phase 7 Step 3 展示并要求用户显式选择忽略/修复/暂停，不自动阻断）
 - [ ] status 为 "ok" 或 "warning"（用户已确认）
 ```
 

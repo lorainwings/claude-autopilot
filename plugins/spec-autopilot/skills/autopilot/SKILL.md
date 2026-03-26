@@ -82,7 +82,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | 1 | 主线程 | 需求理解与多轮决策（LOOP 直到全部澄清） |
 | 2 | Task 子 Agent | 创建 OpenSpec 并保存上下文 |
 | 3 | Task 子 Agent | OpenSpec 快进生成制品 |
-| 4 | Task 子 Agent | 测试用例设计（强制，不可跳过） |
+| 4 | Task 子 Agent | 测试用例设计（full 模式强制；TDD 模式下由 Phase 5 吸收，标记 `skipped_tdd`） |
 | 5 | Task 子 Agent | 串行/并行 循环实施 |
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | Skill(`autopilot-phase7`) | 汇总展示 + **用户确认**归档 |

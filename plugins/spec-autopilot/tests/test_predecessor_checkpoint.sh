@@ -57,6 +57,33 @@ assert_exit "phase 2 no phase-1 checkpoint → exit 0" 0 $exit_code
 assert_contains "phase 2 no phase-1 checkpoint → deny" "$output" "deny"
 rm -rf "$TMPDIR_P2"
 
+# === Phase 6 fail-closed: task file must exist ===
+
+# 2f. Phase 6 with Phase 5 ok but NO tasks.md or phase5-task-breakdown.md → deny
+TMPDIR_P6=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_P6"' EXIT
+mkdir -p "$TMPDIR_P6/openspec/changes/test-feature/context/phase-results"
+echo '{"status":"ok","summary":"Done","zero_skip_check":{"passed":true}}' \
+  > "$TMPDIR_P6/openspec/changes/test-feature/context/phase-results/phase-5-impl.json"
+echo '{"status":"ok","summary":"Done","decisions":[{"point":"x","choice":"y"}]}' \
+  > "$TMPDIR_P6/openspec/changes/test-feature/context/phase-results/phase-1-test.json"
+echo "{\"change\":\"test-feature\",\"pid\":$$,\"started\":\"2026-01-01T00:00:00Z\",\"mode\":\"lite\",\"session_cwd\":\"$TMPDIR_P6\",\"anchor_sha\":\"abc123\",\"session_id\":\"$(date +%s%3N)\"}" > "$TMPDIR_P6/openspec/changes/.autopilot-active"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_P6\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "2f. Phase 6 no task file → exit 0" 0 $exit_code
+assert_contains "2f. Phase 6 no task file → deny" "$output" "deny"
+assert_contains "2f. mentions task file" "$output" "tasks"
+
+# 2g. Phase 6 with Phase 5 ok AND phase5-task-breakdown.md (all checked) → allow
+echo "- [x] task 1" > "$TMPDIR_P6/openspec/changes/test-feature/context/phase5-task-breakdown.md"
+exit_code=0
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_P6\"}" \
+  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+assert_exit "2g. Phase 6 with task file → exit 0" 0 $exit_code
+assert_not_contains "2g. Phase 6 with task file → no deny" "$output" "deny"
+rm -rf "$TMPDIR_P6"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

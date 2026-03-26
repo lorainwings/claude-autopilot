@@ -100,7 +100,7 @@ services:
 |------|------|------|--------|------|
 | `enabled` | boolean | 否 | `true` | 是否启用 Phase 6.5 代码审查 |
 | `auto_fix_minor` | boolean | 否 | `false` | 是否自动修复 minor findings |
-| `block_on_critical` | boolean | 否 | `true` | critical findings 是否阻断流水线 |
+| `block_on_critical` | boolean | 否 | `true` | critical findings 时是否要求用户显式确认（非硬阻断，用户可选择忽略后继续归档） |
 | `skip_patterns` | array | 否 | `["*.md", "*.json", "openspec/**"]` | 跳过审查的文件模式 |
 
 ## `test_pyramid`

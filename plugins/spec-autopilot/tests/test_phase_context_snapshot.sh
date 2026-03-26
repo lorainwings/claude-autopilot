@@ -86,6 +86,50 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# === Compact state with progress files (v5.9) ===
+
+# 4i. save-state-before-compact.sh includes in-progress phase from progress files
+# Setup: create change dir with Phase 1 checkpoint + Phase 3 progress file
+COMPACT_TEST_DIR="$REPO_ROOT/openspec/changes/compact-test"
+mkdir -p "$COMPACT_TEST_DIR/context/phase-results"
+echo '{"status":"ok","summary":"Done","decisions":[{"point":"x","choice":"y"}]}' \
+  > "$COMPACT_TEST_DIR/context/phase-results/phase-1-requirements.json"
+echo '{"step":"agent_dispatched","status":"in_progress"}' \
+  > "$COMPACT_TEST_DIR/context/phase-results/phase-3-progress.json"
+# Lock file pointing to compact-test
+echo '{"change":"compact-test","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z","anchor_sha":"abc123"}' \
+  > "$REPO_ROOT/openspec/changes/.autopilot-active"
+FIXTURE_LOCK_CREATED=true
+
+# Run save-state
+echo '{"cwd":"'"$REPO_ROOT"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
+STATE_MD="$COMPACT_TEST_DIR/context/autopilot-state.md"
+if [ -f "$STATE_MD" ] && grep -q "Current in-progress phase" "$STATE_MD"; then
+  green "  PASS: 4i. compact state includes in-progress phase"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4i. compact state missing in-progress phase"
+  FAIL=$((FAIL + 1))
+fi
+
+# 4j. State file contains next_phase extractable by POSIX sed (validates reinject compatibility)
+if [ -f "$STATE_MD" ]; then
+  EXTRACTED=$(sed -n 's/.*\*\*Next phase to execute\*\*: \([0-9][0-9]*\).*/\1/p' "$STATE_MD" | head -1)
+  if [ -n "$EXTRACTED" ] && [ "$EXTRACTED" -gt 0 ] 2>/dev/null; then
+    green "  PASS: 4j. state file next_phase extractable by POSIX sed (phase=$EXTRACTED)"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 4j. state file next_phase not extractable by POSIX sed (got: '$EXTRACTED')"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  red "  FAIL: 4j. (skipped — state file not created)"
+  FAIL=$((FAIL + 1))
+fi
+
+# Cleanup compact-test
+rm -rf "$COMPACT_TEST_DIR" 2>/dev/null || true
+
 # Cleanup
 rm -rf "$CHANGE_DIR" 2>/dev/null || true
 

@@ -104,13 +104,20 @@ fi
 echo ""
 echo "=== DETERMINISTIC RECOVERY INSTRUCTION ==="
 echo ""
-# Extract next_phase from state file
-NEXT_PHASE=$(grep -oP '(?<=\*\*Next phase to execute\*\*: )\d+' "$STATE_FILE" 2>/dev/null || echo "")
-EXEC_MODE=$(grep -oP '(?<=\*\*Execution mode\*\*: `)\w+' "$STATE_FILE" 2>/dev/null || echo "full")
-CHANGE_NAME_RESTORE=$(grep -oP '(?<=\*\*Active change\*\*: `)[^`]+' "$STATE_FILE" 2>/dev/null || echo "")
+# Extract next_phase from state file (POSIX-compatible — no grep -P which is GNU-only)
+NEXT_PHASE=$(sed -n 's/.*\*\*Next phase to execute\*\*: \([0-9][0-9]*\).*/\1/p' "$STATE_FILE" 2>/dev/null | head -1)
+EXEC_MODE=$(sed -n 's/.*\*\*Execution mode\*\*: `\([a-zA-Z_]*\)`.*/\1/p' "$STATE_FILE" 2>/dev/null | head -1)
+[ -z "$EXEC_MODE" ] && EXEC_MODE="full"
+CHANGE_NAME_RESTORE=$(sed -n 's/.*\*\*Active change\*\*: `\([^`]*\)`.*/\1/p' "$STATE_FILE" 2>/dev/null | head -1)
+# v5.9: Extract in-progress phase sub-step for fine-grained recovery
+IN_PROGRESS_PHASE=$(sed -n 's/.*\*\*Current in-progress phase\*\*: \([0-9][0-9]*\).*/\1/p' "$STATE_FILE" 2>/dev/null | head -1)
+IN_PROGRESS_SUBSTEP=$(sed -n 's/.*\*\*Current in-progress phase\*\*: [0-9]* (sub-step: \(.*\))/\1/p' "$STATE_FILE" 2>/dev/null | head -1)
 
 if [ -n "$NEXT_PHASE" ]; then
   echo "ACTION REQUIRED: Resume autopilot from Phase ${NEXT_PHASE} (mode: ${EXEC_MODE}, change: ${CHANGE_NAME_RESTORE})."
+  if [ -n "$IN_PROGRESS_PHASE" ] && [ "$IN_PROGRESS_PHASE" = "$NEXT_PHASE" ] && [ -n "$IN_PROGRESS_SUBSTEP" ]; then
+    echo "NOTE: Phase ${IN_PROGRESS_PHASE} was in-progress at sub-step '${IN_PROGRESS_SUBSTEP}' when compaction occurred."
+  fi
   echo ""
   echo "Steps:"
   echo "1. Re-read config: .claude/autopilot.config.yaml"

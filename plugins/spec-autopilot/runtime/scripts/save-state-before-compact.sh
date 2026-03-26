@@ -189,6 +189,24 @@ if os.path.isfile(tasks_file):
     except Exception:
         pass
 
+# v5.9: Scan progress files for in-progress phase sub-step tracking
+progress_entries = []
+if os.path.isdir(phase_results_dir):
+    for pf in sorted(glob.glob(os.path.join(phase_results_dir, 'phase-*-progress.json'))):
+        try:
+            with open(pf) as fh:
+                pdata = json.load(fh)
+            fname = os.path.basename(pf)
+            parts = fname.replace('phase-', '').replace('-progress.json', '')
+            pnum = int(parts)
+            progress_entries.append({
+                'phase': pnum,
+                'step': pdata.get('step', 'unknown'),
+                'status': pdata.get('status', 'unknown')
+            })
+        except Exception:
+            pass
+
 # Scan phase5-tasks/ for task-level progress
 phase5_task_details = []
 phase5_tasks_dir = os.path.join(phase_results_dir, 'phase5-tasks')
@@ -233,6 +251,15 @@ if anchor_sha:
 
 if tasks_summary:
     lines.append(f'- **Tasks progress**: {tasks_summary}')
+
+# v5.9: Include in-progress phase sub-step for fine-grained recovery
+if progress_entries:
+    in_progress = [pe for pe in progress_entries if pe['status'] == 'in_progress']
+    if in_progress:
+        latest = max(in_progress, key=lambda x: x['phase'])
+        lp = latest['phase']
+        ls = latest['step']
+        lines.append(f'- **Current in-progress phase**: {lp} (sub-step: {ls})')
 
 if phase5_task_details:
     lines.extend([

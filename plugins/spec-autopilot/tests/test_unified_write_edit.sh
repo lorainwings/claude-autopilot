@@ -183,5 +183,60 @@ output=$(write_file_and_input "docs/notes2.md" "# Notes
 assert_exit "53n. TODO: in .md (phase 1 only) → exit 0" 0 $exit_code
 assert_not_contains "53n. TODO: in .md (phase 1 only) → no block" "$output" "block"
 
+# === CHECK 3.5: Assertion-Free / Insufficient Assertions ===
+
+# 53o. Test file with 0 assertions → block
+exit_code=0
+output=$(write_file_and_input "src/__tests__/empty.test.ts" "describe('empty', () => {
+  it('test one', () => {
+    const x = 1;
+  });
+  it('test two', () => {
+    const y = 2;
+  });
+});" | bash "$SCRIPT_DIR/unified-write-edit-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "53o. 0 assertions → exit 0" 0 $exit_code
+assert_contains "53o. 0 assertions → block" "$output" "block"
+assert_contains "53o. mentions assertion-free" "$output" "0 assertions"
+
+# 53p. Test file with 5 test blocks but only 1 assertion → block (insufficient)
+exit_code=0
+output=$(write_file_and_input "src/__tests__/sparse.test.ts" "describe('sparse', () => {
+  it('test one', () => { doSomething(); });
+  it('test two', () => { doOther(); });
+  it('test three', () => { doThird(); });
+  it('test four', () => { doFourth(); });
+  it('test five', () => {
+    expect(add(1, 2)).toBe(3);
+  });
+});" | bash "$SCRIPT_DIR/unified-write-edit-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "53p. 5 blocks / 1 assertion → exit 0" 0 $exit_code
+assert_contains "53p. insufficient assertions → block" "$output" "block"
+assert_contains "53p. mentions insufficient" "$output" "nsufficient"
+
+# 53q. Test file with balanced assertions → pass
+exit_code=0
+output=$(write_file_and_input "src/__tests__/good.test.ts" "describe('good', () => {
+  it('adds numbers', () => {
+    expect(add(1, 2)).toBe(3);
+  });
+  it('subtracts numbers', () => {
+    expect(sub(3, 1)).toBe(2);
+  });
+});" | bash "$SCRIPT_DIR/unified-write-edit-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "53q. balanced assertions → exit 0" 0 $exit_code
+assert_not_contains "53q. balanced assertions → no block" "$output" "block"
+
+# 53r. Cross-language: .test.ts with no Python/Java → arithmetic doesn't crash
+exit_code=0
+output=$(write_file_and_input "src/__tests__/jsonly.test.ts" "describe('jsonly', () => {
+  it('works', () => {
+    expect(true).not.toBe(false);
+  });
+});" | bash "$SCRIPT_DIR/unified-write-edit-check.sh" 2>/dev/null) || exit_code=$?
+assert_exit "53r. JS-only test no arithmetic crash → exit 0" 0 $exit_code
+# Should pass (1 block, 1 assertion)
+assert_not_contains "53r. JS-only test → no block" "$output" "block"
+
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0
