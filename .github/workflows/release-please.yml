@@ -103,6 +103,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No post-release changes to commit"
           else
-            git commit -m "chore: post-release update dist + README versions [skip ci]"
+            git commit -m "chore: post-release update dist + README versions"
             git push
           fi

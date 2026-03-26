@@ -107,9 +107,9 @@ check_plugin() {
 
   # Metadata-only check: if ALL changed files are version/release metadata or docs,
   # this is a version-sync or docs-only commit and should not require CHANGELOG + bump again.
-  # Metadata files: CHANGELOG.md, plugin.json, package.json, README.md, docs/, reports/
+  # Metadata files: CHANGELOG.md, plugin.json, package.json, README.md, CLAUDE.md, docs/, reports/, dist/
   local SUBSTANTIVE_FILES
-  SUBSTANTIVE_FILES=$(echo "$CHANGED_FILES" | grep -v -E "^(${CHANGELOG_MD}|${PLUGIN_JSON}|${PLUGIN_ROOT}/\.claude-plugin/plugin\.json|${PLUGIN_ROOT}/package\.json|${README_MD}|\.claude-plugin/marketplace\.json|${PLUGIN_ROOT}/docs/|${PLUGIN_ROOT}/README\.zh\.md)$" || true)
+  SUBSTANTIVE_FILES=$(echo "$CHANGED_FILES" | grep -v -E "^(${CHANGELOG_MD}|${PLUGIN_JSON}|${PLUGIN_ROOT}/\.claude-plugin/plugin\.json|${PLUGIN_ROOT}/package\.json|${README_MD}|${PLUGIN_ROOT}/README\.zh\.md|${PLUGIN_ROOT}/CLAUDE\.md|\.claude-plugin/marketplace\.json|${PLUGIN_ROOT}/docs/|${PLUGIN_ROOT}/reports/|dist/).*$" || true)
   if [ -z "$SUBSTANTIVE_FILES" ]; then
     echo "✅ $PLUGIN_ROOT changes are metadata/docs-only — skipping discipline check"
     return 0
