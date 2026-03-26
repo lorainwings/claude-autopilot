@@ -33,10 +33,17 @@ fi
 
 # ── release-please bot bypass ──
 # Skip checks for commits made by release-please (github-actions bot or "chore(main): release" message)
+# Check both HEAD and the commit range to handle merge commits that include release commits
 HEAD_AUTHOR=$(git log -1 --format='%an' "$HEAD_REF" 2>/dev/null || true)
 HEAD_MESSAGE=$(git log -1 --format='%s' "$HEAD_REF" 2>/dev/null || true)
-if [[ "$HEAD_AUTHOR" == *"github-actions"* ]] || [[ "$HEAD_MESSAGE" == "chore(main): release"* ]]; then
+if [[ "$HEAD_AUTHOR" == *"github-actions"* ]] || [[ "$HEAD_MESSAGE" == "chore(main): release"* ]] || [[ "$HEAD_MESSAGE" == "chore: release main"* ]]; then
   echo "ℹ️  release-please bot commit detected — skipping discipline check"
+  exit 0
+fi
+
+# Check if any commit in the range is a release-please commit (handles merge commits)
+if git log --format='%s' "$BASE_REF..$HEAD_REF" 2>/dev/null | grep -qE '^(chore\(main\): release|chore: release main)'; then
+  echo "ℹ️  release-please commit in range — skipping discipline check"
   exit 0
 fi
 
