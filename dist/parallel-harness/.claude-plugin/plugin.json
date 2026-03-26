@@ -1,19 +1,14 @@
 {
   "name": "parallel-harness",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Parallel AI engineering control-plane plugin — task-graph scheduling, file ownership isolation, cost-aware model routing, 9-gate quality system, RBAC governance, and audit trail",
-  "description_zh": "并行 AI 工程控制面插件 — 任务图调度、文件所有权隔离、成本感知模型路由、9 类门禁、RBAC 治理、审计追踪",
   "author": {
     "name": "lorainwings",
     "url": "https://github.com/lorainwings"
   },
   "license": "MIT",
   "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/parallel-harness",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lorainwings/claude-autopilot.git",
-    "directory": "plugins/parallel-harness"
-  },
+  "repository": "https://github.com/lorainwings/claude-autopilot",
   "keywords": [
     "claude-code",
     "plugin",
@@ -24,26 +19,5 @@
     "control-plane",
     "rbac",
     "governance"
-  ],
-  "schema_version": "1.0.0",
-  "entry": {
-    "skills": "../skills",
-    "runtime": "../runtime",
-    "config": "../config"
-  },
-  "dependencies": [
-    "bun>=1.0.0",
-    "typescript>=5.0.0"
-  ],
-  "capabilities": [
-    "task-graph-orchestration",
-    "parallel-worker-dispatch",
-    "model-routing",
-    "gate-system",
-    "ownership-enforcement",
-    "policy-engine",
-    "audit-trail",
-    "pr-integration",
-    "rbac-governance"
   ]
 }
