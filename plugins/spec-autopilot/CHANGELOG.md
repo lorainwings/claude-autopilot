@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.1.63](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.62...spec-autopilot-v5.1.63) (2026-03-26)
+
+
+### Fixed
+
+* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/lorainwings/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
+* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/lorainwings/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
+
 ## [Unreleased]
 
 ## [5.1.62] - 2026-03-25
