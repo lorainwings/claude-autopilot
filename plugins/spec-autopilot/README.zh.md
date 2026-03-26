@@ -4,7 +4,7 @@
 
 > 规范驱动的自动驾驶交付编排 — 8 阶段工作流 + 3 层门禁系统 + 崩溃恢复。
 
-[![Version](https://img.shields.io/badge/version-5.1.63-blue.svg)](CHANGELOG.md) <!-- x-release-please-version -->
+[![Version](https://img.shields.io/badge/version-5.1.64-blue.svg)](CHANGELOG.md) <!-- x-release-please-version -->
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 概述
