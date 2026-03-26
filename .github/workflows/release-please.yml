@@ -64,6 +64,20 @@ jobs:
             sed -i "s/| \[parallel-harness\](plugins\/parallel-harness\/README\.zh\.md) | [0-9][0-9.]*\b/| [parallel-harness](plugins\/parallel-harness\/README.zh.md) | $PH_VER/" README.zh.md
           fi
 
+      - name: Update marketplace.json versions
+        run: |
+          SA_VER="${{ needs.release-please.outputs.sa_version }}"
+          PH_VER="${{ needs.release-please.outputs.ph_version }}"
+          MARKETPLACE=".claude-plugin/marketplace.json"
+
+          if [ -n "$SA_VER" ]; then
+            jq --arg v "$SA_VER" '(.plugins[] | select(.name == "spec-autopilot")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
+          fi
+
+          if [ -n "$PH_VER" ]; then
+            jq --arg v "$PH_VER" '(.plugins[] | select(.name == "parallel-harness")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
+          fi
+
       - name: Commit post-release updates
         run: |
           git config user.name "github-actions[bot]"
