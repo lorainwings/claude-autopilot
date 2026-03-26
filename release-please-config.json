@@ -1,5 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "fcd3ee68e0e3f78f3a96b540c4c62138f7e5f5df",
   "separate-pull-requests": true,
   "changelog-sections": [
     { "type": "feat", "section": "Added" },
