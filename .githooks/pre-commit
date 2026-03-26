@@ -176,9 +176,9 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   fi
 
   # ============================================
-  # Part 2.5: Rebuild dist
+  # Part 2.5: Rebuild spec-autopilot dist
   # ============================================
-  echo "📦 Rebuilding dist/plugin/..."
+  echo "📦 Rebuilding dist/spec-autopilot/..."
   if bash plugins/spec-autopilot/tools/build-dist.sh; then
     git add dist/spec-autopilot/
   else
@@ -188,6 +188,28 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
 
   echo "✅ Documentation sync check passed"
   echo ""
+fi
+
+# ============================================
+# Part 3: parallel-harness dist rebuild
+# ============================================
+PH_CHANGED=$(git diff --cached --name-only | grep -q "plugins/parallel-harness/" && echo "yes" || echo "no")
+
+if [ "$PH_CHANGED" = "yes" ]; then
+  # Skip metadata-only changes (CHANGELOG, README, package.json version bump, etc.)
+  PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/parallel-harness/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
+
+  if [ -n "$PH_SUBSTANTIVE" ]; then
+    echo "📦 Rebuilding dist/parallel-harness/..."
+    if bash plugins/parallel-harness/tools/build-dist.sh; then
+      git add dist/parallel-harness/
+    else
+      echo "❌ parallel-harness dist build failed. Fix the build before committing."
+      exit 1
+    fi
+    echo "✅ parallel-harness dist rebuilt"
+    echo ""
+  fi
 fi
 
 exit 0

@@ -38,16 +38,23 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install spec-autopilot GUI dependencies
+        if: needs.release-please.outputs.sa_release_created == 'true'
+        run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
+
       - name: Build spec-autopilot dist
         if: needs.release-please.outputs.sa_release_created == 'true'
         run: bash plugins/spec-autopilot/tools/build-dist.sh
 
+      - name: Install parallel-harness dependencies
+        if: needs.release-please.outputs.ph_release_created == 'true'
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
       - name: Build parallel-harness dist
         if: needs.release-please.outputs.ph_release_created == 'true'
-        run: |
-          cd plugins/parallel-harness
-          npm install --ignore-scripts 2>/dev/null || bun install --no-save 2>/dev/null || true
-          npm run build 2>/dev/null || bun run build 2>/dev/null || true
+        run: bash plugins/parallel-harness/tools/build-dist.sh
 
       - name: Update plugin README & CLAUDE.md versions
         run: |
