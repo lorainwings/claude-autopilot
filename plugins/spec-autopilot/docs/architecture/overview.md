@@ -344,7 +344,6 @@ spec-autopilot/
 │   └── ...                      (各 Hook 脚本)
 ├── tools/           (开发/发布工具, 不进入 dist)
 │   ├── build-dist.sh            (分发包构建)
-│   ├── bump-version.sh          (版本号同步)
 │   └── mock-event-emitter.js    (GUI 事件模拟)
 ├── gui/              (GUI V2 大盘, v5.0.8)
 │   └── src/

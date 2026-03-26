@@ -1,0 +1,4 @@
+{
+  "plugins/spec-autopilot": "5.1.62",
+  "plugins/parallel-harness": "1.0.4"
+}

@@ -51,7 +51,7 @@ MD
 
 echo "--- release discipline CI guard ---"
 
-# 1. Plugin changed without changelog/version bump -> fail
+# 1. Plugin changed without changelog/version bump -> info-only (release-please handles this)
 FAIL_REPO="$TMP_ROOT/fail-repo"
 git -C "$TMP_ROOT" init -q "$FAIL_REPO"
 seed_repo "$FAIL_REPO"
@@ -66,9 +66,8 @@ HEAD_FAIL="$(git -C "$FAIL_REPO" rev-parse HEAD)"
 
 fail_exit=0
 fail_output=$(cd "$FAIL_REPO" && bash "$CHECK_SCRIPT" "$BASE_FAIL" "$HEAD_FAIL" 2>&1) || fail_exit=$?
-[ "$fail_exit" -ne 0 ]
-assert_exit "1a. missing changelog/version bump is rejected" 0 $?
-assert_contains "1b. failure points to CHANGELOG update" "$fail_output" "CHANGELOG.md must be updated"
+assert_exit "1a. missing changelog is info-only (passes)" 0 "$fail_exit"
+assert_contains "1b. output shows dev commit OK" "$fail_output" "dev commit"
 
 # 2. Plugin changed with synced version/changelog -> pass
 PASS_REPO="$TMP_ROOT/pass-repo"

@@ -4,7 +4,7 @@
 
 > Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery.
 
-[![Version](https://img.shields.io/badge/version-5.1.62-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.62-blue.svg)](CHANGELOG.md) <!-- x-release-please-version -->
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
@@ -306,8 +306,9 @@ test_suites:
 | Script | Purpose |
 |--------|---------|
 | `build-dist.sh` | Build distribution package for publishing |
-| `bump-version.sh` | Synchronize version across plugin.json / marketplace.json / README.md / CHANGELOG.md |
 | `mock-event-emitter.js` | Mock event emitter for GUI component testing |
+
+> **Note**: Version bumping is handled by the repo-level `tools/release.sh` wizard.
 
 ## Requirements
 

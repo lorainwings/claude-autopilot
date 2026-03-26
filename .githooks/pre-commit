@@ -14,6 +14,15 @@ if [ "$_CURRENT_HP" = "/dev/null" ]; then
 fi
 
 # ============================================
+# Part 0.5: release-please branch bypass
+# ============================================
+_CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
+  echo "ℹ️  release-please branch detected — skipping pre-commit checks"
+  exit 0
+fi
+
+# ============================================
 # Part 1: Hook Test Suite
 # ============================================
 
@@ -118,14 +127,11 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   METADATA_PATTERNS='(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json|/docs/|/reports/)'
   SUBSTANTIVE_PLUGIN_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' | grep -vE "$METADATA_PATTERNS" || true)
 
-  # CHANGELOG enforcement (only for substantive changes)
+  # CHANGELOG enforcement (info-only — release-please manages changelogs automatically)
   if [ -n "$SUBSTANTIVE_PLUGIN_FILES" ]; then
     if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
-      echo "❌ Error: Plugin code modified but CHANGELOG.md not updated"
+      echo "ℹ️  Plugin code modified but CHANGELOG.md not updated (release-please will handle this)"
       echo ""
-      echo "在 CHANGELOG.md 的 ## [Unreleased] 段下记录变更，发版时运行 tools/release.sh"
-      echo ""
-      exit 1
     fi
   fi
 

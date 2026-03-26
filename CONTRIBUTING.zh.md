@@ -107,7 +107,8 @@ git push origin feature/my-feature
 
 ### 版本升级
 
-- 版本号变更**必须**通过 `tools/bump-version.sh` 执行
+- **主要方式**: [release-please](https://github.com/googleapis/release-please) 通过 Conventional Commits 自动管理版本升级、CHANGELOG 生成和 GitHub Releases
+- **备用方式**: `tools/release.sh`（交互向导）仅在 release-please 不可用时使用
 - 禁止手动编辑 plugin.json、marketplace.json、README.md 或 CHANGELOG.md 中的版本号
 
 ### 构建纪律

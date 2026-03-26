@@ -1,0 +1,77 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      # spec-autopilot outputs
+      sa_release_created: ${{ steps.release.outputs['plugins/spec-autopilot--release_created'] }}
+      sa_tag_name: ${{ steps.release.outputs['plugins/spec-autopilot--tag_name'] }}
+      sa_version: ${{ steps.release.outputs['plugins/spec-autopilot--version'] }}
+      # parallel-harness outputs
+      ph_release_created: ${{ steps.release.outputs['plugins/parallel-harness--release_created'] }}
+      ph_tag_name: ${{ steps.release.outputs['plugins/parallel-harness--tag_name'] }}
+      ph_version: ${{ steps.release.outputs['plugins/parallel-harness--version'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  post-release:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build spec-autopilot dist
+        if: needs.release-please.outputs.sa_release_created == 'true'
+        run: bash plugins/spec-autopilot/tools/build-dist.sh
+
+      - name: Build parallel-harness dist
+        if: needs.release-please.outputs.ph_release_created == 'true'
+        run: |
+          cd plugins/parallel-harness
+          npm install --ignore-scripts 2>/dev/null || bun install --no-save 2>/dev/null || true
+          npm run build 2>/dev/null || bun run build 2>/dev/null || true
+
+      - name: Update root README version table
+        run: |
+          SA_VER="${{ needs.release-please.outputs.sa_version }}"
+          PH_VER="${{ needs.release-please.outputs.ph_version }}"
+
+          if [ -n "$SA_VER" ]; then
+            sed -i "s/| \[spec-autopilot\](plugins\/spec-autopilot\/) | [0-9][0-9.]*\b/| [spec-autopilot](plugins\/spec-autopilot\/) | $SA_VER/" README.md
+            sed -i "s/| \[spec-autopilot\](plugins\/spec-autopilot\/README\.zh\.md) | [0-9][0-9.]*\b/| [spec-autopilot](plugins\/spec-autopilot\/README.zh.md) | $SA_VER/" README.zh.md
+          fi
+
+          if [ -n "$PH_VER" ]; then
+            sed -i "s/| \[parallel-harness\](plugins\/parallel-harness\/) | [0-9][0-9.]*\b/| [parallel-harness](plugins\/parallel-harness\/) | $PH_VER/" README.md
+            sed -i "s/| \[parallel-harness\](plugins\/parallel-harness\/README\.zh\.md) | [0-9][0-9.]*\b/| [parallel-harness](plugins\/parallel-harness\/README.zh.md) | $PH_VER/" README.zh.md
+          fi
+
+      - name: Commit post-release updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No post-release changes to commit"
+          else
+            git commit -m "chore: post-release update dist + README versions [skip ci]"
+            git push
+          fi

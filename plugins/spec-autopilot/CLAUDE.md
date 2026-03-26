@@ -59,13 +59,13 @@
 6. **背景 Agent 必须接受 L2 验证**: JSON 信封 + 反合理化检查不可绕过 (v5.1)
 
 <!-- DEV-ONLY-BEGIN -->
-## 发版纪律 (v5.2)
+## 发版纪律 (v5.3)
 
-1. **唯一入口**: 版本号升级必须且只能通过 `tools/release.sh <patch|minor|major> <plugin-name>` 执行
-2. **禁止散弹式修改**: 禁止人工或 AI 单独修改 plugin.json / marketplace.json / README.md / CHANGELOG.md 中的版本号
-3. **开发期 CHANGELOG 规则**: 开发期间在 `CHANGELOG.md` 的 `## [Unreleased]` 段下累积变更条目，不手写版本号
-4. **发版流程**: 运行 `tools/release.sh` → 一键同步 plugin.json / marketplace.json / README badge / CHANGELOG（`[Unreleased]` → `[X.Y.Z] - DATE`）+ 重建 dist
-5. **pre-commit 只读**: pre-commit hook 仅做一致性校验（版本三端一致 + CHANGELOG 已更新），不修改任何文件
+1. **主入口**: [release-please](https://github.com/googleapis/release-please) 自动管理版本号和 CHANGELOG — PR 合入 main 后自动创建 Release PR，合并即发版
+2. **手动 fallback**: `tools/release.sh <patch|minor|major> <plugin-name>` 仅在 release-please 不可用时使用
+3. **禁止散弹式修改**: 禁止人工或 AI 单独修改 plugin.json / marketplace.json / README.md / CHANGELOG.md 中的版本号
+4. **Conventional Commits**: commit message 遵循 `feat:` / `fix:` / `refactor:` 等前缀，release-please 据此生成 CHANGELOG
+5. **pre-commit 只读**: pre-commit hook 仅做一致性校验（版本三端一致），CHANGELOG 检查为信息提示
 6. **推送前必须完整构建+测试**: `git push` 前必须依次执行 `bash tools/build-dist.sh`（构建）+ `bash tests/run_all.sh`（全量测试），两者均 exit 0 后才允许推送，禁止跳过
 <!-- DEV-ONLY-END -->
 

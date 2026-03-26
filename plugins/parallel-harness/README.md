@@ -1,6 +1,6 @@
 > **[中文版](README.zh.md)** | English (default)
 
-# parallel-harness v1.0.0
+# parallel-harness v1.0.4 <!-- x-release-please-version -->
 
 > Parallel AI Engineering Control-Plane Plugin for Claude Code
 
@@ -220,7 +220,7 @@ The two plugins are **complementary**, not replacements:
 
 ## Version Info
 
-- **Version**: 1.0.0 (GA)
+- **Version**: 1.0.4 (GA) <!-- x-release-please-version -->
 - **Schema Version**: 1.0.0
 - **Runtime**: Bun
 - **Language**: TypeScript

@@ -57,7 +57,7 @@ if [ "$HOOKS_COVERED" = true ]; then
 fi
 
 # ── 4. dev-only 文件不在 manifest 中 ──
-DEV_ONLY_FILES="build-dist.sh bump-version.sh mock-event-emitter.js tsconfig.json package.json bun.lock"
+DEV_ONLY_FILES="build-dist.sh mock-event-emitter.js tsconfig.json package.json bun.lock"
 DEV_CLEAN=true
 for devfile in $DEV_ONLY_FILES; do
   if parse_manifest | grep -qxF "$devfile"; then

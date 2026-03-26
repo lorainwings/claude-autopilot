@@ -4,7 +4,7 @@
 
 > 规范驱动的自动驾驶交付编排 — 8 阶段工作流 + 3 层门禁系统 + 崩溃恢复。
 
-[![Version](https://img.shields.io/badge/version-5.1.25-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-5.1.62-blue.svg)](CHANGELOG.md) <!-- x-release-please-version -->
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 概述
@@ -306,8 +306,9 @@ test_suites:
 | 脚本 | 用途 |
 |------|------|
 | `build-dist.sh` | 构建发布分发包 |
-| `bump-version.sh` | 同步 plugin.json / marketplace.json / README.md / CHANGELOG.md 版本号 |
 | `mock-event-emitter.js` | 用于 GUI 组件测试的模拟事件发射器 |
+
+> **注意**: 版本号升级由仓库级 `tools/release.sh` 向导统一处理。
 
 ## 环境要求
 

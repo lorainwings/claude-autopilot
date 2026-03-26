@@ -7,6 +7,7 @@ PH  := plugins/parallel-harness
 
 .PHONY: hooks setup test build lint format typecheck ci \
         ph-test ph-typecheck ph-build ph-lint ph-setup \
+        release release-dry \
         help
 
 hooks:
@@ -154,3 +155,11 @@ ph-lint: ## Lint parallel-harness build script (shellcheck)
 	fi
 
 ph-ci: ph-lint ph-typecheck ph-test ph-build ## parallel-harness CI: lint → typecheck → test → build
+
+# ── Release ────────────────────────────────────────────────────────
+
+release: ## Manual release wizard (fallback)
+	@bash tools/release.sh
+
+release-dry: ## Dry-run release preview (no file changes)
+	@bash tools/release.sh --dry-run

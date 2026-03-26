@@ -1,6 +1,6 @@
 > [English](README.md) | 中文
 
-# parallel-harness v1.0.0
+# parallel-harness v1.0.4 <!-- x-release-please-version -->
 
 > Claude Code 并行 AI 工程控制面插件 — 商业化 GA 版本
 

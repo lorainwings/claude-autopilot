@@ -31,6 +31,15 @@ if [ -z "$BASE_REF" ]; then
   exit 1
 fi
 
+# ── release-please bot bypass ──
+# Skip checks for commits made by release-please (github-actions bot or "chore(main): release" message)
+HEAD_AUTHOR=$(git log -1 --format='%an' "$HEAD_REF" 2>/dev/null || true)
+HEAD_MESSAGE=$(git log -1 --format='%s' "$HEAD_REF" 2>/dev/null || true)
+if [[ "$HEAD_AUTHOR" == *"github-actions"* ]] || [[ "$HEAD_MESSAGE" == "chore(main): release"* ]]; then
+  echo "ℹ️  release-please bot commit detected — skipping discipline check"
+  exit 0
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$REPO_ROOT" ]; then
   echo "❌ Error: not inside a git repository."
@@ -99,12 +108,10 @@ check_plugin() {
     return 0
   fi
 
-  # CHANGELOG check — parallel-harness may use README.zh.md or commit history instead
+  # CHANGELOG check — info-only (release-please manages changelogs automatically)
   if [ -f "$CHANGELOG_MD" ]; then
     if ! echo "$CHANGED_FILES" | grep -qx "$CHANGELOG_MD"; then
-      echo "❌ Error: $CHANGELOG_MD must be updated when $PLUGIN_ROOT changes."
-      OVERALL_FAIL=1
-      return 0
+      echo "ℹ️  $CHANGELOG_MD not updated (release-please will handle this)"
     fi
   fi
 
@@ -148,25 +155,8 @@ check_plugin() {
 
   if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
     # ── 开发提交: 版本未 bump ──
-    # 正常开发提交不需要版本 bump，仅检查 [Unreleased] 段有实质内容
-    echo "ℹ️  $PLUGIN_ROOT: dev commit (no version bump)"
-    if [ -f "$CHANGELOG_MD" ]; then
-      if ! grep -q '## \[Unreleased\]' "$CHANGELOG_MD"; then
-        echo "❌ Error: $CHANGELOG_MD has no [Unreleased] section."
-        echo "   Add a ## [Unreleased] section with your changes."
-        OVERALL_FAIL=1
-      else
-        local UNRELEASED_CONTENT
-        UNRELEASED_CONTENT=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[[0-9]/{f=0} f && NF' "$CHANGELOG_MD")
-        if [ -z "$UNRELEASED_CONTENT" ]; then
-          echo "❌ Error: $CHANGELOG_MD [Unreleased] section is empty."
-          echo "   Add entries describing your changes under ## [Unreleased]."
-          OVERALL_FAIL=1
-        else
-          echo "✅ $PLUGIN_ROOT dev commit: [Unreleased] has content"
-        fi
-      fi
-    fi
+    # release-please 接管后，开发提交不再要求 [Unreleased] 有内容
+    echo "ℹ️  $PLUGIN_ROOT: dev commit (no version bump) — OK"
     return 0
   fi
 

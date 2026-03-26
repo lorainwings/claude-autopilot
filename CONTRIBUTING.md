@@ -107,7 +107,8 @@ Open a PR against `main` with a clear description of your changes.
 
 ### Version Bumping
 
-- Version changes **must** go through `tools/bump-version.sh`
+- **Primary**: [release-please](https://github.com/googleapis/release-please) automates version bumps, CHANGELOG generation, and GitHub Releases via Conventional Commits
+- **Fallback**: `tools/release.sh` (interactive wizard) for manual releases when release-please is unavailable
 - Never manually edit version numbers in plugin.json, marketplace.json, README.md, or CHANGELOG.md
 
 ### Build Discipline

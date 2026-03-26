@@ -188,20 +188,19 @@ hooks_path=$(git -C "$E2E_DIR" config --local core.hooksPath 2>/dev/null || echo
 [ "$hooks_path" = ".githooks" ]
 assert_exit "5b. core.hooksPath = .githooks after setup" 0 $?
 
-# 5d. Simulate a plugin file change without CHANGELOG.md → must be blocked by CHANGELOG check
+# 5d. Simulate a plugin file change without CHANGELOG.md → info-only (release-please handles this)
 echo "// new code" > "$E2E_DIR/plugins/spec-autopilot/app.ts"
 git -C "$E2E_DIR" add "$E2E_DIR/plugins/spec-autopilot/app.ts"
 
 commit_exit=0
-commit_output=$(git -C "$E2E_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "test: should be blocked" 2>&1) || commit_exit=$?
+commit_output=$(git -C "$E2E_DIR" -c user.name="Test" -c user.email="test@test.com" commit -m "test: should pass with info message" 2>&1) || commit_exit=$?
 
-# Verify: exit code is non-zero (commit was blocked)
-[ "$commit_exit" -ne 0 ]
-assert_exit "5c. commit blocked (non-zero exit)" 0 $?
+# Verify: exit code is zero (CHANGELOG check is info-only, commit proceeds)
+assert_exit "5c. commit proceeds (info-only CHANGELOG check)" 0 "$commit_exit"
 
-# Verify: blocked SPECIFICALLY by CHANGELOG check, not by some other error
+# Verify: info message about CHANGELOG is shown
 echo "$commit_output" | grep -q "CHANGELOG.md not updated"
-assert_exit "5d. blocked reason is CHANGELOG.md missing (not other error)" 0 $?
+assert_exit "5d. info message mentions CHANGELOG.md" 0 $?
 
 # ============================================
 # Part 4: marketplace.json version drift → blocked (read-only mode)

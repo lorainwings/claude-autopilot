@@ -2,13 +2,6 @@
 
 ## [Unreleased]
 
-### Changed
-
-- **版本管理重构为发版脚本模式**: pre-commit 不再自动 bump 版本号，改为只读一致性校验；版本递增移至显式发版脚本 `tools/release.sh`
-- **新增统一发版脚本**: `tools/release.sh <patch|minor|major> <plugin-name>` 支持两个插件，一键完成版本 bump + 文件同步 + CHANGELOG 替换 + dist 构建
-- **CI 适配双模式**: `check-release-discipline.sh` 区分开发提交（检查 `[Unreleased]` 有内容）和发版提交（全量一致性检查）
-- **发版纪律更新至 v5.2**: 唯一入口从 `bump-version.sh` 变更为 `tools/release.sh`
-
 ## [5.1.62] - 2026-03-25
 
 ### Changed
