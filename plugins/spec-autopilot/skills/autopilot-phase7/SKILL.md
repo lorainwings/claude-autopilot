@@ -75,11 +75,11 @@ a0. **Phase 6 测试执行**（路径 A，后台 Task）：
 
 a. **Phase 6.5 代码审查**（路径 B，仅当 `config.phases.code_review.enabled = true`，**optional/advisory — 不作为 Phase 7 硬性前置条件**）：
   - 检查后台 Agent 完成通知
-  - ok → 写入 `phase-6.5-code-review.json` checkpoint
-  - warning → 展示 findings，不阻断归档
-  - blocked → 展示 critical findings，向用户展示但**不阻断** Phase 7 整体流程（用户可选择修复后重试或忽略继续归档）
+  - ok → 写入 `phase-6.5-code-review.json` checkpoint（status: ok）
+  - warning → 写入 `phase-6.5-code-review.json` checkpoint（status: warning，含 findings），展示 findings，不阻断归档
+  - blocked → 写入 `phase-6.5-code-review.json` checkpoint（status: blocked，含 critical findings），展示 critical findings，向用户展示但**不阻断** Phase 7 整体流程（用户可选择修复后重试或忽略继续归档）。**用户选择"忽略继续归档"时**：将 checkpoint status 从 `blocked` 更新为 `warning`，并追加 `"user_override": true, "override_reason": "user chose to ignore critical findings"` 字段，确保 Step 3 和 Gate 检查能正常读取
   - code_review 未启用 → 跳过
-  - JSON 解析失败 → 展示原始文本，标记 warning
+  - JSON 解析失败 → 写入 `phase-6.5-code-review.json` checkpoint（status: warning，含原始文本），展示原始文本
 
 b. **质量扫描**（路径 C）：展示质量汇总表（含得分和阈值对比）
   - 硬超时：`config.async_quality_scans.timeout_minutes`（默认 10 分钟），超时标记 `"timeout"`

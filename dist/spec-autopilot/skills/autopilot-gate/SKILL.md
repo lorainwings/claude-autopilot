@@ -205,9 +205,9 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 当 `config.phases.code_review.enabled = true` 时，Phase 7 步骤 2.a 收集代码审查结果后检查：
 
 ```
-- [ ] phase-6.5-code-review.json 存在（由 Phase 7 步骤 2.a 写入）
+- [ ] phase-6.5-code-review.json 存在（由 Phase 7 步骤 2.a 写入——ok/warning/blocked 三种状态均写入 checkpoint）
 - [ ] 当 block_on_critical = true 且 findings 中 critical 数量 > 0 时：标记需用户确认（Phase 7 Step 3 展示并要求用户显式选择忽略/修复/暂停，不自动阻断）
-- [ ] status 为 "ok" 或 "warning"（用户已确认）
+- [ ] status 为 "ok" 或 "warning"（blocked 状态下用户选择"忽略继续归档"时，Phase 7 Step 2.a 已将 status 降级为 warning 并标记 user_override: true）
 ```
 
 当 `code_review.enabled = false` 时，**跳过此门禁**，不要求 checkpoint 存在。
