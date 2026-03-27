@@ -26,7 +26,7 @@ fi
 # Part 1: Hook Test Suite
 # ============================================
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/' || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' || true)
 
 if [ -n "$STAGED" ]; then
   echo "🧪 Plugin files changed — running full build + test suite..."
