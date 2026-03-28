@@ -74,6 +74,11 @@ export async function refreshSnapshot(forceSnapshot = false) {
     const prevIds = new Set(prev.events.map((event) => event.event_id));
     const added = next.events.filter((event) => !prevIds.has(event.event_id));
 
+    // 检测 meta 变化（archiveReadiness / stateSnapshot）
+    const metaChanged =
+      JSON.stringify(prev.archiveReadiness) !== JSON.stringify(next.archiveReadiness) ||
+      JSON.stringify(prev.stateSnapshot) !== JSON.stringify(next.stateSnapshot);
+
     setSnapshotState(next);
 
     if (forceSnapshot) {
@@ -83,6 +88,11 @@ export async function refreshSnapshot(forceSnapshot = false) {
 
     if (added.length > 0) {
       broadcastEvents(added);
+    }
+
+    // meta 变化时即使无新增 event 也广播 snapshot（已连接 GUI 增量刷新）
+    if (metaChanged && added.length === 0) {
+      broadcastSnapshot(next.events);
     }
   } finally {
     setRefreshInFlight(false);
@@ -107,7 +117,7 @@ function startRefreshLoop() {
   }
 
   try {
-    watch(CHANGES_DIR, { recursive: false }, () => {
+    watch(CHANGES_DIR, { recursive: true }, () => {
       refreshSnapshot(true).catch(() => undefined);
     });
   } catch {

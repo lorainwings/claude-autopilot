@@ -249,6 +249,7 @@ import json, sys, os
 record_file = sys.argv[1]
 agent_id = sys.argv[2]
 phase = int(sys.argv[3])
+session_id = sys.argv[10] if len(sys.argv) > 10 and sys.argv[10] else ''
 new_entry = {
     'agent_id': agent_id,
     'agent_class': sys.argv[4] or 'default',
@@ -260,6 +261,8 @@ new_entry = {
     'scanned_sources': [],
     'required_validators': ['json_envelope', 'anti_rationalization', 'code_constraint'],
 }
+if session_id:
+    new_entry['session_id'] = session_id
 if sys.argv[9]:
     new_entry['fallback_reason'] = sys.argv[9]
 
@@ -288,7 +291,7 @@ records.append(new_entry)
 records = records[-100:]
 with open(record_file, 'w') as f:
     json.dump(records, f, indent=2, ensure_ascii=False)
-" "$DISPATCH_RECORD_FILE" "$AGENT_ID" "$PHASE" "$SUBAGENT_TYPE" "$SELECTION_REASON" "$RESOLVED_PRIORITY" "$OWNED_ARTIFACTS" "$IS_BG" "$FALLBACK_REASON" 2>/dev/null || true
+" "$DISPATCH_RECORD_FILE" "$AGENT_ID" "$PHASE" "$SUBAGENT_TYPE" "$SELECTION_REASON" "$RESOLVED_PRIORITY" "$OWNED_ARTIFACTS" "$IS_BG" "$FALLBACK_REASON" "$SESSION_ID" 2>/dev/null || true
 
 # --- Emit agent_dispatch event (log errors to stderr, never deny) ---
 bash "$SCRIPT_DIR/emit-agent-event.sh" agent_dispatch "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "$DISPATCH_PAYLOAD" >/dev/null 2>&1 ||

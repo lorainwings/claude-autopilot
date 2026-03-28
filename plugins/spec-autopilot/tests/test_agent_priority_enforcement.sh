@@ -72,6 +72,10 @@ assert_contains "4. scanned_sources field present" "$output" '"scanned_sources"'
 setup_autopilot_fixture
 mkdir -p "$REPO_ROOT/logs" 2>/dev/null || true
 
+# 写入带 session_id 的 lock file，确保 dispatch 能提取 session_id
+echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z","session_id":"sess-test-001"}' \
+  >"$REPO_ROOT/openspec/changes/.autopilot-active"
+
 # Write a rules-scanner cache for the dispatch hook to consume
 cat > "$REPO_ROOT/logs/.rules-scanner-cache.json" << 'CACHE'
 {
@@ -101,7 +105,8 @@ if [ -f "$REPO_ROOT/logs/agent-dispatch-record.json" ]; then
   assert_contains "5e. dispatch record has agent_class" "$RECORD" 'agent_class'
   assert_contains "5f. dispatch record has scanned_sources" "$RECORD" 'scanned_sources'
   assert_contains "5g. dispatch record has required_validators" "$RECORD" 'required_validators'
-  green "  PASS: 5h. agent-dispatch-record.json file created"
+  assert_contains "5h. dispatch record has session_id" "$RECORD" 'session_id'
+  green "  PASS: 5i. agent-dispatch-record.json file created"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 5h. agent-dispatch-record.json not created"

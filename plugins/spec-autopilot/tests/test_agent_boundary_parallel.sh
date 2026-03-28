@@ -253,6 +253,7 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
     "agent_id": "phase5-session-agent",
     "agent_class": "session-agent",
     "phase": 5,
+    "session_id": "sess-abc-123",
     "selection_reason": "agent_policy_match",
     "resolved_priority": "normal",
     "owned_artifacts": ["src/"],
@@ -264,6 +265,7 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
     "agent_id": "phase5-phase-agent",
     "agent_class": "phase-agent",
     "phase": 5,
+    "session_id": "sess-abc-123",
     "selection_reason": "agent_policy_match",
     "resolved_priority": "normal",
     "owned_artifacts": [],
@@ -288,6 +290,69 @@ if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
   PASS=$((PASS + 1))
 else
   red "  FAIL: 5. session marker 应优先于 phase marker (output='$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# ============================================================
+# 测试 6: 跨 session 串用保护 — 旧 session record 不可被新 session 命中
+# ============================================================
+
+# 构造: lock file 指向 sess-new，dispatch record 仅含 sess-old 同 agent_id 同 phase
+echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z","session_id":"sess-new"}' \
+  >"$TMP_PROJECT/openspec/changes/.autopilot-active"
+echo "phase5-backend-impl" >"$TMP_PROJECT/logs/.active-agent-session-sess-new"
+rm -f "$TMP_PROJECT/logs/.active-agent-session-sess-old" 2>/dev/null || true
+
+cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
+[
+  {
+    "agent_id": "phase5-backend-impl",
+    "agent_class": "backend-impl",
+    "phase": 5,
+    "session_id": "sess-old",
+    "selection_reason": "agent_policy_match",
+    "resolved_priority": "high",
+    "owned_artifacts": ["src/api/"],
+    "background": false,
+    "scanned_sources": [],
+    "required_validators": ["json_envelope"]
+  }
+]
+JSON
+
+result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
+if echo "$result" | grep -q '"block"' && echo "$result" | grep -q "correlation missing"; then
+  green "  PASS: 6a. 跨 session 串用保护 → sess-new marker + sess-old record → governance correlation missing block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 6a. 跨 session 串用保护应 block (output='$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 6b. 同 session record 可正常命中
+cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
+[
+  {
+    "agent_id": "phase5-backend-impl",
+    "agent_class": "backend-impl",
+    "phase": 5,
+    "session_id": "sess-new",
+    "selection_reason": "agent_policy_match",
+    "resolved_priority": "high",
+    "owned_artifacts": ["src/api/"],
+    "background": false,
+    "scanned_sources": [],
+    "required_validators": ["json_envelope"]
+  }
+]
+JSON
+
+result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
+if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+  green "  PASS: 6b. 同 session record → session_id + agent_id + phase 精确匹配 → 通过"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 6b. 同 session record 应通过 (output='$result')"
   FAIL=$((FAIL + 1))
 fi
 

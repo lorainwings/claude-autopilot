@@ -751,8 +751,9 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
 # has not modified files outside its owned_artifacts boundary.
 #
 # WS-G 精确关联: 在并行同 phase 多 agent 场景下，仅按 phase 倒序取最后一条
-# dispatch record 会误匹配其他 agent 的 owned_artifacts。现在按 agent_id + phase
-# 精确匹配，无 agent_id 时回退到 phase-only 匹配（向后兼容）。
+# dispatch record 会误匹配其他 agent 的 owned_artifacts。现在按
+# session_id + agent_id + phase 精确匹配，无 session_id 时回退到
+# agent_id + phase，无 agent_id 时回退到 phase-only（向后兼容）。
 
 
 def _sanitize_session_key(session_id):
@@ -825,20 +826,34 @@ def _resolve_active_agent_id(root, hook_data, phase):
     return None
 
 
-def _find_dispatch_record(dispatch_records, phase, agent_id=None):
-    """按 agent_id + phase 精确查找 dispatch record。
+def _find_dispatch_record(dispatch_records, phase, agent_id=None, session_id=None):
+    """按 session_id + agent_id + phase 精确查找 dispatch record。
 
     策略:
-      - agent_id 非空时: 精确匹配 agent_id + phase（最新一条）
+      - session_id + agent_id 均非空时: 精确匹配 session_id + agent_id + phase
+        若无同 session 命中但有同 agent_id + phase 命中 → fail-closed（跨 session 串用保护）
+      - 仅 agent_id 非空时: 匹配 agent_id + phase（最新一条）
       - agent_id 为空时: 回退到 phase-only 匹配（向后兼容）
     返回 (record, match_mode) 或 (None, None)。
-    match_mode: "exact" | "phase_only"
+    match_mode: "exact_session" | "exact" | "phase_only"
     """
     if not isinstance(dispatch_records, list) or not dispatch_records:
         return None, None
 
     if agent_id:
-        # 精确匹配: agent_id + phase
+        if session_id:
+            # 精确匹配: session_id + agent_id + phase
+            for rec in reversed(dispatch_records):
+                if (isinstance(rec, dict)
+                        and rec.get("phase") == phase
+                        and rec.get("agent_id") == agent_id
+                        and rec.get("session_id") == session_id):
+                    return rec, "exact_session"
+            # session_id 已知但无同 session 命中 → fail-closed（禁止跨 session 串用）
+            # 即使有同 agent_id + phase 的旧 record 也不复用
+            return None, None
+
+        # 仅 agent_id（无 session_id / 旧兼容路径）: 匹配 agent_id + phase
         for rec in reversed(dispatch_records):
             if isinstance(rec, dict) and rec.get("phase") == phase and rec.get("agent_id") == agent_id:
                 return rec, "exact"
@@ -858,6 +873,20 @@ if envelope and envelope.get("status") in ("ok", "warning"):
     # 解析当前活跃 agent_id（WS-G 精确关联）
     _active_agent_id = _resolve_active_agent_id(root, data, phase_num)
 
+    # 解析当前 session_id（用于 dispatch record 跨 session 串用保护）
+    _current_session_id = ""
+    if isinstance(data, dict):
+        _current_session_id = data.get("session_id", "")
+    if not _current_session_id:
+        _lock_path = os.path.join(root, "openspec", "changes", ".autopilot-active")
+        if os.path.isfile(_lock_path):
+            try:
+                with open(_lock_path) as _lf:
+                    _lock = json.loads(_lf.read())
+                    _current_session_id = _lock.get("session_id", "")
+            except (json.JSONDecodeError, OSError):
+                pass
+
     # 6a. Check agent artifact boundary
     # Read dispatch record to verify owned_artifacts
     dispatch_record_file = os.path.join(root, "logs", "agent-dispatch-record.json")
@@ -866,8 +895,8 @@ if envelope and envelope.get("status") in ("ok", "warning"):
             with open(dispatch_record_file) as _drf:
                 dispatch_records = json.loads(_drf.read())
             if isinstance(dispatch_records, list) and dispatch_records:
-                # 按 agent_id + phase 精确匹配 dispatch record
-                latest_record, _match_mode = _find_dispatch_record(dispatch_records, phase_num, _active_agent_id)
+                # 按 session_id + agent_id + phase 精确匹配 dispatch record
+                latest_record, _match_mode = _find_dispatch_record(dispatch_records, phase_num, _active_agent_id, _current_session_id or None)
 
                 # Fail-closed: 有 agent_id 但无匹配 record 时阻断
                 if _active_agent_id and latest_record is None:

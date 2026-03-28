@@ -15,7 +15,7 @@
 | 4 | Sub-agent | Test case design (mandatory) | `phase-4-testing.json` |
 | 5 | Sub-agent | Implementation: Serial / Parallel / TDD | `phase-5-implement.json` |
 | 6 | Sub-agent | Test report generation (mandatory) | `phase-6-report.json` |
-| 7 | Main thread | Summary + user-confirmed archive | `phase-7-summary.json` |
+| 7 | Main thread | Summary + archive-readiness auto | `phase-7-summary.json` |
 
 ## Phase 0: Environment Check + Crash Recovery
 

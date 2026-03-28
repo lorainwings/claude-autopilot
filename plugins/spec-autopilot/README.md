@@ -37,7 +37,7 @@ graph TB
     subgraph "Main Thread (Orchestrator)"
         P0[Phase 0: Environment Check<br/>+ Crash Recovery]
         P1[Phase 1: Requirements<br/>Multi-round Decision Loop<br/>+ Routing v4.2]
-        P7[Phase 7: Summary<br/>+ User-confirmed Archive]
+        P7[Phase 7: Summary<br/>+ Archive Readiness Auto]
     end
 
     subgraph "Sub-Agents (via Task tool)"
