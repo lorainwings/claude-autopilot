@@ -4,6 +4,8 @@
 # Purpose: Scan openspec/changes/*/context/phase-results/ for existing checkpoints
 #          and output a summary. Enables cross-session recovery awareness.
 #
+# v6.0: Also reads state-snapshot.json for structured recovery state if available.
+#
 # Output: stdout text is added to Claude's context (SessionStart behavior).
 #         Only outputs if checkpoints exist; zero output for non-autopilot sessions.
 # Exit codes: 0 (informational only, never blocks)
@@ -42,6 +44,36 @@ process_change_dir() {
   local last_phase=0
   local last_status=""
 
+  # v6.0: Check for state-snapshot.json first
+  local snapshot_file="${change_dir}context/state-snapshot.json"
+  local has_snapshot=false
+  local snapshot_hash=""
+  local snapshot_hash_valid=false
+  local snapshot_gate_frontier=0
+  local snapshot_next_phase=""
+  if [ -f "$snapshot_file" ]; then
+    has_snapshot=true
+    local snap_info
+    snap_info=$(python3 -c "
+import json, sys, hashlib
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    stored_hash = data.get('snapshot_hash', '')
+    verify_data = {k: v for k, v in data.items() if k != 'snapshot_hash'}
+    verify_content = json.dumps(verify_data, sort_keys=True, ensure_ascii=False)
+    computed_hash = hashlib.sha256(verify_content.encode('utf-8')).hexdigest()[:16]
+    hash_valid = 'true' if computed_hash == stored_hash else 'false'
+    gate_frontier = data.get('gate_frontier', 0)
+    next_phase = data.get('next_action', {}).get('phase', '')
+    req_hash = data.get('requirement_packet_hash', '') or ''
+    print(f'{stored_hash}|{hash_valid}|{gate_frontier}|{next_phase}|{req_hash}')
+except Exception as e:
+    print(f'||0||')
+" "$snapshot_file" 2>/dev/null) || snap_info="||0||"
+    IFS='|' read -r snapshot_hash snapshot_hash_valid snapshot_gate_frontier snapshot_next_phase snapshot_req_hash <<< "$snap_info"
+  fi
+
   for phase_num in 1 2 3 4 5 6 7; do
     local checkpoint_file
     checkpoint_file=$(find_checkpoint "$phase_results_dir" "$phase_num")
@@ -74,7 +106,7 @@ except Exception:
     fi
   done
 
-  if [ ${#checkpoints[@]} -gt 0 ]; then
+  if [ ${#checkpoints[@]} -gt 0 ] || [ "$has_snapshot" = "true" ]; then
     if [ "$found_any" = false ]; then
       echo "=== Autopilot Checkpoint Summary ==="
       found_any=true
@@ -126,6 +158,23 @@ except: print('full')
 
     echo ""
     echo "Change: $change_name"
+
+    # v6.0: Show state-snapshot.json info if available
+    if [ "$has_snapshot" = "true" ]; then
+      if [ "$snapshot_hash_valid" = "true" ]; then
+        echo "  State snapshot: VALID (hash=$snapshot_hash, gate_frontier=Phase $snapshot_gate_frontier)"
+        if [ -n "$snapshot_next_phase" ]; then
+          echo "  Snapshot resume point: Phase $snapshot_next_phase"
+        fi
+        if [ -n "${snapshot_req_hash:-}" ]; then
+          echo "  Requirement packet hash: $snapshot_req_hash"
+        fi
+      else
+        echo "  State snapshot: INVALID HASH (snapshot may be corrupted)"
+        echo "  WARNING: Recovery will use checkpoint scan instead of structured snapshot"
+      fi
+    fi
+
     echo "  Last successful phase: $last_phase ($last_status)"
     if [ "$suggested_resume" = "done" ]; then
       echo "  Suggested resume: All phases complete"

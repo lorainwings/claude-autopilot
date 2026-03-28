@@ -317,6 +317,34 @@ if [ -d "$PHASE_RESULTS" ]; then
   done
 fi
 
+# v6.0: Clean state-snapshot.json when cleaning from phase 1
+# (full reset invalidates the structured control state)
+if [ "$FROM_PHASE" -le 1 ]; then
+  SNAPSHOT_JSON="$CONTEXT_DIR/state-snapshot.json"
+  if [ -f "$SNAPSHOT_JSON" ]; then
+    [ "$DRY_RUN" = "false" ] && rm -f "$SNAPSHOT_JSON"
+    FILES_REMOVED=$((FILES_REMOVED + 1))
+  fi
+  # Also clean the markdown state file
+  STATE_MD="$CONTEXT_DIR/autopilot-state.md"
+  if [ -f "$STATE_MD" ]; then
+    [ "$DRY_RUN" = "false" ] && rm -f "$STATE_MD"
+    FILES_REMOVED=$((FILES_REMOVED + 1))
+  fi
+fi
+
+# v6.0: Clean phase-context JSON snapshots alongside markdown snapshots
+if [ -d "$CONTEXT_SNAPSHOTS" ]; then
+  for P_CLEAN in 1 2 3 4 5 6 7; do
+    [ "$P_CLEAN" -lt "$FROM_PHASE" ] && continue
+    json_snap="$CONTEXT_SNAPSHOTS/phase-${P_CLEAN}-context.json"
+    if [ -f "$json_snap" ]; then
+      [ "$DRY_RUN" = "false" ] && rm -f "$json_snap"
+      FILES_REMOVED=$((FILES_REMOVED + 1))
+    fi
+  done
+fi
+
 # --- Step 3: Events filtering (atomic write) ---
 if [ -f "$EVENTS_FILE" ]; then
   ORIGINAL_COUNT=$(wc -l <"$EVENTS_FILE" | tr -d ' ')

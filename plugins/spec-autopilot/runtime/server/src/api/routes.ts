@@ -5,7 +5,7 @@
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { GUI_DIST, HTTP_PORT, MIME_TYPES, SESSIONS_DIR, WS_PORT } from "../config";
-import { snapshotState } from "../state";
+import { snapshotState, wsClients } from "../state";
 import { sanitizeForApi, sanitizePath, corsHeaders } from "../security/sanitize";
 import { ensurePluginVersion } from "../session/session-context";
 import { projectRoot } from "../config";
@@ -79,6 +79,47 @@ export function createHttpServer() {
           mode: snapshotState.mode || null,
           currentPhase,
         }), {
+          headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+        });
+      }
+
+      if (url.pathname === "/api/health") {
+        const version = await ensurePluginVersion();
+        const uptimeMs = Math.floor(process.uptime() * 1000);
+        const wsClientCount = wsClients.size;
+
+        // 结构化健康检查: HTTP、WS、snapshot、telemetry、transcript 分开报告
+        const health = {
+          status: "ok" as "ok" | "degraded" | "error",
+          version,
+          uptimeMs,
+          pid: process.pid,
+          checks: {
+            http: { status: "ok" as const },
+            ws: {
+              status: wsClientCount > 0 ? "ok" as const : "no_clients" as const,
+              clients: wsClientCount,
+            },
+            snapshot: {
+              status: snapshotState.sessionId ? "ok" as const : "no_session" as const,
+              sessionId: snapshotState.sessionId,
+              eventCount: snapshotState.events.length,
+            },
+            telemetry: {
+              status: snapshotState.telemetryAvailable ? "ok" as const : "unavailable" as const,
+            },
+            transcript: {
+              status: snapshotState.transcriptAvailable ? "ok" as const : "unavailable" as const,
+            },
+          },
+        };
+
+        // 如果核心功能不可用，标记为 degraded
+        if (!snapshotState.sessionId || !snapshotState.telemetryAvailable) {
+          health.status = "degraded";
+        }
+
+        return new Response(JSON.stringify(health), {
           headers: { "Content-Type": "application/json", ...corsHeaders(req) },
         });
       }

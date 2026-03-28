@@ -55,6 +55,7 @@ export interface SessionSnapshot {
   journalPath: string | null;
   telemetryAvailable: boolean;
   transcriptAvailable: boolean;
+  stateSnapshot: StateSnapshot | null;
 }
 
 export interface PhaseContext {
@@ -172,4 +173,73 @@ export interface ModelRoutingConfig {
   default_subagent_model?: ModelName | ModelTier;
   fallback_model?: ModelName | ModelTier;
   phases?: Record<string, PhaseModelConfig | LegacyModelRouting>;
+}
+
+// --- v6.0 新增类型 ---
+
+/** state-snapshot.json 结构化控制态 (WS-C) */
+export interface StateSnapshot {
+  schema_version: string;
+  snapshot_hash: string;
+  gate_frontier: number;
+  next_action: string;
+  requirement_packet_hash: string | null;
+  phase_results: Record<string, { status: string; timestamp: string }>;
+  review_status: string | null;
+  fixup_status: string | null;
+  archive_status: string | null;
+  recovery_confidence: "high" | "medium" | "low" | null;
+}
+
+/** 编排概览状态 — GUI store 消费 (WS-D) */
+export interface OrchestrationOverview {
+  goalSummary: string | null;
+  currentSubStep: string | null;
+  gateFrontierReason: string | null;
+  requirementPacketHash: string | null;
+  contextBudget: { percent: number; risk: "low" | "medium" | "high" } | null;
+  archiveReadiness: {
+    fixupComplete: boolean;
+    reviewGatePassed: boolean;
+    ready: boolean;
+  } | null;
+}
+
+/** Review finding 结构 (WS-E) */
+export interface ReviewFinding {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  evidence: string;
+  blocking: boolean;
+  owner: string;
+  resolved: boolean;
+}
+
+/** Agent dispatch 审计记录 (WS-E) */
+export interface AgentDispatchRecord {
+  agent_id: string;
+  agent_class: string;
+  phase: number;
+  selection_reason: string;
+  resolved_priority: string;
+  owned_artifacts: string[];
+  background: boolean;
+  scanned_sources: string[];
+  required_validators: string[];
+  fallback_reason: string | null;
+}
+
+/** Requirement packet (WS-A) */
+export interface RequirementPacket {
+  schema_version: string;
+  hash: string;
+  requirement_maturity: "clear" | "partial" | "ambiguous";
+  goal: string;
+  scope: string[];
+  non_goals: string[];
+  acceptance_criteria: string[];
+  assumptions: string[];
+  risks: string[];
+  open_questions: string[];
+  decision_log: Array<{ question: string; decision: string; rationale: string }>;
 }

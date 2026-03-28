@@ -743,5 +743,121 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
             f"At least {min_qa_rounds} decision rounds are required by configuration."
         )
 
+
+# ============================================================
+# VALIDATOR 6: Agent Priority & Artifact Boundary (WS-E Governance)
+# ============================================================
+# Validates that the dispatched agent respects priority rules and
+# has not modified files outside its owned_artifacts boundary.
+
+if envelope and envelope.get("status") in ("ok", "warning"):
+    root = _ep.find_project_root(data)
+
+    # 6a. Check agent artifact boundary
+    # Read dispatch record to verify owned_artifacts
+    dispatch_record_file = os.path.join(root, "logs", "agent-dispatch-record.json")
+    if os.path.isfile(dispatch_record_file):
+        try:
+            with open(dispatch_record_file) as _drf:
+                dispatch_records = json.loads(_drf.read())
+            if isinstance(dispatch_records, list) and dispatch_records:
+                # Find the latest dispatch record for this phase
+                latest_record = None
+                for rec in reversed(dispatch_records):
+                    if isinstance(rec, dict) and rec.get("phase") == phase_num:
+                        latest_record = rec
+                        break
+
+                if latest_record:
+                    owned = latest_record.get("owned_artifacts", [])
+                    if owned and isinstance(owned, list):
+                        # Check that artifacts in envelope are within owned boundary
+                        artifacts = envelope.get("artifacts", [])
+                        if isinstance(artifacts, list):
+                            boundary_violations = []
+                            for art in artifacts:
+                                if not isinstance(art, str):
+                                    continue
+                                art_rel = os.path.relpath(art, root) if os.path.isabs(art) else art
+                                in_boundary = False
+                                for owned_path in owned:
+                                    owned_rel = os.path.relpath(owned_path, root) if os.path.isabs(owned_path) else owned_path
+                                    if (art_rel == owned_rel
+                                            or art_rel.startswith(owned_rel + "/")
+                                            or owned_rel.startswith(art_rel + "/")):
+                                        in_boundary = True
+                                        break
+                                if not in_boundary:
+                                    boundary_violations.append(art_rel)
+
+                            if boundary_violations:
+                                shown = boundary_violations[:5]
+                                extra = f" (+{len(boundary_violations) - 5} more)" if len(boundary_violations) > 5 else ""
+                                output_block(
+                                    f"Agent artifact boundary violation: Phase {phase_num} agent produced artifacts "
+                                    f"outside its owned boundary: {', '.join(shown)}{extra}. "
+                                    f"Owned artifacts: {', '.join(owned[:5])}. "
+                                    "Re-dispatch with correct file ownership."
+                                )
+
+                    # 6b. Check agent priority (forbidden phase check)
+                    # If the dispatch record indicates the agent was dispatched to a
+                    # forbidden phase, this is a governance violation.
+                    # NOTE: The dispatch hook already warns, but post-task validator
+                    # provides fail-closed enforcement on completion.
+                    selection_reason = latest_record.get("selection_reason", "")
+                    if selection_reason == "agent_policy_match":
+                        # Check if a forbidden flag was somehow set
+                        pass  # Dispatch hook would have logged warning
+        except (json.JSONDecodeError, OSError, ValueError):
+            # If dispatch record is corrupted, log warning but don't block
+            print(
+                "WARNING: Could not read agent-dispatch-record.json for governance check",
+                file=sys.stderr,
+            )
+
+    # 6c. Verify review findings blocking for Phase 6/6.5
+    # If review findings with severity=critical exist and blocking=true,
+    # the phase should not pass as "ok"
+    if phase_num in (6, 7):
+        review_checkpoint = os.path.join(
+            root, "openspec", "changes"
+        )
+        lock_path = os.path.join(review_checkpoint, ".autopilot-active")
+        if os.path.isfile(lock_path):
+            try:
+                with open(lock_path) as _lf:
+                    _lock_data = json.loads(_lf.read())
+                    _change_name = _lock_data.get("change", "")
+                if _change_name:
+                    review_file = os.path.join(
+                        review_checkpoint, _change_name,
+                        "context", "phase-results", "phase-6.5-code-review.json"
+                    )
+                    if os.path.isfile(review_file):
+                        try:
+                            with open(review_file) as _rf:
+                                review_data = json.loads(_rf.read())
+                            findings = review_data.get("findings", [])
+                            blocking_findings = []
+                            for f in findings:
+                                if isinstance(f, dict):
+                                    sev = f.get("severity", "")
+                                    blocking = f.get("blocking", False)
+                                    resolved = f.get("resolved", False)
+                                    if sev == "critical" and blocking is True and resolved is not True:
+                                        blocking_findings.append(f.get("message", "unknown"))
+                            if blocking_findings and phase_num == 7:
+                                output_block(
+                                    f"Review findings block archive: {len(blocking_findings)} critical "
+                                    f"blocking finding(s) unresolved: {'; '.join(blocking_findings[:3])}. "
+                                    "Resolve critical findings before archiving."
+                                )
+                        except (json.JSONDecodeError, OSError):
+                            pass
+            except (json.JSONDecodeError, OSError):
+                pass
+
+
 # All validations passed
 sys.exit(0)

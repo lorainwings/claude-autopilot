@@ -4,18 +4,25 @@ description: "[ONLY for autopilot orchestrator] Crash recovery protocol for auto
 user-invocable: false
 ---
 
-# Autopilot Recovery — 崩溃恢复协议（v5.6）
+# Autopilot Recovery — 崩溃恢复协议（v6.0）
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 
+### 核心变更（v6.0）
+
+1. `state-snapshot.json` 成为恢复控制面的唯一主工件
+2. 恢复前校验 `snapshot_hash` 一致性，hash 不匹配时 fail-closed（拒绝自动继续）
+3. 恢复输出包含：`resume_from_phase`、`discarded_artifacts`、`replay_required_tasks`、`recovery_reason`、`recovery_confidence`
+4. 不再依赖 Markdown 摘要作为主恢复路径（仅作人类可读 fallback）
+
 ### 脚本依赖
 
 | 脚本 | 用途 |
 |------|------|
-| `scripts/recovery-decision.sh` | 确定性恢复扫描（纯只读，JSON 输出） |
-| `scripts/clean-phase-artifacts.sh` | 统一清理阶段制品 + 事件过滤 + git 状态回退 |
+| `scripts/recovery-decision.sh` | 确定性恢复扫描（纯只读，JSON 输出，含 state-snapshot.json 校验） |
+| `scripts/clean-phase-artifacts.sh` | 统一清理阶段制品 + 事件过滤 + git 状态回退 + state-snapshot.json 清理 |
 
 ### 共享基础设施依赖
 
@@ -45,7 +52,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/recovery-decision.sh "${session
 
 JSON 输出包含：
 - `has_checkpoints`: 是否存在 checkpoint
-- `changes[]`: 每个 change 的完整扫描结果（last_valid_phase、gap 检测、interim、progress）
+- `changes[]`: 每个 change 的完整扫描结果（last_valid_phase、gap 检测、interim、progress、state_snapshot）
 - `selected_change`: 预选的 change 名称（可能为 null）
 - `recommended_recovery_phase`: 推荐恢复起始阶段
 - `recovery_options`: 三种恢复路径选项
@@ -56,12 +63,22 @@ JSON 输出包含：
 - `recovery_interaction_required`: 是否需要用户交互
 - `auto_continue_eligible`: 是否满足自动继续条件
 - `git_risk_level`: "none" | "low" | "medium" | "high" — git 风险级别
+- `resume_from_phase`: 恢复起始阶段（v6.0）
+- `discarded_artifacts`: 需要丢弃的制品列表（v6.0）
+- `replay_required_tasks`: 需要重跑的任务列表（v6.0）
+- `recovery_reason`: 恢复原因（v6.0: state_snapshot_resume | checkpoint_resume | progress_resume | snapshot_hash_mismatch | fresh_start | all_complete）
+- `recovery_confidence`: 恢复置信度（v6.0: high | medium | low）
 
 ### Step 1.5: 自动继续判定
 
 当 `auto_continue_eligible == true` 且配置 `recovery.auto_continue_single_candidate` 允许时：
 - **自动执行继续恢复**，不弹 AskUserQuestion，直接进入路径 A
 - 输出日志：`Auto-continuing recovery: Phase {continue.phase} ({continue.label})`
+
+**v6.0 Fail-closed 规则**：当 `recovery_confidence == "low"` 时：
+- 强制 `auto_continue_eligible = false`，不允许自动继续
+- `recovery_interaction_required = true`
+- 提示用户：`state-snapshot.json hash 校验失败，恢复置信度为 LOW，需要人工确认`
 
 当 `has_fixup_commits == true` 时：
 - 在日志中记录 fixup 状态：`Fixup commits detected: {fixup_commit_count} pending squash`
@@ -99,8 +116,13 @@ AskUserQuestion:
 
 **有 checkpoint（Phase 1-6）**→
 
+{if recovery_confidence == "low"}
+> WARNING: state-snapshot.json hash 校验失败。结构化恢复不可用，将使用 checkpoint 扫描恢复。
+> 恢复置信度: LOW — 建议人工检查 checkpoint 一致性后再继续。
+{end if}
+
 {if has_fixup_commits == true}
-> ℹ️ 检测到 {fixup_commit_count} 个 fixup 提交 — 这是 autopilot 运行时产生的中间 checkpoint 提交，
+> 检测到 {fixup_commit_count} 个 fixup 提交 — 这是 autopilot 运行时产生的中间 checkpoint 提交，
 > 将在 Phase 7 归档时通过 `git rebase --autosquash` 自动合并，**无需手动处理**。
 {end if}
 
@@ -127,7 +149,7 @@ AskUserQuestion:
 
 **Gap 检测警告**：当 `has_gaps == true` 时，在展示恢复选项前输出警告：
 ```
-⚠️ 检测到 checkpoint 断裂（gap phases: {gap_phases}）。建议从断点继续或从头开始。
+WARNING: 检测到 checkpoint 断裂（gap phases: {gap_phases}）。建议从断点继续或从头开始。
 ```
 
 ### Step 4: 执行恢复路径
@@ -137,6 +159,10 @@ AskUserQuestion:
 - `recovery_phase = recovery_options.continue.phase`
 - 编排主线程在 TaskCreate 时将已完成阶段标记为 completed
 - 不清理任何制品
+- **v6.0 state-snapshot.json 验证**: 当 `recovery_reason == "state_snapshot_resume"` 时：
+  1. 输出：`Structured recovery from state-snapshot.json (hash verified)`
+  2. 使用 `gate_frontier`、`next_action`、`requirement_packet_hash` 作为恢复控制态
+  3. 不再依赖 Markdown 摘要
 - **v5.8 worktree 恢复一致性检查**: 当 `recovery_phase == 5` 且 `git_state.uncommitted_changes == true` 时：
   1. 输出警告：`[WARNING] 工作区存在未提交的变更，可能因 Phase 5 崩溃导致部分合并`
   2. 执行 `git diff --stat` 展示变更文件列表
@@ -161,7 +187,7 @@ AskUserQuestion:
   ```bash
   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/clean-phase-artifacts.sh ${target_phase} ${mode} "${change_dir}" --git-target-sha ${TARGET_SHA}')
   ```
-  清理脚本自动处理：git 回退 → 文件清理 → 事件过滤（事务性顺序）
+  清理脚本自动处理：git 回退 → 文件清理 → 事件过滤 → state-snapshot.json 清理（事务性顺序）
 - 解析清理脚本的 JSON 输出，向用户展示清理摘要
 
 #### 路径 C：从头开始
@@ -171,22 +197,34 @@ AskUserQuestion:
   ```bash
   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/clean-phase-artifacts.sh 1 ${mode} "${change_dir}"')
   ```
-  不传 `--git-target-sha`（不回退 git 状态，仅清理文件）
+  不传 `--git-target-sha`（不回退 git 状态，仅清理文件 + state-snapshot.json）
 - 返回起始阶段号 1
 
 ### Step 5: 上下文重建 + Anchor SHA 验证
 
 #### 上下文重建协议
 
-恢复时读取 **phase < recovery_phase** 的上下文快照，拼接为恢复上下文摘要：
+恢复时优先使用 **state-snapshot.json** 中的结构化数据：
 
 ```bash
-ls openspec/changes/<name>/context/phase-context-snapshots/phase-*-context.md 2>/dev/null
+cat openspec/changes/<name>/context/state-snapshot.json 2>/dev/null
 ```
 
-对每个存在的 `phase-{P}-context.md`（其中 P < recovery_phase）：
-1. 读取文件内容
-2. 提取 "关键决策摘要" 和 "下阶段所需上下文" 段落
+若 state-snapshot.json 可用且 hash 校验通过：
+1. 从 `phase_results` 字段获取各阶段状态
+2. 从 `next_action` 字段获取恢复起点
+3. 从 `requirement_packet_hash` 验证需求一致性
+4. 从 `gate_frontier` 确认门禁边界
+
+若 state-snapshot.json 不可用或 hash 不匹配，fallback 到 phase context snapshots：
+
+```bash
+ls openspec/changes/<name>/context/phase-context-snapshots/phase-*-context.json 2>/dev/null
+```
+
+对每个存在的 `phase-{P}-context.json`（其中 P < recovery_phase）：
+1. 读取 JSON 内容（优先）或 markdown 文件
+2. 提取 summary、decisions、next_phase_context
 3. 拼接为恢复上下文摘要，注入主线程
 
 恢复时输出格式：
@@ -265,4 +303,53 @@ Phase 2: [摘要...]
 
 ## SessionStart Hook 集成
 
-`scan-checkpoints-on-start.sh` Hook 在会话启动时自动扫描 checkpoint 目录，输出摘要信息。本 Skill 在此基础上提供交互式恢复决策。
+`scan-checkpoints-on-start.sh` Hook 在会话启动时自动扫描 checkpoint 目录和 state-snapshot.json，输出摘要信息。本 Skill 在此基础上提供交互式恢复决策。
+
+## state-snapshot.json Schema（v6.0）
+
+```json
+{
+  "schema_version": "6.0",
+  "saved_at": "ISO-8601",
+  "change_name": "string",
+  "execution_mode": "full|lite|minimal",
+  "anchor_sha": "string|null",
+  "requirement_packet_hash": "string|null (sha256[:16] of phase-1 checkpoint)",
+  "gate_frontier": "number (highest passed gate phase)",
+  "last_completed_phase": "number",
+  "next_action": {
+    "phase": "number",
+    "type": "resume",
+    "description": "string"
+  },
+  "phase_results": {
+    "1": {"status": "ok|warning|blocked|failed|pending", "summary": "string", "file": "string|null", "artifacts": []},
+    "2": "...",
+    "...": "..."
+  },
+  "phase_sequence": [1, 2, 3, 4, 5, 6, 7],
+  "active_tasks": [{"phase": 5, "step": "gate_passed"}],
+  "tasks_progress": {"completed": 3, "remaining": 2},
+  "phase5_task_details": [{"number": 1, "status": "ok", "summary": "..."}],
+  "progress_entries": [{"phase": 5, "step": "task_3", "status": "in_progress"}],
+  "review_status": "null (由 Phase 6/6.5 填充)",
+  "fixup_status": "null (由 Phase 7 填充)",
+  "archive_status": "null (由 Phase 7 填充)",
+  "snapshot_hash": "string (sha256[:16] of all fields except snapshot_hash)"
+}
+```
+
+## GUI / Server 需要消费的恢复字段（v6.0 交付给协调者）
+
+1. `gate_frontier` — GUI 时间轴可标记已通过的 gate 边界
+2. `next_action.phase` — GUI 显示"下一步"指示
+3. `recovery_confidence` — GUI 恢复面板显示置信度标识
+4. `requirement_packet_hash` — GUI 可验证需求一致性
+5. `snapshot_hash` — GUI/server 可校验 snapshot 完整性
+
+## 与 Workstream B 的对接要求（v6.0 交付给协调者）
+
+1. `archive_status` 字段由 Phase 7（Workstream B）负责填充
+2. `fixup_status` 字段由 Phase 7 归档逻辑填充
+3. `review_status` 字段由 Phase 6/6.5 填充
+4. Workstream B 的 `auto_continue_after_phase1` 配置影响 recovery 的 `auto_continue_eligible` 判定

@@ -1,7 +1,7 @@
 /**
- * App — V2 主应用组件
- * 三栏布局: 左侧时间轴 | 中心(Kanban + Terminal) | 右侧遥测面板
- * 逻辑骨架: WSBridge + Zustand Store 保持不变
+ * App -- v5.9 主应用组件 (orchestration-first)
+ * 三栏布局: 左侧时间轴 | 中心(OrchestrationPanel + Kanban + LogWorkbench) | 右侧遥测(可折叠)
+ * 核心变更: 主窗口优先展示编排信息，遥测降级为折叠面板
  */
 
 import { useEffect, memo, useState } from "react";
@@ -9,6 +9,7 @@ import { WSBridge } from "./lib/ws-bridge";
 import { useStore } from "./store";
 import { PhaseTimeline } from "./components/PhaseTimeline";
 import { GateBlockCard } from "./components/GateBlockCard";
+import { OrchestrationPanel } from "./components/OrchestrationPanel";
 import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
 import { LogWorkbench } from "./components/LogWorkbench";
@@ -44,7 +45,7 @@ const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routi
     <div className={`mx-4 mt-3 px-4 py-2 bg-deep border ${borderColor} rounded font-mono text-[11px] z-20`}>
       <div className="flex items-center gap-2">
         <span className={`font-bold ${titleColor}`}>
-          🤖 Phase {routing.phase} Model:
+          Phase {routing.phase} Model:
         </span>
         <span className="text-text-bright font-bold">
           {routing.requested_model ?? "--"}
@@ -59,16 +60,16 @@ const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routi
           <span className="text-text-muted truncate">| {routing.routing_reason}</span>
         )}
         {isFallback && routing.fallback_model && (
-          <span className="text-rose font-bold ml-1">⚠️ Fallback → {routing.fallback_model}</span>
+          <span className="text-rose font-bold ml-1">Fallback: {routing.fallback_model}</span>
         )}
         {isEscalated && (
-          <span className="text-amber ml-1">⬆️ Escalated</span>
+          <span className="text-amber ml-1">Escalated</span>
         )}
         <button
           className="ml-auto text-text-muted hover:text-text-bright shrink-0"
           onClick={() => setVisible(false)}
         >
-          ✕
+          x
         </button>
       </div>
     </div>
@@ -79,6 +80,7 @@ export function App() {
   const { connected, setConnected, setHttpOk, addEvents, changeName, sessionId, mode } = useStore();
   const hasEvents = useStore((s) => s.events.length > 0);
   const modelRouting = useStore((s) => s.modelRouting);
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
 
   useEffect(() => {
     wsBridge.connect();
@@ -87,12 +89,12 @@ export function App() {
       addEvents(events);
     });
 
-    // v5.4: Listen for reset signal (restart scenario) → clear all GUI state
+    // v5.4: Listen for reset signal (restart scenario) -> clear all GUI state
     const unsubscribeReset = wsBridge.onReset(() => {
       useStore.getState().reset();
     });
 
-    // v5.1.51: decision_ack only for UI feedback — does not control GateBlockCard visibility
+    // v5.1.51: decision_ack only for UI feedback -- does not control GateBlockCard visibility
     // Merged into single atomic setState to avoid intermediate render (P0-3 fix)
     const unsubscribeAck = wsBridge.onDecisionAck(() => {
       const state = useStore.getState();
@@ -107,14 +109,23 @@ export function App() {
 
     // v5.4: Independent HTTP health ping (not tied to WS state)
     const checkHttp = setInterval(() => {
-      fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+      fetch("/api/health", { signal: AbortSignal.timeout(2000) })
         .then((r) => { setHttpOk(r.ok); })
-        .catch(() => { setHttpOk(false); });
+        .catch(() => {
+          // Fallback to /api/info if /api/health not available
+          fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+            .then((r) => { setHttpOk(r.ok); })
+            .catch(() => { setHttpOk(false); });
+        });
     }, 5000);
     // Initial check
-    fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+    fetch("/api/health", { signal: AbortSignal.timeout(2000) })
       .then((r) => { setHttpOk(r.ok); })
-      .catch(() => { setHttpOk(false); });
+      .catch(() => {
+        fetch("/api/info", { signal: AbortSignal.timeout(2000) })
+          .then((r) => { setHttpOk(r.ok); })
+          .catch(() => { setHttpOk(false); });
+      });
 
     return () => {
       clearInterval(checkConnection);
@@ -157,6 +168,17 @@ export function App() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          {/* 遥测面板展开/折叠按钮 */}
+          <button
+            onClick={() => setTelemetryOpen(!telemetryOpen)}
+            className={`px-2 py-0.5 text-[10px] font-mono border rounded transition-colors ${
+              telemetryOpen
+                ? "border-cyan/50 bg-cyan/10 text-cyan"
+                : "border-border text-text-muted hover:border-cyan/30"
+            }`}
+          >
+            {telemetryOpen ? "收起遥测" : "展开遥测"}
+          </button>
           {mode && (
             <div className="px-2 py-0.5 border border-cyan/50 bg-cyan/10 text-cyan text-[10px] font-bold rounded uppercase tracking-tighter">
               {mode === "full" ? "全模式" : mode === "lite" ? "精简" : "最小"}
@@ -174,52 +196,60 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Three-Column Layout */}
+      {/* Main Layout */}
       <main className="flex flex-1 overflow-hidden">
         {/* Left Panel: Phase Timeline */}
         <PhaseTimeline />
 
-          {/* Center Panel: Kanban (top 42%) + LogWorkbench (bottom 58%) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-void">
-          {/* Gate Block Card — Floating overlay when active */}
-          <div className="relative">
-            <div className="absolute top-4 left-4 right-4 z-30">
-              <GateBlockCard onDecision={handleDecision} />
-            </div>
+        {/* Center: Orchestration + Kanban + LogWorkbench */}
+        <div className="flex flex-1 min-w-0">
+          {/* Orchestration Panel (左侧编排驾驶舱) */}
+          <div className="w-[260px] shrink-0 border-r border-border">
+            <OrchestrationPanel />
           </div>
 
-          {/* Model Routing Banner — 中心醒目展示当前 Phase 模型路由 (v5.8) */}
-          <ModelRoutingBanner routing={modelRouting} />
-
-          {/* Empty state placeholder when no events yet */}
-          {!hasEvents && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-3">
-                <div className="w-8 h-8 border-2 border-cyan/40 border-t-cyan rounded-full animate-spin mx-auto"></div>
-                <div className="font-mono text-sm text-text-muted">
-                  {connected ? "等待事件流..." : "正在连接引擎..."}
-                </div>
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-w-0 bg-void">
+            {/* Gate Block Card -- Floating overlay when active */}
+            <div className="relative">
+              <div className="absolute top-4 left-4 right-4 z-30">
+                <GateBlockCard onDecision={handleDecision} />
               </div>
             </div>
-          )}
 
-          {hasEvents && (
-            <>
-              {/* ParallelKanban (Top) */}
-              <div className="h-[42%]">
-                <ParallelKanban />
-              </div>
+            {/* Model Routing Banner -- 中心醒目展示当前 Phase 模型路由 (v5.8) */}
+            <ModelRoutingBanner routing={modelRouting} />
 
-              {/* Log Workbench (Bottom) */}
-              <div className="h-[58%]">
-                <LogWorkbench />
+            {/* Empty state placeholder when no events yet */}
+            {!hasEvents && (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div className="w-8 h-8 border-2 border-cyan/40 border-t-cyan rounded-full animate-spin mx-auto"></div>
+                  <div className="font-mono text-sm text-text-muted">
+                    {connected ? "等待事件流..." : "正在连接引擎..."}
+                  </div>
+                </div>
               </div>
-            </>
-          )}
+            )}
+
+            {hasEvents && (
+              <>
+                {/* ParallelKanban (Top) */}
+                <div className="h-[42%]">
+                  <ParallelKanban />
+                </div>
+
+                {/* Log Workbench (Bottom) */}
+                <div className="h-[58%]">
+                  <LogWorkbench />
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Right Panel: Telemetry Dashboard */}
-        <TelemetryDashboard />
+        {/* Right Panel: Telemetry Dashboard (可折叠) */}
+        {telemetryOpen && <TelemetryDashboard />}
       </main>
     </div>
   );

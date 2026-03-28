@@ -25,7 +25,7 @@
 - **GUI V2 大盘（v5.0.8）**: 三栏实时仪表盘（Phase 时间轴 / 事件流 / 门禁决策）含 decision_ack 反馈回路
 - **并行执行（v5.0）**: 领域级并行 Agent（backend ‖ frontend ‖ node）含文件所有权强制
 - **7-Agent 并行审计（v5.0.10）**: 跨 7 个维度的全面并行审计
-- **模块化测试套件**: 76 个测试文件，692+ 个断言，覆盖所有 Hook 和脚本
+- **模块化测试套件**: 98 个测试文件，1169+ 个断言，覆盖所有 Hook 和脚本
 - **需求清晰度检测**: 预扫描规则引擎，在研究前检测模糊需求（v4.1）
 - **指标采集**: 每阶段计时和重试追踪
 - **苏格拉底需求模式**: 通过挑战性问题进行深度需求分析（v5.0.6: +Step 7 非功能需求）
@@ -37,7 +37,7 @@ graph TB
     subgraph "Main Thread (Orchestrator)"
         P0[Phase 0: Environment Check<br/>+ Crash Recovery]
         P1[Phase 1: Requirements<br/>Multi-round Decision Loop<br/>+ Routing v4.2]
-        P7[Phase 7: Summary<br/>+ User-confirmed Archive]
+        P7[Phase 7: Summary<br/>+ Archive Readiness Auto]
     end
 
     subgraph "Sub-Agents (via Task tool)"
@@ -134,10 +134,11 @@ sequenceDiagram
     participant Main as Main Thread
 
     CC->>Pre: Context approaching limit
-    Pre->>Pre: Write autopilot-state.md
+    Pre->>Pre: Write state-snapshot.json + autopilot-state.md
     CC->>CC: Compress context
     CC->>Post: New session after compact
-    Post->>Post: Read autopilot-state.md
+    Post->>Post: Read state-snapshot.json (hash verify)
+    Post-->>Post: Fallback: autopilot-state.md
     Post->>Main: Inject state into context
     Main->>Main: Read checkpoint files
     Main->>Main: Resume from next phase
@@ -247,7 +248,7 @@ test_pyramid:
 
 gates:
   user_confirmation:
-    after_phase_1: true
+    after_phase_1: false
     after_phase_3: false
     after_phase_4: false
 

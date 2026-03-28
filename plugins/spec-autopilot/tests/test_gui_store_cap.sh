@@ -60,7 +60,47 @@ const mixedCrit = afterMixed.filter((e) => e.type === "gate_block").length;
 const mixedReg = afterMixed.filter((e) => e.type === "tool_use").length;
 const total = afterMixed.length;
 
-console.log(JSON.stringify({ critCount, mixedCrit, mixedReg, total }));
+// Test 3: Orchestration state extraction
+store.getState().reset();
+store.getState().addEvents([
+  {
+    sequence: 1, type: "session_start", phase: 0, mode: "full" as const,
+    session_id: "test-orch", change_name: "feat-login", total_phases: 8,
+    timestamp: new Date().toISOString(), phase_label: "init",
+    payload: { goal_summary: "实现登录功能" },
+  },
+  {
+    sequence: 2, type: "gate_block", phase: 1, mode: "full" as const,
+    session_id: "test-orch", change_name: "feat-login", total_phases: 8,
+    timestamp: new Date().toISOString(), phase_label: "requirements",
+    payload: { reason: "测试覆盖率不足", error_message: "coverage < 80%" },
+  },
+  {
+    sequence: 3, type: "status_snapshot", phase: 1, mode: "full" as const,
+    session_id: "test-orch", change_name: "feat-login", total_phases: 8,
+    timestamp: new Date().toISOString(), phase_label: "requirements",
+    payload: { context_window: { percent: 75 } },
+  },
+  {
+    sequence: 4, type: "archive_readiness", phase: 7, mode: "full" as const,
+    session_id: "test-orch", change_name: "feat-login", total_phases: 8,
+    timestamp: new Date().toISOString(), phase_label: "archive",
+    payload: { fixup_complete: true, review_gate_passed: false, ready: false },
+  },
+]);
+const orch = store.getState().orchestration;
+const orchGoal = orch.goalSummary;
+const orchGateFrontier = orch.gateFrontierReason;
+const orchContextPct = orch.contextBudget?.percent ?? -1;
+const orchContextRisk = orch.contextBudget?.risk ?? "none";
+const orchArchiveReady = orch.archiveReadiness?.ready ?? null;
+const orchFixupComplete = orch.archiveReadiness?.fixupComplete ?? null;
+
+console.log(JSON.stringify({
+  critCount, mixedCrit, mixedReg, total,
+  orchGoal, orchGateFrontier, orchContextPct, orchContextRisk,
+  orchArchiveReady, orchFixupComplete,
+}));
 TSEOF
 
 # Run the temp file with bun (inside gui/ for correct module resolution)
@@ -79,6 +119,12 @@ CRIT_COUNT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.s
 MIXED_CRIT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['mixedCrit'])" 2>/dev/null || echo "")
 MIXED_REG=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['mixedReg'])" 2>/dev/null || echo "")
 TOTAL=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['total'])" 2>/dev/null || echo "")
+ORCH_GOAL=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchGoal'])" 2>/dev/null || echo "")
+ORCH_GATE=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchGateFrontier'])" 2>/dev/null || echo "")
+ORCH_CTX_PCT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchContextPct'])" 2>/dev/null || echo "")
+ORCH_CTX_RISK=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchContextRisk'])" 2>/dev/null || echo "")
+ORCH_ARCHIVE_READY=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchArchiveReady'])" 2>/dev/null || echo "")
+ORCH_FIXUP=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['orchFixupComplete'])" 2>/dev/null || echo "")
 
 # Test 1: 450 critical → capped to 400
 if [ "$CRIT_COUNT" = "400" ]; then
@@ -111,6 +157,58 @@ if [ "$TOTAL" = "2450" ]; then
   PASS=$((PASS + 1))
 else
   red "  FAIL: 2c. total events (expected 2450, got '$TOTAL')"
+  FAIL=$((FAIL + 1))
+fi
+
+# Test 3: Orchestration state extraction
+echo ""
+echo "  [3] Orchestration state extraction"
+
+if [ "$ORCH_GOAL" = "实现登录功能" ]; then
+  green "  PASS: 3a. goalSummary extracted from session_start"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3a. goalSummary (expected '实现登录功能', got '$ORCH_GOAL')"
+  FAIL=$((FAIL + 1))
+fi
+
+if [ "$ORCH_GATE" = "测试覆盖率不足" ]; then
+  green "  PASS: 3b. gateFrontierReason extracted from gate_block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3b. gateFrontierReason (expected '测试覆盖率不足', got '$ORCH_GATE')"
+  FAIL=$((FAIL + 1))
+fi
+
+if [ "$ORCH_CTX_PCT" = "75" ]; then
+  green "  PASS: 3c. contextBudget.percent extracted from status_snapshot"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3c. contextBudget.percent (expected 75, got '$ORCH_CTX_PCT')"
+  FAIL=$((FAIL + 1))
+fi
+
+if [ "$ORCH_CTX_RISK" = "medium" ]; then
+  green "  PASS: 3d. contextBudget.risk calculated as medium (60 < 75 <= 80)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3d. contextBudget.risk (expected 'medium', got '$ORCH_CTX_RISK')"
+  FAIL=$((FAIL + 1))
+fi
+
+if [ "$ORCH_ARCHIVE_READY" = "False" ]; then
+  green "  PASS: 3e. archiveReadiness.ready = false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3e. archiveReadiness.ready (expected False, got '$ORCH_ARCHIVE_READY')"
+  FAIL=$((FAIL + 1))
+fi
+
+if [ "$ORCH_FIXUP" = "True" ]; then
+  green "  PASS: 3f. archiveReadiness.fixupComplete = true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 3f. archiveReadiness.fixupComplete (expected True, got '$ORCH_FIXUP')"
   FAIL=$((FAIL + 1))
 fi
 

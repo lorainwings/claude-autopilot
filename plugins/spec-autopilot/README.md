@@ -25,7 +25,7 @@
 - **GUI V2 Dashboard (v5.0.8)**: Three-column real-time dashboard (Phase timeline / Event stream / Gate decisions) with decision_ack feedback loop
 - **Parallel Execution (v5.0)**: Domain-level parallel agents (backend ‖ frontend ‖ node) with file ownership enforcement
 - **7-Agent Parallel Audit (v5.0.10)**: Comprehensive parallel audit across 7 dimensions
-- **Modular Test Suite**: 76 test files with 692+ assertions covering all hooks and scripts
+- **Modular Test Suite**: 98 test files with 1169+ assertions covering all hooks and scripts
 - **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
 - **Metrics Collection**: Per-phase timing and retry tracking
 - **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 non-functional requirements)
@@ -134,10 +134,11 @@ sequenceDiagram
     participant Main as Main Thread
 
     CC->>Pre: Context approaching limit
-    Pre->>Pre: Write autopilot-state.md
+    Pre->>Pre: Write state-snapshot.json + autopilot-state.md
     CC->>CC: Compress context
     CC->>Post: New session after compact
-    Post->>Post: Read autopilot-state.md
+    Post->>Post: Read state-snapshot.json (hash verify)
+    Post-->>Post: Fallback: autopilot-state.md
     Post->>Main: Inject state into context
     Main->>Main: Read checkpoint files
     Main->>Main: Resume from next phase

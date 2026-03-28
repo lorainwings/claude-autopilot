@@ -22,6 +22,10 @@ export function createWsServer() {
           clients: wsClients.size,
           sessionId: snapshotState.sessionId,
           journalPath: snapshotState.journalPath,
+          telemetryAvailable: snapshotState.telemetryAvailable,
+          transcriptAvailable: snapshotState.transcriptAvailable,
+          uptimeMs: Math.floor(process.uptime() * 1000),
+          pid: process.pid,
         }), { headers: { "Content-Type": "application/json" } });
       }
       return new Response("WebSocket server. Connect via ws://", { status: 200 });

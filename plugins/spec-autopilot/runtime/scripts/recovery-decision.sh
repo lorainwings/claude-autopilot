@@ -6,7 +6,13 @@
 # Output: JSON on stdout
 #
 # Pure read-only: does NOT modify any files or git state.
-# Scans checkpoints, lock file, git state, and computes recovery options.
+# Scans checkpoints, lock file, git state, state-snapshot.json, and computes recovery options.
+#
+# v6.0:
+#   - Reads state-snapshot.json as primary recovery control state
+#   - Outputs resume_from_phase, discarded_artifacts, replay_required_tasks,
+#     recovery_reason, recovery_confidence
+#   - Hash consistency verification for fail-closed recovery
 #
 # Fix v5.6.2:
 #   - last_valid_phase stops at first gap (consistent with _common.sh)
@@ -220,6 +226,31 @@ for entry in sorted(os.listdir(changes_dir)):
             except Exception:
                 pass
 
+    # v6.0: Read state-snapshot.json if available
+    state_snapshot = None
+    snapshot_file = os.path.join(change_path, 'context', 'state-snapshot.json')
+    if os.path.isfile(snapshot_file):
+        try:
+            import hashlib
+            with open(snapshot_file) as fh:
+                sdata = json.load(fh)
+            stored_hash = sdata.get('snapshot_hash', '')
+            verify_data = {k: v for k, v in sdata.items() if k != 'snapshot_hash'}
+            verify_content = json.dumps(verify_data, sort_keys=True, ensure_ascii=False)
+            computed_hash = hashlib.sha256(verify_content.encode('utf-8')).hexdigest()[:16]
+            hash_valid = (computed_hash == stored_hash) if stored_hash else False
+            state_snapshot = {
+                'exists': True,
+                'hash_valid': hash_valid,
+                'snapshot_hash': stored_hash,
+                'gate_frontier': sdata.get('gate_frontier', 0),
+                'next_action': sdata.get('next_action', {}),
+                'requirement_packet_hash': sdata.get('requirement_packet_hash'),
+                'last_completed_phase': sdata.get('last_completed_phase', 0),
+            }
+        except Exception:
+            state_snapshot = {'exists': True, 'hash_valid': False, 'snapshot_hash': '', 'gate_frontier': 0, 'next_action': {}, 'requirement_packet_hash': None, 'last_completed_phase': 0}
+
     if not os.path.isdir(pr_dir):
         changes.append({
             'name': entry,
@@ -231,7 +262,8 @@ for entry in sorted(os.listdir(changes_dir)):
             'phase7_status': None,
             'phase1_interim': phase1_interim,
             'progress_files': progress_files,
-            'checkpoint_scan': []
+            'checkpoint_scan': [],
+            'state_snapshot': state_snapshot,
         })
         continue
 
@@ -288,7 +320,8 @@ for entry in sorted(os.listdir(changes_dir)):
         'phase7_status': phase7_status,
         'phase1_interim': phase1_interim,
         'progress_files': progress_files,
-        'checkpoint_scan': checkpoint_scan
+        'checkpoint_scan': checkpoint_scan,
+        'state_snapshot': state_snapshot,
     })
 
 print(json.dumps(changes))
@@ -343,12 +376,19 @@ def next_phase(current, seq):
 
 def first_incomplete_phase(change_data, seq):
     \"\"\"Find the first phase that is not ok/warning — this is where recovery should start.
-    Handles gaps correctly: P1=ok, P2=ok, P3=missing, P4=ok → returns 3 (the gap).\"\"\"
+    Handles gaps correctly: P1=ok, P2=ok, P3=missing, P4=ok -> returns 3 (the gap).\"\"\"
     for p in seq:
         cs = [x for x in change_data.get('checkpoint_scan', []) if x['phase'] == p]
         if not cs or cs[0]['status'] not in ('ok', 'warning'):
             return p
     return None  # all done
+
+def phase5_tasks_incomplete(change_data):
+    \"\"\"Check if Phase 5 has incomplete tasks.\"\"\"
+    for pf in change_data.get('progress_files', []):
+        if pf['phase'] == 5 and pf['status'] == 'in_progress':
+            return True
+    return False
 
 # has_checkpoints also considers interim and progress files
 has_checkpoints = any(c['total_checkpoints'] > 0 for c in changes)
@@ -371,6 +411,12 @@ elif has_checkpoints or has_partial_progress:
 # Compute recovery options for selected change
 recovery_options = {'continue': None, 'specify_range': [], 'reset': {'phase': 1}}
 recommended_phase = 1
+# v6.0: Enhanced recovery metadata
+resume_from_phase = 1
+discarded_artifacts = []
+replay_required_tasks = []
+recovery_reason = 'fresh_start'
+recovery_confidence = 'high'
 
 if selected_change:
     sc = None
@@ -383,8 +429,30 @@ if selected_change:
         has_interim = sc.get('phase1_interim') is not None
         has_progress = len(sc.get('progress_files', [])) > 0
         progress_map = {pf['phase']: pf for pf in sc.get('progress_files', [])}
+        state_snap = sc.get('state_snapshot')
 
-        if has_final_checkpoints:
+        # v6.0: Use state-snapshot.json if available and hash-valid
+        if state_snap and state_snap.get('exists') and state_snap.get('hash_valid'):
+            snap_next = state_snap.get('next_action', {}).get('phase')
+            snap_gate = state_snap.get('gate_frontier', 0)
+            if snap_next is not None:
+                cont = {'phase': snap_next, 'label': phase_labels.get(snap_next, 'Unknown')}
+                if snap_next in progress_map:
+                    cont['sub_step'] = progress_map[snap_next]['step']
+                recovery_options['continue'] = cont
+                recommended_phase = snap_next
+                resume_from_phase = snap_next
+                recovery_reason = 'state_snapshot_resume'
+                recovery_confidence = 'high'
+            # specify_range from snapshot gate_frontier
+            completed_phases = []
+            for p in phase_seq:
+                if p > snap_gate:
+                    break
+                completed_phases.append(p)
+            recovery_options['specify_range'] = completed_phases
+
+        elif has_final_checkpoints:
             # Use first_incomplete_phase — correctly handles gaps
             fip = first_incomplete_phase(sc, phase_seq)
             if fip is not None:
@@ -394,8 +462,13 @@ if selected_change:
                     cont['sub_step'] = progress_map[fip]['step']
                 recovery_options['continue'] = cont
                 recommended_phase = fip
+                resume_from_phase = fip
+                recovery_reason = 'checkpoint_resume'
+                recovery_confidence = 'medium' if sc.get('has_gaps') else 'high'
             else:
                 recommended_phase = sc['last_valid_phase']  # all done
+                resume_from_phase = sc['last_valid_phase']
+                recovery_reason = 'all_complete'
 
             # specify_range: only actually-completed phases (stop at last_valid, no gap phases)
             lvp = sc['last_valid_phase']
@@ -424,9 +497,30 @@ if selected_change:
                 cont['interim_stage'] = sc['phase1_interim']['stage']
             recovery_options['continue'] = cont
             recommended_phase = recovery_phase
+            resume_from_phase = recovery_phase
+            recovery_reason = 'progress_resume'
+            recovery_confidence = 'medium'
+
+        # v6.0: Compute discarded_artifacts (phases after resume point that have artifacts)
+        for p in phase_seq:
+            if p >= resume_from_phase:
+                cs_list = [x for x in sc.get('checkpoint_scan', []) if x['phase'] == p]
+                if cs_list and cs_list[0].get('file') and cs_list[0]['status'] not in ('ok', 'warning'):
+                    discarded_artifacts.append({'phase': p, 'file': cs_list[0]['file'], 'reason': f'Phase {p} incomplete/failed'})
+
+        # v6.0: Compute replay_required_tasks
+        if resume_from_phase == 5 and phase5_tasks_incomplete(sc):
+            for pf in sc.get('progress_files', []):
+                if pf['phase'] == 5 and pf['status'] == 'in_progress':
+                    replay_required_tasks.append({'phase': 5, 'step': pf['step'], 'reason': 'Phase 5 task incomplete'})
+
+        # v6.0: Fail-closed for corrupted snapshot
+        if state_snap and state_snap.get('exists') and not state_snap.get('hash_valid'):
+            recovery_confidence = 'low'
+            recovery_reason = 'snapshot_hash_mismatch'
 
 # --- Compute git_risk_level ---
-# rebase_in_progress or merge_in_progress → high; worktree_residuals → medium; has fixup → low; else → none
+# rebase_in_progress or merge_in_progress -> high; worktree_residuals -> medium; has fixup -> low; else -> none
 if git_state.get('rebase_in_progress') or git_state.get('merge_in_progress'):
     git_risk_level = 'high'
 elif git_state.get('worktree_residuals', []):
@@ -453,6 +547,11 @@ if selected_change is not None and recovery_options.get('continue') is not None:
         auto_continue_eligible = True
         recovery_interaction_required = False
 
+# v6.0: Override auto_continue if snapshot hash failed
+if recovery_confidence == 'low':
+    auto_continue_eligible = False
+    recovery_interaction_required = True
+
 result = {
     'status': 'ok',
     'has_checkpoints': has_checkpoints or has_partial_progress,
@@ -470,7 +569,13 @@ result = {
     'anchor_needs_rebuild': bool(has_fixup_commits) and not bool(anchor_sha),
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,
-    'git_risk_level': git_risk_level
+    'git_risk_level': git_risk_level,
+    # v6.0: Enhanced recovery metadata
+    'resume_from_phase': resume_from_phase,
+    'discarded_artifacts': discarded_artifacts,
+    'replay_required_tasks': replay_required_tasks,
+    'recovery_reason': recovery_reason,
+    'recovery_confidence': recovery_confidence,
 }
 
 print(json.dumps(result, ensure_ascii=False))

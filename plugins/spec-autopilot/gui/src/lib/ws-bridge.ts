@@ -33,6 +33,8 @@ export class WSBridge {
   private reconnectDelay = 1000;
   private maxReconnectDelay = 10000;
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private lastPong = 0;
 
   constructor(url = "ws://localhost:8765") {
     this.url = url;
@@ -54,6 +56,8 @@ export class WSBridge {
       this.ws.onopen = () => {
         this.clearConnectTimeout();
         this.reconnectDelay = 1000;
+        this.lastPong = Date.now();
+        this.startPing();
       };
 
       this.ws.onmessage = (e) => {
@@ -63,6 +67,8 @@ export class WSBridge {
             this.emit(msg.data as AutopilotEvent[]);
           } else if (msg.type === "event") {
             this.emit([msg.data as AutopilotEvent]);
+          } else if (msg.type === "pong") {
+            this.lastPong = Date.now();
           } else if (msg.type === "decision_ack") {
             // v5.2: Decision ACK — notify listeners for UI dismissal
             for (const handler of this.ackHandlers) {
@@ -79,6 +85,7 @@ export class WSBridge {
       };
 
       this.ws.onclose = () => {
+        this.stopPing();
         this.scheduleReconnect();
       };
 
@@ -93,6 +100,7 @@ export class WSBridge {
 
   disconnect() {
     this.clearConnectTimeout();
+    this.stopPing();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -147,5 +155,30 @@ export class WSBridge {
       this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, this.maxReconnectDelay);
       this.connect();
     }, this.reconnectDelay);
+  }
+
+  /** 定期发送 ping 以检测静默断连 (v5.9) */
+  private startPing() {
+    this.stopPing();
+    this.pingTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({ type: "ping" }));
+        } catch {
+          // send 失败，连接已坏
+        }
+        // 如果超过 30 秒未收到 pong，强制重连
+        if (this.lastPong > 0 && Date.now() - this.lastPong > 30000) {
+          this.ws?.close();
+        }
+      }
+    }, 10000);
+  }
+
+  private stopPing() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
   }
 }

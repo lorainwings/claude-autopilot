@@ -392,6 +392,24 @@ else
   PASS=$((PASS + 1))
 fi
 
+# ══════════════════════════════════════════════════════
+# 8. /api/health 端点结构化响应测试
+# ══════════════════════════════════════════════════════
+
+echo ""
+echo "  [8] /api/health structured response"
+
+HEALTH_JSON=$(curl -s --max-time 2 http://localhost:9527/api/health)
+assert_contains "8a. health endpoint returns status" "$HEALTH_JSON" '"status"'
+assert_contains "8b. health endpoint returns checks" "$HEALTH_JSON" '"checks"'
+assert_contains "8c. health endpoint has http check" "$HEALTH_JSON" '"http"'
+assert_contains "8d. health endpoint has ws check" "$HEALTH_JSON" '"ws"'
+assert_contains "8e. health endpoint has snapshot check" "$HEALTH_JSON" '"snapshot"'
+assert_contains "8f. health endpoint has telemetry check" "$HEALTH_JSON" '"telemetry"'
+assert_contains "8g. health endpoint has transcript check" "$HEALTH_JSON" '"transcript"'
+assert_contains "8h. health endpoint has pid" "$HEALTH_JSON" '"pid"'
+assert_contains "8i. health endpoint has uptimeMs" "$HEALTH_JSON" '"uptimeMs"'
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1

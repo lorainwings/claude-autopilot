@@ -34,11 +34,16 @@ SERVER_ERR_LOG="$LOGS_DIR/gui-server.err.log"
 # --- Check if server is alive via HTTP and belongs to this project ---
 check_server_alive() {
   local resp
-  resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
+  # 优先使用 /api/health 端点（v5.9），fallback 到 /api/info
+  resp=$(curl -s --max-time 1 http://localhost:9527/api/health 2>/dev/null) || \
+    resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
   # Validate response belongs to THIS project (prevent cross-project false positives)
   if [ -n "$resp" ]; then
     local resp_root
-    resp_root=$(echo "$resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('projectRoot',''))" 2>/dev/null) || true
+    # /api/health 不含 projectRoot，使用 /api/info 验证归属
+    local info_resp
+    info_resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
+    resp_root=$(echo "$info_resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('projectRoot',''))" 2>/dev/null) || true
     if [ -z "$resp_root" ]; then
       # Server too old to return projectRoot — reject (cannot verify ownership)
       return 1

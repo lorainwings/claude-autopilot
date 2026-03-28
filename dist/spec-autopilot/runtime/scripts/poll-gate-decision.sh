@@ -130,8 +130,8 @@ try:
         decision = json.load(f)
 
     action = decision.get('action', '').lower()
-    if action not in ('override', 'retry', 'fix'):
-        print(json.dumps({'error': f'Invalid action: {action}. Must be: override, retry, fix'}))
+    if action not in ('override', 'retry', 'fix', 'auto_continue'):
+        print(json.dumps({'error': f'Invalid action: {action}. Must be: override, retry, fix, auto_continue'}))
         sys.exit(1)
     if action == 'override' and sys.argv[3].lower() != 'true':
         print(json.dumps({'error': 'Override is forbidden for this gate. Use retry or fix instead.'}))

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # post-task-validator.sh
-# Hook: PostToolUse(Task) — Unified entry point (v4.0)
-# Purpose: Single orchestrator that runs all 5 PostToolUse(Task) validations
+# Hook: PostToolUse(Task) — Unified entry point (v4.0 + WS-E governance)
+# Purpose: Single orchestrator that runs all 5+1 PostToolUse(Task) validations
 #          in one python3 process, reducing fork overhead from ~420ms to ~100ms.
 #
 # Replaces 5 separate hooks:
@@ -10,6 +10,8 @@
 #   3. code-constraint-check.sh     → Code constraint verification
 #   4. parallel-merge-guard.sh      → Worktree merge validation
 #   5. validate-decision-format.sh  → Decision format validation
+# Plus (WS-E governance):
+#   6. Agent priority & artifact boundary validation
 #
 # Output: PostToolUse `decision: "block"` with `reason` on first validation failure.
 

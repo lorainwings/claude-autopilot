@@ -58,8 +58,10 @@ strict:
   test_pyramid.min_unit_pct: 50
   test_pyramid.max_e2e_pct: 20
   test_pyramid.min_total_cases: 20
-  gates.user_confirmation.after_phase_1: true
-  gates.user_confirmation.after_phase_3: true
+  gates.user_confirmation.after_phase_1: false
+  gates.user_confirmation.after_phase_3: false
+  gates.auto_continue_after_requirement: true
+  gates.archive_auto_on_readiness: true
 
 # --- Moderate 预设 ---
 moderate:
@@ -72,8 +74,10 @@ moderate:
   test_pyramid.min_unit_pct: 30
   test_pyramid.max_e2e_pct: 40
   test_pyramid.min_total_cases: 10
-  gates.user_confirmation.after_phase_1: true
+  gates.user_confirmation.after_phase_1: false
   gates.user_confirmation.after_phase_3: false
+  gates.auto_continue_after_requirement: true
+  gates.archive_auto_on_readiness: true
 
 # --- Relaxed 预设 ---
 relaxed:
@@ -88,6 +92,8 @@ relaxed:
   test_pyramid.min_total_cases: 5
   gates.user_confirmation.after_phase_1: false
   gates.user_confirmation.after_phase_3: false
+  gates.auto_continue_after_requirement: true
+  gates.archive_auto_on_readiness: true
 ```
 
 ### Wizard 完成后输出

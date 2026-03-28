@@ -35,6 +35,40 @@
 
 > **设计意图**: 避免在模糊需求上直接启动三路并行调研，浪费 Token 且调研结果噪音大。
 
+## Step 1.1.5b 需求成熟度评估（v6.0 新增）
+
+在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，决定调研方案：
+
+| 成熟度 | 判定规则 | 调研方案 |
+|--------|---------|---------|
+| **clear** | flags == 0 且 RAW_REQUIREMENT 含具体组件 + 具体行为 + 验收条件 | 仅 Auto-Scan（轻量澄清） |
+| **partial** | flags == 1 或 (flags == 0 但缺乏验收标准) | Auto-Scan + 定向技术调研（双路） |
+| **ambiguous** | flags >= 2 | Auto-Scan + 技术调研 + 联网搜索（三路） |
+
+```
+# 成熟度决策规则（确定性，非 AI 判断）
+IF flags >= 2:
+    maturity = "ambiguous"
+ELIF flags == 1:
+    maturity = "partial"
+ELIF flags == 0:
+    # 进一步检查验收标准质量
+    has_acceptance = RAW_REQUIREMENT 包含数字/百分比/可测试动词
+    has_specific_target = RAW_REQUIREMENT 包含具体组件名或文件路径
+    IF has_acceptance AND has_specific_target:
+        maturity = "clear"
+    ELSE:
+        maturity = "partial"
+```
+
+### 成熟度驱动的调研方案
+
+- **clear**: 仅派发 Auto-Scan → 直接进入 BA 分析 → 快速完成 Phase 1
+- **partial**: 派发 Auto-Scan + 技术调研 → 联网搜索按搜索规则引擎决定
+- **ambiguous**: 先走定向澄清/预循环 → 再派发三路调研
+
+> **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研，partial 需求按需补充，ambiguous 需求才全面展开。
+
 ## Step 1.1.7 定向澄清预检（v5.4 新增）
 
 **触发条件**: flags >= 2 且 flags < 3（信息不足但未达强制预循环阈值）。
@@ -231,19 +265,21 @@ LOOP:
 
 → 详见 `phase1-requirements-detail.md`（主动讨论协议、各复杂度路径详细流程）
 
-## 1.7 生成结构化提示词
+## 1.7 生成结构化提示词（上下文隔离增强 v6.0）
 
 整理所有决策结果，包含：
 
-| 章节 | 内容 |
-|------|------|
-| 背景与目标 | 需求来源 + 业务目标 |
-| 功能清单 | 确认的功能点列表（含优先级） |
-| 决策结论 | 每个决策点的最终选择 |
-| 技术约束 | 从 tech-constraints.md 提取 |
-| 技术方案 | 从 research-findings.md 提取推荐方案 |
-| 验收标准 | 可测试的验收条件 |
-| 影响范围 | 预估影响文件 + 代码行数 |
+| 章节 | 内容 | 数据来源 |
+|------|------|---------|
+| 背景与目标 | 需求来源 + 业务目标 | RAW_REQUIREMENT + BA 信封 summary |
+| 功能清单 | 确认的功能点列表（含优先级） | BA 信封 requirements_summary |
+| 决策结论 | 每个决策点的最终选择 | 信封 decision_points + 用户确认 |
+| 技术约束 | 从 tech-constraints.md 提取 | 调研信封 tech_constraints（非正文） |
+| 技术方案 | 推荐方案 | 调研信封 summary + decision_points |
+| 验收标准 | 可测试的验收条件 | BA 信封 acceptance_criteria |
+| 影响范围 | 预估影响文件 + 代码行数 | 调研信封 impact_analysis |
+
+> **上下文隔离红线**：以上所有数据均来自 JSON 信封中的结构化字段，**禁止**主线程 Read 子 Agent 的正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md）来构造结构化提示词。
 
 ## 1.8 最终确认
 
@@ -252,10 +288,58 @@ LOOP:
 选项: "确认，开始实施 (Recommended)" / "需要补充修改"
 - 选"补充" → 回到 1.6 循环
 
-## 1.9 写入 Phase 1 Checkpoint
+## 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
 
-需求确认后，调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-1-requirements.json`。
+需求确认后，Phase 1 必须生成唯一的 `requirement-packet.json` 作为后续所有 Phase 的单一事实源：
+
+```json
+{
+  "version": "1.0",
+  "raw_requirement": "原始需求文本",
+  "requirement_type": "feature|bugfix|refactor|chore",
+  "requirement_maturity": "clear|partial|ambiguous",
+  "complexity": "small|medium|large",
+  "goal": "业务目标（1-3 句）",
+  "scope": ["功能范围条目"],
+  "non_goals": ["明确排除项"],
+  "acceptance_criteria": ["可测试的验收标准"],
+  "decisions": [
+    {
+      "point": "决策点描述",
+      "choice": "最终选择",
+      "rationale": "选择理由",
+      "options": [...]
+    }
+  ],
+  "assumptions": ["实施前提假设"],
+  "risks": [{"category": "...", "severity": "...", "mitigation": "..."}],
+  "routing_overrides": {
+    "sad_path_min_ratio_pct": 20,
+    "change_coverage_min_pct": 80,
+    "required_test_types": ["unit", "api"]
+  },
+  "research_plan": {
+    "maturity": "clear|partial|ambiguous",
+    "dispatched": ["auto_scan", "tech_research"],
+    "skipped": ["web_search"]
+  },
+  "open_questions_closed": true,
+  "hash": "sha256 of canonical JSON (excluding hash field itself)",
+  "timestamp": "ISO-8601"
+}
+```
+
+**写入路径**: `openspec/changes/{change_name}/context/requirement-packet.json`
+
+**同时写入 checkpoint**: 调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-1-requirements.json`。
 写入最终 checkpoint 后，删除中间态文件：`rm -f ${phase_results}/phase-1-interim.json`。
+
+### requirement-packet.json 约束
+
+1. **唯一事实源**：后续 Phase 2-7 只认 `requirement-packet.json`，不再读取散落的决策文本
+2. **open_questions 必须闭合**：`open_questions_closed` 必须为 `true` 才能写入最终 checkpoint
+3. **hash 校验**：后续 Phase 可通过 hash 验证 requirement packet 未被篡改
+4. **主线程不代写**：requirement-packet.json 由主线程从信封数据合成，不读取子 Agent 正文工件
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
 > v5.1: 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。

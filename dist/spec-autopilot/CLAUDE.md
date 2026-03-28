@@ -11,7 +11,7 @@
 4. **降级条件严格**: 仅合并失败 > 3 文件、连续 2 组失败、或用户显式选择时才允许降级
 5. **Phase 4 不接受 warning**: Hook 确定性阻断，warning 强制覆盖为 blocked
 6. **Phase 5 zero_skip_check**: `passed === true` 必须满足，否则阻断
-7. **归档需用户确认**: Phase 7 归档操作禁止自动执行
+7. **归档 fail-closed**: archive-readiness 通过时自动执行，任一检查项失败则硬阻断（fixup 不完整、anchor 无效、review blocking findings 未解决等）
 
 ## TDD Iron Law (仅 tdd_mode: true 时生效)
 
@@ -57,6 +57,9 @@
 4. **背景 Agent 产出必须 Write 到文件**: 返回信封仅含摘要，禁止全文灌入主窗口
 5. **文件所有权 ENFORCED**: 并行模式下仅可修改 owned_files 范围内的文件
 6. **背景 Agent 必须接受 L2 验证**: JSON 信封 + 反合理化检查不可绕过 (v5.1)
+7. **Phase 1 上下文隔离**: 主线程禁止 Read 调研/BA 正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md），仅消费 JSON 信封中的结构化字段
+8. **Dispatch 审计**: dispatch 记录必须包含 selection_reason、resolved_priority、owned_artifacts，由 post-task-validator 验证
+9. **Review findings fail-closed**: Phase 6.5 code review 中 `blocking: true` 的 findings 硬阻断 Phase 7 归档
 
 
 

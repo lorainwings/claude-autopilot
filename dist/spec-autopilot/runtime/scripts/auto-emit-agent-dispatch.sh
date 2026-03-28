@@ -129,6 +129,80 @@ if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]
   SUBAGENT_TYPE="${BASH_REMATCH[1]}"
 fi
 
+# --- Extract owned_files / owned_artifacts from prompt (governance WS-E) ---
+OWNED_ARTIFACTS="[]"
+if command -v python3 &>/dev/null; then
+  OWNED_ARTIFACTS=$(python3 -c "
+import re, sys, json
+data = sys.argv[1]
+# 查找 prompt 中的 owned_files 声明
+m = re.search(r'owned_files[\"\\s:]*\\[([^\\]]{0,2000})\\]', data)
+if m:
+    raw = m.group(1)
+    files = [f.strip().strip('\"').strip(\"'\") for f in raw.split(',') if f.strip()]
+    print(json.dumps(files[:50]))
+else:
+    # 查找 '文件所有权' 段落中的文件列表
+    m2 = re.search(r'(?:文件所有权|独占所有权)[^\\n]*\\n((?:[-*]\\s+[^\\n]+\\n?){0,20})', data)
+    if m2:
+        lines = m2.group(1).strip().split('\\n')
+        files = []
+        for line in lines:
+            path = re.sub(r'^[-*\\s]+', '', line).strip().strip('\`')
+            if path and '/' in path:
+                files.append(path)
+        print(json.dumps(files[:50]))
+    else:
+        print('[]')
+" "$STDIN_DATA" 2>/dev/null) || OWNED_ARTIFACTS="[]"
+fi
+
+# --- Resolve agent priority via rules-scanner (governance WS-E) ---
+SELECTION_REASON="phase_marker_dispatch"
+RESOLVED_PRIORITY="normal"
+FALLBACK_REASON=""
+
+if command -v python3 &>/dev/null; then
+  # 尝试读取 rules-scanner 缓存或直接调用
+  RULES_CACHE="$PROJECT_ROOT/logs/.rules-scanner-cache.json"
+  AGENT_POLICY_RESULT=""
+  if [ -f "$RULES_CACHE" ]; then
+    AGENT_POLICY_RESULT=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    agent_name = sys.argv[2]
+    phase = int(sys.argv[3])
+    pmap = data.get('agent_priority_map', {})
+    if agent_name in pmap:
+        a = pmap[agent_name]
+        # 检查 forbidden_phases
+        if phase in a.get('forbidden_phases', []):
+            print(json.dumps({'reason': 'agent_policy_match', 'priority': a['priority'], 'forbidden': True}))
+        elif phase in a.get('required_phases', []):
+            print(json.dumps({'reason': 'agent_policy_required', 'priority': a['priority'], 'forbidden': False}))
+        else:
+            print(json.dumps({'reason': 'agent_policy_match', 'priority': a['priority'], 'forbidden': False}))
+    elif not pmap:
+        print(json.dumps({'reason': 'no_agents_dir', 'priority': 'normal', 'forbidden': False, 'fallback': '.claude/agents/ not found, using default priority'}))
+    else:
+        print(json.dumps({'reason': 'agent_not_in_policy', 'priority': 'normal', 'forbidden': False, 'fallback': f'{agent_name} not defined in .claude/agents/'}))
+except Exception as e:
+    print(json.dumps({'reason': 'policy_read_error', 'priority': 'normal', 'forbidden': False, 'fallback': str(e)}))
+" "$RULES_CACHE" "$SUBAGENT_TYPE" "$PHASE" 2>/dev/null) || true
+  fi
+
+  if [ -n "$AGENT_POLICY_RESULT" ]; then
+    _policy_reason=$(echo "$AGENT_POLICY_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('reason',''))" 2>/dev/null) || true
+    _policy_priority=$(echo "$AGENT_POLICY_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('priority','normal'))" 2>/dev/null) || true
+    _policy_fallback=$(echo "$AGENT_POLICY_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('fallback',''))" 2>/dev/null) || true
+    [ -n "$_policy_reason" ] && SELECTION_REASON="$_policy_reason"
+    [ -n "$_policy_priority" ] && RESOLVED_PRIORITY="$_policy_priority"
+    [ -n "$_policy_fallback" ] && FALLBACK_REASON="$_policy_fallback"
+  fi
+fi
+
 # --- Write active agent marker (for WS4 tool_use correlation) ---
 # Uses per-phase marker file to reduce collision in parallel dispatch.
 # Global file is also written for backward compat (last-writer-wins in parallel).
@@ -145,10 +219,76 @@ fi
 DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"
 python3 -c "import time; print(int(time.time()*1000))" >"$DISPATCH_TS_FILE" 2>/dev/null || date +%s000 >"$DISPATCH_TS_FILE" 2>/dev/null || true
 
-# --- Build dispatch payload with audit trail fields ---
-DISPATCH_PAYLOAD="{\"background\":$IS_BG"
-[ -n "$SUBAGENT_TYPE" ] && DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD,\"subagent_type\":\"$SUBAGENT_TYPE\""
-DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD}"
+# --- Build dispatch payload with full audit trail (governance WS-E) ---
+DISPATCH_PAYLOAD=$(python3 -c "
+import json, sys
+payload = {
+    'background': sys.argv[1] == 'true',
+    'selection_reason': sys.argv[2],
+    'resolved_priority': sys.argv[3],
+    'owned_artifacts': json.loads(sys.argv[4]),
+}
+if sys.argv[5]:
+    payload['subagent_type'] = sys.argv[5]
+if sys.argv[6]:
+    payload['fallback_reason'] = sys.argv[6]
+print(json.dumps(payload, ensure_ascii=False))
+" "$IS_BG" "$SELECTION_REASON" "$RESOLVED_PRIORITY" "$OWNED_ARTIFACTS" "$SUBAGENT_TYPE" "$FALLBACK_REASON" 2>/dev/null) || {
+  # Bash fallback if python3 fails
+  DISPATCH_PAYLOAD="{\"background\":$IS_BG,\"selection_reason\":\"$SELECTION_REASON\",\"resolved_priority\":\"$RESOLVED_PRIORITY\""
+  [ -n "$SUBAGENT_TYPE" ] && DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD,\"subagent_type\":\"$SUBAGENT_TYPE\""
+  [ -n "$FALLBACK_REASON" ] && DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD,\"fallback_reason\":\"$FALLBACK_REASON\""
+  DISPATCH_PAYLOAD="$DISPATCH_PAYLOAD}"
+}
+
+# --- Write agent-dispatch-record.json for governance audit (WS-E) ---
+DISPATCH_RECORD_DIR="$PROJECT_ROOT/logs"
+DISPATCH_RECORD_FILE="$DISPATCH_RECORD_DIR/agent-dispatch-record.json"
+python3 -c "
+import json, sys, os
+record_file = sys.argv[1]
+agent_id = sys.argv[2]
+phase = int(sys.argv[3])
+new_entry = {
+    'agent_id': agent_id,
+    'agent_class': sys.argv[4] or 'default',
+    'phase': phase,
+    'selection_reason': sys.argv[5],
+    'resolved_priority': sys.argv[6],
+    'owned_artifacts': json.loads(sys.argv[7]),
+    'background': sys.argv[8] == 'true',
+    'scanned_sources': [],
+    'required_validators': ['json_envelope', 'anti_rationalization', 'code_constraint'],
+}
+if sys.argv[9]:
+    new_entry['fallback_reason'] = sys.argv[9]
+
+# 尝试读取 rules-scanner 缓存中的 scanned_sources
+cache_file = os.path.join(os.path.dirname(record_file), '.rules-scanner-cache.json')
+if os.path.isfile(cache_file):
+    try:
+        with open(cache_file) as f:
+            cache = json.load(f)
+        new_entry['scanned_sources'] = cache.get('scanned_sources', [])
+    except Exception:
+        pass
+
+# 追加到现有记录
+records = []
+if os.path.isfile(record_file):
+    try:
+        with open(record_file) as f:
+            records = json.load(f)
+        if not isinstance(records, list):
+            records = [records]
+    except Exception:
+        records = []
+records.append(new_entry)
+# 保留最近 100 条记录
+records = records[-100:]
+with open(record_file, 'w') as f:
+    json.dump(records, f, indent=2, ensure_ascii=False)
+" "$DISPATCH_RECORD_FILE" "$AGENT_ID" "$PHASE" "$SUBAGENT_TYPE" "$SELECTION_REASON" "$RESOLVED_PRIORITY" "$OWNED_ARTIFACTS" "$IS_BG" "$FALLBACK_REASON" 2>/dev/null || true
 
 # --- Emit agent_dispatch event (log errors to stderr, never deny) ---
 bash "$SCRIPT_DIR/emit-agent-event.sh" agent_dispatch "$PHASE" "$MODE" "$AGENT_ID" "$AGENT_LABEL" "$DISPATCH_PAYLOAD" >/dev/null 2>&1 ||

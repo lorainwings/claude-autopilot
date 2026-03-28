@@ -1,158 +1,550 @@
 /**
- * OrchestrationPanel — v5.2 编排控制面
- * 修复 Codex P1-6: 主窗口改为 orchestration-first
- * 显示: change/session/mode、当前 phase/sub-step、阻塞 gate、决策状态机、恢复来源
+ * OrchestrationPanel — v5.9 编排驾驶舱 (orchestration-first)
+ * 主窗口核心面板：目标、phase、gate、agent、模型、恢复、归档、上下文预算
+ * 替代旧版 telemetry-first 布局，成为主信息视图
  */
 
 import { memo, useMemo } from "react";
 import { useStore, selectGateStats } from "../store";
-import type { DecisionLifecycle } from "../store";
+import type {
+  DecisionLifecycle,
+  ModelRoutingState,
+  ServerHealth,
+  AgentInfo,
+  OrchestrationOverview,
+} from "../store";
 
 const PHASE_LABELS: Record<number, string> = {
-  0: "环境初始化", 1: "需求理解", 2: "OpenSpec 创建", 3: "快速生成",
-  4: "测试设计", 5: "代码实施", 6: "测试报告", 7: "归档清理",
+  0: "环境初始化",
+  1: "需求理解",
+  2: "OpenSpec 创建",
+  3: "快速生成",
+  4: "测试设计",
+  5: "代码实施",
+  6: "测试报告",
+  7: "归档清理",
 };
 
+// --- 决策状态颜色 ---
 const STATE_COLORS: Record<string, string> = {
-  idle: "#6b7280",
-  pending: "#f59e0b",
-  accepted: "#3b82f6",
-  applied: "#10b981",
-  superseded: "#6b7280",
-  expired: "#ef4444",
+  idle: "text-text-muted",
+  pending: "text-amber",
+  accepted: "text-cyan",
+  applied: "text-emerald",
+  superseded: "text-text-muted",
+  expired: "text-rose",
 };
 
-function DecisionBadge({ lifecycle }: { lifecycle: DecisionLifecycle | null }) {
-  if (!lifecycle) {
-    return <span style={{ color: "#6b7280", fontSize: 12 }}>无待处理决策</span>;
-  }
-  const color = STATE_COLORS[lifecycle.state] || "#6b7280";
+// --- 模型状态标记 ---
+const MODEL_STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  requested: { label: "已请求", color: "text-amber" },
+  effective: { label: "已确认", color: "text-emerald" },
+  fallback: { label: "已降级", color: "text-rose" },
+  unknown: { label: "未知", color: "text-text-muted" },
+  unsupported: { label: "不支持", color: "text-rose" },
+};
+
+// --- 小型信息行组件 ---
+function InfoRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />
-        <span style={{ color, fontWeight: 600, fontSize: 13 }}>{lifecycle.state.toUpperCase()}</span>
-        <span style={{ color: "#9ca3af", fontSize: 11 }}>({lifecycle.action})</span>
-      </div>
-      <span style={{ color: "#9ca3af", fontSize: 11, fontFamily: "monospace" }}>
-        rid: {lifecycle.requestId.slice(0, 8)}… | Phase {lifecycle.phase}
+    <div className="flex justify-between items-center gap-2 text-[11px] font-mono">
+      <span className="text-text-muted shrink-0">{label}</span>
+      <span className={`truncate ${valueColor || "text-text-bright"}`}>
+        {value}
       </span>
     </div>
   );
 }
 
+// --- 区段标题 ---
+function SectionHeader({
+  title,
+  dotColor,
+}: {
+  title: string;
+  dotColor?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${dotColor || "bg-cyan"}`}
+      ></span>
+      <span className="font-display text-[10px] font-bold text-text-bright uppercase tracking-wider">
+        {title}
+      </span>
+    </div>
+  );
+}
+
+// --- 目标与 Phase 核心区 ---
+const GoalPhaseSection = memo(function GoalPhaseSection({
+  orchestration,
+  currentPhase,
+  mode,
+  changeName,
+}: {
+  orchestration: OrchestrationOverview;
+  currentPhase: number | null;
+  mode: string | null;
+  changeName: string | null;
+}) {
+  const phaseLabel =
+    currentPhase !== null ? PHASE_LABELS[currentPhase] || "" : "";
+
+  return (
+    <div className="px-3 py-3 border-b border-border space-y-2">
+      <SectionHeader title="当前目标" dotColor="bg-cyan" />
+      <div className="text-[12px] font-mono text-text-bright font-bold leading-snug">
+        {orchestration.goalSummary || changeName || "等待启动..."}
+      </div>
+      <div className="flex items-center gap-3 text-[10px] font-mono">
+        {currentPhase !== null ? (
+          <span className="px-2 py-0.5 bg-cyan/15 text-cyan border border-cyan/30 rounded font-bold">
+            P{currentPhase} {phaseLabel}
+          </span>
+        ) : (
+          <span className="text-text-muted">Phase: --</span>
+        )}
+        {mode && (
+          <span className="px-1.5 py-0.5 border border-border text-text-muted rounded text-[9px] uppercase">
+            {mode === "full" ? "全模式" : mode === "lite" ? "精简" : "最小"}
+          </span>
+        )}
+      </div>
+      {orchestration.currentSubStep && (
+        <div className="text-[10px] font-mono text-text-muted">
+          Sub-step: {orchestration.currentSubStep}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- Gate 状态区 ---
+const GateSection = memo(function GateSection({
+  gateStats,
+  gateFrontierReason,
+}: {
+  gateStats: { passed: number; blocked: number; pending: number };
+  gateFrontierReason: string | null;
+}) {
+  const hasBlock = gateFrontierReason !== null;
+
+  return (
+    <div className="px-3 py-2 border-b border-border space-y-1">
+      <SectionHeader
+        title="Gate 状态"
+        dotColor={hasBlock ? "bg-rose" : "bg-emerald"}
+      />
+      {hasBlock ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-rose uppercase">
+              BLOCKED
+            </span>
+          </div>
+          <div className="text-[10px] font-mono text-rose/80 leading-snug line-clamp-2">
+            {gateFrontierReason}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-[10px] font-mono">
+          <span className="text-emerald">
+            {gateStats.passed} 通过
+          </span>
+          {gateStats.blocked > 0 && (
+            <span className="text-rose">{gateStats.blocked} 阻断</span>
+          )}
+          {gateStats.pending > 0 && (
+            <span className="text-text-muted">
+              {gateStats.pending} 待定
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- Agent 概览区 ---
+const AgentSection = memo(function AgentSection({
+  agentMap,
+}: {
+  agentMap: Map<string, AgentInfo>;
+}) {
+  const agents = useMemo(() => Array.from(agentMap.values()), [agentMap]);
+  const activeAgents = agents.filter((a) => a.status === "dispatched");
+  const completedAgents = agents.filter(
+    (a) => a.status === "ok" || a.status === "warning"
+  );
+  const failedAgents = agents.filter(
+    (a) => a.status === "failed" || a.status === "blocked"
+  );
+
+  if (agents.length === 0) {
+    return (
+      <div className="px-3 py-2 border-b border-border">
+        <SectionHeader title="Agent" dotColor="bg-violet" />
+        <div className="text-[10px] font-mono text-text-muted">
+          暂无 Agent 调度
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 py-2 border-b border-border space-y-1.5">
+      <SectionHeader title="Agent" dotColor="bg-violet" />
+      <div className="flex gap-3 text-[10px] font-mono">
+        {activeAgents.length > 0 && (
+          <span className="text-violet animate-pulse">
+            {activeAgents.length} 运行中
+          </span>
+        )}
+        {completedAgents.length > 0 && (
+          <span className="text-emerald">
+            {completedAgents.length} 完成
+          </span>
+        )}
+        {failedAgents.length > 0 && (
+          <span className="text-rose">{failedAgents.length} 失败</span>
+        )}
+      </div>
+      {/* 活跃 agent 列表 */}
+      {activeAgents.length > 0 && (
+        <div className="space-y-1">
+          {activeAgents.slice(0, 3).map((a) => (
+            <div
+              key={a.agent_id}
+              className="flex items-center gap-2 text-[9px] font-mono"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-violet animate-pulse"></span>
+              <span className="text-text-bright truncate">
+                {a.agent_label}
+              </span>
+              <span className="text-text-muted">P{a.phase}</span>
+            </div>
+          ))}
+          {activeAgents.length > 3 && (
+            <div className="text-[9px] text-text-muted font-mono">
+              ...+{activeAgents.length - 3} 更多
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- 模型路由区 ---
+const ModelSection = memo(function ModelSection({
+  routing,
+}: {
+  routing: ModelRoutingState;
+}) {
+  const badge = MODEL_STATUS_BADGE[routing.model_status] ??
+    MODEL_STATUS_BADGE.unknown!;
+  const hasData = routing.updated_at !== null;
+
+  if (!hasData) {
+    return (
+      <div className="px-3 py-2 border-b border-border">
+        <SectionHeader title="模型路由" dotColor="bg-amber" />
+        <div className="text-[10px] font-mono text-text-muted">
+          暂无路由事件
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 py-2 border-b border-border space-y-1">
+      <div className="flex items-center justify-between">
+        <SectionHeader title="模型路由" dotColor="bg-amber" />
+        <span className={`text-[9px] font-mono font-bold ${badge.color}`}>
+          {badge.label}
+        </span>
+      </div>
+      <InfoRow
+        label="请求"
+        value={`${routing.requested_model ?? "--"} (${routing.requested_tier ?? "--"})`}
+        valueColor="text-amber"
+      />
+      <InfoRow
+        label="实际"
+        value={
+          routing.effective_model ?? routing.fallback_model ?? "unknown"
+        }
+        valueColor={
+          routing.model_status === "fallback"
+            ? "text-rose"
+            : routing.model_status === "effective"
+              ? "text-emerald"
+              : "text-text-muted"
+        }
+      />
+      {routing.fallback_applied && routing.fallback_reason && (
+        <div className="text-[9px] font-mono text-rose/80 truncate">
+          降级: {routing.fallback_reason}
+        </div>
+      )}
+      {routing.capability_note && (
+        <div className="text-[9px] font-mono text-amber/80 leading-snug">
+          {routing.capability_note}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- 恢复状态区 ---
+const RecoverySection = memo(function RecoverySection({
+  recoverySource,
+}: {
+  recoverySource: "fresh" | "recovery" | null;
+}) {
+  return (
+    <div className="px-3 py-2 border-b border-border">
+      <SectionHeader title="恢复状态" dotColor="bg-cyan" />
+      <div className="text-[10px] font-mono">
+        {recoverySource === "recovery" ? (
+          <span className="text-amber font-bold">崩溃恢复</span>
+        ) : recoverySource === "fresh" ? (
+          <span className="text-emerald">全新启动</span>
+        ) : (
+          <span className="text-text-muted">--</span>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// --- 上下文预算 ---
+const ContextBudgetSection = memo(function ContextBudgetSection({
+  budget,
+}: {
+  budget: OrchestrationOverview["contextBudget"];
+}) {
+  if (!budget) return null;
+
+  const riskColor =
+    budget.risk === "high"
+      ? "text-rose"
+      : budget.risk === "medium"
+        ? "text-amber"
+        : "text-emerald";
+  const barColor =
+    budget.risk === "high"
+      ? "bg-rose"
+      : budget.risk === "medium"
+        ? "bg-amber"
+        : "bg-cyan";
+
+  return (
+    <div className="px-3 py-2 border-b border-border space-y-1">
+      <SectionHeader title="上下文预算" dotColor="bg-violet" />
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+          <div
+            className={`h-full ${barColor} transition-all duration-500`}
+            style={{ width: `${Math.min(budget.percent, 100)}%` }}
+          ></div>
+        </div>
+        <span className={`text-[10px] font-mono font-bold ${riskColor}`}>
+          {budget.percent}%
+        </span>
+      </div>
+    </div>
+  );
+});
+
+// --- 归档准备 ---
+const ArchiveSection = memo(function ArchiveSection({
+  archiveReadiness,
+}: {
+  archiveReadiness: OrchestrationOverview["archiveReadiness"];
+}) {
+  if (!archiveReadiness) return null;
+
+  return (
+    <div className="px-3 py-2 border-b border-border space-y-1">
+      <SectionHeader title="归档状态" dotColor="bg-cyan" />
+      <div className="space-y-0.5 text-[10px] font-mono">
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${archiveReadiness.fixupComplete ? "bg-emerald" : "bg-text-muted"}`}
+          ></span>
+          <span
+            className={
+              archiveReadiness.fixupComplete
+                ? "text-emerald"
+                : "text-text-muted"
+            }
+          >
+            Fixup {archiveReadiness.fixupComplete ? "完成" : "未完成"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${archiveReadiness.reviewGatePassed ? "bg-emerald" : "bg-text-muted"}`}
+          ></span>
+          <span
+            className={
+              archiveReadiness.reviewGatePassed
+                ? "text-emerald"
+                : "text-text-muted"
+            }
+          >
+            Review Gate{" "}
+            {archiveReadiness.reviewGatePassed ? "通过" : "未通过"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${archiveReadiness.ready ? "bg-emerald" : "bg-amber"}`}
+          ></span>
+          <span
+            className={`font-bold ${archiveReadiness.ready ? "text-emerald" : "text-amber"}`}
+          >
+            {archiveReadiness.ready ? "可归档" : "未就绪"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// --- 服务健康区 ---
+const HealthSection = memo(function HealthSection({
+  health,
+}: {
+  health: ServerHealth;
+}) {
+  const items: { key: keyof ServerHealth; label: string }[] = [
+    { key: "httpOk", label: "HTTP" },
+    { key: "wsConnected", label: "WS" },
+    { key: "telemetryAvailable", label: "Telemetry" },
+    { key: "transcriptAvailable", label: "Transcript" },
+    { key: "statusLineInstalled", label: "StatusLine" },
+  ];
+
+  return (
+    <div className="px-3 py-2 border-b border-border">
+      <SectionHeader title="服务健康" dotColor="bg-emerald" />
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {items.map(({ key, label }) => (
+          <div
+            key={key}
+            className="flex items-center gap-1 text-[9px] font-mono"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${health[key] ? "bg-emerald" : "bg-text-muted"}`}
+            ></span>
+            <span
+              className={health[key] ? "text-emerald" : "text-text-muted"}
+            >
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// --- 决策状态区 ---
+const DecisionSection = memo(function DecisionSection({
+  lifecycle,
+}: {
+  lifecycle: DecisionLifecycle | null;
+}) {
+  if (!lifecycle) return null;
+
+  const color = STATE_COLORS[lifecycle.state] || "text-text-muted";
+
+  return (
+    <div className="px-3 py-2 border-b border-border">
+      <SectionHeader title="决策状态" dotColor="bg-amber" />
+      <div className="flex items-center gap-2 text-[10px] font-mono">
+        <span className={`font-bold ${color}`}>
+          {lifecycle.state.toUpperCase()}
+        </span>
+        <span className="text-text-muted">({lifecycle.action})</span>
+        <span className="text-text-muted/60">P{lifecycle.phase}</span>
+      </div>
+    </div>
+  );
+});
+
+// --- 主面板 ---
 export const OrchestrationPanel = memo(function OrchestrationPanel() {
   const changeName = useStore((s) => s.changeName);
-  const sessionId = useStore((s) => s.sessionId);
-  const mode = useStore((s) => s.mode);
   const currentPhase = useStore((s) => s.currentPhase);
+  const mode = useStore((s) => s.mode);
   const events = useStore((s) => s.events);
   const decisionLifecycle = useStore((s) => s.decisionLifecycle);
   const recoverySource = useStore((s) => s.recoverySource);
   const agentMap = useStore((s) => s.agentMap);
-  const taskProgress = useStore((s) => s.taskProgress);
+  const modelRouting = useStore((s) => s.modelRouting);
+  const serverHealth = useStore((s) => s.serverHealth);
+  const orchestration = useStore((s) => s.orchestration);
 
   const gateStats = useMemo(() => selectGateStats(events), [events]);
 
-  // 当前活跃 agent 数量
-  const activeAgents = useMemo(() => {
-    let count = 0;
-    agentMap.forEach((a) => { if (a.status === "dispatched") count++; });
-    return count;
-  }, [agentMap]);
-
-  // 当前运行中任务
-  const runningTasks = useMemo(() => {
-    let count = 0;
-    taskProgress.forEach((t) => { if (t.status === "running") count++; });
-    return count;
-  }, [taskProgress]);
-
-  // 活跃 gate_block 事件
-  const activeBlock = useMemo(() => {
-    const blocks = events.filter((e) => e.type === "gate_block");
-    return blocks.length > 0 ? blocks[blocks.length - 1] : null;
-  }, [events]);
-
-  const sectionStyle: React.CSSProperties = {
-    padding: "8px 12px",
-    borderBottom: "1px solid #2d2d2d",
-  };
-  const labelStyle: React.CSSProperties = {
-    color: "#9ca3af", fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 4,
-  };
-  const valueStyle: React.CSSProperties = {
-    color: "#e5e7eb", fontSize: 13, fontFamily: "monospace",
-  };
-
   return (
-    <div style={{
-      display: "flex", flexDirection: "column",
-      background: "#1a1a1a", borderRight: "1px solid #2d2d2d",
-      height: "100%", overflow: "auto",
-      minWidth: 220,
-    }}>
-      {/* 标题 */}
-      <div style={{ padding: "10px 12px", borderBottom: "1px solid #2d2d2d", fontWeight: 700, fontSize: 13, color: "#e5e7eb" }}>
-        编排控制台
-      </div>
+    <div className="flex flex-col h-full bg-abyss overflow-y-auto">
+      {/* 目标 + Phase */}
+      <GoalPhaseSection
+        orchestration={orchestration}
+        currentPhase={currentPhase}
+        mode={mode}
+        changeName={changeName}
+      />
 
-      {/* Change / Session / Mode */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>Change</div>
-        <div style={valueStyle}>{changeName || "—"}</div>
-        <div style={{ ...labelStyle, marginTop: 6 }}>Session</div>
-        <div style={valueStyle}>{sessionId ? sessionId.slice(0, 12) + "…" : "—"}</div>
-        <div style={{ ...labelStyle, marginTop: 6 }}>Mode</div>
-        <div style={valueStyle}>{mode || "—"}</div>
-      </div>
+      {/* Gate 状态 */}
+      <GateSection
+        gateStats={gateStats}
+        gateFrontierReason={orchestration.gateFrontierReason}
+      />
 
-      {/* 当前 Phase */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>当前 Phase</div>
-        <div style={{ ...valueStyle, fontSize: 16, fontWeight: 700 }}>
-          {currentPhase !== null ? `P${currentPhase} — ${PHASE_LABELS[currentPhase] || ""}` : "未启动"}
-        </div>
-      </div>
+      {/* Agent 概览 */}
+      <AgentSection agentMap={agentMap} />
 
-      {/* 阻塞 Gate */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>Gate 状态</div>
-        {activeBlock ? (
-          <div style={{ color: "#ef4444", fontSize: 12 }}>
-            <div style={{ fontWeight: 600 }}>BLOCKED</div>
-            <div style={{ color: "#f87171", fontSize: 11, marginTop: 2 }}>
-              {String((activeBlock.payload as Record<string, unknown>)?.reason || "").slice(0, 80)}
-            </div>
-          </div>
-        ) : (
-          <div style={{ color: "#10b981", fontSize: 12 }}>
-            通过 {gateStats.passed} / 阻断 {gateStats.blocked}
-          </div>
-        )}
-      </div>
-
-      {/* 决策状态机 */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>决策状态</div>
-        <DecisionBadge lifecycle={decisionLifecycle} />
-      </div>
-
-      {/* Agent / 任务 */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>活跃 Agent</div>
-        <div style={valueStyle}>{activeAgents} 个运行中</div>
-        <div style={{ ...labelStyle, marginTop: 6 }}>任务进度</div>
-        <div style={valueStyle}>{runningTasks} 个运行中</div>
-      </div>
+      {/* 模型路由 */}
+      <ModelSection routing={modelRouting} />
 
       {/* 恢复来源 */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>恢复来源</div>
-        <div style={valueStyle}>
-          {recoverySource === "recovery" ? "崩溃恢复" : recoverySource === "fresh" ? "全新启动" : "—"}
+      <RecoverySection recoverySource={recoverySource} />
+
+      {/* 上下文预算 */}
+      <ContextBudgetSection budget={orchestration.contextBudget} />
+
+      {/* 归档准备 */}
+      <ArchiveSection archiveReadiness={orchestration.archiveReadiness} />
+
+      {/* 服务健康 */}
+      <HealthSection health={serverHealth} />
+
+      {/* 决策状态 */}
+      <DecisionSection lifecycle={decisionLifecycle} />
+
+      {/* Requirement Packet Hash */}
+      {orchestration.requirementPacketHash && (
+        <div className="px-3 py-2 border-b border-border">
+          <SectionHeader title="需求包" dotColor="bg-cyan" />
+          <div className="text-[9px] font-mono text-text-muted truncate">
+            {orchestration.requirementPacketHash}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });

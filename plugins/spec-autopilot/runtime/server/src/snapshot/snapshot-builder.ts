@@ -4,10 +4,11 @@
 
 import { join } from "node:path";
 import { EVENTS_FILE, SESSIONS_DIR } from "../config";
-import type { AutopilotEvent, RawHookRecord, RawStatusRecord, SessionSnapshot } from "../types";
+import type { AutopilotEvent, RawHookRecord, RawStatusRecord, SessionSnapshot, StateSnapshot } from "../types";
 import { sanitizeSessionKey, toMillis } from "../utils";
 import { getCurrentSessionContext } from "../session/session-context";
 import { readJsonLinesCached } from "../session/file-cache";
+import { existsSync, readFileSync } from "node:fs";
 import { normalizeLegacyEvents } from "../ingest/legacy-events";
 import { normalizeHookRecords } from "../ingest/hook-events";
 import { normalizeStatusRecords } from "../ingest/status-events";
@@ -59,6 +60,7 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
       journalPath: null,
       telemetryAvailable: false,
       transcriptAvailable: false,
+      stateSnapshot: null,
     };
   }
 
@@ -79,6 +81,20 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
   const events = sortAndFinalize([...legacyEvents, ...hookEvents, ...statusEvents, ...transcriptEvents]);
   const journalPath = await writeJournal(sessionKey, events);
 
+  // 读取 state-snapshot.json（v6.0 结构化控制态）
+  let stateSnapshot: StateSnapshot | null = null;
+  const projectRoot = process.env.AUTOPILOT_PROJECT_ROOT;
+  if (projectRoot && context.changeName && context.changeName !== "unknown") {
+    const snapshotPath = join(projectRoot, "openspec", "changes", context.changeName, "context", "state-snapshot.json");
+    if (existsSync(snapshotPath)) {
+      try {
+        stateSnapshot = JSON.parse(readFileSync(snapshotPath, "utf-8")) as StateSnapshot;
+      } catch {
+        // 解析失败时保持 null
+      }
+    }
+  }
+
   return {
     sessionId,
     sessionKey,
@@ -88,5 +104,6 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
     journalPath,
     telemetryAvailable: statusEvents.length > 0,
     transcriptAvailable: transcriptEvents.length > 0,
+    stateSnapshot,
   };
 }

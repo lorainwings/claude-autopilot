@@ -28,7 +28,15 @@ export async function refreshSnapshot(forceSnapshot = false) {
     try {
       next = await buildSnapshot();
     } catch (err) {
-      console.error(`[${new Date().toISOString()}] [snapshot_build_error] buildSnapshot failed:`, err);
+      const errObj = err instanceof Error ? err : new Error(String(err));
+      console.error(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "error",
+        component: "snapshot-builder",
+        event: "snapshot_build_error",
+        message: errObj.message,
+        stack: errObj.stack?.split("\n").slice(0, 5).join("\n"),
+      }));
       return;
     }
 
@@ -46,7 +54,15 @@ export async function refreshSnapshot(forceSnapshot = false) {
       try {
         fresh = await buildSnapshot();
       } catch (err) {
-        console.error(`[${new Date().toISOString()}] [snapshot_rebuild_error] post-switch rebuild failed:`, err);
+        const errObj = err instanceof Error ? err : new Error(String(err));
+        console.error(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: "error",
+          component: "snapshot-builder",
+          event: "snapshot_rebuild_error",
+          message: errObj.message,
+          context: "post-session-switch rebuild",
+        }));
         return;
       }
       setSnapshotState(fresh);
@@ -120,9 +136,11 @@ export async function startServer() {
   }
 
   console.log(`
-  ✨ Autopilot 聚合服务器已启动
+  Autopilot 聚合服务器已启动
   ├─ HTTP  → http://localhost:${HTTP_PORT}
   ├─ WS    → ws://localhost:${WS_PORT}
+  ├─ 健康  → http://localhost:${HTTP_PORT}/api/health
+  ├─ PID   → ${process.pid}
   ├─ 项目  → ${projectRoot}
   ├─ 旧事件 → ${EVENTS_FILE}
   └─ 会话  → ${snapshotState.sessionId ?? "none"}

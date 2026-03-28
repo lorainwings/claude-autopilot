@@ -89,12 +89,33 @@ export interface StatusSnapshot {
 }
 
 /** 服务可用性细分 (v5.4) */
+/** 服务可用性细分 (v5.4) */
 export interface ServerHealth {
   httpOk: boolean;
   wsConnected: boolean;
   telemetryAvailable: boolean;
   transcriptAvailable: boolean;
   statusLineInstalled: boolean;
+}
+
+/** 编排概览状态 (v5.9 orchestration-first) */
+export interface OrchestrationOverview {
+  /** 目标摘要（从 session_start 或 phase_start payload 推断） */
+  goalSummary: string | null;
+  /** 当前 sub-step 描述 */
+  currentSubStep: string | null;
+  /** gate frontier：最新被阻断的 gate 原因 */
+  gateFrontierReason: string | null;
+  /** requirement packet hash (从 phase_end Phase 1 提取) */
+  requirementPacketHash: string | null;
+  /** compact 风险等级 */
+  contextBudget: { percent: number; risk: "low" | "medium" | "high" } | null;
+  /** archive readiness */
+  archiveReadiness: {
+    fixupComplete: boolean;
+    reviewGatePassed: boolean;
+    ready: boolean;
+  } | null;
 }
 
 /** 决策生命周期状态 (v5.2) */
@@ -130,6 +151,8 @@ interface AppState {
   serverHealth: ServerHealth;
   /** 并行调度计划摘要 (v5.5) */
   parallelPlan: ParallelPlanSummary;
+  /** 编排概览 (v5.9 orchestration-first) */
+  orchestration: OrchestrationOverview;
 
   addEvents: (events: AutopilotEvent[]) => void;
   setConnected: (connected: boolean) => void;
@@ -335,6 +358,15 @@ const DEFAULT_PARALLEL_PLAN: ParallelPlanSummary = {
   updated_at: null,
 };
 
+const DEFAULT_ORCHESTRATION: OrchestrationOverview = {
+  goalSummary: null,
+  currentSubStep: null,
+  gateFrontierReason: null,
+  requirementPacketHash: null,
+  contextBudget: null,
+  archiveReadiness: null,
+};
+
 export const useStore = create<AppState>((set) => ({
   events: [],
   transcriptEvents: [],
@@ -355,6 +387,7 @@ export const useStore = create<AppState>((set) => ({
   modelRoutingHistory: [],
   serverHealth: { ...DEFAULT_SERVER_HEALTH },
   parallelPlan: { ...DEFAULT_PARALLEL_PLAN },
+  orchestration: { ...DEFAULT_ORCHESTRATION },
 
   addEvents: (newEvents) =>
     set((state) => {
@@ -395,6 +428,7 @@ export const useStore = create<AppState>((set) => ({
       let modelRouting = state.modelRouting;
       const modelRoutingHistory = [...state.modelRoutingHistory];
       let parallelPlan = state.parallelPlan;
+      let orchestration = { ...state.orchestration };
 
       for (const event of newEvents) {
         if (event.type === "task_progress" && isTaskProgressPayload(event.payload)) {
@@ -556,6 +590,57 @@ export const useStore = create<AppState>((set) => ({
             updated_at: event.timestamp,
           };
         }
+
+        // --- 编排概览提取 (v5.9) ---
+        if (event.type === "session_start" || event.type === "phase_start") {
+          const p = event.payload as Record<string, unknown>;
+          if (typeof p.goal_summary === "string") {
+            orchestration.goalSummary = p.goal_summary;
+          }
+          if (typeof p.change_name === "string" && !orchestration.goalSummary) {
+            orchestration.goalSummary = event.change_name || null;
+          }
+          if (typeof p.sub_step === "string") {
+            orchestration.currentSubStep = p.sub_step;
+          }
+        }
+        if (event.type === "gate_block") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.gateFrontierReason = typeof p.reason === "string"
+            ? p.reason
+            : typeof p.error_message === "string"
+              ? p.error_message
+              : "gate blocked";
+        }
+        if (event.type === "gate_pass") {
+          // gate 通过时清除 frontier 原因
+          orchestration.gateFrontierReason = null;
+        }
+        if (event.type === "phase_end" && event.phase === 1) {
+          const p = event.payload as Record<string, unknown>;
+          if (typeof p.requirement_packet_hash === "string") {
+            orchestration.requirementPacketHash = p.requirement_packet_hash;
+          }
+        }
+        if (event.type === "status_snapshot") {
+          const p = event.payload as Record<string, unknown>;
+          const cw = p.context_window as Record<string, unknown> | undefined;
+          if (cw && typeof cw.percent === "number") {
+            const pct = cw.percent as number;
+            orchestration.contextBudget = {
+              percent: pct,
+              risk: pct > 80 ? "high" : pct > 60 ? "medium" : "low",
+            };
+          }
+        }
+        if (event.type === "archive_readiness") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.archiveReadiness = {
+            fixupComplete: Boolean(p.fixup_complete),
+            reviewGatePassed: Boolean(p.review_gate_passed),
+            ready: Boolean(p.ready),
+          };
+        }
       }
 
       // G2 fix: Auto-reset decisionAcked when a new gate_block arrives after the acked one
@@ -603,6 +688,7 @@ export const useStore = create<AppState>((set) => ({
         modelRoutingHistory,
         serverHealth: newServerHealth,
         parallelPlan,
+        orchestration,
       };
     }),
 
@@ -640,5 +726,6 @@ export const useStore = create<AppState>((set) => ({
       modelRoutingHistory: [],
       serverHealth: { ...DEFAULT_SERVER_HEALTH },
       parallelPlan: { ...DEFAULT_PARALLEL_PLAN },
+      orchestration: { ...DEFAULT_ORCHESTRATION },
     }),
 }));

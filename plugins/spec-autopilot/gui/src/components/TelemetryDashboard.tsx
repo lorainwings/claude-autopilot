@@ -1,7 +1,8 @@
 /**
- * TelemetryDashboard — V2 右侧遥测面板
+ * TelemetryDashboard -- v5.9 右侧遥测面板 (折叠式)
  * 会话指标(SVG环形图)、阶段耗时条、门禁统计
- * 数据源: Zustand Store (events) → derived selectors
+ * v5.9: 降级为可折叠面板，调试遥测（cwd/transcript/worktree）折叠为 details
+ * 数据源: Zustand Store (events) -> derived selectors
  */
 
 import { useState, useEffect, useMemo, memo } from "react";
@@ -70,7 +71,7 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
 
   return (
     <aside className="w-[360px] bg-abyss border-l border-border flex flex-col p-4 space-y-4 overflow-y-auto shrink-0">
-      {/* Card 0: Runtime Telemetry */}
+      {/* Card 0: Runtime Telemetry (调试信息折叠) */}
       <section className="bg-deep border border-border p-4 rounded-lg">
         <h3 className="font-display text-[10px] font-bold text-text-bright uppercase mb-4 flex items-center">
           <span className="w-2 h-2 rounded-full bg-cyan mr-2"></span> 运行遥测
@@ -82,19 +83,27 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
               <span className="text-text-bright truncate">{latestStatus.model || "--"}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-text-muted shrink-0">目录</span>
-              <span className="text-text-bright truncate">{latestStatus.cwd || "--"}</span>
-            </div>
-            <div className="flex justify-between gap-3">
               <span className="text-text-muted shrink-0">成本</span>
               <span className="text-text-bright truncate">{latestStatus.cost || "--"}</span>
             </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-text-muted shrink-0">Worktree</span>
-              <span className="text-text-bright truncate">{latestStatus.worktree || "--"}</span>
-            </div>
-            <div className="text-text-muted">Transcript</div>
-            <div className="text-text-bright break-all text-[10px]">{latestStatus.transcript_path || "--"}</div>
+            {/* 调试详情折叠 (v5.9: 降级) */}
+            <details className="mt-2">
+              <summary className="text-[10px] text-text-muted cursor-pointer hover:text-cyan">
+                调试详情 (cwd / transcript / worktree)
+              </summary>
+              <div className="mt-1 space-y-1.5 pl-2 border-l border-border/50">
+                <div className="flex justify-between gap-3">
+                  <span className="text-text-muted shrink-0">目录</span>
+                  <span className="text-text-bright truncate text-[10px]">{latestStatus.cwd || "--"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-text-muted shrink-0">Worktree</span>
+                  <span className="text-text-bright truncate text-[10px]">{latestStatus.worktree || "--"}</span>
+                </div>
+                <div className="text-text-muted">Transcript</div>
+                <div className="text-text-bright break-all text-[9px]">{latestStatus.transcript_path || "--"}</div>
+              </div>
+            </details>
           </div>
         ) : (
           <div className="space-y-2">

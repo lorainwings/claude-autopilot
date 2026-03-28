@@ -16,6 +16,7 @@ export let snapshotState: SessionSnapshot = {
   journalPath: null,
   telemetryAvailable: false,
   transcriptAvailable: false,
+  stateSnapshot: null,
 };
 
 export function setSnapshotState(next: SessionSnapshot) {

@@ -13,6 +13,15 @@
 #   Phase 1 标记的 Task 时触发。当前设计下 Phase 1 走主线程交互模式，
 #   决策格式由主线程自身保证。此 Hook 作为额外防线存在。
 #
+# Context Isolation (v6.0):
+#   Phase 1 主上下文隔离要求：
+#   - 主线程禁止 Read(research-findings.md) 或 Read(web-research-findings.md) 正文
+#   - 主线程禁止 Read(requirements-analysis.md) 正文
+#   - 主线程仅消费 JSON 信封中的结构化字段（summary, decision_points, tech_constraints 等）
+#   - Phase 1 最终产出为唯一的 requirement-packet.json
+#   - open_questions 必须全部闭合（open_questions_closed == true）后才能推进
+#   - 需求成熟度（clear/partial/ambiguous）驱动调研方案选择
+#
 # Complexity-aware:
 #   - medium/large: Full DecisionPoint validation (options/pros/cons/recommended/choice/rationale)
 #   - small: Relaxed validation (old format {point, choice} is acceptable)

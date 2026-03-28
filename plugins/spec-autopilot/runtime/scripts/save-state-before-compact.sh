@@ -10,6 +10,7 @@
 #
 # This script is the "save" half. The "restore" half is reinject-state-after-compact.sh.
 # Output: Writes state to openspec/changes/<active>/context/autopilot-state.md
+#         AND openspec/changes/<active>/context/state-snapshot.json (v6.0: 结构化控制态)
 
 set -uo pipefail
 
@@ -53,6 +54,7 @@ ACTIVE_CHANGE=$(find_active_change "$CHANGES_DIR") || exit 0
 CHANGE_NAME=$(basename "$ACTIVE_CHANGE")
 PHASE_RESULTS_DIR="$ACTIVE_CHANGE/context/phase-results"
 STATE_FILE="$ACTIVE_CHANGE/context/autopilot-state.md"
+SNAPSHOT_JSON_FILE="$ACTIVE_CHANGE/context/state-snapshot.json"
 
 # --- Read execution mode and anchor_sha from lock file ---
 LOCK_FILE="$CHANGES_DIR/.autopilot-active"
@@ -86,8 +88,8 @@ fi
 
 # shellcheck disable=SC2140
 python3 -c "
-import json, os, sys, glob, re
-from datetime import datetime
+import json, os, sys, glob, re, hashlib
+from datetime import datetime, timezone
 
 change_dir = sys.argv[1]
 change_name = sys.argv[2]
@@ -96,6 +98,7 @@ state_file = sys.argv[4]
 exec_mode = sys.argv[5] if len(sys.argv) > 5 else 'full'
 anchor_sha = sys.argv[6] if len(sys.argv) > 6 else ''
 scripts_dir = sys.argv[7] if len(sys.argv) > 7 else ''
+snapshot_json_file = sys.argv[8] if len(sys.argv) > 8 else ''
 
 # Scan all checkpoints — mode-aware phase sequence
 phases = {}
@@ -122,9 +125,13 @@ if phase_scan_list is None:
     else:
         phase_scan_list = [1, 2, 3, 4, 5, 6, 7]
 
+# v6.0: Collect full phase results for state-snapshot.json
+phase_results_full = {}
 for phase_num in phase_scan_list:
     pattern = os.path.join(phase_results_dir, f'phase-{phase_num}-*.json')
     files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    # Exclude progress/interim/tmp files
+    files = [f for f in files if not f.endswith('-progress.json') and not f.endswith('-interim.json') and not f.endswith('.tmp')]
     if files:
         try:
             with open(files[0]) as f:
@@ -134,10 +141,17 @@ for phase_num in phase_scan_list:
                 'summary': data.get('summary', ''),
                 'file': os.path.basename(files[0])
             }
+            phase_results_full[phase_num] = {
+                'status': data.get('status', 'unknown'),
+                'summary': data.get('summary', ''),
+                'file': os.path.basename(files[0]),
+                'artifacts': data.get('artifacts', []),
+            }
             if data.get('status') in ('ok', 'warning'):
                 last_completed = phase_num
         except Exception:
             phases[phase_num] = {'status': 'error', 'summary': 'JSON parse error', 'file': os.path.basename(files[0])}
+            phase_results_full[phase_num] = {'status': 'error', 'summary': 'JSON parse error', 'file': os.path.basename(files[0]), 'artifacts': []}
 
 if not phases:
     # No checkpoints yet, nothing to save
@@ -151,8 +165,11 @@ if last_completed < phase_scan_list[-1]:
             next_phase = phase_scan_list[i + 1]
             break
     else:
-        # last_completed not in scan list (e.g. 0) → start from first phase
+        # last_completed not in scan list (e.g. 0) -> start from first phase
         next_phase = phase_scan_list[0]
+
+# Determine gate_frontier: the highest phase that passed gate (ok/warning)
+gate_frontier = last_completed
 
 # v5.3: Read phase context snapshots
 context_snapshots = {}
@@ -174,6 +191,8 @@ if os.path.isdir(snapshots_dir):
 
 # Read tasks file (phase5-task-breakdown.md for lite/minimal, tasks.md for full)
 tasks_summary = ''
+tasks_checked = 0
+tasks_unchecked = 0
 breakdown_file = os.path.join(change_dir, 'context', 'phase5-task-breakdown.md')
 tasks_file = os.path.join(change_dir, 'tasks.md')
 # Prefer phase5-task-breakdown.md (used in lite/minimal modes)
@@ -183,9 +202,9 @@ if os.path.isfile(tasks_file):
     try:
         with open(tasks_file) as f:
             content = f.read()
-        checked = content.count('- [x]')
-        unchecked = content.count('- [ ]')
-        tasks_summary = f'{checked} completed, {unchecked} remaining'
+        tasks_checked = content.count('- [x]')
+        tasks_unchecked = content.count('- [ ]')
+        tasks_summary = f'{tasks_checked} completed, {tasks_unchecked} remaining'
     except Exception:
         pass
 
@@ -230,12 +249,83 @@ config_file = os.path.normpath(config_file)
 if os.path.isfile(config_file):
     config_summary = f'Config: {config_file}'
 
-# Generate state markdown
+# v6.0: Compute requirement_packet_hash from requirement artifacts
+requirement_packet_hash = ''
+req_file = os.path.join(phase_results_dir, 'phase-1-requirements.json')
+if not os.path.isfile(req_file):
+    # Try glob fallback
+    req_files = sorted(glob.glob(os.path.join(phase_results_dir, 'phase-1-*.json')), key=os.path.getmtime, reverse=True)
+    req_files = [f for f in req_files if not f.endswith('-progress.json') and not f.endswith('-interim.json') and not f.endswith('.tmp')]
+    if req_files:
+        req_file = req_files[0]
+if os.path.isfile(req_file):
+    try:
+        with open(req_file, 'rb') as fh:
+            requirement_packet_hash = hashlib.sha256(fh.read()).hexdigest()[:16]
+    except Exception:
+        pass
+
+# v6.0: Build and write state-snapshot.json (structured control state)
+now_iso = datetime.now(timezone.utc).isoformat()
+active_tasks = []
+for pe in progress_entries:
+    if pe['status'] == 'in_progress':
+        active_tasks.append({'phase': pe['phase'], 'step': pe['step']})
+
+# Build phase_results dict for JSON (keyed by string phase number)
+json_phase_results = {}
+for pnum in phase_scan_list:
+    if pnum in phase_results_full:
+        json_phase_results[str(pnum)] = phase_results_full[pnum]
+    else:
+        json_phase_results[str(pnum)] = {'status': 'pending', 'summary': '', 'file': None, 'artifacts': []}
+
+snapshot_data = {
+    'schema_version': '6.0',
+    'saved_at': now_iso,
+    'change_name': change_name,
+    'execution_mode': exec_mode,
+    'anchor_sha': anchor_sha or None,
+    'requirement_packet_hash': requirement_packet_hash or None,
+    'gate_frontier': gate_frontier,
+    'last_completed_phase': last_completed,
+    'next_action': {
+        'phase': next_phase,
+        'type': 'resume',
+        'description': f'Resume from Phase {next_phase}',
+    },
+    'phase_results': json_phase_results,
+    'phase_sequence': phase_scan_list,
+    'active_tasks': active_tasks,
+    'tasks_progress': {
+        'completed': tasks_checked,
+        'remaining': tasks_unchecked,
+    },
+    'phase5_task_details': phase5_task_details,
+    'progress_entries': progress_entries,
+    'review_status': None,
+    'fixup_status': None,
+    'archive_status': None,
+}
+
+# v6.0: Compute snapshot content hash for consistency verification
+snapshot_content = json.dumps(snapshot_data, sort_keys=True, ensure_ascii=False)
+snapshot_hash = hashlib.sha256(snapshot_content.encode('utf-8')).hexdigest()[:16]
+snapshot_data['snapshot_hash'] = snapshot_hash
+
+if snapshot_json_file:
+    os.makedirs(os.path.dirname(snapshot_json_file), exist_ok=True)
+    with open(snapshot_json_file, 'w') as f:
+        json.dump(snapshot_data, f, indent=2, ensure_ascii=False)
+    print(f'State snapshot saved: {snapshot_json_file} (hash={snapshot_hash})', file=sys.stderr)
+
+# Generate state markdown (legacy, kept for human-readable fallback)
 lines = [
-    f'# Autopilot State — {change_name}',
+    f'# Autopilot State - {change_name}',
     f'',
-    f'> Auto-saved before context compaction at {datetime.now().isoformat()}',
+    f'> Auto-saved before context compaction at {now_iso}',
     f'> This file is auto-generated. Re-injected into context after compaction.',
+    f'> **Primary control state**: state-snapshot.json (snapshot_hash={snapshot_hash})',
     f'',
     f'## Current Progress',
     f'',
@@ -244,7 +334,12 @@ lines = [
     f'- **Next phase to execute**: {next_phase}',
     f'- **Change directory**: \`openspec/changes/{change_name}/\`',
     f'- **Execution mode**: \`{exec_mode}\`',
+    f'- **Gate frontier**: {gate_frontier}',
+    f'- **Snapshot hash**: \`{snapshot_hash}\`',
 ]
+
+if requirement_packet_hash:
+    lines.append(f'- **Requirement packet hash**: \`{requirement_packet_hash}\`')
 
 if anchor_sha:
     lines.append(f'- **Anchor SHA**: \`{anchor_sha}\`')
@@ -270,7 +365,7 @@ if phase5_task_details:
         f'|------|--------|---------|',
     ])
     for td in phase5_task_details:
-        lines.append(f'| {td["number"]} | {td["status"]} | {td["summary"]} |')
+        lines.append(f'| {td[\"number\"]} | {td[\"status\"]} | {td[\"summary\"]} |')
 
 if config_summary:
     lines.append(f'- **{config_summary}**')
@@ -299,10 +394,11 @@ lines.extend([
     f'## Recovery Instructions',
     f'',
     f'After compaction, the autopilot orchestrator should:',
-    f'1. Read this file to restore context',
-    f'2. Resume from Phase {next_phase}',
-    f'3. Call Skill(\`spec-autopilot:autopilot-gate\`) before dispatching Phase {next_phase}',
-    f'4. All completed phase checkpoints are in \`openspec/changes/{change_name}/context/phase-results/\`',
+    f'1. Read state-snapshot.json for structured recovery (preferred)',
+    f'2. Verify snapshot_hash consistency',
+    f'3. Resume from Phase {next_phase}',
+    f'4. Call Skill(\`spec-autopilot:autopilot-gate\`) before dispatching Phase {next_phase}',
+    f'5. All completed phase checkpoints are in \`openspec/changes/{change_name}/context/phase-results/\`',
     f'',
 ])
 
@@ -330,6 +426,6 @@ with open(state_file, 'w') as f:
     f.write('\n'.join(lines))
 
 print(f'Autopilot state saved: {state_file}', file=sys.stderr)
-" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" "$EXEC_MODE" "$ANCHOR_SHA" "$SCRIPT_DIR" 2>/dev/null
+" "$ACTIVE_CHANGE" "$CHANGE_NAME" "$PHASE_RESULTS_DIR" "$STATE_FILE" "$EXEC_MODE" "$ANCHOR_SHA" "$SCRIPT_DIR" "$SNAPSHOT_JSON_FILE" 2>/dev/null
 
 exit 0

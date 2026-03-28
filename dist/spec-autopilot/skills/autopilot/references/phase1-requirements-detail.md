@@ -491,7 +491,7 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 
 如果 Research Agent 被跳过（research_status: "skipped"），默认 complexity = `"medium"`。
 
-## 1.5 Business-Analyst 完整 Prompt 模板
+## 1.5 Business-Analyst 完整 Prompt 模板（v6.0 上下文隔离修订）
 
 ```
 你是 autopilot Phase 1 的需求分析 Agent。
@@ -500,18 +500,25 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 {RAW_REQUIREMENT}
 
 ## 项目上下文（自动扫描生成）
-读取以下文件了解项目背景：
-- openspec/changes/<name>/context/project-context.md
-- openspec/changes/<name>/context/existing-patterns.md
-- openspec/changes/<name>/context/tech-constraints.md
+自行读取以下文件了解项目背景：
+- Read: openspec/changes/<name>/context/project-context.md
+- Read: openspec/changes/<name>/context/existing-patterns.md
+- Read: openspec/changes/<name>/context/tech-constraints.md
 
 ## 技术调研结论
-读取以下文件了解技术可行性：
-- openspec/changes/<name>/context/research-findings.md
-- openspec/changes/<name>/context/web-research-findings.md（如存在）
+自行读取以下文件了解技术可行性（主线程不读取这些文件，由你直接 Read）：
+- Read: openspec/changes/<name>/context/research-findings.md
+- Read: openspec/changes/<name>/context/web-research-findings.md（如存在）
+
+## 调研信封摘要（由主线程从信封提取，非正文）
+- 调研摘要: {research_envelope.summary}
+- 决策点: {research_envelope.decision_points}
+- 技术约束: {research_envelope.tech_constraints}
+- 关键文件: {research_envelope.key_files}
 
 ## 复杂度评估
 当前评估复杂度：{complexity}（基于预估影响 {total_files} 个文件）
+需求成熟度：{requirement_maturity}
 
 ## 你的任务
 基于以上完整背景，产出：
@@ -526,8 +533,12 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 
 ## 返回要求
 返回 JSON 信封：
-{"status": "ok", "summary": "...", "decision_points": [...], "requirements_summary": "功能概要", "open_questions": [...], "output_file": "context/requirements-analysis.md"}
+{"status": "ok", "summary": "...", "goal": "...", "scope": [...], "non_goals": [...], "acceptance_criteria": [...], "decision_points": [...], "requirements_summary": "功能概要", "open_questions": [...], "assumptions": [...], "risks": [...], "output_file": "context/requirements-analysis.md"}
 ```
+
+> **上下文隔离红线**（v6.0）：BA Agent 的 prompt 中**不含任何调研正文内容**。
+> 主线程仅注入调研信封的结构化摘要字段（summary、decision_points、tech_constraints、key_files）。
+> BA Agent 在自己的执行环境中直接 Read 调研产出文件获取全文。
 
 ### BA 输出结构约束（v5.4 新增）
 
@@ -558,29 +569,38 @@ FOR each question IN open_questions:
 # 不允许存在"悬空问题"——每个疑问必须有对应的决策点供用户选择
 ```
 
-#### 校验流程
+#### 校验流程（v6.0 上下文隔离修订）
 
 ```
 ba_envelope = parse(BA Agent 返回)
-analysis_file = Read(ba_envelope.output_file)
 
-required_fields = ["goal", "scope", "non_goals", "acceptance_criteria",
-                   "decision_points", "assumptions", "risks"]
+# 上下文隔离: 主线程仅验证文件存在性，不 Read 正文
+file_exists = Bash("test -s {ba_envelope.output_file} && echo ok")
+IF file_exists != "ok":
+    RE-DISPATCH BA Agent with prompt: "产出文件不存在或为空，请重新 Write"
 
-missing = [f for f in required_fields if f not in analysis_file.sections]
+# 从信封（而非正文）校验必填字段
+required_envelope_fields = ["goal", "scope", "non_goals", "acceptance_criteria",
+                            "decision_points", "assumptions", "risks"]
+
+missing = [f for f in required_envelope_fields if f not in ba_envelope]
 
 IF len(missing) > 0:
     # 拒绝放行，要求 BA Agent 补充缺失字段
-    RE-DISPATCH BA Agent with prompt: "以下必填字段缺失: {missing}，请补充"
+    RE-DISPATCH BA Agent with prompt: "信封中以下必填字段缺失: {missing}，请在信封和 requirements-analysis.md 中同时补充"
     # 最多重试 1 次
     IF still missing after retry:
-        BLOCK with status: "warning", reason: "BA 输出不完整: 缺少 {missing}"
+        BLOCK with status: "warning", reason: "BA 信封不完整: 缺少 {missing}"
 
-# open_questions 映射检查
+# open_questions 映射检查（从信封数据校验）
 FOR q IN ba_envelope.open_questions:
     IF NOT any(dp.topic matches q FOR dp IN ba_envelope.decision_points):
         APPEND to decision_points: {"topic": q, "options": ["待用户澄清"], "recommendation": "none"}
 ```
+
+> **上下文隔离红线**（v6.0）：校验流程中主线程**禁止** `Read(ba_envelope.output_file)` 获取 requirements-analysis.md 正文。
+> 所有校验基于 BA 返回的 JSON 信封中的结构化字段。
+> 正文内容由后续 Phase 子 Agent 直接 Read。
 
 > **返回值校验**: 主线程必须检查返回非空，且包含 `decision_points` 和 `requirements_summary`。如果返回为空或格式异常，应重新 dispatch 并在 prompt 中明确要求结构化输出。此 Task 不含 autopilot-phase 标记（设计预期），不受 Hook 门禁校验。
 
@@ -660,3 +680,132 @@ FOR q IN ba_envelope.open_questions:
 1. 每轮循环后检查是否有需求蔓延（scope creep）迹象
 2. 如果功能点持续增加，主动提出 MVP 范围收敛建议
 3. 必须至少完成 3 轮 QA 才能退出循环
+
+## 1.9 requirement-packet.json 完整 Schema（v6.0 新增）
+
+### Schema 定义
+
+requirement-packet.json 是 Phase 1 的唯一结构化产出，后续所有 Phase 只认此文件：
+
+```json
+{
+  "$schema": "requirement-packet-v1",
+  "version": "1.0",
+  "raw_requirement": "string — 原始需求文本",
+  "requirement_type": "feature|bugfix|refactor|chore|array",
+  "requirement_maturity": "clear|partial|ambiguous",
+  "complexity": "small|medium|large",
+  "goal": "string — 业务目标（1-3 句）",
+  "scope": ["string — 功能范围条目"],
+  "non_goals": ["string — 明确排除项"],
+  "acceptance_criteria": ["string — 可测试的验收标准"],
+  "decisions": [
+    {
+      "point": "string — 决策点描述",
+      "choice": "string — 最终选择",
+      "rationale": "string — 选择理由",
+      "options": [
+        {
+          "label": "string",
+          "description": "string",
+          "pros": ["string"],
+          "cons": ["string"],
+          "recommended": "boolean"
+        }
+      ]
+    }
+  ],
+  "assumptions": ["string — 实施前提假设"],
+  "risks": [
+    {
+      "category": "string",
+      "severity": "high|medium|low",
+      "mitigation": "string"
+    }
+  ],
+  "routing_overrides": {
+    "sad_path_min_ratio_pct": "number",
+    "change_coverage_min_pct": "number",
+    "required_test_types": ["string"]
+  },
+  "research_plan": {
+    "maturity": "clear|partial|ambiguous",
+    "dispatched": ["string — 调研任务名"],
+    "skipped": ["string — 跳过的调研任务名"],
+    "skip_reasons": {}
+  },
+  "open_questions_closed": "boolean — 必须为 true 才能推进",
+  "hash": "string — sha256(canonical JSON excluding hash field)",
+  "timestamp": "string — ISO-8601"
+}
+```
+
+### 必填字段校验规则
+
+| 字段 | 必填 | 校验 |
+|------|------|------|
+| `version` | 是 | 必须为 "1.0" |
+| `raw_requirement` | 是 | 非空字符串 |
+| `requirement_type` | 是 | 枚举值或数组 |
+| `requirement_maturity` | 是 | clear/partial/ambiguous |
+| `complexity` | 是 | small/medium/large |
+| `goal` | 是 | 非空字符串 |
+| `scope` | 是 | 至少 1 条 |
+| `non_goals` | 是 | 至少 1 条（无排除项须写 "无"） |
+| `acceptance_criteria` | 是 | 至少 1 条，含可观测结果 |
+| `decisions` | 是 | 数组（可为空数组，表示无需决策） |
+| `open_questions_closed` | 是 | 必须为 true |
+| `hash` | 是 | 非空 sha256 |
+| `timestamp` | 是 | ISO-8601 |
+
+### open_questions 闭合验证
+
+```
+# 在写入 requirement-packet.json 之前执行
+all_questions = collect(ba_envelope.open_questions + research_envelope.decision_points)
+resolved_decisions = collect(user confirmed decisions from decision loop)
+
+unresolved = []
+FOR q IN all_questions:
+    IF NOT any(d.point matches q FOR d IN resolved_decisions):
+        unresolved.append(q)
+
+IF len(unresolved) > 0:
+    # open questions 未闭合，禁止推进
+    BLOCK: "以下问题尚未闭合: {unresolved}，请完成所有决策后再推进"
+    open_questions_closed = false
+ELSE:
+    open_questions_closed = true
+```
+
+### hash 计算方法
+
+```python
+import hashlib, json
+
+def compute_packet_hash(packet: dict) -> str:
+    """计算 requirement-packet.json 的 hash（排除 hash 字段本身）"""
+    canonical = {k: v for k, v in sorted(packet.items()) if k != "hash"}
+    canonical_json = json.dumps(canonical, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+```
+
+### 数据来源映射
+
+| requirement-packet 字段 | 数据来源 |
+|------------------------|---------|
+| `raw_requirement` | 用户输入 |
+| `requirement_type` | Step 1.1.6 确定性分类 |
+| `requirement_maturity` | Step 1.1.5b 成熟度评估 |
+| `complexity` | 调研信封 complexity + 多维度修正 |
+| `goal` | BA 信封 goal |
+| `scope` | BA 信封 scope |
+| `non_goals` | BA 信封 non_goals |
+| `acceptance_criteria` | BA 信封 acceptance_criteria |
+| `decisions` | 用户决策循环确认结果 |
+| `assumptions` | BA 信封 assumptions |
+| `risks` | BA 信封 risks + 调研信封 risks |
+| `routing_overrides` | Step 1.1.6 路由策略 |
+| `research_plan` | Step 1.1.5b 成熟度路由 |
+
+> **关键约束**：所有数据来源均为 JSON 信封中的结构化字段 + 用户决策，主线程不从子 Agent 正文工件中提取任何数据。

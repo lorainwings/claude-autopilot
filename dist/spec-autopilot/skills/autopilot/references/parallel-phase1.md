@@ -78,7 +78,12 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 {end if}
 ```
 
-等待全部完成 → 主线程合并 research-findings.md 和 web-research-findings.md（如存在）的内容 → 传递给 business-analyst 分析。
+等待全部完成 → 主线程**仅从各 Agent 返回的 JSON 信封**提取 `decision_points`、`tech_constraints`、`complexity`、`key_files` 等结构化字段 → 将这些**信封摘要**（而非正文）注入到 business-analyst 的 dispatch prompt。
+
+> **上下文隔离红线**（v6.0）：主线程**禁止** `Read(research-findings.md)` 或 `Read(web-research-findings.md)` 获取调研全文。
+> 全文由 business-analyst 子 Agent 在自己的执行环境中直接 Read。
+> 主线程仅消费信封中的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）。
+> 主线程仅通过 `Bash("test -s {output_file} && echo ok")` 验证产出文件存在性。
 
 ## 需求理解增强（v3.2.0）
 
@@ -114,3 +119,57 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 `config.phases.requirements.decision_mode`:
 - `proactive`（默认）: AI 主动识别决策点并展示
 - `reactive`: 仅在用户提问时展示
+
+## 需求成熟度驱动调研方案选择（v6.0 新增）
+
+### 成熟度三级分类
+
+在 Step 1.1.5 信息量评估之后、并行调研派发之前，主线程执行需求成熟度判断：
+
+| 成熟度 | 定义 | 判定规则 | 调研方案 |
+|--------|------|---------|---------|
+| **clear** | 需求明确、边界清晰、有验收标准 | flags == 0 且 RAW_REQUIREMENT 含具体组件名 + 具体行为 + 验收条件 | 轻量澄清：仅 Auto-Scan，不启动技术调研和联网搜索 |
+| **partial** | 方向明确但缺少细节 | flags == 1 或 (flags == 0 但无验收标准) | 双路调研：Auto-Scan + 技术调研，联网搜索按规则引擎决定 |
+| **ambiguous** | 方向不明或重大歧义 | flags >= 2 | 三路调研：Auto-Scan + 技术调研 + 联网搜索（全启动） |
+
+### 成熟度决策伪代码
+
+```
+# 在 Step 1.1.5 评估后执行
+IF flags >= 2:
+    maturity = "ambiguous"
+ELIF flags == 1 OR (flags == 0 AND 'no_acceptance_criteria' would have triggered):
+    maturity = "partial"
+ELSE:
+    maturity = "clear"
+
+# 调研方案选择
+MATCH maturity:
+    "clear":
+        dispatch_tasks = [auto_scan]
+        # 跳过技术调研和联网搜索，节省 Token
+    "partial":
+        dispatch_tasks = [auto_scan, tech_research]
+        IF search_policy_engine.should_search(RAW_REQUIREMENT):
+            dispatch_tasks.append(web_search)
+    "ambiguous":
+        dispatch_tasks = [auto_scan, tech_research, web_search]
+        # 全量启动，最大化信息采集
+```
+
+### 成熟度写入信封
+
+成熟度结果写入 Phase 1 最终 checkpoint 和 requirement-packet.json：
+
+```json
+{
+  "requirement_maturity": "clear|partial|ambiguous",
+  "research_plan": {
+    "dispatched": ["auto_scan", "tech_research"],
+    "skipped": ["web_search"],
+    "skip_reasons": {"web_search": "maturity=partial, search_policy=skip"}
+  }
+}
+```
+
+> **设计意图**：避免所有需求都走三路调研。clear 需求直接用 Auto-Scan 提取项目上下文即可进入 BA 分析，节省 Token 和时间。

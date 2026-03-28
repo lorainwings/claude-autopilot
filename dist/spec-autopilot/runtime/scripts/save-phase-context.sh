@@ -9,6 +9,7 @@
 #   context_json: JSON with fields: summary, decisions, constraints, next_phase_context
 #
 # Output: Writes to {change_dir}/context/phase-context-snapshots/phase-{N}-context.md
+#         AND {change_dir}/context/phase-context-snapshots/phase-{N}-context.json (v6.0)
 # Exit: Always 0 (informational, never blocks orchestration)
 
 set -uo pipefail
@@ -32,14 +33,15 @@ SNAPSHOTS_DIR="$ACTIVE_CHANGE/context/phase-context-snapshots"
 mkdir -p "$SNAPSHOTS_DIR" 2>/dev/null || true
 
 SNAPSHOT_FILE="$SNAPSHOTS_DIR/phase-${PHASE}-context.md"
+SNAPSHOT_JSON_FILE="$SNAPSHOTS_DIR/phase-${PHASE}-context.json"
 PHASE_LABEL=$(get_phase_label "$PHASE")
 
 # --- Generate ISO-8601 timestamp ---
 TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# --- Build context snapshot markdown ---
+# --- Build context snapshot markdown + JSON ---
 python3 -c "
-import json, sys
+import json, sys, hashlib
 from datetime import datetime
 
 phase = sys.argv[1]
@@ -48,6 +50,7 @@ context_json = sys.argv[3]
 phase_label = sys.argv[4]
 timestamp = sys.argv[5]
 snapshot_file = sys.argv[6]
+snapshot_json_file = sys.argv[7]
 
 # Parse context JSON
 try:
@@ -61,6 +64,29 @@ constraints = ctx.get('constraints', [])
 next_context = ctx.get('next_phase_context', '')
 artifacts = ctx.get('artifacts', [])
 
+# v6.0: Write structured JSON snapshot
+json_snapshot = {
+    'schema_version': '6.0',
+    'phase': int(phase),
+    'phase_label': phase_label,
+    'mode': mode,
+    'saved_at': timestamp,
+    'summary': summary,
+    'decisions': decisions,
+    'constraints': constraints,
+    'next_phase_context': next_context,
+    'artifacts': artifacts,
+}
+# Compute hash for verification
+json_content = json.dumps(json_snapshot, sort_keys=True, ensure_ascii=False)
+json_snapshot['content_hash'] = hashlib.sha256(json_content.encode('utf-8')).hexdigest()[:16]
+
+import os
+os.makedirs(os.path.dirname(snapshot_json_file), exist_ok=True)
+with open(snapshot_json_file, 'w') as f:
+    json.dump(json_snapshot, f, indent=2, ensure_ascii=False)
+
+# Build markdown snapshot (human-readable)
 lines = [
     f'# Phase {phase} Context Snapshot — {phase_label}',
     f'',
@@ -114,10 +140,9 @@ if next_context:
         f'',
     ])
 
-import os
 os.makedirs(os.path.dirname(snapshot_file), exist_ok=True)
 with open(snapshot_file, 'w') as f:
     f.write('\n'.join(lines))
-" "$PHASE" "$MODE" "$CONTEXT_JSON" "$PHASE_LABEL" "$TIMESTAMP" "$SNAPSHOT_FILE" 2>/dev/null
+" "$PHASE" "$MODE" "$CONTEXT_JSON" "$PHASE_LABEL" "$TIMESTAMP" "$SNAPSHOT_FILE" "$SNAPSHOT_JSON_FILE" 2>/dev/null
 
 exit 0

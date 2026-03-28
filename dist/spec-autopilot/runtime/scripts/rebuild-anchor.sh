@@ -3,8 +3,10 @@
 #
 # Usage: rebuild-anchor.sh <project_root> <lock_file>
 # Creates a new anchor commit and atomically updates the lock file's anchor_sha field.
-# Exit: 0 = success, 1 = failure
+# Exit: 0 = success, 1 = failure (fail-closed: archive MUST NOT proceed on failure)
 # Stdout: new anchor SHA on success
+#
+# v6.0: Failure is a hard block for archive. No skip/degrade option.
 
 set -uo pipefail
 
@@ -17,12 +19,21 @@ if [ -z "$PROJECT_ROOT" ] || [ -z "$LOCK_FILE" ]; then
 fi
 
 if [ ! -d "$PROJECT_ROOT/.git" ]; then
-  echo "ERROR: Not a git repository: $PROJECT_ROOT" >&2
+  echo "ERROR: Not a git repository: $PROJECT_ROOT. Anchor rebuild requires git." >&2
   exit 1
 fi
 
 if [ ! -f "$LOCK_FILE" ]; then
-  echo "ERROR: Lock file not found: $LOCK_FILE" >&2
+  echo "ERROR: Lock file not found: $LOCK_FILE. Cannot rebuild anchor without active session." >&2
+  exit 1
+fi
+
+# Verify working tree is clean before creating anchor
+DIRTY=$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null || echo "")
+if [ -n "$DIRTY" ]; then
+  echo "ERROR: Working tree has uncommitted changes. Commit or stash before anchor rebuild." >&2
+  echo "Dirty files:" >&2
+  echo "$DIRTY" >&2
   exit 1
 fi
 

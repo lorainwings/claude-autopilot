@@ -17,6 +17,54 @@
 
 ---
 
+## TDD 门禁结构（WS-E 治理强化）
+
+每个 TDD 周期 **必须** 记录以下字段，作为 Phase 5→6 gate 的真实门禁依据：
+
+| 字段 | 说明 | 何时写入 | 门禁作用 |
+|------|------|----------|----------|
+| `test_intent` | 测试意图描述（被测行为/边界/错误路径） | RED 阶段派发前 | 必须非空，否则阻断 RED 派发 |
+| `failing_signal` | RED 阶段测试失败的具体输出（exit_code + 断言消息） | RED 阶段 L2 验证后 | 必须存在且为断言失败（非编译错误） |
+| `red.verified` | RED 验证通过标记 | RED L2 验证通过 | Phase 5→6 门禁检查 |
+| `green.verified` | GREEN 验证通过标记 | GREEN L2 验证通过 | Phase 5→6 门禁检查 |
+| `refactor.verified` | REFACTOR 验证通过标记 | REFACTOR L2 验证通过 | 审计记录（允许 reverted） |
+
+### test_intent 规范
+
+test_intent 必须明确回答：
+1. **被测对象**: 哪个函数/模块/接口
+2. **预期行为**: 输入什么，期望什么输出或副作用
+3. **测试类别**: happy-path / sad-path / boundary / regression
+
+示例（合格）:
+```
+"test_intent": "UserService.login() 在密码错误时返回 401 并记录审计日志 (sad-path)"
+```
+
+示例（不合格 → 阻断）:
+```
+"test_intent": "测试登录功能"  // 过于模糊，缺少具体行为描述
+"test_intent": ""              // 空值，直接阻断
+```
+
+### failing_signal 规范
+
+failing_signal 必须包含：
+1. `exit_code`: 非零退出码
+2. `assertion_message`: 断言失败的具体消息（非编译错误、非运行时崩溃）
+3. `test_file`: 产生失败的测试文件路径
+
+示例:
+```json
+{
+  "exit_code": 1,
+  "assertion_message": "AssertionError: expected 401 but got undefined",
+  "test_file": "tests/test_login.py"
+}
+```
+
+---
+
 ## 反合理化清单（13 种借口）
 
 | # | 借口 | 现实 |
@@ -77,9 +125,14 @@
 for each task in task_list:
 
   ┌─── RED ──────────────────────────────────────────────┐
+  │ Step 0: 记录 test_intent (门禁前置条件)               │
+  │   - 主线程写入 test_intent 到当前 task context          │
+  │   - test_intent 为空 → BLOCK: 禁止派发 RED Task        │
+  │                                                       │
   │ Step 1: Task(prompt: "TDD RED — 写失败测试")           │
   │   - 子 Agent 仅写测试文件，禁止写实现代码              │
   │   - prompt 注入 Iron Law + 反合理化 + 反模式指南       │
+  │   - prompt 注入 test_intent（被测行为描述）            │
   │   - 返回: { test_file, test_command }                 │
   │                                                       │
   │ Step 2: 主线程确定性验证 (L2)                          │
@@ -91,6 +144,9 @@ for each task in task_list:
   │     → BLOCK: "测试有语法错误，不是正确的失败断言。"      │
   │   IF exit_code != 0 AND 断言失败:                      │
   │     → PASS: 记录 tdd_cycle.red = { verified: true }   │
+  │     → 记录 failing_signal = {                          │
+  │         exit_code, assertion_message, test_file        │
+  │       }                                                │
   └───────────────────────────────────────────────────────┘
 
   ┌─── GREEN ────────────────────────────────────────────┐
@@ -197,8 +253,18 @@ Report per-task: tdd_cycles: [{ task, red_verified, green_verified, refactor_ver
     "refactor_reverts": 0
   },
   "tdd_cycles": [
-    { "task": "task-1", "red_verified": true, "green_verified": true, "refactor_verified": true },
-    ...
+    {
+      "task": "task-1",
+      "test_intent": "UserService.login() 在密码错误时返回 401 (sad-path)",
+      "failing_signal": {
+        "exit_code": 1,
+        "assertion_message": "AssertionError: expected 401 but got undefined",
+        "test_file": "tests/test_login.py"
+      },
+      "red_verified": true,
+      "green_verified": true,
+      "refactor_verified": true
+    }
   ]
 }
 ```
@@ -248,7 +314,22 @@ Phase 5→6 门禁额外验证（当 `tdd_mode: true`）：
 - [ ] tdd_metrics 存在
 - [ ] tdd_metrics.red_violations === 0（零 RED 违规）
 - [ ] 每个 task 的 tdd_cycle 完整（red + green 都 verified）
+- [ ] 每个 task 的 test_intent 非空且符合规范（WS-E 治理）
+- [ ] 每个 task 的 failing_signal 存在且包含 assertion_message（WS-E 治理）
 - [ ] refactor_reverts 记录在案（允许 > 0，仅审计）
 ```
 
 任何条件不满足 → 阻断 Phase 6。
+
+### test_intent + failing_signal 门禁逻辑
+
+```
+for each task_checkpoint in phase5-tasks/:
+  IF tdd_cycle exists:
+    IF test_intent is empty or missing:
+      → BLOCK: "Task #{N} 缺少 test_intent，无法证明 TDD 意图。"
+    IF failing_signal is missing:
+      → BLOCK: "Task #{N} 缺少 failing_signal，无法证明 RED 阶段的前置失败。"
+    IF failing_signal.assertion_message is empty:
+      → BLOCK: "Task #{N} 的 failing_signal 缺少断言消息，可能是编译错误而非真正的测试失败。"
+```

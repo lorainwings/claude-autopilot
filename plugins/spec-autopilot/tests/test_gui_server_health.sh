@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# test_gui_server_health.sh — GUI server 守护启动脚本健壮性测试
-# 覆盖: --stop 模式退出码、--check-health 无服务器行为、PID 文件写入
+# test_gui_server_health.sh -- GUI server 守护启动脚本健壮性测试
+# 覆盖: --stop 模式退出码、--check-health 无服务器行为、PID 文件写入、/api/health 端点
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$TEST_DIR/.." && pwd)"
@@ -23,9 +23,9 @@ trap cleanup EXIT
 
 mkdir -p "$TMP_DIR/logs"
 
-# ══════════════════════════════════════════════════════
+# =============================================
 # 1. --stop 模式：无 PID 文件时应返回非零
-# ══════════════════════════════════════════════════════
+# =============================================
 
 echo ""
 echo "  [1] --stop mode exit codes"
@@ -49,9 +49,9 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# ══════════════════════════════════════════════════════
+# =============================================
 # 2. --check-health 模式：无服务器时行为
-# ══════════════════════════════════════════════════════
+# =============================================
 
 echo ""
 echo "  [2] --check-health mode without running server"
@@ -90,9 +90,9 @@ else
   fi
 fi
 
-# ══════════════════════════════════════════════════════
+# =============================================
 # 3. PID 文件写入验证（通过 start 模式）
-# ══════════════════════════════════════════════════════
+# =============================================
 
 echo ""
 echo "  [3] PID file management"
@@ -132,6 +132,79 @@ if grep -q '>/dev/null 2>&1 &' "$SCRIPT"; then
 else
   green "  PASS: 3d. no /dev/null redirection for server output"
   PASS=$((PASS + 1))
+fi
+
+# =============================================
+# 4. /api/health 端点结构验证（源码级）
+# =============================================
+
+echo ""
+echo "  [4] /api/health endpoint structure"
+
+ROUTES_FILE="$PLUGIN_DIR/runtime/server/src/api/routes.ts"
+
+# 4a. 路由文件包含 /api/health 端点
+if grep -q '/api/health' "$ROUTES_FILE"; then
+  green "  PASS: 4a. routes.ts contains /api/health endpoint"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4a. routes.ts missing /api/health endpoint"
+  FAIL=$((FAIL + 1))
+fi
+
+# 4b. 健康端点包含结构化 checks 对象
+if grep -q 'checks:' "$ROUTES_FILE"; then
+  green "  PASS: 4b. health endpoint has structured checks"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4b. health endpoint missing structured checks"
+  FAIL=$((FAIL + 1))
+fi
+
+# 4c. 健康端点包含 PID 信息
+if grep -q 'pid:' "$ROUTES_FILE"; then
+  green "  PASS: 4c. health endpoint includes PID"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4c. health endpoint missing PID"
+  FAIL=$((FAIL + 1))
+fi
+
+# 4d. 健康端点区分 http/ws/telemetry/transcript (TypeScript 对象键无引号)
+if grep -q 'http:' "$ROUTES_FILE" && grep -q 'ws:' "$ROUTES_FILE" && \
+   grep -q 'telemetry:' "$ROUTES_FILE" && grep -q 'transcript:' "$ROUTES_FILE"; then
+  green "  PASS: 4d. health endpoint distinguishes http/ws/telemetry/transcript"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4d. health endpoint missing service distinction"
+  FAIL=$((FAIL + 1))
+fi
+
+# =============================================
+# 5. WS /health 端点增强验证（源码级）
+# =============================================
+
+echo ""
+echo "  [5] WS /health endpoint enhancement"
+
+WS_SERVER_FILE="$PLUGIN_DIR/runtime/server/src/ws/ws-server.ts"
+
+# 5a. WS health 端点包含 telemetryAvailable
+if grep -q 'telemetryAvailable' "$WS_SERVER_FILE"; then
+  green "  PASS: 5a. WS health includes telemetryAvailable"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 5a. WS health missing telemetryAvailable"
+  FAIL=$((FAIL + 1))
+fi
+
+# 5b. WS health 端点包含 uptimeMs
+if grep -q 'uptimeMs' "$WS_SERVER_FILE"; then
+  green "  PASS: 5b. WS health includes uptimeMs"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 5b. WS health missing uptimeMs"
+  FAIL=$((FAIL + 1))
 fi
 
 echo ""
