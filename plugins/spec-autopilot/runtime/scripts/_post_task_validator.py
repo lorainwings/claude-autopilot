@@ -749,9 +749,114 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
 # ============================================================
 # Validates that the dispatched agent respects priority rules and
 # has not modified files outside its owned_artifacts boundary.
+#
+# WS-G 精确关联: 在并行同 phase 多 agent 场景下，仅按 phase 倒序取最后一条
+# dispatch record 会误匹配其他 agent 的 owned_artifacts。现在按 agent_id + phase
+# 精确匹配，无 agent_id 时回退到 phase-only 匹配（向后兼容）。
+
+
+def _sanitize_session_key(session_id):
+    """Python 版 sanitize_session_key，与 _common.sh 保持一致。"""
+    if not session_id:
+        return "unknown"
+    sanitized = re.sub(r"[^a-zA-Z0-9._-]", "_", session_id).strip("_")
+    return sanitized if sanitized else "unknown"
+
+
+def _resolve_active_agent_id(root, hook_data, phase):
+    """从文件系统 marker 解析当前活跃 agent_id。
+
+    解析优先级（与 capture-hook-event.sh / statusline-collector.sh 一致）:
+      1. session-scoped marker: logs/.active-agent-session-{sanitized_key}
+      2. phase-scoped marker:   logs/.active-agent-phase-{N}
+      3. global marker:         logs/.active-agent-id
+    返回 agent_id 字符串，或 None 表示无法确定。
+    """
+    # 尝试从 hook 数据获取 session_id
+    session_id = ""
+    if isinstance(hook_data, dict):
+        session_id = hook_data.get("session_id", "")
+    # 回退: 从 lock file 读取 session_id
+    if not session_id:
+        lock_path = os.path.join(root, "openspec", "changes", ".autopilot-active")
+        if os.path.isfile(lock_path):
+            try:
+                with open(lock_path) as _lf:
+                    _lock = json.loads(_lf.read())
+                    session_id = _lock.get("session_id", "")
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    # 1. session-scoped marker
+    if session_id:
+        session_key = _sanitize_session_key(session_id)
+        session_marker = os.path.join(root, "logs", f".active-agent-session-{session_key}")
+        if os.path.isfile(session_marker):
+            try:
+                with open(session_marker) as _sf:
+                    aid = _sf.read().strip()
+                if aid:
+                    return aid
+            except OSError:
+                pass
+
+    # 2. phase-scoped marker
+    phase_marker = os.path.join(root, "logs", f".active-agent-phase-{phase}")
+    if os.path.isfile(phase_marker):
+        try:
+            with open(phase_marker) as _pf:
+                aid = _pf.read().strip()
+            if aid:
+                return aid
+        except OSError:
+            pass
+
+    # 3. global marker (last-writer-wins，并行场景不可靠但作为兜底)
+    global_marker = os.path.join(root, "logs", ".active-agent-id")
+    if os.path.isfile(global_marker):
+        try:
+            with open(global_marker) as _gf:
+                aid = _gf.read().strip()
+            if aid:
+                return aid
+        except OSError:
+            pass
+
+    return None
+
+
+def _find_dispatch_record(dispatch_records, phase, agent_id=None):
+    """按 agent_id + phase 精确查找 dispatch record。
+
+    策略:
+      - agent_id 非空时: 精确匹配 agent_id + phase（最新一条）
+      - agent_id 为空时: 回退到 phase-only 匹配（向后兼容）
+    返回 (record, match_mode) 或 (None, None)。
+    match_mode: "exact" | "phase_only"
+    """
+    if not isinstance(dispatch_records, list) or not dispatch_records:
+        return None, None
+
+    if agent_id:
+        # 精确匹配: agent_id + phase
+        for rec in reversed(dispatch_records):
+            if isinstance(rec, dict) and rec.get("phase") == phase and rec.get("agent_id") == agent_id:
+                return rec, "exact"
+        # 精确匹配失败 — 返回 None（fail-closed）
+        return None, None
+
+    # 回退: phase-only 匹配（单 agent 场景 / 无 marker 场景）
+    for rec in reversed(dispatch_records):
+        if isinstance(rec, dict) and rec.get("phase") == phase:
+            return rec, "phase_only"
+    return None, None
+
 
 if envelope and envelope.get("status") in ("ok", "warning"):
     root = _ep.find_project_root(data)
+
+    # 解析当前活跃 agent_id（WS-G 精确关联）
+    _active_agent_id = _resolve_active_agent_id(root, data, phase_num)
 
     # 6a. Check agent artifact boundary
     # Read dispatch record to verify owned_artifacts
@@ -761,12 +866,16 @@ if envelope and envelope.get("status") in ("ok", "warning"):
             with open(dispatch_record_file) as _drf:
                 dispatch_records = json.loads(_drf.read())
             if isinstance(dispatch_records, list) and dispatch_records:
-                # Find the latest dispatch record for this phase
-                latest_record = None
-                for rec in reversed(dispatch_records):
-                    if isinstance(rec, dict) and rec.get("phase") == phase_num:
-                        latest_record = rec
-                        break
+                # 按 agent_id + phase 精确匹配 dispatch record
+                latest_record, _match_mode = _find_dispatch_record(dispatch_records, phase_num, _active_agent_id)
+
+                # Fail-closed: 有 agent_id 但无匹配 record 时阻断
+                if _active_agent_id and latest_record is None:
+                    output_block(
+                        f"Governance correlation missing: agent '{_active_agent_id}' "
+                        f"in phase {phase_num} has no matching dispatch record. "
+                        "Ensure auto-emit-agent-dispatch.sh runs before task execution."
+                    )
 
                 if latest_record:
                     owned = latest_record.get("owned_artifacts", [])
@@ -779,11 +888,14 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                                 if not isinstance(art, str):
                                     continue
                                 art_rel = os.path.relpath(art, root) if os.path.isabs(art) else art
+                                art_rel = art_rel.rstrip("/")
                                 in_boundary = False
                                 for owned_path in owned:
                                     owned_rel = (
                                         os.path.relpath(owned_path, root) if os.path.isabs(owned_path) else owned_path
                                     )
+                                    # 归一化: 去掉尾部斜杠避免 "src/api/" + "/" 变成 "src/api//"
+                                    owned_rel = owned_rel.rstrip("/")
                                     if (
                                         art_rel == owned_rel
                                         or art_rel.startswith(owned_rel + "/")
@@ -799,8 +911,10 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                                 overflow = len(boundary_violations) - 5
                                 extra = f" (+{overflow} more)" if overflow > 0 else ""
                                 output_block(
-                                    f"Agent artifact boundary violation: Phase {phase_num} agent produced artifacts "
-                                    f"outside its owned boundary: {', '.join(shown)}{extra}. "
+                                    f"Agent artifact boundary violation: Phase {phase_num} agent "
+                                    f"(id={latest_record.get('agent_id', 'unknown')}) produced "
+                                    f"artifacts outside its owned boundary: "
+                                    f"{', '.join(shown)}{extra}. "
                                     f"Owned artifacts: {', '.join(owned[:5])}. "
                                     "Re-dispatch with correct file ownership."
                                 )

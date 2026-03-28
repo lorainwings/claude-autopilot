@@ -34,7 +34,12 @@ export function createWsServer() {
       open(ws: ServerWebSocket<unknown>) {
         wsClients.add(ws);
         const sanitized = snapshotState.events.map(e => sanitizeForApi(e));
-        ws.send(JSON.stringify({ type: "snapshot", data: sanitized }));
+        const meta = {
+          archiveReadiness: snapshotState.archiveReadiness ?? null,
+          requirementPacketHash: snapshotState.stateSnapshot?.requirement_packet_hash ?? null,
+          gateFrontier: snapshotState.stateSnapshot?.gate_frontier ?? null,
+        };
+        ws.send(JSON.stringify({ type: "snapshot", data: sanitized, meta }));
       },
       message(ws: ServerWebSocket<unknown>, message: string | Uint8Array | ArrayBuffer) {
         try {

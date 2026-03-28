@@ -248,7 +248,7 @@ test_pyramid:
 
 gates:
   user_confirmation:
-    after_phase_1: true
+    after_phase_1: false
     after_phase_3: false
     after_phase_4: false
 

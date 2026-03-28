@@ -142,7 +142,7 @@ test_pyramid:
 
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `after_phase_1` | boolean | `true` | 需求阶段后暂停等待用户审查 |
+| `after_phase_1` | boolean | `false` | 需求阶段后默认自动推进（v6.0） |
 | `after_phase_3` | boolean | `false` | 设计生成后暂停 |
 | `after_phase_4` | boolean | `false` | 测试设计后暂停 |
 

@@ -17,6 +17,7 @@ export let snapshotState: SessionSnapshot = {
   telemetryAvailable: false,
   transcriptAvailable: false,
   stateSnapshot: null,
+  archiveReadiness: null,
 };
 
 export function setSnapshotState(next: SessionSnapshot) {

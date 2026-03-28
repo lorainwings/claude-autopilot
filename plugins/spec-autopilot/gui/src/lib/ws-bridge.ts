@@ -22,6 +22,19 @@ export interface AutopilotEvent {
 
 type EventHandler = (events: AutopilotEvent[]) => void;
 type AckHandler = (data: { action: string; phase: number; timestamp: string }) => void;
+/** H-2/H-1: snapshot meta 包含 archiveReadiness、requirementPacketHash 等编排关键数据 */
+export type SnapshotMeta = {
+  archiveReadiness?: {
+    timestamp: string;
+    mode: string;
+    checks: Record<string, unknown>;
+    overall: "ready" | "blocked";
+    block_reasons: string[];
+  } | null;
+  requirementPacketHash?: string | null;
+  gateFrontier?: number | null;
+};
+type MetaHandler = (meta: SnapshotMeta) => void;
 
 export class WSBridge {
   private ws: WebSocket | null = null;
@@ -29,6 +42,7 @@ export class WSBridge {
   private handlers = new Set<EventHandler>();
   private ackHandlers = new Set<AckHandler>();
   private resetHandlers = new Set<() => void>();
+  private metaHandlers = new Set<MetaHandler>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 10000;
@@ -65,6 +79,12 @@ export class WSBridge {
           const msg = JSON.parse(e.data);
           if (msg.type === "snapshot") {
             this.emit(msg.data as AutopilotEvent[]);
+            // H-2/H-1: 分发 snapshot meta（archiveReadiness、requirementPacketHash 等）
+            if (msg.meta) {
+              for (const handler of this.metaHandlers) {
+                handler(msg.meta as SnapshotMeta);
+              }
+            }
           } else if (msg.type === "event") {
             this.emit([msg.data as AutopilotEvent]);
           } else if (msg.type === "pong") {
@@ -122,6 +142,12 @@ export class WSBridge {
   onReset(handler: () => void) {
     this.resetHandlers.add(handler);
     return () => this.resetHandlers.delete(handler);
+  }
+
+  /** H-2/H-1: 订阅 snapshot meta 更新 */
+  onMeta(handler: MetaHandler) {
+    this.metaHandlers.add(handler);
+    return () => this.metaHandlers.delete(handler);
   }
 
   get connected() {

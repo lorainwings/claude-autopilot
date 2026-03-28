@@ -78,6 +78,11 @@ export function createHttpServer() {
           transcriptAvailable: snapshotState.transcriptAvailable,
           mode: snapshotState.mode || null,
           currentPhase,
+          // H-2: 暴露 archive readiness 状态
+          archiveReadiness: snapshotState.archiveReadiness ?? null,
+          // H-1/H-3: 暴露 stateSnapshot 关键字段
+          requirementPacketHash: snapshotState.stateSnapshot?.requirement_packet_hash ?? null,
+          gateFrontier: snapshotState.stateSnapshot?.gate_frontier ?? null,
         }), {
           headers: { "Content-Type": "application/json", ...corsHeaders(req) },
         });

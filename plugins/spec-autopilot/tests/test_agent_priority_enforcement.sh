@@ -126,6 +126,77 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# === 7. Validator 6 精确关联: agent_id + phase 匹配 dispatch record ===
+# 使用 _post_task_validator.py 直接测试 Validator 6 的精确关联逻辑
+
+VALIDATOR="$SCRIPT_DIR/_post_task_validator.py"
+
+# Helper: 在指定 cwd 下运行 validator
+run_v6_validator() {
+  local cwd="$1"
+  local phase="$2"
+  local agent_output="$3"
+  python3 -c "
+import json, sys, subprocess
+phase = int(sys.argv[1])
+agent_output = sys.argv[2]
+prompt = f'<!-- autopilot-phase:{phase} --> Do phase {phase} task'
+data = {
+    'tool_name': 'Task',
+    'cwd': sys.argv[3],
+    'tool_input': {'prompt': prompt},
+    'tool_response': agent_output
+}
+proc = subprocess.run(
+    [sys.executable, sys.argv[4]],
+    input=json.dumps(data),
+    capture_output=True, text=True, timeout=30,
+    env={**dict(__import__('os').environ), 'SCRIPT_DIR': sys.argv[5]}
+)
+if proc.stdout.strip():
+    print(proc.stdout.strip())
+" "$phase" "$agent_output" "$cwd" "$VALIDATOR" "$SCRIPT_DIR" 2>/dev/null || true
+}
+
+V6_ENV=$(mktemp -d)
+mkdir -p "$V6_ENV/.claude" "$V6_ENV/openspec/changes" "$V6_ENV/logs"
+echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
+  >"$V6_ENV/openspec/changes/.autopilot-active"
+
+V6_ENVELOPE='{"status":"ok","summary":"impl done","artifacts":["src/api/handler.ts"],"test_results_path":"tests/","tasks_completed":5,"zero_skip_check":{"passed":true}}'
+
+# 7a. agent marker 精确匹配 dispatch record → 通过
+cat >"$V6_ENV/logs/agent-dispatch-record.json" <<'JSON'
+[{"agent_id":"phase5-api","agent_class":"default","phase":5,"selection_reason":"agent_policy_match","resolved_priority":"normal","owned_artifacts":["src/api/"],"background":false,"scanned_sources":[],"required_validators":["json_envelope"]}]
+JSON
+echo "phase5-api" >"$V6_ENV/logs/.active-agent-phase-5"
+result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
+if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+  green "  PASS: 7a. agent marker 精确匹配 dispatch record → 通过"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7a. 精确匹配应通过 (output='$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 7b. agent marker 无匹配 dispatch record → governance correlation missing
+echo "phase5-nonexistent" >"$V6_ENV/logs/.active-agent-phase-5"
+result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
+assert_contains "7b. 无匹配 record → correlation missing block" "$result" "correlation missing"
+
+# 7c. 无 agent marker → phase-only 回退
+rm -f "$V6_ENV/logs/.active-agent-phase-5" "$V6_ENV/logs/.active-agent-id" 2>/dev/null || true
+result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
+if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+  green "  PASS: 7c. 无 agent marker → phase-only 回退 → 通过"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 7c. 无 marker 应 phase-only 回退 (output='$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+rm -rf "$V6_ENV" 2>/dev/null || true
+
 # Cleanup
 rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/.agent-dispatch-ts-"* 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/agent-dispatch-record.json" 2>/dev/null || true

@@ -155,6 +155,12 @@ interface AppState {
   orchestration: OrchestrationOverview;
 
   addEvents: (events: AutopilotEvent[]) => void;
+  /** H-2/H-1: 从 WS snapshot meta 初始化编排状态 */
+  initOrchestrationFromMeta: (meta: {
+    archiveReadiness?: { overall: string; checks?: Record<string, unknown>; block_reasons?: string[] } | null;
+    requirementPacketHash?: string | null;
+    gateFrontier?: number | null;
+  }) => void;
   setConnected: (connected: boolean) => void;
   setHttpOk: (ok: boolean) => void;
   setDecisionAcked: (acked: boolean) => void;
@@ -690,6 +696,30 @@ export const useStore = create<AppState>((set) => ({
         parallelPlan,
         orchestration,
       };
+    }),
+
+  /** H-2/H-1: 从 server snapshot meta 初始化编排关键字段 */
+  initOrchestrationFromMeta: (meta) =>
+    set((state) => {
+      const orchestration = { ...state.orchestration };
+
+      // H-2: archive readiness — 仅当事件流尚未提供时用 meta fallback
+      if (meta.archiveReadiness && !orchestration.archiveReadiness) {
+        const ar = meta.archiveReadiness;
+        const checks = ar.checks as Record<string, unknown> | undefined;
+        orchestration.archiveReadiness = {
+          fixupComplete: Boolean(checks?.fixup_completeness && (checks.fixup_completeness as Record<string, unknown>)?.passed),
+          reviewGatePassed: Boolean(checks?.review_findings_clear),
+          ready: ar.overall === "ready",
+        };
+      }
+
+      // H-1: requirement packet hash — 仅当事件流尚未提供时用 meta fallback
+      if (meta.requirementPacketHash && !orchestration.requirementPacketHash) {
+        orchestration.requirementPacketHash = meta.requirementPacketHash;
+      }
+
+      return { orchestration };
     }),
 
   setConnected: (connected) => set((state) => ({

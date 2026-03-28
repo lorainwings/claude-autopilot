@@ -346,7 +346,7 @@ LOOP:
 
 ## 1.10 可配置用户确认点
 
-如果 `config.gates.user_confirmation.after_phase_1 === true`（默认 true）：
+如果 `config.gates.user_confirmation.after_phase_1 === true`（**v6.0 默认 false**，需求评审后默认自动推进）：
 - AskUserQuestion：「需求分析已完成，是否确认进入 OpenSpec 创建阶段？」
 - 选"暂停" → 结束当前流水线，用户可后续通过崩溃恢复继续
 

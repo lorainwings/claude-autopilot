@@ -77,7 +77,7 @@ const ModelRoutingBanner = memo(function ModelRoutingBanner({ routing }: { routi
 });
 
 export function App() {
-  const { connected, setConnected, setHttpOk, addEvents, changeName, sessionId, mode } = useStore();
+  const { connected, setConnected, setHttpOk, addEvents, initOrchestrationFromMeta, changeName, sessionId, mode } = useStore();
   const hasEvents = useStore((s) => s.events.length > 0);
   const modelRouting = useStore((s) => s.modelRouting);
   const [telemetryOpen, setTelemetryOpen] = useState(false);
@@ -87,6 +87,11 @@ export function App() {
 
     const unsubscribe = wsBridge.onEvents((events) => {
       addEvents(events);
+    });
+
+    // H-2/H-1: 从 snapshot meta 初始化编排关键字段（archiveReadiness、requirementPacketHash）
+    const unsubscribeMeta = wsBridge.onMeta((meta) => {
+      initOrchestrationFromMeta(meta);
     });
 
     // v5.4: Listen for reset signal (restart scenario) -> clear all GUI state
@@ -131,11 +136,12 @@ export function App() {
       clearInterval(checkConnection);
       clearInterval(checkHttp);
       unsubscribe();
+      unsubscribeMeta();
       unsubscribeReset();
       unsubscribeAck();
       wsBridge.disconnect();
     };
-  }, [addEvents, setConnected, setHttpOk]);
+  }, [addEvents, initOrchestrationFromMeta, setConnected, setHttpOk]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {

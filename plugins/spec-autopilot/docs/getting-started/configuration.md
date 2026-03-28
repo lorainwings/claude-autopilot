@@ -142,7 +142,7 @@ test_pyramid:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `after_phase_1` | boolean | `true` | Pause for user review after requirements |
+| `after_phase_1` | boolean | `false` | Auto-continue after requirements (v6.0) |
 | `after_phase_3` | boolean | `false` | Pause after design generation |
 | `after_phase_4` | boolean | `false` | Pause after test design |
 

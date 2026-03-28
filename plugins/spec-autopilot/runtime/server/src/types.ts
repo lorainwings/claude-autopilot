@@ -56,6 +56,8 @@ export interface SessionSnapshot {
   telemetryAvailable: boolean;
   transcriptAvailable: boolean;
   stateSnapshot: StateSnapshot | null;
+  /** H-2: Phase 7 archive-readiness.json 归档就绪判定 */
+  archiveReadiness: ArchiveReadiness | null;
 }
 
 export interface PhaseContext {
@@ -189,6 +191,22 @@ export interface StateSnapshot {
   fixup_status: string | null;
   archive_status: string | null;
   recovery_confidence: "high" | "medium" | "low" | null;
+}
+
+/** archive-readiness.json 归档就绪判定 (Phase 7, WS-H) */
+export interface ArchiveReadiness {
+  timestamp: string;
+  mode: string;
+  checks: {
+    all_checkpoints_ok: boolean;
+    fixup_completeness: { passed: boolean; fixup_count: number; checkpoint_count: number };
+    anchor_valid: boolean;
+    worktree_clean: boolean;
+    review_findings_clear: boolean;
+    zero_skip_passed: boolean;
+  };
+  overall: "ready" | "blocked";
+  block_reasons: string[];
 }
 
 /** 编排概览状态 — GUI store 消费 (WS-D) */

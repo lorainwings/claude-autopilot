@@ -3,8 +3,8 @@
  */
 
 import { join } from "node:path";
-import { EVENTS_FILE, SESSIONS_DIR } from "../config";
-import type { AutopilotEvent, RawHookRecord, RawStatusRecord, SessionSnapshot, StateSnapshot } from "../types";
+import { EVENTS_FILE, SESSIONS_DIR, projectRoot as configProjectRoot } from "../config";
+import type { ArchiveReadiness, AutopilotEvent, RawHookRecord, RawStatusRecord, SessionSnapshot, StateSnapshot } from "../types";
 import { sanitizeSessionKey, toMillis } from "../utils";
 import { getCurrentSessionContext } from "../session/session-context";
 import { readJsonLinesCached } from "../session/file-cache";
@@ -61,6 +61,7 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
       telemetryAvailable: false,
       transcriptAvailable: false,
       stateSnapshot: null,
+      archiveReadiness: null,
     };
   }
 
@@ -82,10 +83,12 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
   const journalPath = await writeJournal(sessionKey, events);
 
   // 读取 state-snapshot.json（v6.0 结构化控制态）
+  // H-3 修复: 优先使用 config.ts 解析的 --project-root CLI 参数，env var 仅作 fallback
   let stateSnapshot: StateSnapshot | null = null;
-  const projectRoot = process.env.AUTOPILOT_PROJECT_ROOT;
+  const projectRoot = configProjectRoot || process.env.AUTOPILOT_PROJECT_ROOT;
   if (projectRoot && context.changeName && context.changeName !== "unknown") {
-    const snapshotPath = join(projectRoot, "openspec", "changes", context.changeName, "context", "state-snapshot.json");
+    const changeContextDir = join(projectRoot, "openspec", "changes", context.changeName, "context");
+    const snapshotPath = join(changeContextDir, "state-snapshot.json");
     if (existsSync(snapshotPath)) {
       try {
         stateSnapshot = JSON.parse(readFileSync(snapshotPath, "utf-8")) as StateSnapshot;
@@ -93,6 +96,30 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
         // 解析失败时保持 null
       }
     }
+
+    // H-2: 读取 archive-readiness.json（Phase 7 构建的归档就绪判定）
+    let archiveReadiness: ArchiveReadiness | null = null;
+    const archiveReadinessPath = join(changeContextDir, "archive-readiness.json");
+    if (existsSync(archiveReadinessPath)) {
+      try {
+        archiveReadiness = JSON.parse(readFileSync(archiveReadinessPath, "utf-8")) as ArchiveReadiness;
+      } catch {
+        // 解析失败时保持 null
+      }
+    }
+
+    return {
+      sessionId,
+      sessionKey,
+      changeName: context.changeName,
+      mode: context.mode,
+      events,
+      journalPath,
+      telemetryAvailable: statusEvents.length > 0,
+      transcriptAvailable: transcriptEvents.length > 0,
+      stateSnapshot,
+      archiveReadiness,
+    };
   }
 
   return {
@@ -105,5 +132,6 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
     telemetryAvailable: statusEvents.length > 0,
     transcriptAvailable: transcriptEvents.length > 0,
     stateSnapshot,
+    archiveReadiness: null,
   };
 }
