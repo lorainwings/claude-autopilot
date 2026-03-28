@@ -4,6 +4,15 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.2](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.1...parallel-harness-v1.1.2) (2026-03-28)
+
+
+### Fixed
+
+* codex 3 项缺陷修复 — dashboard 凭证泄露 + PR 精确暂存 + git diff untracked 盲区 ([ca858f4](https://github.com/lorainwings/claude-autopilot/commit/ca858f4a2f2226ab790c9e82893250d24423bca2))
+* codex 5 项缺陷修复 — git-diff 精确差分 + PR fail-fast + dashboard 鉴权 + action 映射 + retryTask 桥接 ([29a3bfb](https://github.com/lorainwings/claude-autopilot/commit/29a3bfb3b5c999fc45e9d4513fbea55231b5899c))
+* **hook:** pre-commit 测试仅对 spec-autopilot 变更触发，避免 parallel-harness 文档提交误跑测试套件 ([ee1fc3a](https://github.com/lorainwings/claude-autopilot/commit/ee1fc3a3e914d008ef938b1a3bd6848debf900a9))
+
 ## [1.1.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.0...parallel-harness-v1.1.1) (2026-03-26)
 
 
