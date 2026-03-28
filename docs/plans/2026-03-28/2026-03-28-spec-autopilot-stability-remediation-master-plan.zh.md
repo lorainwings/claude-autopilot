@@ -24,6 +24,10 @@
 - `docs/plans/2026-03-28-spec-autopilot-remediation-workstream-e-agent-governance-tdd-review.zh.md`
 - `docs/plans/2026-03-28-spec-autopilot-remediation-workstream-f-blackbox-tests-and-doc-sync.zh.md`
 
+在 2026-03-29 的代码复核中，又确认了少量 remediation 遗漏项。后续补修时必须同时参考:
+
+- `docs/plans/2026-03-29/2026-03-29-spec-autopilot-remediation-gap-fix-plan.zh.md`
+
 本方案覆盖你提出的全部问题：
 
 1. full/lite/minimal 三模式全流程仿真与问题修复策略
