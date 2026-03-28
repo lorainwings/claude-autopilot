@@ -781,11 +781,14 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                                 art_rel = os.path.relpath(art, root) if os.path.isabs(art) else art
                                 in_boundary = False
                                 for owned_path in owned:
-                                    owned_rel = (os.path.relpath(owned_path, root)
-                                                 if os.path.isabs(owned_path) else owned_path)
-                                    if (art_rel == owned_rel
-                                            or art_rel.startswith(owned_rel + "/")
-                                            or owned_rel.startswith(art_rel + "/")):
+                                    owned_rel = (
+                                        os.path.relpath(owned_path, root) if os.path.isabs(owned_path) else owned_path
+                                    )
+                                    if (
+                                        art_rel == owned_rel
+                                        or art_rel.startswith(owned_rel + "/")
+                                        or owned_rel.startswith(art_rel + "/")
+                                    ):
                                         in_boundary = True
                                         break
                                 if not in_boundary:
@@ -822,9 +825,7 @@ if envelope and envelope.get("status") in ("ok", "warning"):
     # If review findings with severity=critical exist and blocking=true,
     # the phase should not pass as "ok"
     if phase_num in (6, 7):
-        review_checkpoint = os.path.join(
-            root, "openspec", "changes"
-        )
+        review_checkpoint = os.path.join(root, "openspec", "changes")
         lock_path = os.path.join(review_checkpoint, ".autopilot-active")
         if os.path.isfile(lock_path):
             try:
@@ -833,8 +834,7 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                     _change_name = _lock_data.get("change", "")
                 if _change_name:
                     review_file = os.path.join(
-                        review_checkpoint, _change_name,
-                        "context", "phase-results", "phase-6.5-code-review.json"
+                        review_checkpoint, _change_name, "context", "phase-results", "phase-6.5-code-review.json"
                     )
                     if os.path.isfile(review_file):
                         try:
