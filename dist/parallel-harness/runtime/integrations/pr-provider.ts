@@ -49,6 +49,8 @@ export interface CreatePRRequest {
   labels?: string[];
   reviewers?: string[];
   draft?: boolean;
+  /** 本次 run 实际修改的文件路径列表，用于精确 git add（避免 add -A 污染） */
+  modified_files?: string[];
 }
 
 export interface PRResult {
@@ -129,18 +131,35 @@ export class GitHubPRProvider implements PRProvider {
    * 创建 PR：先执行完整 git pipeline (branch → commit → push)，再创建 PR
    */
   async createPR(request: CreatePRRequest): Promise<PRResult> {
-    // Step 1: 创建并切换到 head branch
-    await execShellForGit(
+    // Step 1: 创建并切换到 head branch（fail-fast）
+    const checkoutResult = await execShellForGit(
       `git checkout -b ${request.head_branch} 2>/dev/null || git checkout ${request.head_branch}`
     );
+    if (checkoutResult.exitCode !== 0) {
+      throw new Error(`git checkout 失败: ${checkoutResult.stderr || checkoutResult.stdout}`);
+    }
 
-    // Step 2: 暂存所有变更并提交
-    await execShellForGit("git add -A");
-    await execShellForGit(
-      `git commit -m "[parallel-harness] ${request.title}" --allow-empty`
+    // Step 2: 仅暂存 run-owned 文件（避免 add -A 污染无关改动）
+    if (request.modified_files && request.modified_files.length > 0) {
+      for (const file of request.modified_files) {
+        await execShellForGit(`git add -- "${file}"`);
+      }
+    } else {
+      await execShellForGit("git add -A");
+    }
+
+    // Step 3: 提交（fail-fast，不使用 --allow-empty）
+    const commitResult = await execShellForGit(
+      `git commit -m "[parallel-harness] ${request.title.replace(/"/g, '\\"')}"`
     );
+    if (commitResult.exitCode !== 0) {
+      // 无变更可提交时不是致命错误
+      if (!commitResult.stdout.includes("nothing to commit")) {
+        throw new Error(`git commit 失败: ${commitResult.stderr || commitResult.stdout}`);
+      }
+    }
 
-    // Step 3: Push 到远端
+    // Step 4: Push 到远端（fail-fast）
     const pushResult = await execShellForGit(
       `git push -u origin ${request.head_branch}`
     );

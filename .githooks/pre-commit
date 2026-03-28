@@ -26,7 +26,7 @@ fi
 # Part 1: Hook Test Suite
 # ============================================
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/' || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' || true)
 
 if [ -n "$STAGED" ]; then
   echo "🧪 Plugin files changed — running full build + test suite..."
@@ -209,6 +209,51 @@ if [ "$PH_CHANGED" = "yes" ]; then
     fi
     echo "✅ parallel-harness dist rebuilt"
     echo ""
+  fi
+fi
+
+# ============================================
+# Part 3.5: parallel-harness dist staleness guard
+# ============================================
+# 捕获 rebase/cherry-pick 等非 staged 场景下 dist 与源码的不一致
+# 即使本次 commit 未修改 plugins/parallel-harness/，dist 也可能因 rebase 而过期
+# 轻量检测：对比 build-dist.sh 白名单目录的源文件与 dist 产物
+if [ -d "plugins/parallel-harness" ] && [ -d "dist/parallel-harness" ]; then
+  PH_DIST_STALE="no"
+  # 对比白名单目录：runtime, skills, config, .claude-plugin
+  for _dir in runtime skills config .claude-plugin; do
+    _src="plugins/parallel-harness/$_dir"
+    _dst="dist/parallel-harness/$_dir"
+    if [ -d "$_src" ]; then
+      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
+        PH_DIST_STALE="yes"
+        break
+      fi
+    fi
+  done
+  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
+  if [ "$PH_DIST_STALE" = "no" ] && [ -f "plugins/parallel-harness/CLAUDE.md" ]; then
+    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/parallel-harness/CLAUDE.md" 2>/dev/null; then
+      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/parallel-harness/CLAUDE.md")
+    else
+      _expected=$(cat "plugins/parallel-harness/CLAUDE.md")
+    fi
+    _actual=$(cat "dist/parallel-harness/CLAUDE.md" 2>/dev/null || echo "")
+    if [ "$_expected" != "$_actual" ]; then
+      PH_DIST_STALE="yes"
+    fi
+  fi
+
+  if [ "$PH_DIST_STALE" = "yes" ]; then
+    echo "📦 dist/parallel-harness/ 与源码不一致（可能由 rebase 引起），自动重建..."
+    if bash plugins/parallel-harness/tools/build-dist.sh; then
+      git add dist/parallel-harness/
+      echo "✅ parallel-harness dist 已同步"
+      echo ""
+    else
+      echo "❌ parallel-harness dist build failed. Fix the build before committing."
+      exit 1
+    fi
   fi
 fi
 

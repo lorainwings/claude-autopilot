@@ -565,12 +565,24 @@ export class OrchestratorRuntime {
         await this.executeHookPhase("pre_pr", ctx);
         try {
           const { renderPRSummary, renderReviewComments } = await import("../integrations/pr-provider");
+
+          // 汇总本次 run 所有成功 attempt 的 modified_files
+          const allModifiedFiles = new Set<string>();
+          for (const attempts of Object.values(execution.completed_attempts)) {
+            for (const attempt of attempts) {
+              if (attempt.status === "succeeded" && attempt.modified_files) {
+                for (const f of attempt.modified_files) allModifiedFiles.add(f);
+              }
+            }
+          }
+
           const prResult = await this.prProvider.createPR({
             title: `[parallel-harness] ${request.intent.slice(0, 50)}`,
             body: renderPRSummary(result, plan, ctx.collectedGateResults),
             head_branch: `ph/${ctx.run_id}`,
             base_branch: "main",
             labels: ["parallel-harness"],
+            modified_files: [...allModifiedFiles],
           });
           result.pr_artifacts = {
             pr_url: prResult.pr_url,
@@ -1677,9 +1689,15 @@ export class OrchestratorRuntime {
    */
   private mapApprovalPermission(action?: string): import("../governance/governance").Permission {
     const mapping: Record<string, import("../governance/governance").Permission> = {
+      // 真实 action（由 orchestrator 发出）
+      "execute_with_conflicts": "task.approve_sensitive_write",
+      "worker_execute": "task.approve_sensitive_write",
+      // 扩展 action
       "sensitive_file_write": "task.approve_sensitive_write",
       "budget_override": "gate.override",
-      "high_risk_execution": "task.approve_sensitive_write",
+      "high_risk_execution": "task.approve_model_upgrade",
+      "model_upgrade": "task.approve_model_upgrade",
+      "gate_override": "gate.override",
     };
     return (action && mapping[action]) || "task.approve_sensitive_write";
   }
