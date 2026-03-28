@@ -45,7 +45,7 @@ autopilot will automatically:
 3. **Phase 4**: Design test cases
 4. **Phase 5**: Write code
 5. **Phase 6**: Run tests + code review
-6. **Phase 7**: Summarize results, wait for your archive confirmation
+6. **Phase 7**: Summarize results, archive readiness auto (block on failure)
 
 ## Execution Modes
 

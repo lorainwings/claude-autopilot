@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase7
-description: "[ONLY for autopilot orchestrator] Phase 7: Summary display, tri-path result collection, knowledge extraction, Allure preview, archive confirmation, git autosquash, and lockfile cleanup."
+description: "[ONLY for autopilot orchestrator] Phase 7: Summary display, tri-path result collection, knowledge extraction, Allure preview, archive readiness auto, git autosquash, and lockfile cleanup."
 user-invocable: false
 ---
 
