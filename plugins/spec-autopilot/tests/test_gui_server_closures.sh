@@ -210,7 +210,8 @@ fi
 echo ""
 echo "  [TS] TypeScript 类型检查"
 
-# 检查 server 端
+# 检查 server 端（先确保依赖已安装）
+(cd "$TEST_DIR/../runtime/server" && bun install --frozen-lockfile 2>/dev/null || bun install 2>/dev/null) >/dev/null
 TS_SERVER_OUTPUT=$(cd "$TEST_DIR/../runtime/server" && bunx tsc --noEmit 2>&1)
 TS_SERVER_EXIT=$?
 if [ "$TS_SERVER_EXIT" -eq 0 ]; then
@@ -221,7 +222,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 检查 GUI 端
+# 检查 GUI 端（先确保依赖已安装）
+(cd "$TEST_DIR/../gui" && bun install --frozen-lockfile 2>/dev/null || bun install 2>/dev/null) >/dev/null
 TS_GUI_OUTPUT=$(cd "$TEST_DIR/../gui" && bunx tsc --noEmit 2>&1)
 TS_GUI_EXIT=$?
 if [ "$TS_GUI_EXIT" -eq 0 ]; then
