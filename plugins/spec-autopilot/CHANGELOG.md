@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.2.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.64...spec-autopilot-v5.2.0) (2026-03-28)
+
+
+### Added
+
+* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/lorainwings/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
+
+
+### Fixed
+
+* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/lorainwings/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
+* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/lorainwings/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
+* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/lorainwings/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
+* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/lorainwings/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
+* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/lorainwings/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
+
 ## [5.1.64](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.63...spec-autopilot-v5.1.64) (2026-03-26)
 
 
