@@ -20,9 +20,41 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ── bot commit bypass ─────────────────────────────────────────────
+  # release-please merge / post-release bot 提交会修改 plugins/parallel-harness/ 版本文件，
+  # 触发本 workflow，但此时 dist 尚未由 post-release job 重建，导致 dist stale 检查失败。
+  # 这里前置检测，bot 提交直接跳过所有后续 job。
+
+  should-run:
+    name: Check if CI should run
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect bot commits
+        id: check
+        run: |
+          AUTHOR=$(git log -1 --format='%an')
+          MSG=$(git log -1 --format='%s')
+          if [[ "$AUTHOR" == *"github-actions"* ]] && \
+             { [[ "$MSG" =~ ^chore:\ release\ main ]] || \
+               [[ "$MSG" =~ ^chore\(main\):\ release ]] || \
+               [[ "$MSG" =~ ^chore:\ post-release ]]; }; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Bot commit detected ($MSG) — skipping CI"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # ── release discipline ────────────────────────────────────────────
 
   release-discipline:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: Release Discipline Check
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +87,8 @@ jobs:
   # ── parallel-harness ──────────────────────────────────────────────
 
   ph-typecheck:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: parallel-harness / TypeScript Type Check
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +103,8 @@ jobs:
         run: make ph-typecheck
 
   ph-test:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: parallel-harness / Unit & Integration Tests
     runs-on: ${{ matrix.os }}
     strategy:
@@ -86,6 +122,8 @@ jobs:
         run: make ph-test
 
   ph-lint:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: parallel-harness / Lint (shellcheck)
     runs-on: ubuntu-latest
     steps:
@@ -100,7 +138,8 @@ jobs:
   ph-build:
     name: parallel-harness / Build dist
     runs-on: ubuntu-latest
-    needs: [ph-typecheck, ph-test, ph-lint]
+    needs: [should-run, ph-typecheck, ph-test, ph-lint]
+    if: needs.should-run.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v5
 
