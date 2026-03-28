@@ -71,7 +71,7 @@ try:
 except Exception as e:
     print(f'||0||')
 " "$snapshot_file" 2>/dev/null) || snap_info="||0||"
-    IFS='|' read -r snapshot_hash snapshot_hash_valid snapshot_gate_frontier snapshot_next_phase snapshot_req_hash <<< "$snap_info"
+    IFS='|' read -r snapshot_hash snapshot_hash_valid snapshot_gate_frontier snapshot_next_phase snapshot_req_hash <<<"$snap_info"
   fi
 
   for phase_num in 1 2 3 4 5 6 7; do

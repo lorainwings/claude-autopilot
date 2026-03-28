@@ -35,7 +35,7 @@ SERVER_ERR_LOG="$LOGS_DIR/gui-server.err.log"
 check_server_alive() {
   local resp
   # 优先使用 /api/health 端点（v5.9），fallback 到 /api/info
-  resp=$(curl -s --max-time 1 http://localhost:9527/api/health 2>/dev/null) || \
+  resp=$(curl -s --max-time 1 http://localhost:9527/api/health 2>/dev/null) ||
     resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
   # Validate response belongs to THIS project (prevent cross-project false positives)
   if [ -n "$resp" ]; then
