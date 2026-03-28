@@ -781,7 +781,8 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                                 art_rel = os.path.relpath(art, root) if os.path.isabs(art) else art
                                 in_boundary = False
                                 for owned_path in owned:
-                                    owned_rel = os.path.relpath(owned_path, root) if os.path.isabs(owned_path) else owned_path
+                                    owned_rel = (os.path.relpath(owned_path, root)
+                                                 if os.path.isabs(owned_path) else owned_path)
                                     if (art_rel == owned_rel
                                             or art_rel.startswith(owned_rel + "/")
                                             or owned_rel.startswith(art_rel + "/")):
@@ -792,7 +793,8 @@ if envelope and envelope.get("status") in ("ok", "warning"):
 
                             if boundary_violations:
                                 shown = boundary_violations[:5]
-                                extra = f" (+{len(boundary_violations) - 5} more)" if len(boundary_violations) > 5 else ""
+                                overflow = len(boundary_violations) - 5
+                                extra = f" (+{overflow} more)" if overflow > 0 else ""
                                 output_block(
                                     f"Agent artifact boundary violation: Phase {phase_num} agent produced artifacts "
                                     f"outside its owned boundary: {', '.join(shown)}{extra}. "
