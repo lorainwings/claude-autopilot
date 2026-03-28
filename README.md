@@ -13,7 +13,7 @@
 | Plugin | Version | Description |
 |--------|---------|-------------|
 | [spec-autopilot](plugins/spec-autopilot/) | 5.2.0 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
-| [parallel-harness](plugins/parallel-harness/) | 1.1.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
+| [parallel-harness](plugins/parallel-harness/) | 1.1.2 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 
 ## Quick Install
 
