@@ -10,6 +10,10 @@ on:
       - '.claude-plugin/**'
       - 'scripts/**'
       - '.githooks/**'
+      - 'Makefile'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+      - '.shellcheckrc'
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +23,10 @@ on:
       - '.claude-plugin/**'
       - 'scripts/**'
       - '.githooks/**'
+      - 'Makefile'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+      - '.shellcheckrc'
   workflow_dispatch:
 
 concurrency:
@@ -30,13 +38,9 @@ permissions:
 
 jobs:
   # ── bot commit bypass ─────────────────────────────────────────────
-  # release-please merge / post-release bot 提交会修改 plugins/parallel-harness/ 版本文件，
-  # 触发本 workflow，但此时 dist 尚未由 post-release job 重建，导致 dist stale 检查失败。
-  # 这里前置检测，bot 提交直接跳过所有后续 job。
-  #
-  # 注意: should-run 要求 author AND message 双重匹配——这是有意为之:
-  # 当人工合并 Release PR 时，author 是人(skip=false)，CI 仍会执行 typecheck/test/lint，
-  # 但 ph-build 的 dist staleness 检查单独按 commit message 匹配跳过（因为 post-release 会负责 dist）。
+  # 仅跳过 github-actions bot 的 post-release 回写提交。
+  # release-please PR 本身（即使 bot 创建）不跳过，保证 typecheck/test/lint 正常执行。
+  # 使用公共脚本 scripts/ci-detect-release-context.sh 统一判断。
 
   should-run:
     name: Check if CI should run
@@ -44,25 +48,25 @@ jobs:
     timeout-minutes: 5
     outputs:
       skip: ${{ steps.check.outputs.skip }}
+      skip_dist_stale: ${{ steps.check.outputs.skip_dist_stale }}
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 10
 
-      - name: Detect bot commits
+      - name: Detect release context
         id: check
         run: |
-          AUTHOR=$(git log -1 --format='%an')
-          MSG=$(git log -1 --format='%s')
-          if [[ "$AUTHOR" == *"github-actions"* ]] && \
-             { [[ "$MSG" =~ ^chore:\ release\ main ]] || \
-               [[ "$MSG" =~ ^chore\(main\):\ release ]] || \
-               [[ "$MSG" =~ ^chore:\ post-release ]]; }; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "ℹ️  Bot commit detected ($MSG) — skipping CI"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+          # 获取所有检测结果
+          eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
+
+          # 仅 bot 的 post-release 提交才跳过整套 CI
+          echo "skip=${IS_POST_RELEASE_BOT}" >> "$GITHUB_OUTPUT"
+
+          # release 上下文（release merge commit / post-release）跳过 dist stale check
+          echo "skip_dist_stale=${SKIP_DIST_STALE}" >> "$GITHUB_OUTPUT"
+
+          echo "ℹ️  IS_POST_RELEASE_BOT=${IS_POST_RELEASE_BOT} SKIP_DIST_STALE=${SKIP_DIST_STALE}"
 
   # ── release discipline ────────────────────────────────────────────
 
@@ -87,7 +91,6 @@ jobs:
             echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           else
             BEFORE="${{ github.event.before }}"
-            # force-push 会使 before SHA 失效，回退到父提交
             if git rev-parse --verify "${BEFORE}^{commit}" >/dev/null 2>&1; then
               echo "ref=${BEFORE}" >> "$GITHUB_OUTPUT"
             else
@@ -189,30 +192,14 @@ jobs:
           test -f dist/parallel-harness/CLAUDE.md
           echo "dist/parallel-harness structure OK"
 
-      - name: Check dist not stale (committed dist must match fresh build)
-        # dist staleness 检查仅按 commit message 匹配跳过（不要求 author），
-        # 与 should-run 的双重匹配策略不同——这是有意为之:
-        # 人工合并 Release PR 时 should-run 不跳过(CI 全量执行)，
-        # 但 dist staleness 跳过(post-release 会负责重建 dist)。
+      - name: Check dist not stale
+        if: needs.should-run.outputs.skip_dist_stale != 'true'
         run: |
-          # 额外的 bot commit 安全网（与 should-run 互为冗余保护）
-          HEAD_MSG=$(git log -1 --format='%s')
-          HEAD_AUTHOR=$(git log -1 --format='%an')
-          if echo "$HEAD_MSG" | grep -qE '^chore(\(main\))?: (release|post-release)'; then
-            echo "ℹ️  release-please / post-release commit — skipping dist staleness check"
-            exit 0
-          fi
-          if echo "$HEAD_AUTHOR" | grep -q 'github-actions'; then
-            echo "ℹ️  bot commit — skipping dist staleness check"
-            exit 0
-          fi
           STALE=0
-          # 检查已跟踪文件的变更
           if ! git diff --exit-code dist/parallel-harness; then
             echo "❌ dist/parallel-harness has modified tracked files"
             STALE=1
           fi
-          # 检查未跟踪的新产物（fresh build 生成但未 git add 的文件）
           UNTRACKED=$(git ls-files --others --exclude-standard dist/parallel-harness)
           if [ -n "$UNTRACKED" ]; then
             echo "❌ dist/parallel-harness has untracked files:"

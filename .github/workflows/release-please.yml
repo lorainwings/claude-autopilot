@@ -74,12 +74,15 @@ jobs:
             sed -i "s/version-[0-9][0-9.]*-blue/version-${SA_VER}-blue/g" plugins/spec-autopilot/README.md plugins/spec-autopilot/README.zh.md
           fi
 
-          # parallel-harness README title + version info
+          # parallel-harness README title + version info (both EN and ZH)
           # CLAUDE.md 版本由 release-please extra-files (x-release-please-version 标记) 自动管理
           if [ -n "$PH_VER" ]; then
+            # 标题: # parallel-harness v1.1.2 <!-- x-release-please-version -->
             sed -i "s/# parallel-harness v[0-9][0-9.]*/# parallel-harness v${PH_VER}/" plugins/parallel-harness/README.md plugins/parallel-harness/README.zh.md
+            # 英文 Version Info: - **Version**: 1.1.2 (GA) <!-- x-release-please-version -->
             sed -i "s/\*\*Version\*\*: [0-9][0-9.]* (GA)/**Version**: ${PH_VER} (GA)/" plugins/parallel-harness/README.md
-            sed -i "s/\*\*版本\*\*: v[0-9][0-9.]* (GA)/**版本**: v${PH_VER} (GA)/" plugins/parallel-harness/README.zh.md
+            # 中文 版本信息: - **版本**: v1.1.2 (GA) <!-- x-release-please-version -->
+            sed -i "s/\*\*版本\*\*: v\{0,1\}[0-9][0-9.]* (GA)/**版本**: v${PH_VER} (GA)/" plugins/parallel-harness/README.zh.md
           fi
 
       - name: Update root README version table

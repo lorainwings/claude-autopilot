@@ -50,7 +50,7 @@ test: hooks ## Run spec-autopilot full test suite
 build: hooks ## Rebuild spec-autopilot dist/
 	@bash $(SA)/tools/build-dist.sh
 
-lint: hooks ## Run spec-autopilot linters (shellcheck + ruff + mypy)
+lint: hooks ## Run spec-autopilot linters (shellcheck + shfmt + ruff + mypy)
 	@echo "── shellcheck ──"
 	@if command -v shellcheck >/dev/null 2>&1; then \
 	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning; \
@@ -60,9 +60,27 @@ lint: hooks ## Run spec-autopilot linters (shellcheck + ruff + mypy)
 	  echo "[skip] shellcheck not found (install it or run in CI for enforcement)"; \
 	fi
 	@echo ""
-	@echo "── ruff ──"
+	@echo "── shfmt ──"
+	@if command -v shfmt >/dev/null 2>&1; then \
+	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ shfmt is required in CI but not found"; exit 1; \
+	else \
+	  echo "[skip] shfmt not found (install it or run in CI for enforcement)"; \
+	fi
+	@echo ""
+	@echo "── ruff check ──"
 	@if command -v ruff >/dev/null 2>&1; then \
 	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff check --config $(SA)/pyproject.toml; \
+	elif [ -n "$$CI" ]; then \
+	  echo "❌ ruff is required in CI but not found"; exit 1; \
+	else \
+	  echo "[skip] ruff not found (install it or run in CI for enforcement)"; \
+	fi
+	@echo ""
+	@echo "── ruff format ──"
+	@if command -v ruff >/dev/null 2>&1; then \
+	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff format --check --config $(SA)/pyproject.toml; \
 	elif [ -n "$$CI" ]; then \
 	  echo "❌ ruff is required in CI but not found"; exit 1; \
 	else \
@@ -78,20 +96,9 @@ lint: hooks ## Run spec-autopilot linters (shellcheck + ruff + mypy)
 	  echo "[skip] mypy not found (install it or run in CI for enforcement)"; \
 	fi
 
-format: hooks ## Run spec-autopilot formatters (shfmt + ruff format)
-	@echo "── shfmt ──"
-	@if command -v shfmt >/dev/null 2>&1; then \
-	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.sh' -print0 | xargs -0 shfmt -d -i 2 -ci; \
-	else \
-	  echo "[skip] shfmt not found"; \
-	fi
-	@echo ""
-	@echo "── ruff format ──"
-	@if command -v ruff >/dev/null 2>&1; then \
-	  find $(SA)/runtime/scripts -maxdepth 1 -name '*.py' -print0 | xargs -0 ruff format --check --config $(SA)/pyproject.toml; \
-	else \
-	  echo "[skip] ruff not found"; \
-	fi
+format: hooks ## [deprecated] Format checks are now part of 'make lint'
+	@echo "ℹ️  'make format' is deprecated. Format checks are now included in 'make lint'."
+	@echo "    Run 'make lint' for the complete lint + format suite."
 
 typecheck: hooks ## Run TypeScript type checks (spec-autopilot gui + server)
 	@echo "── gui typecheck ──"
@@ -116,7 +123,7 @@ typecheck: hooks ## Run TypeScript type checks (spec-autopilot gui + server)
 	  echo "[skip] runtime/server/tsconfig.json not found"; \
 	fi
 
-ci: hooks lint typecheck test build ## spec-autopilot CI: lint → typecheck → test → build
+ci: hooks lint format typecheck test build ## spec-autopilot CI: lint → typecheck → test → build
 
 # ── parallel-harness targets ───────────────────────────────────────
 
