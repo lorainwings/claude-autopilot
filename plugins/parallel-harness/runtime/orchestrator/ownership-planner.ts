@@ -122,6 +122,8 @@ export function planOwnership(graph: TaskGraph): OwnershipPlan {
           assignment.shared_read_paths.push(conflict.path);
         }
       }
+    } else if (conflict.resolution === "merge_guard") {
+      // merge_guard 冲突：调度器层面禁止同批并发（通过 ownershipPlan 传递给 scheduler）
     }
   }
 

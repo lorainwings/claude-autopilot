@@ -545,14 +545,14 @@ export class OrchestratorRuntime {
       // 同步 cost_ledger 到 execution
       execution.cost_ledger = ctx.costLedger;
 
-      const result = this.finalizeRun(ctx, execution, plan);
-      await this.runStore.saveResult(result);
-
       const finalStatus = this.determineFinalStatus(execution);
       if (execution.status !== finalStatus) {
         transitionRunStatus(execution, finalStatus, "执行完成");
       }
+
+      const result = this.finalizeRun(ctx, execution, plan);
       result.final_status = execution.status;
+      await this.runStore.saveResult(result);
 
       emitAudit(ctx, execution.status === "succeeded" ? "run_completed" : "run_failed", {
         final_status: execution.status,
@@ -657,6 +657,15 @@ export class OrchestratorRuntime {
   // ============================================================
 
   private async planPhase(ctx: ExecutionContext, request: RunRequest): Promise<RunPlan> {
+    // 0. Requirement Grounding
+    const { groundRequirement } = await import("../orchestrator/requirement-grounding");
+    const grounding = groundRequirement(request);
+
+    // 如果歧义过多，阻断执行
+    if (grounding.ambiguity_items.length > 2) {
+      throw new Error(`需求歧义过多，需要澄清: ${grounding.ambiguity_items.join("; ")}`);
+    }
+
     // 1. 意图分析
     const intentResult = analyzeIntent(request.intent, {
       root_path: request.project.root_path,
@@ -674,7 +683,7 @@ export class OrchestratorRuntime {
       max_concurrency: ctx.config.max_concurrency,
       high_risk_max_concurrency: ctx.config.high_risk_max_concurrency,
       prioritize_critical_path: ctx.config.prioritize_critical_path,
-    });
+    }, ownershipPlan);
 
     // 6. 模型路由决策（受 max_model_tier 约束）
     const tierOrder: ModelTier[] = ["tier-1", "tier-2", "tier-3"];
@@ -835,7 +844,14 @@ export class OrchestratorRuntime {
         retry_count: attemptNum - 1,
         task_type_hint: task.title,
       });
-      const currentTier = routingResult.recommended_tier;
+
+      // 强制应用 max_model_tier 约束
+      const tierOrder: ModelTier[] = ["tier-1", "tier-2", "tier-3"];
+      const maxTierIdx = tierOrder.indexOf(ctx.config.max_model_tier || "tier-3");
+      const recommendedTierIdx = tierOrder.indexOf(routingResult.recommended_tier);
+      const currentTier = recommendedTierIdx > maxTierIdx
+        ? tierOrder[maxTierIdx]
+        : routingResult.recommended_tier;
 
       const attempt = this.createAttempt(ctx.run_id, task.id, attemptNum, currentTier);
 
@@ -930,8 +946,12 @@ export class OrchestratorRuntime {
       emitAudit(ctx, "worker_started", { attempt_number: attemptNum, model_tier: attempt.model_tier }, task.id, attempt.attempt_id);
 
       try {
-        // 打包上下文
+        // 打包上下文 - 传递当前任务到 context
+        const prevTask = (ctx as any).currentTask;
+        (ctx as any).currentTask = task;
         const contextPack = packContext(task, this.getAvailableFiles(ctx));
+        (ctx as any).currentTask = prevTask;
+
         const contract = buildTaskContract(task, contextPack);
 
         // 调用 Worker — 通过 WorkerExecutionController（带超时/沙箱/能力校验）
@@ -1276,12 +1296,23 @@ export class OrchestratorRuntime {
     return results;
   }
 
-  private getAvailableFiles(_ctx: ExecutionContext): FileInfo[] {
-    // 本地适配器：返回空列表，由 worker 自行发现文件
-    return [];
+  private getAvailableFiles(ctx: ExecutionContext & { currentTask?: any }): FileInfo[] {
+    // 加载真实证据文件
+    const { loadEvidenceFiles } = require("../session/evidence-loader");
+    const task = ctx.currentTask;
+    if (!task) return [];
+
+    return loadEvidenceFiles(task, {
+      project_root: ctx.project.root_path,
+      max_files_per_task: 50,
+      max_file_size_kb: 500,
+    });
   }
 
   private determineFinalStatus(execution: RunExecution): RunStatus {
+    // blocked 状态优先级最高，不能被覆盖
+    if (execution.status === "blocked") return "blocked";
+
     const allAttempts = Object.values(execution.completed_attempts).flat();
     const taskIds = new Set(allAttempts.map((a) => a.task_id));
     let allSucceeded = true;
@@ -1299,7 +1330,6 @@ export class OrchestratorRuntime {
 
     if (allSucceeded && taskIds.size > 0) return "succeeded";
     if (anySucceeded) return "partially_failed";
-    if (execution.status === "blocked") return "blocked";
     return "failed";
   }
 

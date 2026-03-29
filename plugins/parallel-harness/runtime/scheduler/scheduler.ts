@@ -15,6 +15,7 @@
  */
 
 import type { TaskGraph, TaskNode, TaskStatus, RiskLevel } from "../orchestrator/task-graph";
+import type { OwnershipPlan } from "../orchestrator/ownership-planner";
 
 // ============================================================
 // 调度数据结构
@@ -77,7 +78,8 @@ const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
  */
 export function createSchedulePlan(
   graph: TaskGraph,
-  config: Partial<SchedulerConfig> = {}
+  config: Partial<SchedulerConfig> = {},
+  ownershipPlan?: OwnershipPlan
 ): SchedulePlan {
   const cfg = { ...DEFAULT_SCHEDULER_CONFIG, ...config };
   const batches: ScheduleBatch[] = [];
@@ -97,6 +99,24 @@ export function createSchedulePlan(
     const deps = dependencyMap.get(edge.to) || new Set();
     deps.add(edge.from);
     dependencyMap.set(edge.to, deps);
+  }
+
+  // 构建 write-set 冲突映射
+  const writeConflicts = new Map<string, Set<string>>();
+  if (ownershipPlan) {
+    for (let i = 0; i < ownershipPlan.assignments.length; i++) {
+      for (let j = i + 1; j < ownershipPlan.assignments.length; j++) {
+        const a1 = ownershipPlan.assignments[i];
+        const a2 = ownershipPlan.assignments[j];
+        const overlap = a1.exclusive_paths.some(p => a2.exclusive_paths.includes(p));
+        if (overlap) {
+          if (!writeConflicts.has(a1.task_id)) writeConflicts.set(a1.task_id, new Set());
+          if (!writeConflicts.has(a2.task_id)) writeConflicts.set(a2.task_id, new Set());
+          writeConflicts.get(a1.task_id)!.add(a2.task_id);
+          writeConflicts.get(a2.task_id)!.add(a1.task_id);
+        }
+      }
+    }
   }
 
   let batchIndex = 0;
@@ -135,7 +155,22 @@ export function createSchedulePlan(
       ? cfg.high_risk_max_concurrency
       : cfg.max_concurrency;
 
-    const batchTasks = sorted.slice(0, maxConcurrency);
+    // 过滤掉有 write-set 冲突的任务
+    const batchTasks: string[] = [];
+    for (const taskId of sorted) {
+      if (batchTasks.length >= maxConcurrency) break;
+
+      const conflicts = writeConflicts.get(taskId);
+      const hasConflict = conflicts && [...conflicts].some(c => batchTasks.includes(c));
+      if (!hasConflict) {
+        batchTasks.push(taskId);
+      }
+    }
+
+    if (batchTasks.length === 0 && sorted.length > 0) {
+      // 所有任务都冲突，强制取第一个
+      batchTasks.push(sorted[0]);
+    }
 
     batches.push({
       batch_index: batchIndex,
