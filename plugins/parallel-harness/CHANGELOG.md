@@ -4,6 +4,14 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.3](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.2...parallel-harness-v1.1.3) (2026-03-29)
+
+
+### Fixed
+
+* **ci:** 抽取共享 lint 脚本消除本地/CI lint 漂移 ([ab03dac](https://github.com/lorainwings/claude-autopilot/commit/ab03dacbd7c3846c6747103716b8095f4e265615))
+* **ci:** 统一 CI/release/lint 全流程一致性 ([9495d5e](https://github.com/lorainwings/claude-autopilot/commit/9495d5e1bff5563d39fc1c37c85fa3d545cb1ba8))
+
 ## [1.1.2](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.1...parallel-harness-v1.1.2) (2026-03-28)
 
 
