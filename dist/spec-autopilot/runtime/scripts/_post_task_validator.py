@@ -844,10 +844,12 @@ def _find_dispatch_record(dispatch_records, phase, agent_id=None, session_id=Non
         if session_id:
             # 精确匹配: session_id + agent_id + phase
             for rec in reversed(dispatch_records):
-                if (isinstance(rec, dict)
-                        and rec.get("phase") == phase
-                        and rec.get("agent_id") == agent_id
-                        and rec.get("session_id") == session_id):
+                if (
+                    isinstance(rec, dict)
+                    and rec.get("phase") == phase
+                    and rec.get("agent_id") == agent_id
+                    and rec.get("session_id") == session_id
+                ):
                     return rec, "exact_session"
             # session_id 已知但无同 session 命中 → fail-closed（禁止跨 session 串用）
             # 即使有同 agent_id + phase 的旧 record 也不复用
@@ -896,7 +898,12 @@ if envelope and envelope.get("status") in ("ok", "warning"):
                 dispatch_records = json.loads(_drf.read())
             if isinstance(dispatch_records, list) and dispatch_records:
                 # 按 session_id + agent_id + phase 精确匹配 dispatch record
-                latest_record, _match_mode = _find_dispatch_record(dispatch_records, phase_num, _active_agent_id, _current_session_id or None)
+                latest_record, _match_mode = _find_dispatch_record(
+                    dispatch_records,
+                    phase_num,
+                    _active_agent_id,
+                    _current_session_id or None,
+                )
 
                 # Fail-closed: 有 agent_id 但无匹配 record 时阻断
                 if _active_agent_id and latest_record is None:

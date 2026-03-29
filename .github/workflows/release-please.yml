@@ -8,9 +8,14 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       # spec-autopilot outputs
@@ -32,13 +37,16 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
 
       - name: Install spec-autopilot GUI dependencies
         if: needs.release-please.outputs.sa_release_created == 'true'
@@ -66,11 +74,15 @@ jobs:
             sed -i "s/version-[0-9][0-9.]*-blue/version-${SA_VER}-blue/g" plugins/spec-autopilot/README.md plugins/spec-autopilot/README.zh.md
           fi
 
-          # parallel-harness README title + version info + CLAUDE.md
+          # parallel-harness README title + version info (both EN and ZH)
+          # CLAUDE.md 版本由 release-please extra-files (x-release-please-version 标记) 自动管理
           if [ -n "$PH_VER" ]; then
+            # 标题: # parallel-harness v1.1.2 <!-- x-release-please-version -->
             sed -i "s/# parallel-harness v[0-9][0-9.]*/# parallel-harness v${PH_VER}/" plugins/parallel-harness/README.md plugins/parallel-harness/README.zh.md
+            # 英文 Version Info: - **Version**: 1.1.2 (GA) <!-- x-release-please-version -->
             sed -i "s/\*\*Version\*\*: [0-9][0-9.]* (GA)/**Version**: ${PH_VER} (GA)/" plugins/parallel-harness/README.md
-            sed -i "s/版本: [0-9][0-9.]* (GA)/版本: ${PH_VER} (GA)/" plugins/parallel-harness/CLAUDE.md
+            # 中文 版本信息: - **版本**: v1.1.2 (GA) <!-- x-release-please-version -->
+            sed -i "s/\*\*版本\*\*: v\{0,1\}[0-9][0-9.]* (GA)/**版本**: v${PH_VER} (GA)/" plugins/parallel-harness/README.zh.md
           fi
 
       - name: Update root README version table
@@ -102,14 +114,85 @@ jobs:
             jq --arg v "$PH_VER" '(.plugins[] | select(.name == "parallel-harness")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
           fi
 
+      - name: Update parallel-harness docs version headers
+        if: needs.release-please.outputs.ph_release_created == 'true'
+        run: |
+          PH_VER="${{ needs.release-please.outputs.ph_version }}"
+          if [ -z "$PH_VER" ]; then exit 0; fi
+
+          echo "Updating docs version headers to v${PH_VER}..."
+
+          # 英文: > Version: v1.0.0 (GA) | ...  或  > Version: 1.0.0 | ...
+          find plugins/parallel-harness/docs -name '*.md' ! -name '*.zh.md' -exec \
+            sed -i "s/^> Version: v\{0,1\}[0-9][0-9.]*\( (GA)\)\{0,1\} |/> Version: v${PH_VER} (GA) |/" {} +
+
+          # 中文: > 版本: v1.0.0 (GA) | ...  或  > 版本: 1.0.0 | ...
+          find plugins/parallel-harness/docs -name '*.zh.md' -exec \
+            sed -i "s/^> 版本: v\{0,1\}[0-9][0-9.]*\( (GA)\)\{0,1\} |/> 版本: v${PH_VER} (GA) |/" {} +
+
+      - name: Verify dist structure (post-release)
+        run: |
+          SA_CREATED="${{ needs.release-please.outputs.sa_release_created }}"
+          PH_CREATED="${{ needs.release-please.outputs.ph_release_created }}"
+
+          if [ "$SA_CREATED" = "true" ]; then
+            echo "Verifying dist/spec-autopilot structure..."
+            test -d dist/spec-autopilot/.claude-plugin
+            test -f dist/spec-autopilot/.claude-plugin/plugin.json
+            test -d dist/spec-autopilot/hooks
+            test -d dist/spec-autopilot/skills
+            test -d dist/spec-autopilot/runtime
+            test -f dist/spec-autopilot/CLAUDE.md
+            echo "dist/spec-autopilot structure OK"
+          fi
+
+          if [ "$PH_CREATED" = "true" ]; then
+            echo "Verifying dist/parallel-harness structure..."
+            test -d dist/parallel-harness/.claude-plugin
+            test -f dist/parallel-harness/.claude-plugin/plugin.json
+            test -d dist/parallel-harness/runtime
+            test -d dist/parallel-harness/skills
+            test -d dist/parallel-harness/config
+            test -f dist/parallel-harness/CLAUDE.md
+            echo "dist/parallel-harness structure OK"
+          fi
+
       - name: Commit post-release updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add \
+            dist/ \
+            plugins/spec-autopilot/README.md plugins/spec-autopilot/README.zh.md \
+            plugins/parallel-harness/README.md plugins/parallel-harness/README.zh.md \
+            plugins/parallel-harness/docs/ \
+            README.md README.zh.md \
+            .claude-plugin/marketplace.json
           if git diff --cached --quiet; then
             echo "No post-release changes to commit"
           else
-            git commit -m "chore: post-release update dist + README versions"
-            git push
+            SA_VER="${{ needs.release-please.outputs.sa_version }}"
+            PH_VER="${{ needs.release-please.outputs.ph_version }}"
+            COMMIT_MSG="chore: post-release update dist + README versions"
+            [ -n "$SA_VER" ] && COMMIT_MSG="$COMMIT_MSG [spec-autopilot@$SA_VER]"
+            [ -n "$PH_VER" ] && COMMIT_MSG="$COMMIT_MSG [parallel-harness@$PH_VER]"
+            git commit -m "$COMMIT_MSG"
+            # 带重试的 push（处理并发冲突）
+            for i in 1 2 3; do
+              if git push; then
+                echo "Push succeeded"
+                break
+              fi
+              if [ $i -eq 3 ]; then
+                echo "Push failed after 3 attempts"
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              fi
+              echo "Push failed (attempt $i/3), rebasing..."
+              if ! git pull --rebase; then
+                echo "⚠️  Rebase conflict during retry, aborting rebase"
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              fi
+            done
           fi

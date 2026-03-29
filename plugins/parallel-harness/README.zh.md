@@ -19,7 +19,7 @@
 
 ## 版本信息
 
-- **版本**: v1.0.0 (GA)
+- **版本**: v1.1.2 (GA) <!-- x-release-please-version -->
 - **Schema 版本**: 1.0.0
 - **运行时**: Bun
 - **语言**: TypeScript

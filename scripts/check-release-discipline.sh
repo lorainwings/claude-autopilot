@@ -32,19 +32,9 @@ if [ -z "$BASE_REF" ]; then
 fi
 
 # ── release-please / post-release bot bypass ──
-# Skip checks for:
-#   1. release-please commits (github-actions bot, "chore(main): release" / "chore: release main")
-#   2. post-release automation commits ("chore: post-release update dist")
-HEAD_AUTHOR=$(git log -1 --format='%an' "$HEAD_REF" 2>/dev/null || true)
-HEAD_MESSAGE=$(git log -1 --format='%s' "$HEAD_REF" 2>/dev/null || true)
-if [[ "$HEAD_AUTHOR" == *"github-actions"* ]] || [[ "$HEAD_MESSAGE" == "chore(main): release"* ]] || [[ "$HEAD_MESSAGE" == "chore: release main"* ]] || [[ "$HEAD_MESSAGE" == "chore: post-release"* ]]; then
-  echo "ℹ️  release-please / post-release bot commit detected — skipping discipline check"
-  exit 0
-fi
-
-# Check if any commit in the range is a release-please or post-release commit (handles merge commits)
-if git log --format='%s' "$BASE_REF..$HEAD_REF" 2>/dev/null | grep -qE '^(chore\(main\): release|chore: release main|chore: post-release)'; then
-  echo "ℹ️  release-please / post-release commit in range — skipping discipline check"
+# 使用公共检测脚本统一判断
+if bash "$(dirname "$0")/ci-detect-release-context.sh" --check=is_release_context "$BASE_REF" "$HEAD_REF"; then
+  echo "ℹ️  release-please / post-release context detected — skipping discipline check"
   exit 0
 fi
 
@@ -131,11 +121,7 @@ check_plugin() {
     NEW_PLUGIN=1
   fi
 
-  if [ "$VERSION_SOURCE" = "package_json" ]; then
-    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
-  else
-    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
-  fi
+  HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
 
   # Always verify marketplace entry exists and version matches
   HEAD_MARKETPLACE_VERSION="$(jq -r --arg name "$MARKETPLACE_NAME" '.plugins[] | select(.name == $name) | .version // empty' "$MARKETPLACE_JSON")"

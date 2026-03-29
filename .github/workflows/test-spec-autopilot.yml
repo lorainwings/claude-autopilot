@@ -9,6 +9,12 @@ on:
       - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
+      - '.githooks/**'
+      - 'Makefile'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+      - '.shellcheckrc'
+      - 'plugins/spec-autopilot/pyproject.toml'
   pull_request:
     branches: [main]
     paths:
@@ -17,21 +23,60 @@ on:
       - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
+      - '.githooks/**'
+      - 'Makefile'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+      - '.shellcheckrc'
+      - 'plugins/spec-autopilot/pyproject.toml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
 jobs:
+  # ── bot commit bypass ─────────────────────────────────────────────
+  # 仅跳过 github-actions bot 的 post-release 回写提交。
+  # release-please PR 本身不跳过，保证 typecheck/test/lint 正常执行。
+
+  should-run:
+    name: Check if CI should run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      skip_dist_stale: ${{ steps.check.outputs.skip_dist_stale }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 10
+
+      - name: Detect release context
+        id: check
+        run: |
+          eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
+
+          echo "skip=${SKIP_WHOLE_CI}" >> "$GITHUB_OUTPUT"
+          echo "skip_dist_stale=${SKIP_DIST_STALE}" >> "$GITHUB_OUTPUT"
+
+          echo "ℹ️  SKIP_WHOLE_CI=${SKIP_WHOLE_CI} SKIP_DIST_STALE=${SKIP_DIST_STALE} IS_RELEASE_BOT=${IS_RELEASE_BOT} IS_POST_RELEASE_BOT=${IS_POST_RELEASE_BOT}"
+
   # ── release discipline ────────────────────────────────────────────
 
   release-discipline:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: Release Discipline Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Determine base ref
         id: base
@@ -40,7 +85,6 @@ jobs:
             echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           else
             BEFORE="${{ github.event.before }}"
-            # force-push 会使 before SHA 失效，回退到父提交
             if git rev-parse --verify "${BEFORE}^{commit}" >/dev/null 2>&1; then
               echo "ref=${BEFORE}" >> "$GITHUB_OUTPUT"
             else
@@ -55,8 +99,11 @@ jobs:
   # ── spec-autopilot ────────────────────────────────────────────────
 
   test-hooks:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Hook Tests
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -68,6 +115,11 @@ jobs:
         run: python3 --version
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -79,27 +131,41 @@ jobs:
         run: bash plugins/spec-autopilot/tests/smoke_release.sh
 
   lint:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Lint (shellcheck + shfmt + ruff + mypy)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
       - name: Install shellcheck + shfmt
         run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
 
-      - name: Install ruff + mypy
-        run: pip install ruff mypy
+      - name: Install ruff + mypy (version from Makefile)
+        run: |
+          RUFF_V=$(grep '^RUFF_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          MYPY_V=$(grep '^MYPY_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          pip install "ruff==${RUFF_V}" "mypy==${MYPY_V}"
 
-      - name: Run lint + format check
-        run: make lint && make format
+      - name: Run lint (includes format checks)
+        run: make lint
 
   typecheck:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / TypeScript Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -111,12 +177,18 @@ jobs:
         run: make typecheck
 
   build-dist:
+    needs: [should-run, release-discipline, test-hooks, lint, typecheck]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Build & Verify dist
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/spec-autopilot/gui/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -134,28 +206,14 @@ jobs:
           test -f dist/spec-autopilot/CLAUDE.md
           echo "dist/spec-autopilot structure OK"
 
-      - name: Check dist not stale (committed dist must match fresh build)
+      - name: Check dist not stale
+        if: needs.should-run.outputs.skip_dist_stale != 'true'
         run: |
-          # release-please / post-release 提交跳过 dist 一致性检查
-          # 原因: release-please merge commit 只更新 plugin.json 版本号但不重建 dist，
-          # post-release job 会在稍后重建并提交。两者并行时 test 先跑完会误报。
-          HEAD_MSG=$(git log -1 --format='%s')
-          HEAD_AUTHOR=$(git log -1 --format='%an')
-          if echo "$HEAD_MSG" | grep -qE '^chore(\(main\))?: (release|post-release)'; then
-            echo "ℹ️  release-please / post-release commit — skipping dist staleness check"
-            exit 0
-          fi
-          if echo "$HEAD_AUTHOR" | grep -q 'github-actions'; then
-            echo "ℹ️  bot commit — skipping dist staleness check"
-            exit 0
-          fi
           STALE=0
-          # 检查已跟踪文件的变更
           if ! git diff --exit-code dist/spec-autopilot; then
             echo "❌ dist/spec-autopilot has modified tracked files"
             STALE=1
           fi
-          # 检查未跟踪的新产物（fresh build 生成但未 git add 的文件）
           UNTRACKED=$(git ls-files --others --exclude-standard dist/spec-autopilot)
           if [ -n "$UNTRACKED" ]; then
             echo "❌ dist/spec-autopilot has untracked files:"
