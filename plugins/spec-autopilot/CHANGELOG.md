@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.2.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.0...spec-autopilot-v5.2.1) (2026-03-29)
+
+
+### Fixed
+
+* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/lorainwings/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
+* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/lorainwings/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
+* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/lorainwings/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
+* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/lorainwings/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
+
 ## [5.2.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.64...spec-autopilot-v5.2.0) (2026-03-28)
 
 
