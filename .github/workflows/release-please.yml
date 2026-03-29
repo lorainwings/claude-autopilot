@@ -185,9 +185,14 @@ jobs:
               fi
               if [ $i -eq 3 ]; then
                 echo "Push failed after 3 attempts"
+                git rebase --abort 2>/dev/null || true
                 exit 1
               fi
               echo "Push failed (attempt $i/3), rebasing..."
-              git pull --rebase
+              if ! git pull --rebase; then
+                echo "⚠️  Rebase conflict during retry, aborting rebase"
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              fi
             done
           fi

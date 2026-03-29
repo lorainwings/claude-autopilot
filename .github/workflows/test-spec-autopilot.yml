@@ -60,10 +60,10 @@ jobs:
         run: |
           eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
 
-          echo "skip=${IS_POST_RELEASE_BOT}" >> "$GITHUB_OUTPUT"
+          echo "skip=${SKIP_WHOLE_CI}" >> "$GITHUB_OUTPUT"
           echo "skip_dist_stale=${SKIP_DIST_STALE}" >> "$GITHUB_OUTPUT"
 
-          echo "ℹ️  IS_POST_RELEASE_BOT=${IS_POST_RELEASE_BOT} SKIP_DIST_STALE=${SKIP_DIST_STALE}"
+          echo "ℹ️  SKIP_WHOLE_CI=${SKIP_WHOLE_CI} SKIP_DIST_STALE=${SKIP_DIST_STALE} IS_RELEASE_BOT=${IS_RELEASE_BOT} IS_POST_RELEASE_BOT=${IS_POST_RELEASE_BOT}"
 
   # ── release discipline ────────────────────────────────────────────
 
@@ -77,9 +77,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Determine base ref
         id: base
@@ -145,8 +142,11 @@ jobs:
       - name: Install shellcheck + shfmt
         run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
 
-      - name: Install ruff + mypy
-        run: pip install ruff==0.15.7 mypy==1.15.0
+      - name: Install ruff + mypy (version from Makefile)
+        run: |
+          RUFF_V=$(grep '^RUFF_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          MYPY_V=$(grep '^MYPY_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          pip install "ruff==${RUFF_V}" "mypy==${MYPY_V}"
 
       - name: Run lint (includes format checks)
         run: make lint

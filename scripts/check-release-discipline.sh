@@ -121,11 +121,7 @@ check_plugin() {
     NEW_PLUGIN=1
   fi
 
-  if [ "$VERSION_SOURCE" = "package_json" ]; then
-    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
-  else
-    HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
-  fi
+  HEAD_VERSION="$(jq -r '.version' "$PLUGIN_JSON")"
 
   # Always verify marketplace entry exists and version matches
   HEAD_MARKETPLACE_VERSION="$(jq -r --arg name "$MARKETPLACE_NAME" '.plugins[] | select(.name == $name) | .version // empty' "$MARKETPLACE_JSON")"
