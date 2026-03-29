@@ -226,7 +226,7 @@ graph LR
 | **Phase 4** | 子 Agent | 实际测试文件、金字塔分布验证 | **只接受 ok/blocked** |
 | **Phase 5** | 子 Agent（支持并行） | 实现代码、通过测试 | TDD 三阶段验证 |
 | **Phase 6** | 子 Agent（三路并行） | 测试报告、代码审查、质量扫描 | zero_skip_check 通过 |
-| **Phase 7** | 主线程 | 知识提取、git autosquash、归档确认 | 用户确认（禁止自动归档） |
+| **Phase 7** | 主线程 | 知识提取、git autosquash、自动归档 | Archive readiness 通过自动执行，失败阻断 |
 
 ---
 

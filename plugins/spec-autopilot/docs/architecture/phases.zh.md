@@ -15,7 +15,7 @@
 | 4 | 子 Agent | 测试用例设计（必选） | `phase-4-testing.json` |
 | 5 | 子 Agent | 实施：串行 / 并行 / TDD | `phase-5-implement.json` |
 | 6 | 子 Agent | 测试报告生成（必选） | `phase-6-report.json` |
-| 7 | 主线程 | 汇总 + 用户确认归档 | `phase-7-summary.json` |
+| 7 | 主线程 | 汇总 + Archive Readiness 自动归档 | `phase-7-summary.json` |
 
 ## Phase 0：环境检查 + 崩溃恢复
 

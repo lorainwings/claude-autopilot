@@ -635,7 +635,7 @@ FOR q IN ba_envelope.open_questions:
 | Phase 1 需求决策（medium/large） | 完整决策卡片（含所有字段） |
 | Phase 1 需求决策（small） | 简化模式 — 关键决策点仍展示卡片，非关键合并为一次确认（v3.2.0） |
 | Phase 5 合并冲突 | 简化决策卡片（仅选项 + 影响范围） |
-| Phase 7 归档确认 | 单选确认（现有行为不变） |
+| Phase 7 归档 | Archive readiness 通过自动归档，失败时阻断交互 |
 
 ### 决策记录持久化
 

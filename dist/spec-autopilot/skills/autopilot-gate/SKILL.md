@@ -221,8 +221,8 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 > **Advisory Gate 语义 (v5.1.51, v5.8 澄清)**: Phase 6.5 是建议性旁路门禁（Advisory Gate），其 blocked 状态
 > 不阻止 Phase 7 的 predecessor 条件（L2 Hook 不检查 6.5 checkpoint）。Phase 7 收集 6.5 结果后展示 findings。
 > **block_on_critical 行为**: 当 `config.phases.code_review.block_on_critical = true` 时，Phase 7 Step 3
-> 会在归档确认前检查是否存在 critical findings——如有，向用户展示并要求显式确认是忽略还是修复，
-> 但不会自动阻断 Phase 7（用户有最终决策权）。
+> 会在归档前检查是否存在 critical findings——如有，archive readiness 判定为 blocked 并向用户展示，
+> 要求显式确认是忽略还是修复（用户有最终决策权）。
 
 ## 可选 Layer 3 补充：语义验证
 
