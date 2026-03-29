@@ -25,24 +25,8 @@ help: ## Show available targets
 setup: hooks ## One-time setup: activate git hooks + install all deps + lint tools
 	@bash scripts/setup-hooks.sh
 	@echo ""
-	@echo "── Installing lint tools ──"
-	@MISSING=""; \
-	command -v shellcheck >/dev/null 2>&1 || MISSING="$$MISSING shellcheck"; \
-	command -v shfmt >/dev/null 2>&1 || MISSING="$$MISSING shfmt"; \
-	command -v ruff >/dev/null 2>&1 || MISSING="$$MISSING ruff"; \
-	command -v mypy >/dev/null 2>&1 || MISSING="$$MISSING mypy"; \
-	if [ -n "$$MISSING" ]; then \
-	  echo "Installing missing lint tools:$$MISSING"; \
-	  for tool in $$MISSING; do \
-	    case $$tool in \
-	      shellcheck|shfmt) echo "  brew install $$tool"; brew install $$tool 2>/dev/null || echo "  ⚠️  brew install $$tool failed — install manually"; ;; \
-	      ruff) echo "  pip install ruff==$(RUFF_VERSION)"; pip install ruff==$(RUFF_VERSION) 2>/dev/null || pip3 install ruff==$(RUFF_VERSION) 2>/dev/null || echo "  ⚠️  pip install ruff failed — install manually"; ;; \
-	      mypy) echo "  pip install mypy==$(MYPY_VERSION)"; pip install mypy==$(MYPY_VERSION) 2>/dev/null || pip3 install mypy==$(MYPY_VERSION) 2>/dev/null || echo "  ⚠️  pip install mypy failed — install manually"; ;; \
-	    esac; \
-	  done; \
-	else \
-	  echo "All lint tools already installed ✓"; \
-	fi
+	@echo "── Installing dev tools (bun + lint tools) ──"
+	@bash scripts/install-dev-tools.sh
 	@echo ""
 	@echo "── Installing spec-autopilot GUI dependencies ──"
 	@if [ -f $(SA)/gui/package.json ]; then \
@@ -74,7 +58,8 @@ build: hooks ## Rebuild spec-autopilot dist/
 	@bash $(SA)/tools/build-dist.sh
 
 lint: hooks ## Run spec-autopilot linters (shellcheck + shfmt + ruff + mypy)
-	@bash scripts/run-spec-autopilot-lint.sh
+	@export PATH="$(shell pwd)/.tools/bin:$$HOME/.bun/bin:$$HOME/Library/Python/3.14/bin:$$HOME/Library/Python/3.9/bin:$$PATH"; \
+	bash scripts/run-spec-autopilot-lint.sh
 
 format: hooks ## [deprecated] Format checks are now part of 'make lint'
 	@echo "ℹ️  'make format' is deprecated. Format checks are now included in 'make lint'."
@@ -131,8 +116,9 @@ ph-build: ## Build parallel-harness dist/ (typecheck → test → dist)
 	@bash $(PH)/tools/build-dist.sh
 
 ph-lint: ## Lint parallel-harness build script (shellcheck)
-	@echo "── shellcheck: parallel-harness ──"
-	@if command -v shellcheck >/dev/null 2>&1; then \
+	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \
+	echo "── shellcheck: parallel-harness ──"; \
+	if command -v shellcheck >/dev/null 2>&1; then \
 	  shellcheck $(PH)/tools/build-dist.sh; \
 	else \
 	  echo "❌ shellcheck not found. Install: brew install shellcheck"; \

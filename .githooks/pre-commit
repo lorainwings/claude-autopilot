@@ -3,6 +3,10 @@
 
 set -uo pipefail
 
+# Inject .tools/bin into PATH for auto-installed lint tools
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+export PATH="$REPO_ROOT/.tools/bin:$HOME/.bun/bin:$HOME/Library/Python/3.14/bin:$HOME/Library/Python/3.9/bin:$PATH"
+
 # ============================================
 # Part 0: hooksPath Self-Protection Guard
 # ============================================

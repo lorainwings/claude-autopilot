@@ -8,21 +8,38 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ### Prerequisites
 
-- Claude Code CLI (v1.0.0+)
-- python3 (3.8+)
-- bash (4.0+)
-- bun (1.0+) for parallel-harness
-- git
+**Required (system-level)**:
+- **git** — version control (usually pre-installed)
+- **python3** (3.8+) — for spec-autopilot runtime (usually pre-installed on macOS/Linux)
+- **bash** (4.0+) — shell scripting (pre-installed on Unix systems)
+- **make** — build automation (pre-installed on macOS/Linux)
 
-### Setup
+**Optional (auto-installed by `make setup`)**:
+- **bun** — JavaScript runtime for parallel-harness and spec-autopilot GUI/server
+- **shellcheck, shfmt** — shell linters
+- **ruff, mypy** — Python linters
+
+### One-Command Setup
 
 ```bash
 git clone https://github.com/lorainwings/claude-autopilot.git
 cd claude-autopilot
 
-# One-time setup: activate git hooks (required)
+# This will:
+# 1. Activate git hooks
+# 2. Auto-install bun (if missing)
+# 3. Auto-install lint tools (shellcheck, shfmt, ruff, mypy)
+# 4. Install all project dependencies
 make setup
 ```
+
+**That's it!** If `make setup` completes successfully, you're ready to develop.
+
+### Troubleshooting Setup
+
+If `make setup` fails:
+- **Bun installation failed**: Manually install from https://bun.sh
+- **Lint tools failed**: Don't worry — CI will validate your code. You can still develop and test locally.
 
 ### Run Tests
 

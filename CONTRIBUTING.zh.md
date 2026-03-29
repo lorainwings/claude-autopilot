@@ -8,21 +8,41 @@
 
 ### 前置条件
 
-- Claude Code CLI (v1.0.0+)
-- python3 (3.8+)
-- bash (4.0+)
-- bun (1.0+) 用于 parallel-harness
-- git
+**必需（系统级）**：
 
-### 初始化
+- **git** — 版本控制（通常已预装）
+- **python3** (3.8+) — spec-autopilot 运行时（macOS/Linux 通常已预装）
+- **bash** (4.0+) — Shell 脚本（Unix 系统已预装）
+- **make** — 构建自动化（macOS/Linux 已预装）
+
+**可选（`make setup` 自动安装）**：
+
+- **bun** — parallel-harness 和 spec-autopilot GUI/server 的 JavaScript 运行时
+- **shellcheck, shfmt** — Shell 代码检查工具
+- **ruff, mypy** — Python 代码检查工具
+
+### 一键初始化
 
 ```bash
 git clone https://github.com/lorainwings/claude-autopilot.git
 cd claude-autopilot
 
-# 一键初始化：激活 git hooks（必需）
+# 此命令将：
+# 1. 激活 git hooks
+# 2. 自动安装 bun（如果缺失）
+# 3. 自动安装 lint 工具（shellcheck, shfmt, ruff, mypy）
+# 4. 安装所有项目依赖
 make setup
 ```
+
+**就这么简单！** 如果 `make setup` 成功完成，你就可以开始开发了。
+
+### 初始化故障排查
+
+如果 `make setup` 失败：
+
+- **Bun 安装失败**：手动从 <https://bun.sh> 安装
+- **Lint 工具安装失败**：不用担心 — CI 会验证你的代码。你仍然可以在本地开发和测试。
 
 ### 运行测试
 
