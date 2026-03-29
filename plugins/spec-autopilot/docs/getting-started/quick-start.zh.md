@@ -45,7 +45,7 @@ autopilot 会自动：
 3. **Phase 4**: 设计测试用例
 4. **Phase 5**: 编写代码
 5. **Phase 6**: 运行测试 + 代码审查
-6. **Phase 7**: 汇总结果，等你确认归档
+6. **Phase 7**: 汇总结果，通过 archive readiness 后自动归档
 
 ## 执行模式
 

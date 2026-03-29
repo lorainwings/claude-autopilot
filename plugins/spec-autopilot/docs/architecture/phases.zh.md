@@ -336,11 +336,13 @@ bash scripts/emit-task-progress.sh <phase> <task_name> <status> <task_index> <ta
 1. 读取所有检查点，显示状态汇总表
 2. 通过 `collect-metrics.sh` 收集指标，显示计时表
 3. 收集质量扫描结果（含硬超时）
-4. **AskUser**：立即归档 / 稍后 / 需要修改
-5. 如果归档：
+4. 执行 archive-readiness 检查
+5. 如果 readiness 通过：
    a. Git 自动压缩 fixup 提交（如果 `squash_on_archive: true`）
    b. 执行归档 Skill
    c. 将 Phase 7 检查点更新为 `ok`
+   如果 readiness 被阻断：
+   展示阻断原因，并询问“修复后重新检查”或“放弃归档”
 6. 清理：删除锁文件、开始时间文件、git 标签
 
 ### 指标汇总表

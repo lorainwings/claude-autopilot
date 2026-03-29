@@ -234,7 +234,8 @@ Phase 7: 汇总与归档 (主线程)
 ├── 展示状态汇总表
 ├── 展示执行指标
 ├── 收集质量扫描结果
-├── AskUser 确认归档
+├── 执行 archive-readiness 检查
+├── readiness 通过则自动归档，否则展示阻断原因
 ├── Git autosquash → 整洁 commit 历史
 └── 清理临时文件
 ```

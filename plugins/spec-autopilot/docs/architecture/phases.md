@@ -336,11 +336,13 @@ Hard timeout: `config.async_quality_scans.timeout_minutes` (default 10 min). Tim
 1. Read all checkpoints, display status summary table
 2. Collect metrics via `collect-metrics.sh`, display timing table
 3. Collect quality scan results (with hard timeout)
-4. **AskUser**: Archive now / Later / Needs changes
-5. If archive:
+4. Run archive-readiness check
+5. If readiness passes:
    a. Git autosquash fixup commits (if `squash_on_archive: true`)
    b. Execute archive skill
    c. Update Phase 7 checkpoint to `ok`
+   If readiness is blocked:
+   Show block reasons and ask whether to re-check after fixes or stop archiving
 6. Cleanup: delete lock file, start-time file, git tag
 
 ### Metrics Summary Table

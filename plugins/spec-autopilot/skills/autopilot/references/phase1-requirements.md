@@ -287,6 +287,10 @@ LOOP:
 "以上需求理解是否准确？如有遗漏请补充。"
 选项: "确认，开始实施 (Recommended)" / "需要补充修改"
 - 选"补充" → 回到 1.6 循环
+- 选"确认" → **立即**进入 1.9 写入 `requirement-packet.json` 和 Phase 1 checkpoint，除非 `after_phase_1 === true`，否则**不得**再插入任何“下一步做什么”的元问题
+- **禁止示例**：
+  - `下一步是 Phase 2（OpenSpec 规范生成）还是需要先审查 Phase 1 的输出？`
+  - `Phase 1 已完成，要继续还是暂停？`
 
 ## 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
 
@@ -343,6 +347,7 @@ LOOP:
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
 > v5.1: 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
+> **连续执行要求**: 当 `config.gates.user_confirmation.after_phase_1 !== true` 时，1.9 完成后主线程必须继续进入下一执行阶段，不得先回到“请用户决定是否继续”的闲置状态。
 
 ## 1.10 可配置用户确认点
 

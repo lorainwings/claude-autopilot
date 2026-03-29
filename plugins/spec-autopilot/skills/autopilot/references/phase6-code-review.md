@@ -121,8 +121,8 @@ Task(
 | 状态 | 处理 |
 |------|------|
 | ok | 记录 checkpoint，继续质量扫描和 Phase 7 |
-| warning | 展示 findings 给用户，AskUserQuestion 确认是否继续 |
-| blocked | **硬阻断归档**: 展示 blocking findings，必须修复后重新 review。Phase 7 post-task-validator 会二次检查 review checkpoint 中是否存在未解决的 blocking findings。 |
+| warning | 记录 checkpoint，展示 findings 供用户可见，但**不弹 AskUserQuestion**、不阻断 Phase 7；是否阻断归档由 Phase 7 的 archive-readiness 统一判定 |
+| blocked | 写入 `blocked` checkpoint 并展示 blocking findings；后续是否允许继续由 Phase 7 的 archive-readiness + `block_on_critical` 统一判定，主线程此处不额外插入“是否继续”的确认问题 |
 
 > **WS-E 治理变更**: review findings 不再是纯 advisory。`blocking: true` 的 finding 会：
 > 1. 将 review checkpoint 状态设为 `blocked`

@@ -234,7 +234,8 @@ Phase 7: Summary & Archive (main thread)
 ├── Display status summary table
 ├── Display execution metrics
 ├── Collect quality scan results
-├── AskUser to confirm archival
+├── Run archive-readiness check
+├── Auto-archive when ready; otherwise show block reasons
 ├── Git autosquash → clean commit history
 └── Clean up temporary files
 ```

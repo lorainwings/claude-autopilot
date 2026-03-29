@@ -61,7 +61,8 @@
 - 自动生成的任务必须**引用 Phase 1 决策结论**，不得凭空假设
 - 每个任务必须明确涉及的文件路径（基于 existing-patterns.md 和 research-findings.md）
 - 任务粒度遵循项目规则：每个任务 ≤3 个文件，≤800 行代码
-- 生成完成后，通过 AskUserQuestion 展示任务清单让用户确认
+- 生成完成后，主线程**展示任务清单摘要但不通过 AskUserQuestion 要求确认**
+- 默认直接进入执行；仅当任务生成失败、依赖分析冲突或确定性护栏命中时，才允许进入额外交互
 
 > **注意**：自动生成的任务清单不写入 `tasks.md`（那是 OpenSpec 制品），而是写入 `context/phase5-task-breakdown.md`，避免与 OpenSpec 流程产生歧义。
 

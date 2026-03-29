@@ -59,7 +59,7 @@ Task(subagent_type: "general-purpose", prompt: "
 - 派发后台 Agent：`Task(subagent_type: "general-purpose", run_in_background: true)`
 - Agent 任务：读取 `references/knowledge-accumulation.md` → 遍历 phase-results → 提取知识 → 写入 `openspec/.autopilot-knowledge.json`
 - 主线程同时继续执行步骤 2，不阻塞
-- 在步骤 3 AskUserQuestion 前等待完成，展示：「已提取 N 条知识（M 条 pitfall，K 条 decision）」
+- 在步骤 3 archive-readiness 检查前等待完成，展示：「已提取 N 条知识（M 条 pitfall，K 条 decision）」
 
 ### Step 2: 收集三路并行结果
 
@@ -77,7 +77,7 @@ a. **Phase 6.5 代码审查**（路径 B，仅当 `config.phases.code_review.ena
   - 检查后台 Agent 完成通知
   - ok → 写入 `phase-6.5-code-review.json` checkpoint（status: ok）
   - warning → 写入 `phase-6.5-code-review.json` checkpoint（status: warning，含 findings），展示 findings，不阻断归档
-  - blocked → 写入 `phase-6.5-code-review.json` checkpoint（status: blocked，含 critical findings），展示 critical findings，向用户展示但**不阻断** Phase 7 整体流程（用户可选择修复后重试或忽略继续归档）。**用户选择"忽略继续归档"时**：将 checkpoint status 从 `blocked` 更新为 `warning`，并追加 `"user_override": true, "override_reason": "user chose to ignore critical findings"` 字段，确保 Step 3 和 Gate 检查能正常读取
+  - blocked → 写入 `phase-6.5-code-review.json` checkpoint（status: blocked，含 critical findings），展示 critical findings，但**不得**在 Step 2 提供“忽略继续归档”选项；后续是否可继续由 Step 3 的 archive-readiness fail-closed 判定统一处理
   - code_review 未启用 → 跳过
   - JSON 解析失败 → 写入 `phase-6.5-code-review.json` checkpoint（status: warning，含原始文本），展示原始文本
 
@@ -149,7 +149,7 @@ ELSE:
 
 **v5.3 进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 summary_complete complete')`
 
-### Step 4: 归档操作（用户选择"立即归档"）
+### Step 4: 归档操作（archive readiness 通过后自动执行）
 
 a. **归档前清理**：
   - 更新 Phase 7 Checkpoint（完成）：调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理更新 `phase-7-summary.json`：

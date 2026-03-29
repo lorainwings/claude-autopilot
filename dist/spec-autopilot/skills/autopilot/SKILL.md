@@ -89,6 +89,25 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 > **Checkpoint 范围**: Phase 1-7 产生 checkpoint 文件。Phase 0 在主线程执行，不写 checkpoint。
 
+## 连续执行硬约束（v6.0）
+
+当某个阶段满足以下条件时，主线程**必须立即继续到下一个阶段**，不得把阶段完成本身当作新的用户决策点：
+- 当前阶段最终状态为 `ok` 或 `warning`
+- 下一阶段未被 mode 跳过
+- `config.gates.user_confirmation.after_phase_{N}` 不为 `true`
+- 不存在 gate blocked、崩溃恢复歧义或 archive readiness 阻断
+
+允许输出简短进度信息，但输出后必须直接执行下一阶段。**禁止**额外提问例如：
+- `下一步是 Phase 2（OpenSpec 规范生成）还是需要先审查 Phase 1 的输出？`
+- `Phase N 已完成。要继续下一阶段还是先审查当前产物？`
+- 任何仅用于把控制权交还给用户、但并非协议要求的“继续/审查/暂停”问题
+
+唯一允许的中断来源：
+- Phase 1 尚有未闭合决策点或最终 requirement packet 未确认
+- 显式开启的 `user_confirmation.after_phase_{N}`
+- gate blocked / retry / fix / override 决策
+- Phase 7 archive readiness blocked 或非 autopilot fixup 风险确认
+
 ---
 
 ## Phase 0: 环境检查 + 崩溃恢复
@@ -184,6 +203,9 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 8. 写入 `phase-1-requirements.json` checkpoint + `requirement-packet.json`（Phase 1 唯一结构化产出，含 sha256 hash）+ git fixup（使用后台 Checkpoint Agent，同统一调度模板 Step 5+7）
    **v5.1**: 写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 9. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`，**v6.0 默认 false**——需求评审完成后默认自动推进）
+   - 当该配置为 `false` 时，Phase 1 checkpoint 写入成功后**必须直接进入后续 Phase**
+   - **禁止**在此处追加“是否继续 OpenSpec/是否先审查输出”之类的元问题
+   - 允许输出一句状态提示，例如：`Phase 1 ✓ checkpoint persisted, continuing to Phase 2`
 10. **发射 Phase 1 结束事件（v5.2 Event Bus 补全, v6.0 H-1 补全 requirement_packet_hash）**:
     `Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 1 {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":["phase-1-requirements.json"],"requirement_packet_hash":"{requirement_packet.hash}"}\'')`
     **注意**: `{requirement_packet.hash}` 必须从步骤 8 写入的 `requirement-packet.json` 的 `hash` 字段获取。若未生成 requirement-packet.json，使用 `null`。
@@ -220,7 +242,10 @@ Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
             → fix: 记录 [GATE] Fix → 展示 fix_instructions 给用户，修复后重新 Step 1
             → timeout: 回退原有行为 → AskUserQuestion 请求用户决策
 Step 1.5: 检查可配置用户确认点（仅当 config.gates.user_confirmation.after_phase_{N} === true 时，**v6.0 默认全部 false**）
-        → AskUserQuestion 确认后继续，选暂停则保存进度退出
+        → IF `after_phase_{N} === true`:
+          AskUserQuestion 确认后继续，选暂停则保存进度退出
+        → ELSE:
+          **直接跳过 Step 1.5 进入 Step 2**，不得执行 AskUserQuestion
         → **v6.0 自动推进**: 默认不中断，需求评审后自动推进到 archive-ready
 Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
         → 按协议构造 Task prompt
@@ -297,7 +322,8 @@ Step 8: 等待 Step 5+7 后台 Agent 完成通知
           ```
           Phase {N} ✓ checkpoint: phase-{N}-{slug}.json | commit: {short_sha}
           ```
-        → 确认 checkpoint 已持久化后，继续下一 Phase 的 gate check
+        → 确认 checkpoint 已持久化后，**立即**继续下一 Phase 的 gate check
+        → **禁止**在此处额外询问“是否继续下一阶段/是否先审查当前阶段输出”
 ```
 
 ### Phase 4 特殊处理（v3.2.0 并行增强）
