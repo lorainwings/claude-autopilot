@@ -76,14 +76,14 @@ if [ -n "$STAGED" ]; then
   # ============================================
   # Part 1.7: Staged Lint Quick-Check
   # ============================================
-  STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
-  STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+  STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/.*\.sh$' || true)
+  STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/.*\.py$' || true)
 
   STAGED_LINT_FAILED=0
 
   if [ -n "$STAGED_SH" ] && command -v shellcheck >/dev/null 2>&1; then
     echo "🔍 shellcheck staged .sh files..."
-    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=error || STAGED_LINT_FAILED=1
+    echo "$STAGED_SH" | tr '\n' '\0' | xargs -0 shellcheck --severity=warning || STAGED_LINT_FAILED=1
   fi
 
   if [ -n "$STAGED_SH" ] && command -v shfmt >/dev/null 2>&1; then
@@ -93,12 +93,23 @@ if [ -n "$STAGED" ]; then
 
   if [ -n "$STAGED_PY" ] && command -v ruff >/dev/null 2>&1; then
     echo "🔍 ruff check staged .py files..."
-    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --select=F || STAGED_LINT_FAILED=1
+    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --config plugins/spec-autopilot/pyproject.toml || STAGED_LINT_FAILED=1
+  fi
+
+  if [ -n "$STAGED_PY" ] && command -v ruff >/dev/null 2>&1; then
+    echo "🔍 ruff format staged .py files..."
+    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff format --check --config plugins/spec-autopilot/pyproject.toml || STAGED_LINT_FAILED=1
+  fi
+
+  if [ -n "$STAGED_PY" ] && command -v mypy >/dev/null 2>&1; then
+    echo "🔍 mypy staged .py files..."
+    echo "$STAGED_PY" | tr '\n' '\0' | xargs -0 mypy --config-file plugins/spec-autopilot/pyproject.toml || STAGED_LINT_FAILED=1
   fi
 
   if [ "$STAGED_LINT_FAILED" -eq 1 ]; then
     echo ""
-    echo "⚠️  Staged lint found issues (non-blocking). Run 'make lint' for full report."
+    echo "❌ Staged lint failed. Run 'make lint' for full report."
+    exit 1
   fi
 
   echo ""
@@ -191,6 +202,78 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
 fi
 
 # ============================================
+# Part 2.7: spec-autopilot dist staleness guard
+# ============================================
+# 捕获 rebase/cherry-pick 等非 staged 场景下 dist 与源码的不一致
+# 即使本次 commit 未修改 plugins/spec-autopilot/，dist 也可能因 rebase 而过期
+if [ -d "plugins/spec-autopilot" ] && [ -d "dist/spec-autopilot" ]; then
+  SA_DIST_STALE="no"
+  # 对比白名单目录：hooks, skills
+  for _dir in hooks skills; do
+    _src="plugins/spec-autopilot/$_dir"
+    _dst="dist/spec-autopilot/$_dir"
+    if [ -d "$_src" ]; then
+      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
+        SA_DIST_STALE="yes"
+        break
+      fi
+    fi
+  done
+  # 对比 runtime/scripts/（按 .dist-include manifest 逐文件比对）
+  if [ "$SA_DIST_STALE" = "no" ]; then
+    _manifest="plugins/spec-autopilot/runtime/scripts/.dist-include"
+    if [ -f "$_manifest" ]; then
+      while IFS= read -r _line; do
+        _line="${_line%%#*}"
+        _line="$(echo "$_line" | xargs)"
+        [ -z "$_line" ] && continue
+        _src_f="plugins/spec-autopilot/runtime/scripts/$_line"
+        _dst_f="dist/spec-autopilot/runtime/scripts/$_line"
+        if [ -f "$_src_f" ] && [ -f "$_dst_f" ]; then
+          if ! diff -q "$_src_f" "$_dst_f" >/dev/null 2>&1; then
+            SA_DIST_STALE="yes"
+            break
+          fi
+        elif [ -f "$_src_f" ]; then
+          SA_DIST_STALE="yes"
+          break
+        fi
+      done < "$_manifest"
+    fi
+  fi
+  # 对比 runtime/server/ TS 模块
+  if [ "$SA_DIST_STALE" = "no" ] && [ -d "plugins/spec-autopilot/runtime/server/src" ]; then
+    if ! diff -rq "plugins/spec-autopilot/runtime/server/src" "dist/spec-autopilot/runtime/server/src" >/dev/null 2>&1; then
+      SA_DIST_STALE="yes"
+    fi
+  fi
+  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
+  if [ "$SA_DIST_STALE" = "no" ] && [ -f "plugins/spec-autopilot/CLAUDE.md" ]; then
+    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/spec-autopilot/CLAUDE.md" 2>/dev/null; then
+      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/spec-autopilot/CLAUDE.md")
+    else
+      _expected=$(cat "plugins/spec-autopilot/CLAUDE.md")
+    fi
+    _actual=$(cat "dist/spec-autopilot/CLAUDE.md" 2>/dev/null || echo "")
+    if [ "$_expected" != "$_actual" ]; then
+      SA_DIST_STALE="yes"
+    fi
+  fi
+
+  if [ "$SA_DIST_STALE" = "yes" ]; then
+    echo "📦 dist/spec-autopilot/ 与源码不一致（可能由 rebase 引起），自动重建..."
+    if bash plugins/spec-autopilot/tools/build-dist.sh; then
+      git add dist/spec-autopilot/
+      echo "✅ spec-autopilot dist 已同步"
+      echo ""
+    else
+      echo "❌ spec-autopilot dist build failed. Fix the build before committing."
+      exit 1
+    fi
+  fi
+fi
+
+# ============================================
 # Part 3: parallel-harness dist rebuild
 # ============================================
 PH_CHANGED=$(git diff --cached --name-only | grep -q "plugins/parallel-harness/" && echo "yes" || echo "no")
@@ -200,6 +283,15 @@ if [ "$PH_CHANGED" = "yes" ]; then
   PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/parallel-harness/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
 
   if [ -n "$PH_SUBSTANTIVE" ]; then
+    # shellcheck lint (与 CI make ph-lint 对齐)
+    if command -v shellcheck >/dev/null 2>&1; then
+      echo "🔍 shellcheck parallel-harness build script..."
+      if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
+        echo "❌ parallel-harness shellcheck failed."
+        exit 1
+      fi
+    fi
+
     echo "📦 Rebuilding dist/parallel-harness/..."
     if bash plugins/parallel-harness/tools/build-dist.sh; then
       git add dist/parallel-harness/

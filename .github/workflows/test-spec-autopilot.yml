@@ -9,6 +9,7 @@ on:
       - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
+      - '.githooks/**'
   pull_request:
     branches: [main]
     paths:
@@ -17,14 +18,60 @@ on:
       - '.github/workflows/test-spec-autopilot.yml'
       - '.claude-plugin/**'
       - 'scripts/**'
+      - '.githooks/**'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
 jobs:
+  # ── bot commit bypass ─────────────────────────────────────────────
+  # release-please merge / post-release bot 提交会修改 plugins/spec-autopilot/ 版本文件，
+  # 触发本 workflow，但此时 dist 尚未由 post-release job 重建，导致 dist stale 检查失败。
+  # 这里前置检测，bot 提交直接跳过所有后续 job。
+  #
+  # 注意: should-run 要求 author AND message 双重匹配——这是有意为之:
+  # 当人工合并 Release PR 时，author 是人(skip=false)，CI 仍会执行 test/lint/typecheck，
+  # 但 build-dist 的 dist staleness 检查单独按 commit message 匹配跳过（因为 post-release 会负责 dist）。
+
+  should-run:
+    name: Check if CI should run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect bot commits
+        id: check
+        run: |
+          AUTHOR=$(git log -1 --format='%an')
+          MSG=$(git log -1 --format='%s')
+          if [[ "$AUTHOR" == *"github-actions"* ]] && \
+             { [[ "$MSG" =~ ^chore:\ release\ main ]] || \
+               [[ "$MSG" =~ ^chore\(main\):\ release ]] || \
+               [[ "$MSG" =~ ^chore:\ post-release ]]; }; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Bot commit detected ($MSG) — skipping CI"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # ── release discipline ────────────────────────────────────────────
 
   release-discipline:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: Release Discipline Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -55,8 +102,11 @@ jobs:
   # ── spec-autopilot ────────────────────────────────────────────────
 
   test-hooks:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Hook Tests
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -68,6 +118,11 @@ jobs:
         run: python3 --version
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -79,8 +134,11 @@ jobs:
         run: bash plugins/spec-autopilot/tests/smoke_release.sh
 
   lint:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Lint (shellcheck + shfmt + ruff + mypy)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -88,18 +146,26 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
 
       - name: Install ruff + mypy
-        run: pip install ruff mypy
+        run: pip install ruff==0.15.7 mypy==1.15.0
 
-      - name: Run lint + format check
-        run: make lint && make format
+      - name: Run lint (includes format checks)
+        run: make lint
 
   typecheck:
+    needs: [should-run]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / TypeScript Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -111,12 +177,18 @@ jobs:
         run: make typecheck
 
   build-dist:
+    needs: [should-run, release-discipline, test-hooks, lint, typecheck]
+    if: needs.should-run.outputs.skip != 'true'
     name: spec-autopilot / Build & Verify dist
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/spec-autopilot/gui/bun.lock
 
       - name: Install GUI dependencies
         run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
@@ -135,6 +207,10 @@ jobs:
           echo "dist/spec-autopilot structure OK"
 
       - name: Check dist not stale (committed dist must match fresh build)
+        # dist staleness 检查仅按 commit message 匹配跳过（不要求 author），
+        # 与 should-run 的双重匹配策略不同——这是有意为之:
+        # 人工合并 Release PR 时 should-run 不跳过(CI 全量执行)，
+        # 但 dist staleness 跳过(post-release 会负责重建 dist)。
         run: |
           # release-please / post-release 提交跳过 dist 一致性检查
           # 原因: release-please merge commit 只更新 plugin.json 版本号但不重建 dist，
