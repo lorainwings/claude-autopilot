@@ -15,6 +15,31 @@ export interface RequirementGrounding {
   required_approvals: string[];
 }
 
+/**
+ * 从 acceptance_matrix 提取下沉到 task contract 的验收标准
+ */
+export function extractGroundingCriteria(
+  grounding: RequirementGrounding
+): Array<{ category: string; criterion: string; blocking: boolean }> {
+  return grounding.acceptance_matrix.map((item) => ({
+    category: item.category,
+    criterion: item.criterion,
+    blocking: item.blocking,
+  }));
+}
+
+/**
+ * 将 grounding 的 delivery_artifacts 映射为报告所需的 artifact 清单
+ */
+export function getDeliveryArtifactChecklist(
+  grounding: RequirementGrounding
+): Array<{ artifact: string; required: boolean }> {
+  return grounding.delivery_artifacts.map((a) => ({
+    artifact: a,
+    required: true,
+  }));
+}
+
 export function groundRequirement(request: RunRequest): RequirementGrounding {
   const intent = request.intent;
   const words = intent.toLowerCase().split(/\s+/);
@@ -72,13 +97,31 @@ export function groundRequirement(request: RunRequest): RequirementGrounding {
     });
   }
 
+  // 推断 impacted_modules（基于 intent 关键词）
+  const impactedModules: string[] = [];
+  const moduleKeywords: Record<string, string[]> = {
+    "runtime/engine": ["orchestrator", "runtime", "engine", "编排"],
+    "runtime/workers": ["worker", "执行", "execute"],
+    "runtime/gates": ["gate", "验证", "verify", "门禁"],
+    "runtime/models": ["model", "router", "路由", "模型"],
+    "runtime/session": ["context", "session", "上下文", "会话"],
+    "runtime/integrations": ["pr", "github", "ci", "集成"],
+    "runtime/persistence": ["persist", "store", "持久化", "存储"],
+    "runtime/governance": ["rbac", "approval", "审批", "权限"],
+  };
+  for (const [mod, keywords] of Object.entries(moduleKeywords)) {
+    if (words.some(w => keywords.includes(w))) {
+      impactedModules.push(mod);
+    }
+  }
+
   return {
     request_id: request.request_id,
     restated_goal: intent,
     acceptance_matrix: acceptanceMatrix,
     ambiguity_items: ambiguityItems,
     assumptions: [],
-    impacted_modules: [],
+    impacted_modules: impactedModules,
     delivery_artifacts: ["code", "tests"],
     required_approvals: ambiguityItems.length > 2 ? ["tech_lead"] : [],
   };

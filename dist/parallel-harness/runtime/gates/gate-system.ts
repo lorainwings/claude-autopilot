@@ -816,10 +816,17 @@ export class GateSystem {
   }
 
   /**
-   * 检查是否有任何阻断性 gate 失败
+   * 检查是否有任何阻断性 gate 失败。
+   * 结合 gate classification: signal gate 即使标记为 blocking 也不阻断，只有 hard gate 失败才阻断。
    */
   hasBlockingFailure(results: GateResult[]): boolean {
-    return results.some((r) => r.blocking && !r.passed);
+    const { classifyGate } = require("../gates/gate-classification");
+    return results.some((r) => {
+      if (!r.blocking || r.passed) return false;
+      const classification = classifyGate(r.gate_type);
+      // 只有 hard gate 失败才真正阻断
+      return classification.is_hard_gate;
+    });
   }
 
   /**

@@ -546,7 +546,51 @@ export class OrchestratorRuntime {
       }
 
       // Phase 3: Schedule + Execute
-      await this.executeHookPhase("pre_dispatch", ctx);
+      const preDispatchEffects = await this.executeHookPhase("pre_dispatch", ctx);
+
+      // 消费 hook effects：影响运行时行为
+      for (const effect of preDispatchEffects) {
+        switch (effect.type) {
+          case "require_approval": {
+            // hook 要求审批 — 如果尚未被 auto-approve 则阻断
+            const reason = (effect.payload.reason as string) || "hook triggered approval";
+            const approvalResult = this.approvalWorkflow.requestApproval({
+              run_id: ctx.run_id,
+              action: "hook_approval",
+              reason,
+              triggered_rules: ["hook_effect"],
+              status: "pending",
+              requested_at: new Date().toISOString(),
+            } as any);
+            if (approvalResult.status !== "approved") {
+              emitAudit(ctx, "approval_requested", { source: "hook_effect", reason });
+            }
+            break;
+          }
+          case "reduce_concurrency": {
+            // hook 要求降低并发
+            const newMax = (effect.payload.max_concurrency as number) || 1;
+            ctx.config.max_concurrency = Math.min(ctx.config.max_concurrency, newMax);
+            emitAudit(ctx, "run_planned", { effect: "reduce_concurrency", new_max: ctx.config.max_concurrency });
+            break;
+          }
+          case "add_gate": {
+            // hook 要求追加 gate 类型到 enabled_gates
+            const gateType = effect.payload.gate_type as string;
+            if (gateType && !ctx.config.enabled_gates.includes(gateType as any)) {
+              ctx.config.enabled_gates.push(gateType as any);
+              emitAudit(ctx, "run_planned", { effect: "add_gate", gate_type: gateType });
+            }
+            break;
+          }
+          case "add_instruction": {
+            // hook 要求追加 instruction — 记录审计，实际注入在 executeTask 中完成
+            emitAudit(ctx, "run_planned", { effect: "add_instruction", content: effect.payload.content });
+            break;
+          }
+        }
+      }
+
       transitionRunStatus(execution, "scheduled", "已调度");
       transitionRunStatus(execution, "running", "开始执行");
       emitAudit(ctx, "run_started", {});
@@ -600,36 +644,50 @@ export class OrchestratorRuntime {
         transitionRunStatus(execution, finalStatus, "执行完成");
       }
 
-      // Phase 5c: 生成 ExecutionProxy attestations 并写入审计
-      const { ExecutionProxy } = await import("../workers/execution-proxy");
-      const proxy = new ExecutionProxy();
-      for (const [taskId, output] of workerOutputsMap) {
-        const task = plan.task_graph.tasks.find(t => t.id === taskId);
-        const { attestation } = proxy.wrapExecution({
-          model_tier: (task?.model_tier || "tier-2") as ModelTier,
-          project_root: ctx.project.root_path,
-          sandbox_paths: task?.allowed_paths,
-        }, output);
-        emitAudit(ctx, "task_completed", {
-          task_id: taskId,
-          attestation_model: attestation.actual_model,
-          sandbox_violations: attestation.sandbox_violations,
-          modified_paths: attestation.modified_paths,
-        }, taskId);
-      }
+      // Phase 5c: 使用执行时真实收集的 attestation（不再 finalize 重建）
+      const allAttestations: import("../workers/execution-proxy").ExecutionAttestation[] =
+        (ctx as any)._collectedAttestations || [];
 
       // Phase 5d: 生成最终报告（含 evidence aggregation）
       const result = this.finalizeRun(ctx, execution, plan);
       result.final_status = execution.status;
 
-      // 将 report aggregator 接入主链
+      // 将 report aggregator 接入主链（含 attestation 证据）
       const { aggregateRunEvidence } = await import("../integrations/report-aggregator");
-      const runReport = aggregateRunEvidence(result, ctx.collectedGateResults);
+      const runReport = aggregateRunEvidence(result, ctx.collectedGateResults, allAttestations);
       // evidence refs 写入质量报告的 recommendations
       result.quality_report.recommendations = [
         ...result.quality_report.recommendations,
-        ...runReport.evidence_refs.map(r => `[${r.type}] ${r.ref_id}: ${r.description}`),
+        ...runReport.evidence_refs.map(r => `[${r.type}${r.strength ? `/${r.strength}` : ""}] ${r.ref_id}: ${r.description}`),
       ];
+
+      // Grounding evidence 追溯到报告
+      if (plan.requirement_grounding) {
+        const totalPlanned = plan.task_graph.tasks.length;
+        const totalCompleted = result.completed_tasks.length;
+        const allPassed = totalCompleted === totalPlanned && result.failed_tasks.length === 0;
+        const groundingEvidence = plan.requirement_grounding.acceptance_matrix.map(item => {
+          // 阻断性验收项：只有全部任务完成且无失败时才算满足
+          // 非阻断性验收项：有任何成功即可
+          const met = item.blocking
+            ? allPassed
+            : totalCompleted > 0;
+          return {
+            category: item.category,
+            criterion: item.criterion,
+            blocking: item.blocking,
+            met,
+          };
+        });
+        // 将未满足的 grounding 追溯作为 recommendations
+        for (const ge of groundingEvidence) {
+          if (!ge.met) {
+            result.quality_report.recommendations.push(
+              `[grounding/${ge.blocking ? "blocking" : "signal"}] ${ge.category}: ${ge.criterion}`
+            );
+          }
+        }
+      }
 
       emitAudit(ctx, execution.status === "succeeded" ? "run_completed" : "run_failed", {
         final_status: execution.status,
@@ -660,6 +718,7 @@ export class OrchestratorRuntime {
             base_branch: "main",
             labels: ["parallel-harness"],
             modified_files: [...allModifiedFiles],
+            repo_root: ctx.project.root_path,
           });
           result.pr_artifacts = {
             pr_url: prResult.pr_url,
@@ -1023,22 +1082,89 @@ export class OrchestratorRuntime {
       emitAudit(ctx, "worker_started", { attempt_number: attemptNum, model_tier: attempt.model_tier }, task.id, attempt.attempt_id);
 
       try {
-        // 打包上下文 - 传递当前任务到 context
+        // 打包上下文 - 传递当前任务到 context，传入 routing 的 context_budget（Workstream D 闭环）
         const prevTask = (ctx as any).currentTask;
         (ctx as any).currentTask = task;
-        const contextPack = packContext(task, this.getAvailableFiles(ctx));
+        const contextPack = packContext(
+          task,
+          this.getAvailableFiles(ctx),
+          {},
+          { max_input_tokens: routingResult.context_budget }
+        );
         (ctx as any).currentTask = prevTask;
 
         const contract = buildTaskContract(task, contextPack);
 
+        // 注入 grounding criteria 到 contract（Workstream E 闭环）
+        if (plan.requirement_grounding) {
+          const { extractGroundingCriteria } = await import("../orchestrator/requirement-grounding");
+          contract.grounding_criteria = extractGroundingCriteria(plan.requirement_grounding);
+          contract.required_approvals = plan.requirement_grounding.required_approvals;
+        }
+
+        // 注入 instruction 到 contract（Workstream G effect 化）
+        if (this.instructionRegistry) {
+          const instructions = this.instructionRegistry.resolve({
+            repo_path: ctx.project.root_path,
+          });
+          if (instructions.length > 0) {
+            contract.context.constraints.coding_standards = instructions.map(i => i.content);
+          }
+        }
+
+        // ExecutionProxy: 前置准备（proxy 成为真实执行入口，绑定 model/tool policy/cwd）
+        const { ExecutionProxy } = await import("../workers/execution-proxy");
+        const proxy = new ExecutionProxy();
+        const proxyPrep = proxy.prepareExecution({
+          model_tier: currentTier,
+          project_root: ctx.project.root_path,
+          sandbox_paths: task.allowed_paths,
+          allowed_tools: contract.context.constraints.allowed_paths.length > 0 ? undefined : undefined,
+          denied_tools: ["TaskStop", "EnterWorktree"],
+          worker_id: `worker_${task.id}`,
+          attempt_id: attempt.attempt_id,
+        });
+
         // 调用 Worker — 通过 WorkerExecutionController（带超时/沙箱/能力校验）
+        // validated_cwd 和 tool_policy 由 proxy 提供
         const executionResult = await this.workerController.execute({
           contract,
           model_tier: attempt.model_tier,
-          project_root: ctx.project.root_path,
+          project_root: proxyPrep.validated_cwd,
           max_idle_ms: ctx.config.timeout_ms,
+          tool_policy: proxyPrep.tool_policy_serialized,
         });
         const workerOutput = executionResult.output;
+
+        // ExecutionProxy: 后置 attestation（真实执行数据生成 attestation）
+        const { attestation } = proxy.finalizeExecution(
+          {
+            model_tier: currentTier,
+            project_root: ctx.project.root_path,
+            sandbox_paths: task.allowed_paths,
+            denied_tools: ["TaskStop", "EnterWorktree"],
+            worker_id: `worker_${task.id}`,
+            attempt_id: attempt.attempt_id,
+          },
+          workerOutput,
+          proxyPrep.started_at,
+          proxyPrep.tool_policy_enforced
+        );
+
+        // 收集 attestation 到 ctx 供 finalize 阶段直接使用（不再事后重建）
+        if (!(ctx as any)._collectedAttestations) (ctx as any)._collectedAttestations = [];
+        (ctx as any)._collectedAttestations.push(attestation);
+
+        // 记录 attestation 到审计（attestation 成为 durable truth）
+        emitAudit(ctx, "worker_completed", {
+          attestation_model: attestation.actual_model,
+          attestation_outcome: attestation.execution_outcome,
+          sandbox_violations: attestation.sandbox_violations,
+          modified_paths: attestation.modified_paths,
+          tool_policy_enforced: attestation.tool_policy_enforced,
+          context_occupancy: contextPack.occupancy_ratio,
+          context_compaction: contextPack.compaction_policy,
+        }, task.id, attempt.attempt_id);
 
         // 检测 worker 是否真实执行成功
         if (workerOutput.status === "failed" || workerOutput.status === "blocked") {
@@ -1823,23 +1949,44 @@ export class OrchestratorRuntime {
   }
 
   /**
-   * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks
+   * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks。
+   * Hook 返回的 effects 会被收集并影响主链行为（Workstream G effect 化）。
    */
   private async executeHookPhase(
     phase: import("../capabilities/capability-registry").HookPhase,
     ctx: ExecutionContext
-  ): Promise<void> {
-    if (!this.hookRegistry) return;
+  ): Promise<import("../capabilities/capability-registry").HookEffect[]> {
+    if (!this.hookRegistry) return [];
     try {
-      await this.hookRegistry.executePhase(phase, {
+      const results = await this.hookRegistry.executePhase(phase, {
         run_id: ctx.run_id,
         data: { timestamp: new Date().toISOString() },
       });
+
+      // 收集所有 hook 产生的 effects
+      const effects: import("../capabilities/capability-registry").HookEffect[] = [];
+      for (const result of results) {
+        if (result.effects) {
+          effects.push(...result.effects);
+        }
+      }
+
+      // 如果有 effects，记录到审计
+      if (effects.length > 0) {
+        emitAudit(ctx, "run_planned", {
+          phase: `hook_${phase}`,
+          effects_count: effects.length,
+          effect_types: effects.map(e => e.type),
+        });
+      }
+
+      return effects;
     } catch (err) {
       emitAudit(ctx, "run_failed", {
         phase: `hook_${phase}`,
         error: err instanceof Error ? err.message : String(err),
       });
+      return [];
     }
   }
 

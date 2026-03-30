@@ -55,6 +55,18 @@ export interface ContextPack {
 
   /** Token 预算 */
   budget: ContextBudget;
+
+  /** 上下文占用率 (0-1) */
+  occupancy_ratio: number;
+
+  /** 加载的文件数量 */
+  loaded_files_count: number;
+
+  /** 加载的代码片段数量 */
+  loaded_snippets_count: number;
+
+  /** 压缩策略 */
+  compaction_policy: "none" | "summarize" | "truncate";
 }
 
 /** 约束条件 */
@@ -122,4 +134,14 @@ export interface TaskContract {
 
   /** 上下文包 */
   context: ContextPack;
+
+  /** 来自 Requirement Grounding 的验收矩阵条目 */
+  grounding_criteria?: Array<{
+    category: string;
+    criterion: string;
+    blocking: boolean;
+  }>;
+
+  /** 来自 Requirement Grounding 的必要审批 */
+  required_approvals?: string[];
 }

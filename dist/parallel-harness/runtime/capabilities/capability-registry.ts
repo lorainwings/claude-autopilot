@@ -222,6 +222,17 @@ export interface HookResult {
   continue: boolean;
   modified_data?: Record<string, unknown>;
   message?: string;
+  /** Hook 产生的 effect — 可以影响主链决策 */
+  effects?: HookEffect[];
+}
+
+/**
+ * Hook Effect：hook 可以通过返回 effects 来影响主链行为。
+ * 这使得扩展层从"能注册"升级为"能生效"。
+ */
+export interface HookEffect {
+  type: "add_gate" | "add_contract" | "require_approval" | "reduce_concurrency" | "add_instruction";
+  payload: Record<string, unknown>;
 }
 
 export class HookRegistry {

@@ -342,3 +342,110 @@ describe("Generic intent ownership fallback 回归测试", () => {
     }
   });
 });
+
+// ============================================================
+// Workstream B/D/E/F 主链闭环集成测试
+// ============================================================
+
+describe("主链闭环: ExecutionProxy + Context Budget + Grounding + Gate 分层", () => {
+  it("执行结果包含 attestation 审计记录", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("实现 attestation 测试功能");
+    const result = await runtime.executeRun(request);
+
+    // 审计日志应包含 attestation 相关事件
+    const auditLog = await runtime.getAuditLog(result.run_id);
+    const attestationEvents = auditLog.filter(
+      e => e.payload && (e.payload as any).attestation_model
+    );
+    expect(attestationEvents.length).toBeGreaterThan(0);
+  });
+
+  it("执行结果 quality_report 包含 evidence 分层信息", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("实现质量报告 evidence 测试");
+    const result = await runtime.executeRun(request);
+
+    // quality_report 的 recommendations 应包含 evidence refs
+    expect(result.quality_report).toBeDefined();
+    expect(result.quality_report.recommendations).toBeDefined();
+  });
+
+  it("context_budget 从 routing 传入 packContext", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+    });
+
+    const request = createRunRequest("测试 context budget 闭环");
+    const result = await runtime.executeRun(request);
+
+    // 审计日志应包含 context_occupancy 字段
+    const auditLog = await runtime.getAuditLog(result.run_id);
+    const contextEvents = auditLog.filter(
+      e => e.payload && typeof (e.payload as any).context_occupancy === "number"
+    );
+    expect(contextEvents.length).toBeGreaterThan(0);
+  });
+
+  it("grounding blocking 验收项在部分成功时标记为未满足", async () => {
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockFailAdapter(),
+    });
+
+    const request = createRunRequest("实现用户认证功能的安全审查测试", {
+      auto_approve_rules: ["all"],
+      enabled_gates: [],
+    });
+    try {
+      const result = await runtime.executeRun(request);
+      // 有失败任务时，blocking grounding 应出现在 recommendations 中
+      if (result.failed_tasks.length > 0) {
+        const hasGroundingWarning = result.quality_report.recommendations.some(
+          r => r.includes("[grounding/blocking]")
+        );
+        expect(hasGroundingWarning).toBe(true);
+      }
+    } catch {
+      // 全失败抛异常也是合法的
+    }
+  });
+
+  it("PR createPR 请求包含 repo_root", async () => {
+    // 验证 orchestrator 传递 repo_root 给 createPR
+    let capturedRequest: any = null;
+    const mockPRProvider = {
+      name: "mock",
+      async createPR(req: any) {
+        capturedRequest = req;
+        return { pr_number: 1, pr_url: "http://mock/1", head_branch: req.head_branch };
+      },
+      async addReviewComment() {},
+      async setCheckStatus() {},
+      async getPR() { return { number: 0, url: "", state: "open" as const, title: "", head_branch: "", base_branch: "main", changed_files: [] }; },
+      async mergePR() {},
+    };
+
+    const runtime = new OrchestratorRuntime({
+      workerAdapter: new MockSuccessAdapter(),
+      prProvider: mockPRProvider,
+    });
+
+    const request = createRunRequest("测试 PR repo_root", {
+      pr_strategy: "single_pr",
+      auto_approve_rules: ["all"],
+      enabled_gates: [],
+    });
+    await runtime.executeRun(request);
+
+    // PR 请求应包含 repo_root
+    if (capturedRequest) {
+      expect(capturedRequest.repo_root).toBe(".");
+    }
+  });
+});

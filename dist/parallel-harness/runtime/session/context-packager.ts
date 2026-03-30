@@ -51,13 +51,27 @@ const DEFAULT_CONFIG: PackagerConfig = {
 
 /**
  * 为任务打包上下文
+ * @param task 任务节点
+ * @param availableFiles 可用文件列表
+ * @param config 打包配置
+ * @param externalBudget 外部传入的 context budget（来自 routeModel）
  */
 export function packContext(
   task: TaskNode,
   availableFiles: FileInfo[],
-  config: Partial<PackagerConfig> = {}
+  config: Partial<PackagerConfig> = {},
+  externalBudget?: { max_input_tokens: number }
 ): ContextPack {
   const cfg = { ...DEFAULT_CONFIG, ...config };
+
+  // 使用外部 budget 覆盖默认值（context budget 闭环）
+  let budget = cfg.default_budget;
+  if (externalBudget && externalBudget.max_input_tokens > 0) {
+    budget = {
+      ...budget,
+      max_input_tokens: externalBudget.max_input_tokens,
+    };
+  }
 
   // 1. 筛选相关文件
   const relevantFiles = selectRelevantFiles(task, availableFiles);
@@ -75,11 +89,18 @@ export function packContext(
 
   // 4. 如果超预算，压缩
   let finalSnippets = snippets;
-  let budget = cfg.default_budget;
+  let compactionPolicy: "none" | "summarize" | "truncate" = "none";
 
   if (estimatedTokens > budget.max_input_tokens && budget.auto_summarize_on_overflow) {
     finalSnippets = compressSnippets(snippets, budget.max_input_tokens);
+    compactionPolicy = "truncate";
   }
+
+  // 5. 计算占用率
+  const finalTokens = estimateTokenUsage(task, relevantFiles, finalSnippets);
+  const occupancyRatio = budget.max_input_tokens > 0
+    ? Math.min(finalTokens / budget.max_input_tokens, 1.0)
+    : 0;
 
   return {
     task_summary: buildTaskSummary(task),
@@ -93,6 +114,10 @@ export function packContext(
     },
     test_requirements: task.required_tests,
     budget,
+    occupancy_ratio: occupancyRatio,
+    loaded_files_count: relevantFiles.length,
+    loaded_snippets_count: finalSnippets.length,
+    compaction_policy: compactionPolicy,
   };
 }
 
