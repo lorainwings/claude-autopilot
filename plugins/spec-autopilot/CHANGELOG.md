@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.2.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.1...spec-autopilot-v5.2.2) (2026-03-30)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/lorainwings/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
+* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/lorainwings/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
+
 ## [5.2.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.0...spec-autopilot-v5.2.1) (2026-03-29)
 
 
