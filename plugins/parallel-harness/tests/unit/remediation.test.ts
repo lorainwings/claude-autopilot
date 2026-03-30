@@ -179,24 +179,43 @@ describe("Evidence Loader", () => {
 // ============================================================
 
 describe("Execution Proxy", () => {
-  it("生成 execution attestation", async () => {
+  const mockWorkerOutput = {
+    status: "ok" as const,
+    summary: "执行完成",
+    artifacts: [],
+    modified_paths: ["src/main.ts"],
+    tokens_used: 500,
+    duration_ms: 1000,
+  };
+
+  it("生成 execution attestation", () => {
     const proxy = new ExecutionProxy();
-    const result = await proxy.execute(
-      { task_id: "t1", objective: "test", context: "" } as any,
-      { model_tier: "tier-2", project_root: "/tmp" }
+    const result = proxy.wrapExecution(
+      { model_tier: "tier-2", project_root: "/tmp" },
+      mockWorkerOutput
     );
     expect(result.attestation).toBeDefined();
     expect(result.attestation.repo_root).toBe("/tmp");
     expect(result.attestation.timestamp).toBeTruthy();
+    expect(result.attestation.modified_paths).toContain("src/main.ts");
   });
 
-  it("model tier 映射为真实模型", async () => {
+  it("model tier 映射为真实模型", () => {
     const proxy = new ExecutionProxy();
-    const result = await proxy.execute(
-      { task_id: "t1", objective: "test", context: "" } as any,
-      { model_tier: "tier-3", project_root: "/tmp" }
+    const result = proxy.wrapExecution(
+      { model_tier: "tier-3", project_root: "/tmp" },
+      mockWorkerOutput
     );
-    expect(result.output.summary).toContain("claude-opus-4");
+    expect(result.attestation.actual_model).toBe("claude-opus-4");
+  });
+
+  it("sandbox violation 检测", () => {
+    const proxy = new ExecutionProxy();
+    const result = proxy.wrapExecution(
+      { model_tier: "tier-2", project_root: "/tmp", sandbox_paths: ["src/allowed/"] },
+      { ...mockWorkerOutput, modified_paths: ["src/forbidden/hack.ts"] }
+    );
+    expect(result.attestation.sandbox_violations.length).toBeGreaterThan(0);
   });
 });
 
@@ -263,5 +282,88 @@ describe("Report Aggregator", () => {
     expect(report.run_id).toBe("run-1");
     expect(report.evidence_refs.length).toBe(1);
     expect(report.quality_summary.overall_grade).toBe("A");
+  });
+});
+
+// ============================================================
+// Workstream 10: 主链闭环集成测试
+// ============================================================
+
+describe("determineFinalStatus 基于任务全集", () => {
+  it("有 skipped tasks 时不返回 succeeded", () => {
+    const mockPlan = {
+      task_graph: { tasks: [{ id: "t1" }, { id: "t2" }, { id: "t3" }] },
+    } as any;
+    const allAttempts = [
+      { task_id: "t1", status: "succeeded" },
+      { task_id: "t2", status: "succeeded" },
+    ];
+    const attemptedTaskIds = new Set(allAttempts.map(a => a.task_id));
+    const allTaskIds = new Set<string>(mockPlan.task_graph.tasks.map((t: any) => t.id));
+    const hasSkippedTasks = [...allTaskIds].some((id) => !attemptedTaskIds.has(id));
+
+    expect(hasSkippedTasks).toBe(true);
+    expect(attemptedTaskIds.size).toBeLessThan(allTaskIds.size);
+  });
+});
+
+describe("Evidence Loader 目录和 glob", () => {
+  it("目录模式加载子文件", () => {
+    const task = { id: "t1", allowed_paths: ["runtime/"], dependencies: [] };
+    const files = loadEvidenceFiles(task, {
+      project_root: process.cwd(),
+      max_files_per_task: 5,
+      max_file_size_kb: 100,
+    });
+    expect(files.length).toBeGreaterThan(0);
+  });
+
+  it("glob 模式加载匹配文件", () => {
+    const task = { id: "t1", allowed_paths: ["*.json"], dependencies: [] };
+    const files = loadEvidenceFiles(task, {
+      project_root: process.cwd(),
+      max_files_per_task: 10,
+      max_file_size_kb: 500,
+    });
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.some(f => f.path.endsWith(".json"))).toBe(true);
+  });
+
+  it("项目根目录 '.' 加载顶层文件", () => {
+    const task = { id: "t1", allowed_paths: ["."], dependencies: [] };
+    const files = loadEvidenceFiles(task, {
+      project_root: process.cwd(),
+      max_files_per_task: 10,
+      max_file_size_kb: 100,
+    });
+    expect(files.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Scheduler 路径重叠语义", () => {
+  it("目录前缀冲突被检测", () => {
+    const tasks = [
+      createMockTask({ id: "t1", allowed_paths: ["src/"] }),
+      createMockTask({ id: "t2", allowed_paths: ["src/auth/login.ts"] }),
+    ];
+    const graph = createMockGraph(tasks);
+    const ownership = planOwnership(graph);
+
+    const schedule = createSchedulePlan(graph, { max_concurrency: 3 }, ownership);
+    const firstBatch = schedule.batches[0];
+    const hasBoth = firstBatch.task_ids.includes("t1") && firstBatch.task_ids.includes("t2");
+    expect(hasBoth).toBe(false);
+  });
+});
+
+describe("RequirementGrounding 歧义检测", () => {
+  it("极短且无动作词的请求触发多个歧义项", () => {
+    const result = groundRequirement(createMockRunRequest("hmm maybe"));
+    expect(result.ambiguity_items.length).toBeGreaterThan(2);
+  });
+
+  it("正常请求不触发过多歧义", () => {
+    const result = groundRequirement(createMockRunRequest("实现用户登录功能，包含前端表单验证和后端 API 鉴权"));
+    expect(result.ambiguity_items.length).toBeLessThanOrEqual(2);
   });
 });

@@ -8,6 +8,7 @@
  * 所有状态迁移通过 StateMachine 追踪。
  */
 
+import { MergeGuard } from "../guards/merge-guard";
 import { EventBus, createEvent } from "../observability/event-bus";
 import { analyzeIntent } from "../orchestrator/intent-analyzer";
 import { buildTaskGraph } from "../orchestrator/task-graph-builder";
@@ -478,6 +479,27 @@ export class OrchestratorRuntime {
         batch_count: plan.schedule_plan.total_batches,
       });
 
+      // Phase 1b: 歧义治理 — 高歧义请求走 blocked 状态
+      if (plan.requirement_grounding && plan.requirement_grounding.ambiguity_items.length > 2) {
+        transitionRunStatus(execution, "blocked", `需求歧义过多: ${plan.requirement_grounding.ambiguity_items.join("; ")}`);
+        emitAudit(ctx, "gate_blocked", { phase: "requirement_grounding", ambiguity_count: plan.requirement_grounding.ambiguity_items.length });
+
+        await this.sessionStore.updateCheckpoint(session.session_id, {
+          blocked_at: "requirement_grounding",
+          plan_id: plan.plan_id,
+          request_id: request.request_id,
+        });
+        execution.cost_ledger = ctx.costLedger;
+        await this.runStore.saveExecution(execution);
+        await this.auditTrail.recordBatch(ctx.auditLog);
+        await this.auditTrail.forceFlush();
+
+        const blockedResult = this.finalizeRun(ctx, execution, plan);
+        blockedResult.final_status = "blocked";
+        await this.runStore.saveResult(blockedResult);
+        return blockedResult;
+      }
+
       // Phase 2: 检查审批
       if (plan.pending_approvals.length > 0) {
         transitionRunStatus(execution, "awaiting_approval", "等待审批");
@@ -545,14 +567,69 @@ export class OrchestratorRuntime {
       // 同步 cost_ledger 到 execution
       execution.cost_ledger = ctx.costLedger;
 
-      const finalStatus = this.determineFinalStatus(execution);
+      // Phase 5a: MergeGuard — 在终态判定前做最终写集收敛检查
+      const mergeGuard = new MergeGuard();
+      const workerOutputsMap = new Map<string, WorkerOutput>();
+      for (const [taskId, attempts] of Object.entries(execution.completed_attempts)) {
+        const succeeded = attempts.find((a) => a.status === "succeeded");
+        if (succeeded) {
+          workerOutputsMap.set(taskId, {
+            status: "ok",
+            summary: succeeded.output_summary || "",
+            artifacts: succeeded.artifacts || [],
+            modified_paths: succeeded.modified_files || [],
+            tokens_used: succeeded.tokens_used || 0,
+            duration_ms: 0,
+          });
+        }
+      }
+      const mergeGuardResult = mergeGuard.check(ctx, plan.task_graph, plan.ownership_plan, workerOutputsMap);
+      emitAudit(ctx, mergeGuardResult.allowed ? "gate_passed" : "gate_blocked", {
+        gate_type: "merge_guard",
+        allowed: mergeGuardResult.allowed,
+        blocking_reasons: mergeGuardResult.blocking_reasons,
+      });
+
+      if (!mergeGuardResult.allowed) {
+        transitionRunStatus(execution, "blocked", `MergeGuard 阻断: ${mergeGuardResult.blocking_reasons.join("; ")}`);
+      }
+
+      // Phase 5b: 终态判定（在 MergeGuard 之后）
+      const finalStatus = this.determineFinalStatus(execution, plan);
       if (execution.status !== finalStatus) {
         transitionRunStatus(execution, finalStatus, "执行完成");
       }
 
+      // Phase 5c: 生成 ExecutionProxy attestations 并写入审计
+      const { ExecutionProxy } = await import("../workers/execution-proxy");
+      const proxy = new ExecutionProxy();
+      for (const [taskId, output] of workerOutputsMap) {
+        const task = plan.task_graph.tasks.find(t => t.id === taskId);
+        const { attestation } = proxy.wrapExecution({
+          model_tier: (task?.model_tier || "tier-2") as ModelTier,
+          project_root: ctx.project.root_path,
+          sandbox_paths: task?.allowed_paths,
+        }, output);
+        emitAudit(ctx, "task_completed", {
+          task_id: taskId,
+          attestation_model: attestation.actual_model,
+          sandbox_violations: attestation.sandbox_violations,
+          modified_paths: attestation.modified_paths,
+        }, taskId);
+      }
+
+      // Phase 5d: 生成最终报告（含 evidence aggregation）
       const result = this.finalizeRun(ctx, execution, plan);
       result.final_status = execution.status;
-      await this.runStore.saveResult(result);
+
+      // 将 report aggregator 接入主链
+      const { aggregateRunEvidence } = await import("../integrations/report-aggregator");
+      const runReport = aggregateRunEvidence(result, ctx.collectedGateResults);
+      // evidence refs 写入质量报告的 recommendations
+      result.quality_report.recommendations = [
+        ...result.quality_report.recommendations,
+        ...runReport.evidence_refs.map(r => `[${r.type}] ${r.ref_id}: ${r.description}`),
+      ];
 
       emitAudit(ctx, execution.status === "succeeded" ? "run_completed" : "run_failed", {
         final_status: execution.status,
@@ -628,6 +705,9 @@ export class OrchestratorRuntime {
         await this.executeHookPhase("post_pr", ctx);
       }
 
+      // Phase 5d: 最终持久化 — PR artifacts 收敛后再保存 RunResult
+      await this.runStore.saveResult(result);
+
       // 持久化审计日志 + 最终状态
       await this.auditTrail.recordBatch(ctx.auditLog);
       await this.auditTrail.forceFlush();
@@ -660,11 +740,7 @@ export class OrchestratorRuntime {
     // 0. Requirement Grounding
     const { groundRequirement } = await import("../orchestrator/requirement-grounding");
     const grounding = groundRequirement(request);
-
-    // 如果歧义过多，阻断执行
-    if (grounding.ambiguity_items.length > 2) {
-      throw new Error(`需求歧义过多，需要澄清: ${grounding.ambiguity_items.join("; ")}`);
-    }
+    emitAudit(ctx, "run_planned", { phase: "requirement_grounding", ambiguity_count: grounding.ambiguity_items.length });
 
     // 1. 意图分析
     const intentResult = analyzeIntent(request.intent, {
@@ -755,6 +831,7 @@ export class OrchestratorRuntime {
       routing_decisions: routingDecisions,
       budget_estimate: budgetEstimate,
       pending_approvals: pendingApprovals,
+      requirement_grounding: grounding,
       planned_at: new Date().toISOString(),
     };
   }
@@ -1309,16 +1386,26 @@ export class OrchestratorRuntime {
     });
   }
 
-  private determineFinalStatus(execution: RunExecution): RunStatus {
+  private determineFinalStatus(execution: RunExecution, plan?: RunPlan): RunStatus {
     // blocked 状态优先级最高，不能被覆盖
     if (execution.status === "blocked") return "blocked";
 
+    // 基于 plan.task_graph.tasks 全集判定（而非仅 completed_attempts）
     const allAttempts = Object.values(execution.completed_attempts).flat();
-    const taskIds = new Set(allAttempts.map((a) => a.task_id));
+    const attemptedTaskIds = new Set(allAttempts.map((a) => a.task_id));
+
+    // 获取全部计划任务 ID
+    const allTaskIds = plan
+      ? new Set(plan.task_graph.tasks.map((t) => t.id))
+      : attemptedTaskIds;
+
+    // 检查是否有未尝试的任务
+    const hasSkippedTasks = [...allTaskIds].some(id => !attemptedTaskIds.has(id));
+
     let allSucceeded = true;
     let anySucceeded = false;
 
-    for (const taskId of taskIds) {
+    for (const taskId of attemptedTaskIds) {
       const taskAttempts = allAttempts.filter((a) => a.task_id === taskId);
       const succeeded = taskAttempts.some((a) => a.status === "succeeded");
       if (succeeded) {
@@ -1328,7 +1415,10 @@ export class OrchestratorRuntime {
       }
     }
 
-    if (allSucceeded && taskIds.size > 0) return "succeeded";
+    // 有 skipped tasks 时，不能返回 succeeded
+    if (hasSkippedTasks) allSucceeded = false;
+
+    if (allSucceeded && attemptedTaskIds.size > 0 && !hasSkippedTasks) return "succeeded";
     if (anySucceeded) return "partially_failed";
     return "failed";
   }
@@ -1705,9 +1795,9 @@ export class OrchestratorRuntime {
     if (!this.rbacEngine) return; // RBAC 未配置时不阻断（向后兼容）
     const actor: import("../schemas/ga-schemas").ActorIdentity = {
       id: actorId,
-      type: "user",
+      type: actorId === "control-plane" ? "system" : "user",
       name: actorId,
-      roles: [],
+      roles: actorId === "control-plane" ? ["admin"] : [],
     };
     if (!this.rbacEngine.hasPermission(actor, permission)) {
       throw new Error(`权限不足: ${actorId} 缺少 ${permission} 权限`);

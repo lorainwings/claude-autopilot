@@ -16,6 +16,7 @@
 
 import type { TaskGraph, TaskNode, TaskStatus, RiskLevel } from "../orchestrator/task-graph";
 import type { OwnershipPlan } from "../orchestrator/ownership-planner";
+import { findPathOverlaps } from "../orchestrator/ownership-planner";
 
 // ============================================================
 // 调度数据结构
@@ -108,7 +109,7 @@ export function createSchedulePlan(
       for (let j = i + 1; j < ownershipPlan.assignments.length; j++) {
         const a1 = ownershipPlan.assignments[i];
         const a2 = ownershipPlan.assignments[j];
-        const overlap = a1.exclusive_paths.some(p => a2.exclusive_paths.includes(p));
+        const overlap = findPathOverlaps(a1.exclusive_paths, a2.exclusive_paths).length > 0;
         if (overlap) {
           if (!writeConflicts.has(a1.task_id)) writeConflicts.set(a1.task_id, new Set());
           if (!writeConflicts.has(a2.task_id)) writeConflicts.set(a2.task_id, new Set());
