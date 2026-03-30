@@ -4,6 +4,18 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.3...parallel-harness-v1.2.0) (2026-03-30)
+
+
+### Added
+
+* **parallel-harness:** 全量修复 10 个能力域 — 运行时正确性/所有权隔离/上下文/Gate/报告 ([31b1ad3](https://github.com/lorainwings/claude-autopilot/commit/31b1ad330dee6616e0186ef6bd2e3ac78c88bd2f))
+
+
+### Fixed
+
+* **parallel-harness:** 主链闭环返修 — 10 项 review 问题全部修复 ([39710b0](https://github.com/lorainwings/claude-autopilot/commit/39710b0cc65d4eabff6a16831941924cb2539eb1))
+
 ## [1.1.3](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.2...parallel-harness-v1.1.3) (2026-03-29)
 
 
