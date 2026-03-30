@@ -122,6 +122,8 @@ export function planOwnership(graph: TaskGraph): OwnershipPlan {
           assignment.shared_read_paths.push(conflict.path);
         }
       }
+    } else if (conflict.resolution === "merge_guard") {
+      // merge_guard 冲突：调度器层面禁止同批并发（通过 ownershipPlan 传递给 scheduler）
     }
   }
 
@@ -197,7 +199,7 @@ export interface OwnershipViolation {
 // 辅助函数
 // ============================================================
 
-function findPathOverlaps(paths1: string[], paths2: string[]): string[] {
+export function findPathOverlaps(paths1: string[], paths2: string[]): string[] {
   const overlaps: string[] = [];
   for (const p1 of paths1) {
     for (const p2 of paths2) {

@@ -105,6 +105,9 @@ export interface RunPlan extends Versioned {
   /** 需要审批的动作 */
   pending_approvals: ApprovalRequest[];
 
+  /** 需求契约 (Requirement Grounding) */
+  requirement_grounding?: import("../orchestrator/requirement-grounding").RequirementGrounding;
+
   /** 规划时间 */
   planned_at: string;
 }
