@@ -1575,13 +1575,13 @@ export class OrchestratorRuntime {
       await this.runLevelGates(ctx, execution, plan);
     }
 
-    // Finalize
+    // Finalize — 与 normal path 使用同一套终态判定逻辑
     execution.cost_ledger = ctx.costLedger;
-    const result = this.finalizeRun(ctx, execution, plan);
-    const finalStatus = this.determineFinalStatus(execution);
+    const finalStatus = this.determineFinalStatus(execution, plan);
     if (execution.status !== finalStatus) {
       transitionRunStatus(execution, finalStatus, "恢复执行完成");
     }
+    const result = this.finalizeRun(ctx, execution, plan);
     result.final_status = execution.status;
 
     await this.runStore.saveResult(result);
