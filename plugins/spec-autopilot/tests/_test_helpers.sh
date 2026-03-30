@@ -64,3 +64,25 @@ assert_file_exists() {
     FAIL=$((FAIL + 1))
   fi
 }
+
+assert_file_contains() {
+  local name="$1" filepath="$2" needle="$3"
+  if grep -q "$needle" "$filepath"; then
+    green "  PASS: $name (contains '$needle')"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: $name (missing '$needle' in $filepath)"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+assert_file_not_contains() {
+  local name="$1" filepath="$2" needle="$3"
+  if ! grep -q "$needle" "$filepath"; then
+    green "  PASS: $name (correctly missing '$needle')"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: $name (unexpectedly contains '$needle' in $filepath)"
+    FAIL=$((FAIL + 1))
+  fi
+}
