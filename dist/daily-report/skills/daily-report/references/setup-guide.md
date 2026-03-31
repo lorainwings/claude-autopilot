@@ -38,7 +38,7 @@ npx skills add larksuite/cli -y -g
 lark-cli config init --new
 ```
 
-执行后终端会输出一个授权 URL，在浏览器中打开该链接:
+执行后终端会输出一个授权 URL。**必须将完整输出原样展示给用户，严禁折叠或省略**。使用 `open <URL>`（macOS）自动在浏览器中打开该链接:
 
 1. 系统会自动通过 API 创建一个名为"飞书 CLI"的机器人应用
 2. 页面会显示权限列表，**滚动到底部，把能开的权限都开启**
@@ -47,7 +47,7 @@ lark-cli config init --new
 
 ### 1.4 授权飞书权限 (scope)
 
-lark-cli 通过逐个 scope 授权的方式获取飞书 API 权限。每条授权命令执行后，终端会输出一个设备验证链接（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`），在浏览器中打开该链接完成授权，终端自动确认。
+lark-cli 通过逐个 scope 授权的方式获取飞书 API 权限。每条授权命令执行后，终端会输出一个设备验证链接（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`）。**必须将命令完整输出原样展示给用户，严禁折叠**。从输出中提取 URL，使用 `open <URL>`（macOS）自动在浏览器打开完成授权，终端自动确认。
 
 日报插件所需的核心 scope:
 
@@ -118,11 +118,14 @@ Claude 会从 cURL 命令中自动提取以下信息:
 | 字段 | 来源 |
 |------|------|
 | `pageUrl` | cURL 的 `Referer` / `Origin` 头，或由用户确认的日报页面地址 |
-| `baseUrl` | 请求 URL 的域名 + 路径前缀 |
+| `baseUrl` | 请求 URL 的**协议+域名（含端口）**，不含任何路径部分 |
+| `apiPrefix` | 请求 URL 中域名之后、具体接口路径之前的**路径前缀** |
 | `token` | `Authorization` 请求头 |
 | `tenantId` | `tenant-id` 请求头或 URL 参数 |
-| `userId` | 请求参数或 body 中的 userId 字段 |
-| `deptId` | 请求参数或 body 中的 deptId 字段 |
+| `userId` | 自动通过 API 获取（调用 `get-permission-info` 接口） |
+| `deptId` | 自动通过 API 获取（调用 `get-permission-info` 接口） |
+
+示例: cURL URL 为 `https://xxx.com/prodneikong/server/admin-api/pm/work-hour-matter/list?deptId=125` → `baseUrl` = `https://xxx.com`，`apiPrefix` = `/prodneikong/server/admin-api`
 
 其中 `pageUrl` 会保存到 config.json，后续 Token 过期时插件会直接提示你打开这个地址，无需再解释完整抓包流程。
 
@@ -132,7 +135,8 @@ Claude 还会询问:
 
 - **Git 仓库路径**: 需要扫描提交记录的本地仓库路径列表
 - **Git Author**: 你的 git 提交作者名 (支持 `|` 分隔多个别名，如 `lorain|廖员`)
-- **飞书群 ID**: 需要拉取聊天记录的群 chat_id 列表
+
+飞书群聊消息由插件在运行时自动扫描用户所在的全部群聊，无需手动配置。
 
 ## 四、Token 过期处理
 

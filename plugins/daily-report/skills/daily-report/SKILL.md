@@ -37,8 +37,8 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    lark-cli config init --new
    ```
 
-   终端会输出授权 URL，引导用户在浏览器打开，页面显示飞书应用权限列表，提示用户**滚动到底，把能开的权限都开启**，点击【开通并授权】完成
-4. 授权飞书 scope（逐个 scope 授权，每个都会弹出浏览器链接让用户确认）:
+   终端会输出授权 URL。**必须将命令完整输出原样展示给用户，严禁折叠、省略或摘要**。从输出中提取 URL，使用 `open <URL>`（macOS）自动在浏览器打开。页面显示飞书应用权限列表，提示用户**滚动到底，把能开的权限都开启**，点击【开通并授权】完成
+4. 授权飞书 scope（逐个 scope 授权，每个都会输出浏览器验证链接）:
 
    ```
    lark-cli auth login --scope "im:message:readonly"
@@ -46,19 +46,27 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg:get_as_user contact:user.base:readonly"
    ```
 
-   每条命令执行后终端输出一个设备验证链接（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`），引导用户在浏览器打开该链接完成授权。授权成功后终端自动确认。
+   **关键规则**: 每条命令执行后，终端输出设备验证链接（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`）:
+   - **严禁折叠**: 必须将命令的完整输出原样展示给用户，不得折叠、截断或摘要化
+   - **自动打开**: 从输出中提取验证 URL，使用 `open <URL>`（macOS）自动在浏览器打开
+   - 等待用户在浏览器完成授权，终端自动确认后继续下一条
    > 注意: 部分 scope（如 `search:message`）需要管理员审批，非必需可跳过
 
 **0-B: 内控日报 API 配置**
 
 1. 引导用户打开内控日报页面，通过浏览器 DevTools Network 面板抓包
 2. 让用户右键请求 → "Copy as cURL"，粘贴给你
-3. 从 cURL 中解析出: `baseUrl`（域名 + 路径前缀，如 `https://xxx.com/prodneikong/server/admin-api`）、`Authorization` Token、`tenant-id`
+3. 从 cURL 中解析:
+   - `baseUrl`: **仅提取协议+域名（含端口）**，如 `https://xxx.com`。不要包含任何路径部分
+   - `apiPrefix`: 请求 URL 中域名之后、具体接口路径之前的**路径前缀**，如 `/prodneikong/server/admin-api`（注意：不含末尾斜杠）
+   - `Authorization` Token
+   - `tenant-id`
+   - 示例: cURL URL 为 `https://xxx.com/prodneikong/server/admin-api/pm/work-hour-matter/list?deptId=125` → `baseUrl` = `https://xxx.com`，`apiPrefix` = `/prodneikong/server/admin-api`
 4. 从 cURL 的 `Referer` / `Origin` 头或用户确认中提取日报页面地址，保存为 `pageUrl`
 5. **自动获取用户身份**: 用解析出的 token 调用:
 
    ```
-   GET {baseUrl}/system/auth/get-permission-info
+   GET {baseUrl}{apiPrefix}/system/auth/get-permission-info
    Header: Authorization: {token}, tenant-id: {tenantId}
    ```
 
@@ -71,7 +79,7 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 **0-D: 补充配置**
 
 1. 询问用户需要扫描的 git 仓库路径列表、git author 名称
-2. 询问用户需要监控的飞书群 chat_id 列表
+2. 确保配置目录存在: `mkdir -p ~/.config/daily-report`
 3. 将配置写入 `~/.config/daily-report/config.json`
 
 **config.json 结构:**
@@ -79,15 +87,15 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 ```json
 {
   "pageUrl": "https://xxx.com/neikong/#/daily-report",
-  "baseUrl": "https://xxx.com/prodneikong/server/admin-api",
+  "baseUrl": "https://xxx.com",
+  "apiPrefix": "/prodneikong/server/admin-api",
   "token": "Bearer xxx",
   "userId": 194,
   "deptId": 125,
   "tenantId": "1",
   "larkOpenId": "ou_xxx",
   "repos": ["/path/to/repo1", "/path/to/repo2"],
-  "gitAuthor": "lorain|廖员",
-  "larkChatIds": ["oc_xxx"]
+  "gitAuthor": "lorain|廖员"
 }
 ```
 
@@ -98,10 +106,10 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    - 不可用: **阻断流程**，按阶段 0-A 步骤 1-2 引导安装
 3. 验证飞书权限可用: 通过 lark-cli skill 尝试获取群聊列表（少量数据即可）
    - 成功: 继续
-   - 返回 `missing_scope` 错误: lark-cli 错误信息会明确告知缺少哪些 scope 并给出修复命令（形如 `lark-cli auth login --scope "xxx"`），在后台执行该命令，获取输出的浏览器验证链接让用户确认
+   - 返回 `missing_scope` 错误: lark-cli 错误信息会明确告知缺少哪些 scope 并给出修复命令（形如 `lark-cli auth login --scope "xxx"`），在后台执行该命令，**将完整输出原样展示给用户（严禁折叠）**，从输出中提取验证 URL 并用 `open <URL>` 自动在浏览器打开
    - 部分 scope 需要管理员审批: 提示用户联系管理员
 4. 验证内控 Token 有效性: 用 `curl` 调用用户信息接口
-   - 接口: `GET {baseUrl}/system/auth/get-permission-info`
+   - 接口: `GET {baseUrl}{apiPrefix}/system/auth/get-permission-info`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 成功: HTTP 200 且返回用户信息（同时可刷新 config 中的 userId/deptId）
    - 失败: Token 已过期，执行**快速刷新**:
@@ -127,23 +135,25 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    - `gitAuthor` 支持 `|` 分隔的多个别名
 
 2. **飞书聊天记录**
-   - 遍历 `config.larkChatIds`，通过 lark-cli skill 拉取每个群在目标日期范围内的聊天消息
+   - 通过 lark-cli skill **自动获取用户所在的全部群聊列表**，无需用户手动配置 chat_id
+   - 遍历全部群聊，通过 lark-cli skill 拉取每个群在目标日期范围内的聊天消息
+   - 日期范围由用户参数决定: 日报扫描当天消息，周报扫描本周，月报扫描本月（与 git 提交的日期范围一致）
    - lark-cli skill 会自动处理参数格式和分页，只需提供 chat_id、起止时间
    - 若返回 `missing_scope` 错误，按错误的 `hint` 字段执行对应授权命令补充权限
    - 用 `config.larkOpenId` 过滤消息的 `sender.id` 字段，只保留自己发送的消息
 
 3. **事项分类列表**
-   - 调用: `GET {baseUrl}/pm/work-hour-matter/list?deptId={deptId}`
+   - 调用: `GET {baseUrl}{apiPrefix}/pm/work-hour-matter/list?deptId={deptId}`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 返回当前部门下的事项列表 (id + name)，用于匹配 matterId
 
 4. **部门列表**（辅助上下文）
-   - 调用: `GET {baseUrl}/system/dept/simple-list`
+   - 调用: `GET {baseUrl}{apiPrefix}/system/dept/simple-list`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 返回部门树形结构，用于理解组织关系
 
 5. **医院/项目组别**（辅助上下文）
-   - 调用: `POST {baseUrl}/pm/fcs/product-category/list-exclude-integrated`
+   - 调用: `POST {baseUrl}{apiPrefix}/pm/fcs/product-category/list-exclude-integrated`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
    - Body: `{"pageSize":9999,"pageNo":1,"name":"","parentId":0}`
    - 返回医院/项目分类列表，辅助日报内容归类
@@ -183,12 +193,12 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 用户确认后执行提交:
 
 1. **检查已填日期**: 调用查询接口检查每个目标日期是否已有日报
-   - 接口: `GET {baseUrl}/pm/work-hour/page?tenantId={tenantId}&userId={userId}&startDate={date}&endDate={date}`
+   - 接口: `GET {baseUrl}{apiPrefix}/pm/work-hour/page?tenantId={tenantId}&userId={userId}&startDate={date}&endDate={date}`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 已有记录的日期自动跳过，输出提示
 
 2. **逐天提交**: 对每个未填日期，逐条调用创建接口
-   - 接口: `POST {baseUrl}/pm/work-hour/create`
+   - 接口: `POST {baseUrl}{apiPrefix}/pm/work-hour/create`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
    - Body:
 
