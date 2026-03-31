@@ -14,6 +14,7 @@
 |------|------|------|
 | [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.2.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.2.0 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
+| [daily-report](plugins/daily-report/) | 1.0.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 
 ## 快速安装
 
@@ -27,7 +28,10 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope project
 # 3. 安装 parallel-harness（项目级）
 claude plugin install parallel-harness@lorainwings-plugins --scope project
 
-# 4. 重启 Claude Code
+# 4. 安装 daily-report（项目级）
+claude plugin install daily-report@lorainwings-plugins --scope project
+
+# 5. 重启 Claude Code
 ```
 
 ## 什么是 spec-autopilot？

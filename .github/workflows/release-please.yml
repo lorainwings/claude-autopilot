@@ -26,6 +26,10 @@ jobs:
       ph_release_created: ${{ steps.release.outputs['plugins/parallel-harness--release_created'] }}
       ph_tag_name: ${{ steps.release.outputs['plugins/parallel-harness--tag_name'] }}
       ph_version: ${{ steps.release.outputs['plugins/parallel-harness--version'] }}
+      # daily-report outputs
+      dr_release_created: ${{ steps.release.outputs['plugins/daily-report--release_created'] }}
+      dr_tag_name: ${{ steps.release.outputs['plugins/daily-report--tag_name'] }}
+      dr_version: ${{ steps.release.outputs['plugins/daily-report--version'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -63,6 +67,10 @@ jobs:
       - name: Build parallel-harness dist
         if: needs.release-please.outputs.ph_release_created == 'true'
         run: bash plugins/parallel-harness/tools/build-dist.sh
+
+      - name: Build daily-report dist
+        if: needs.release-please.outputs.dr_release_created == 'true'
+        run: bash plugins/daily-report/tools/build-dist.sh
 
       - name: Update plugin README & CLAUDE.md versions
         run: |
@@ -114,6 +122,11 @@ jobs:
             jq --arg v "$PH_VER" '(.plugins[] | select(.name == "parallel-harness")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
           fi
 
+          DR_VER="${{ needs.release-please.outputs.dr_version }}"
+          if [ -n "$DR_VER" ]; then
+            jq --arg v "$DR_VER" '(.plugins[] | select(.name == "daily-report")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
+          fi
+
       - name: Update parallel-harness docs version headers
         if: needs.release-please.outputs.ph_release_created == 'true'
         run: |
@@ -155,6 +168,16 @@ jobs:
             test -d dist/parallel-harness/config
             test -f dist/parallel-harness/CLAUDE.md
             echo "dist/parallel-harness structure OK"
+          fi
+
+          DR_CREATED="${{ needs.release-please.outputs.dr_release_created }}"
+          if [ "$DR_CREATED" = "true" ]; then
+            echo "Verifying dist/daily-report structure..."
+            test -d dist/daily-report/.claude-plugin
+            test -f dist/daily-report/.claude-plugin/plugin.json
+            test -d dist/daily-report/skills
+            test -f dist/daily-report/CLAUDE.md
+            echo "dist/daily-report structure OK"
           fi
 
       - name: Commit post-release updates

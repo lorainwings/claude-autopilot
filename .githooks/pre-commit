@@ -333,6 +333,71 @@ if [ "${PH_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/parallel-harness" ] && [
 fi
 
 # ============================================
+# Part 3.6: daily-report dist rebuild
+# ============================================
+DR_CHANGED=$(git diff --cached --name-only | grep -q "plugins/daily-report/" && echo "yes" || echo "no")
+
+if [ "$DR_CHANGED" = "yes" ]; then
+  # Skip metadata-only changes
+  DR_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/daily-report/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
+
+  if [ -n "$DR_SUBSTANTIVE" ]; then
+    echo "📦 Rebuilding dist/daily-report/..."
+    DR_DIST_REBUILT="yes"
+    if bash plugins/daily-report/tools/build-dist.sh; then
+      git add dist/daily-report/
+    else
+      echo "❌ daily-report dist build failed. Fix the build before committing."
+      exit 1
+    fi
+    echo "✅ daily-report dist rebuilt"
+    echo ""
+  fi
+fi
+
+# ============================================
+# Part 3.7: daily-report dist staleness guard
+# ============================================
+if [ "${DR_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/daily-report" ] && [ -d "dist/daily-report" ]; then
+  DR_DIST_STALE="no"
+  # 对比白名单目录：skills, .claude-plugin
+  for _dir in skills .claude-plugin; do
+    _src="plugins/daily-report/$_dir"
+    _dst="dist/daily-report/$_dir"
+    if [ -d "$_src" ]; then
+      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
+        DR_DIST_STALE="yes"
+        break
+      fi
+    fi
+  done
+  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
+  if [ "$DR_DIST_STALE" = "no" ] && [ -f "plugins/daily-report/CLAUDE.md" ]; then
+    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/daily-report/CLAUDE.md" 2>/dev/null; then
+      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/daily-report/CLAUDE.md")
+    else
+      _expected=$(cat "plugins/daily-report/CLAUDE.md")
+    fi
+    _actual=$(cat "dist/daily-report/CLAUDE.md" 2>/dev/null || echo "")
+    if [ "$_expected" != "$_actual" ]; then
+      DR_DIST_STALE="yes"
+    fi
+  fi
+
+  if [ "$DR_DIST_STALE" = "yes" ]; then
+    echo "📦 dist/daily-report/ 与源码不一致（可能由 rebase 引起），自动重建..."
+    if bash plugins/daily-report/tools/build-dist.sh; then
+      git add dist/daily-report/
+      echo "✅ daily-report dist 已同步"
+      echo ""
+    else
+      echo "❌ daily-report dist build failed. Fix the build before committing."
+      exit 1
+    fi
+  fi
+fi
+
+# ============================================
 # Part 4: 基础设施文件变更 lint guard
 # ============================================
 # 当 Makefile / .githooks / scripts / .shellcheckrc / release-please 配置等

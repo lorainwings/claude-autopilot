@@ -4,6 +4,7 @@
 
 SA  := plugins/spec-autopilot
 PH  := plugins/parallel-harness
+DR  := plugins/daily-report
 
 # lint 工具版本 — 与 .github/workflows/test-spec-autopilot.yml 保持一致
 RUFF_VERSION  := 0.15.7
@@ -11,6 +12,7 @@ MYPY_VERSION  := 1.15.0
 
 .PHONY: hooks setup test build lint format typecheck ci \
         ph-test ph-typecheck ph-build ph-lint ph-setup \
+        dr-build \
         release release-dry \
         help
 
@@ -126,6 +128,11 @@ ph-lint: ## Lint parallel-harness build script (shellcheck)
 	fi
 
 ph-ci: ph-lint ph-typecheck ph-test ph-build ## parallel-harness CI: lint → typecheck → test → build
+
+# ── daily-report targets ──────────────────────────────────────────
+
+dr-build: hooks ## Build daily-report dist/ (pure file copy, no compile)
+	@bash $(DR)/tools/build-dist.sh
 
 # ── Release ────────────────────────────────────────────────────────
 

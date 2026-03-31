@@ -14,6 +14,7 @@
 |--------|---------|-------------|
 | [spec-autopilot](plugins/spec-autopilot/) | 5.2.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.2.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
+| [daily-report](plugins/daily-report/) | 1.0.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 
 ## Quick Install
 
@@ -27,7 +28,10 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope project
 # 3. Install parallel-harness (project-level)
 claude plugin install parallel-harness@lorainwings-plugins --scope project
 
-# 4. Restart Claude Code
+# 4. Install daily-report (project-level)
+claude plugin install daily-report@lorainwings-plugins --scope project
+
+# 5. Restart Claude Code
 ```
 
 ## What is spec-autopilot?

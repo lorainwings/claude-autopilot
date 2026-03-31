@@ -19,9 +19,9 @@ HEAD_REF="${2:-HEAD}"
 PLUGIN_FILTER="${3:-all}"
 
 case "$PLUGIN_FILTER" in
-  spec-autopilot|parallel-harness|all) ;;
+  spec-autopilot|parallel-harness|daily-report|all) ;;
   *)
-    echo "❌ Invalid plugin_filter: '$PLUGIN_FILTER'. Must be spec-autopilot | parallel-harness | all"
+    echo "❌ Invalid plugin_filter: '$PLUGIN_FILTER'. Must be spec-autopilot | parallel-harness | daily-report | all"
     exit 1
     ;;
 esac
@@ -233,6 +233,9 @@ if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "spec-autopilot" ]; then
 fi
 if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "parallel-harness" ]; then
   check_plugin "plugins/parallel-harness" "parallel-harness" "package_json"
+fi
+if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "daily-report" ]; then
+  check_plugin "plugins/daily-report" "daily-report" "plugin_json"
 fi
 
 if [ "$OVERALL_FAIL" -eq 1 ]; then

@@ -1,0 +1,21 @@
+{
+  "name": "daily-report",
+  "version": "1.0.0",
+  "description": "Auto-generate and submit daily work reports from git commits and Lark chat history",
+  "author": {
+    "name": "lorainwings",
+    "url": "https://github.com/lorainwings"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/daily-report",
+  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "daily-report",
+    "automation",
+    "git",
+    "lark",
+    "feishu"
+  ]
+}
