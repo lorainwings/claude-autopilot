@@ -12,7 +12,7 @@ MYPY_VERSION  := 1.15.0
 
 .PHONY: hooks setup test build lint format typecheck ci \
         ph-test ph-typecheck ph-build ph-lint ph-setup \
-        dr-build \
+        dr-build dr-lint dr-ci \
         release release-dry \
         help
 
@@ -133,6 +133,18 @@ ph-ci: ph-lint ph-typecheck ph-test ph-build ## parallel-harness CI: lint → ty
 
 dr-build: hooks ## Build daily-report dist/ (pure file copy, no compile)
 	@bash $(DR)/tools/build-dist.sh
+
+dr-lint: ## Lint daily-report build script (shellcheck)
+	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \
+	echo "── shellcheck: daily-report ──"; \
+	if command -v shellcheck >/dev/null 2>&1; then \
+	  shellcheck $(DR)/tools/build-dist.sh; \
+	else \
+	  echo "❌ shellcheck not found. Install: brew install shellcheck"; \
+	  exit 1; \
+	fi
+
+dr-ci: dr-lint dr-build ## daily-report CI: lint → build
 
 # ── Release ────────────────────────────────────────────────────────
 

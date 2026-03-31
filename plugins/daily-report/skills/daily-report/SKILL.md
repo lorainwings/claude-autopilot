@@ -218,26 +218,48 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 用户确认后执行提交:
 
 1. **检查已填日期**: 调用查询接口检查每个目标日期是否已有日报
-   - 接口: `GET {baseUrl}{apiPrefix}/pm/work-hour/page?tenantId={tenantId}&userId={userId}&startDate={date}&endDate={date}`
+   - 接口: `GET {baseUrl}{apiPrefix}/pm/staff-work-time-record/page?userId={userId}&startDate={date}&endDate={date}`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 已有记录的日期自动跳过，输出提示
 
-2. **逐天提交**: 对每个未填日期，逐条调用创建接口
-   - 接口: `POST {baseUrl}{apiPrefix}/pm/work-hour/create`
+2. **按天提交**: 对每个未填日期，将该天所有条目打包为一次请求
+   - 接口: `POST {baseUrl}{apiPrefix}/pm/staff-work-time-record/create`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
-   - Body:
+   - Body（**一天一次请求，workList 包含该天所有条目**）:
 
      ```json
      {
        "userId": 194,
        "deptId": 125,
-       "tenantId": "1",
-       "matterId": "<分类ID>",
-       "reportDate": "2026-03-28",
-       "content": "<日报内容>",
-       "workTime": 4.0
+       "recordDate": "2026-03-28",
+       "workList": [
+         {
+           "productItemId": 29,
+           "matterId": 28,
+           "matterName": "代码维护",
+           "matter": "代码维护",
+           "workHours": 4.0,
+           "remark": "实现用户认证模块"
+         },
+         {
+           "productItemId": 29,
+           "matterId": 30,
+           "matterName": "问题修复",
+           "matter": "问题修复",
+           "workHours": 2.0,
+           "remark": "修复登录超时问题"
+         }
+       ]
      }
      ```
+
+   - `workList` 各字段说明:
+     - `productItemId`: 项目 ID（从医院/项目组别列表获取）
+     - `matterId`: 事项分类 ID（从事项分类列表获取）
+     - `matterName`: 事项分类名称
+     - `matter`: 事项分类名称（与 matterName 一致）
+     - `workHours`: 该条目工时
+     - `remark`: 具体工作内容描述
 
 3. **结果汇总**: 输出提交结果
 

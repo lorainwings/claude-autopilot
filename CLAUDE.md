@@ -8,27 +8,30 @@
 ## 项目概述
 
 - **仓库**: [lorainwings/claude-autopilot](https://github.com/lorainwings/claude-autopilot)
-- **定位**: Claude Code 插件市场 monorepo，托管两个独立插件
+- **定位**: Claude Code 插件市场 monorepo，托管三个独立插件
 - **许可**: MIT License
 
 | 插件 | 定位 | 运行时 |
 |------|------|--------|
 | **spec-autopilot** | 规格驱动的自动化交付流水线编排器 | Bash/Python + React GUI + TypeScript WebSocket |
 | **parallel-harness** | 并行 AI 工程控制平面 | TypeScript/Bun |
+| **daily-report** | 基于 git + 飞书的日报自动化生成器 | 纯 Skill (Markdown 指令) |
 
 ## Monorepo 导航
 
 ```
 ├── .claude-plugin/              # 市场配置 (marketplace.json — 版本号由自动化维护)
 ├── .githooks/                   # Git pre-commit hook (非 Husky)
-├── .github/workflows/           # CI: test-spec-autopilot / test-parallel-harness / release-please
+├── .github/workflows/           # CI: test-spec-autopilot / test-parallel-harness / test-daily-report / release-please
 ├── dist/                        # 构建产物 (git tracked，供市场安装)
 │   ├── spec-autopilot/          # spec-autopilot 发布产物
-│   └── parallel-harness/        # parallel-harness 发布产物
+│   ├── parallel-harness/        # parallel-harness 发布产物
+│   └── daily-report/            # daily-report 发布产物
 ├── docs/plans/                  # 设计文档与执行计划
 ├── plugins/                     # 插件源代码 (所有修改在此进行)
 │   ├── spec-autopilot/          # → 有独立 CLAUDE.md
-│   └── parallel-harness/        # → 有独立 CLAUDE.md
+│   ├── parallel-harness/        # → 有独立 CLAUDE.md
+│   └── daily-report/            # → 有独立 CLAUDE.md
 ├── scripts/                     # 仓库级脚本 (setup-hooks.sh, check-release-discipline.sh)
 ├── tools/                       # 发版工具 (release.sh)
 ├── Makefile                     # 统一构建入口 — 所有构建/测试/lint 操作的唯一入口
@@ -40,6 +43,7 @@
 
 - 修改 spec-autopilot 源码 → `plugins/spec-autopilot/`
 - 修改 parallel-harness 源码 → `plugins/parallel-harness/`
+- 修改 daily-report 源码 → `plugins/daily-report/`
 - 查看市场配置 → `.claude-plugin/marketplace.json`
 - 查看 CI 定义 → `.github/workflows/`
 - 查看版本清单 → `.release-please-manifest.json`
@@ -58,15 +62,15 @@
 
 所有构建、测试、lint 操作**必须**通过 Makefile target 执行:
 
-| 操作 | spec-autopilot | parallel-harness |
-|------|---------------|-----------------|
-| 初始化 | `make setup` | `make ph-setup` |
-| 测试 | `make test` | `make ph-test` |
-| 构建 dist | `make build` | `make ph-build` |
-| Lint | `make lint` | `make ph-lint` |
-| 类型检查 | `make typecheck` | `make ph-typecheck` |
-| 格式检查 | `make format` | — |
-| 完整 CI | `make ci` | `make ph-ci` |
+| 操作 | spec-autopilot | parallel-harness | daily-report |
+|------|---------------|-----------------|-------------|
+| 初始化 | `make setup` | `make ph-setup` | — |
+| 测试 | `make test` | `make ph-test` | — |
+| 构建 dist | `make build` | `make ph-build` | `make dr-build` |
+| Lint | `make lint` | `make ph-lint` | `make dr-lint` |
+| 类型检查 | `make typecheck` | `make ph-typecheck` | — |
+| 格式检查 | `make format` | — | — |
+| 完整 CI | `make ci` | `make ph-ci` | `make dr-ci` |
 
 ### dist 目录管理
 
@@ -83,7 +87,7 @@
 
 1. **自动化流程**: PR 合入 `main` → release-please 自动创建 Release PR → 合并即发版
 2. **Conventional Commits 驱动**: commit message 遵循 `feat:` / `fix:` / `refactor:` / `perf:` 等前缀，release-please 据此计算版本号和生成 CHANGELOG
-3. **多包配置**: `release-please-config.json` 定义两个插件的发版规则，每个插件独立版本
+3. **多包配置**: `release-please-config.json` 定义三个插件的发版规则，每个插件独立版本
 4. **post-release 自动化**: CI 发版后自动更新 dist/、README badge、marketplace.json 版本号
 
 ### 手动 fallback
@@ -169,12 +173,13 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 
 ## CI/CD 规范
 
-### 三条 Pipeline
+### 四条 Pipeline
 
 | Workflow | 触发条件 | Job 链 |
 |----------|---------|--------|
 | `test-spec-autopilot.yml` | `plugins/spec-autopilot/**` 变更 | release-discipline → test-hooks → lint → typecheck → build-dist |
 | `test-parallel-harness.yml` | `plugins/parallel-harness/**` 变更 | release-discipline → ph-typecheck → ph-test → ph-lint → ph-build |
+| `test-daily-report.yml` | `plugins/daily-report/**` 变更 | release-discipline → dr-lint → dr-build |
 | `release-please.yml` | push to `main` | release-please → post-release (dist 构建 + 版本同步) |
 
 ### CI 关键行为
@@ -214,6 +219,7 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 2. release-please 分支 bypass
 3. spec-autopilot 变更时: 全量测试 → 测试覆盖检查 → staged lint → 版本一致性校验 → 自动重建 dist
 4. parallel-harness 变更时: 自动重建 dist
+5. daily-report 变更时: 自动重建 dist
 
 ## 文档规范
 

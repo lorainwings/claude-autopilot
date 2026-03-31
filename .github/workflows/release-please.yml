@@ -97,6 +97,7 @@ jobs:
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
           PH_VER="${{ needs.release-please.outputs.ph_version }}"
+          DR_VER="${{ needs.release-please.outputs.dr_version }}"
 
           if [ -n "$SA_VER" ]; then
             sed -i "s/| \[spec-autopilot\](plugins\/spec-autopilot\/) | [0-9][0-9.]*\b/| [spec-autopilot](plugins\/spec-autopilot\/) | $SA_VER/" README.md
@@ -106,6 +107,11 @@ jobs:
           if [ -n "$PH_VER" ]; then
             sed -i "s/| \[parallel-harness\](plugins\/parallel-harness\/) | [0-9][0-9.]*\b/| [parallel-harness](plugins\/parallel-harness\/) | $PH_VER/" README.md
             sed -i "s/| \[parallel-harness\](plugins\/parallel-harness\/README\.zh\.md) | [0-9][0-9.]*\b/| [parallel-harness](plugins\/parallel-harness\/README.zh.md) | $PH_VER/" README.zh.md
+          fi
+
+          if [ -n "$DR_VER" ]; then
+            sed -i "s/| \[daily-report\](plugins\/daily-report\/) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/) | $DR_VER/" README.md
+            sed -i "s/| \[daily-report\](plugins\/daily-report\/README\.zh\.md) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/README.zh.md) | $DR_VER/" README.zh.md
           fi
 
       - name: Update marketplace.json versions
@@ -196,9 +202,11 @@ jobs:
           else
             SA_VER="${{ needs.release-please.outputs.sa_version }}"
             PH_VER="${{ needs.release-please.outputs.ph_version }}"
+            DR_VER="${{ needs.release-please.outputs.dr_version }}"
             COMMIT_MSG="chore: post-release update dist + README versions"
             [ -n "$SA_VER" ] && COMMIT_MSG="$COMMIT_MSG [spec-autopilot@$SA_VER]"
             [ -n "$PH_VER" ] && COMMIT_MSG="$COMMIT_MSG [parallel-harness@$PH_VER]"
+            [ -n "$DR_VER" ] && COMMIT_MSG="$COMMIT_MSG [daily-report@$DR_VER]"
             git commit -m "$COMMIT_MSG"
             # 带重试的 push（处理并发冲突）
             for i in 1 2 3; do
