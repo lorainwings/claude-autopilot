@@ -4,6 +4,19 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.1.0...daily-report-v1.2.0) (2026-03-31)
+
+
+### Added
+
+* **daily-report:** 支持自然语言指定日期范围 ([be758df](https://github.com/lorainwings/claude-autopilot/commit/be758df25469cc9c4bc666b45eeffea9bc9cbbe6))
+
+
+### Fixed
+
+* **daily-report:** 修复 7 项 UX 问题并补全市场文档 ([9ec5e6f](https://github.com/lorainwings/claude-autopilot/commit/9ec5e6f0b05d1ba35c90041f87a96c745031b80a))
+* **daily-report:** 重启提示改为醒目双线框展示 ([5b4786c](https://github.com/lorainwings/claude-autopilot/commit/5b4786cb2bb62df9753e11afbc4848929b5823b8))
+
 ## [1.1.0](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.0.0...daily-report-v1.1.0) (2026-03-31)
 
 
