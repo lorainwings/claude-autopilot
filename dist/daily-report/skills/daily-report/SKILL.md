@@ -54,16 +54,24 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 
 **0-B: 内控日报 API 配置**
 
-1. 引导用户打开内控日报页面，通过浏览器 DevTools Network 面板抓包
-2. 让用户右键请求 → "Copy as cURL"，粘贴给你
-3. 从 cURL 中解析:
-   - `baseUrl`: **仅提取协议+域名（含端口）**，如 `https://xxx.com`。不要包含任何路径部分
-   - `apiPrefix`: 请求 URL 中域名之后、具体接口路径之前的**路径前缀**，如 `/prodneikong/server/admin-api`（注意：不含末尾斜杠）
-   - `Authorization` Token
-   - `tenant-id`
-   - 示例: cURL URL 为 `https://xxx.com/prodneikong/server/admin-api/pm/work-hour-matter/list?deptId=125` → `baseUrl` = `https://xxx.com`，`apiPrefix` = `/prodneikong/server/admin-api`
-4. 从 cURL 的 `Referer` / `Origin` 头或用户确认中提取日报页面地址，保存为 `pageUrl`
-5. **自动获取用户身份**: 用解析出的 token 调用:
+1. 询问用户以下信息:
+   - **内控日报页面地址** → 保存为 `pageUrl`（如 `https://xxx.com/neikong/#/daily-report`）
+   - **API 基础地址** → 如 `https://xxx.com/prodneikong/server/admin-api`，从中拆分:
+     - `baseUrl`: 仅协议+域名（如 `https://xxx.com`）
+     - `apiPrefix`: 路径前缀（如 `/prodneikong/server/admin-api`，不含末尾斜杠）
+   - **登录账号** → `username`
+   - **登录密码** → `password`
+   - **租户 ID** → `tenantId`（通常为 `"1"`，不确定可默认 `"1"`）
+2. **自动登录获取 Token**:
+
+   ```
+   POST {baseUrl}{apiPrefix}/system/auth/login
+   Header: tenant-id: {tenantId}, Content-Type: application/json
+   Body: {"username": "{username}", "password": "{password}"}
+   ```
+
+   从返回 JSON 的 `data` 中提取 `accessToken`，拼接为 `"Bearer {accessToken}"` 保存到 config 的 `token` 字段
+3. **自动获取用户身份**: 用登录获取的 token 调用:
 
    ```
    GET {baseUrl}{apiPrefix}/system/auth/get-permission-info
@@ -89,15 +97,19 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
   "pageUrl": "https://xxx.com/neikong/#/daily-report",
   "baseUrl": "https://xxx.com",
   "apiPrefix": "/prodneikong/server/admin-api",
+  "username": "lorain",
+  "password": "xxx",
+  "tenantId": "1",
   "token": "Bearer xxx",
   "userId": 194,
   "deptId": 125,
-  "tenantId": "1",
   "larkOpenId": "ou_xxx",
   "repos": ["/path/to/repo1", "/path/to/repo2"],
   "gitAuthor": "lorain|廖员"
 }
 ```
+
+> 注意: config.json 含密码等敏感信息，确保文件权限为 `600`（仅本人可读写）: `chmod 600 ~/.config/daily-report/config.json`
 
 ### 阶段 1: 环境检查
 
@@ -112,10 +124,11 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    - 接口: `GET {baseUrl}{apiPrefix}/system/auth/get-permission-info`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 成功: HTTP 200 且返回用户信息（同时可刷新 config 中的 userId/deptId）
-   - 失败: Token 已过期，执行**快速刷新**:
-     1. 读取 config 中的 `pageUrl`，提示用户: "Token 已过期，请打开 {pageUrl}，在 Network 面板随便抓一个请求，右键 Copy as cURL 粘贴给我"
-     2. 从新 cURL 中解析出新 Token，更新 config.json 中的 `token` 字段
+   - 失败: Token 已过期，**自动重新登录**:
+     1. 用 config 中的 `username`、`password`、`tenantId` 调用登录接口: `POST {baseUrl}{apiPrefix}/system/auth/login`
+     2. 从返回 JSON 的 `data` 中提取新 `accessToken`，更新 config.json 中的 `token` 字段
      3. 再次调用 `get-permission-info` 刷新 userId/deptId
+     4. 全程自动，无需用户干预
 
 ### 阶段 2: 数据采集
 

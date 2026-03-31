@@ -3,8 +3,7 @@
 ## 前置条件
 
 - Node.js 已安装（lark-cli 依赖）
-- Chrome / Edge 或其他支持 DevTools 的浏览器
-- 已登录公司内控系统日报页面
+- 已有公司内控系统账号密码
 
 ## 一、lark-cli 安装与配置（必需）
 
@@ -77,59 +76,29 @@ lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg
 
 如果后续使用中遇到 `missing_scope` 错误，lark-cli 会在错误的 `hint` 字段中给出修复命令，按提示执行 `lark-cli auth login --scope "..."` 即可补充授权。
 
-## 三、内控日报 API 抓包
+## 三、内控日报 API 配置
 
-### 3.1 打开内控日报页面
+### 3.1 提供账号信息
 
-在浏览器中打开公司内控系统的日报填写页面。
+Claude 会依次询问以下信息:
 
-### 3.2 打开 DevTools Network 面板
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| 日报页面地址 | 浏览器中打开日报的 URL | `https://xxx.com/neikong/#/daily-report` |
+| API 基础地址 | 内控系统 API 的完整前缀 | `https://xxx.com/prodneikong/server/admin-api` |
+| 登录账号 | 内控系统用户名 | `lorain` |
+| 登录密码 | 内控系统密码 | `xxx` |
+| 租户 ID | 通常为 `"1"`，不确定可默认 | `1` |
 
-- 快捷键: `F12` 或 `Cmd+Option+I` (macOS) / `Ctrl+Shift+I` (Windows/Linux)
-- 切换到 **Network** 标签页
-- 勾选 **Preserve log** (保留日志)
+> **API 基础地址如何获取**: 如果不确定，可在浏览器中打开内控系统任意页面，按 F12 打开 DevTools Network 面板，找到任一 API 请求，复制其 URL 中域名 + 路径前缀部分即可（不含具体接口路径和查询参数）。
 
-### 3.3 触发一次 API 请求
+### 3.2 自动登录
 
-在日报页面执行一次操作以产生网络请求，例如:
+Claude 会用你提供的账号密码调用登录接口，自动获取:
+- **Token**: 用于后续所有 API 调用的身份凭证
+- **userId / deptId**: 从用户信息接口自动获取，无需手动提供
 
-- 查看日报分类列表
-- 查看某天的日报记录
-- 打开日报填写表单
-
-### 3.4 找到目标请求
-
-在 Network 面板中找到包含以下关键词的请求:
-
-- `daily-report-matter/list` (分类列表)
-- `daily-report/page` (日报查询)
-- `daily-report/create` (日报创建)
-
-### 3.5 复制 cURL 命令
-
-- 右键点击目标请求
-- 选择 **Copy** → **Copy as cURL**
-- 将复制的内容粘贴给 Claude
-
-### 3.6 Claude 自动解析
-
-Claude 会从 cURL 命令中自动提取以下信息:
-
-| 字段 | 来源 |
-|------|------|
-| `pageUrl` | cURL 的 `Referer` / `Origin` 头，或由用户确认的日报页面地址 |
-| `baseUrl` | 请求 URL 的**协议+域名（含端口）**，不含任何路径部分 |
-| `apiPrefix` | 请求 URL 中域名之后、具体接口路径之前的**路径前缀** |
-| `token` | `Authorization` 请求头 |
-| `tenantId` | `tenant-id` 请求头或 URL 参数 |
-| `userId` | 自动通过 API 获取（调用 `get-permission-info` 接口） |
-| `deptId` | 自动通过 API 获取（调用 `get-permission-info` 接口） |
-
-示例: cURL URL 为 `https://xxx.com/prodneikong/server/admin-api/pm/work-hour-matter/list?deptId=125` → `baseUrl` = `https://xxx.com`，`apiPrefix` = `/prodneikong/server/admin-api`
-
-其中 `pageUrl` 会保存到 config.json，后续 Token 过期时插件会直接提示你打开这个地址，无需再解释完整抓包流程。
-
-### 3.7 补充配置
+### 3.3 补充配置
 
 Claude 还会询问:
 
@@ -138,10 +107,15 @@ Claude 还会询问:
 
 飞书群聊消息由插件在运行时自动扫描用户所在的全部群聊，无需手动配置。
 
-## 四、Token 过期处理
+### 3.4 安全说明
 
-内控系统的 Token 通常有有效期。初始化时已将日报页面地址保存为 `pageUrl`，因此后续刷新 Token 非常简单:
+配置文件 `~/.config/daily-report/config.json` 包含账号密码等敏感信息。初始化完成后，插件会自动设置文件权限为 `600`（仅本人可读写）。
 
-1. daily-report 检测到 Token 过期，会直接提示: "请打开 {pageUrl}，抓一个请求的 cURL 粘贴给我"
-2. 粘贴 cURL 后，Claude 仅更新 `token` 字段，其他配置保持不变
-3. 继续执行日报流程，**无需重新初始化**
+## 四、Token 自动刷新
+
+内控系统的 Token 通常有有效期。插件会在每次运行时自动检测 Token 是否有效:
+
+1. 调用用户信息接口验证 Token
+2. 若 Token 已过期，自动用 config 中的账号密码重新登录获取新 Token
+3. 更新 config.json 中的 `token` 字段
+4. **全程自动，无需用户干预**
