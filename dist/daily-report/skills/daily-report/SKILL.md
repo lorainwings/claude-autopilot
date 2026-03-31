@@ -54,24 +54,37 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 
 **0-B: 内控日报 API 配置**
 
-1. 询问用户以下信息:
-   - **内控日报页面地址** → 保存为 `pageUrl`（如 `https://xxx.com/neikong/#/daily-report`）
-   - **API 基础地址** → 如 `https://xxx.com/prodneikong/server/admin-api`，从中拆分:
-     - `baseUrl`: 仅协议+域名（如 `https://xxx.com`）
-     - `apiPrefix`: 路径前缀（如 `/prodneikong/server/admin-api`，不含末尾斜杠）
-   - **登录账号** → `username`
-   - **登录密码** → `password`
-   - **租户 ID** → `tenantId`（通常为 `"1"`，不确定可默认 `"1"`）
-2. **自动登录获取 Token**:
+1. 询问用户**内控日报页面地址** → 保存为 `pageUrl`（如 `https://xxx.com/prodneikong/pc/workhours/research`），自动推导:
+   - `baseUrl`: 提取协议+域名（如 `https://xxx.com`）
+   - `apiPrefix`: 提取路径首段，拼接 `/server/admin-api`（如 `/prodneikong/server/admin-api`）
+   - `tenantId`: 默认 `"1"`
+2. **引导用户填入登录凭据**: 提示用户打开内控系统登录页面，查看并提供以下三项信息（首次填入后存入本地 config，后续自动读取，不再重复询问）:
+   - **公司名称**（登录页的租户/公司选择项）→ 保存为 `tenantName`
+   - **用户名**（登录页的账号输入框）→ 保存为 `username`
+   - **密码**（登录页的密码输入框）→ 保存为 `password`（明文存于本地，传输时自动加密）
+3. **密码加密**: 内控系统登录接口要求密码经 AES-256-CBC 加密后传输，加密参数:
+   - Key: `0123456789abcdef0123456789abcdef`（UTF-8，32 字节）
+   - IV: `0000000000000000`（UTF-8，16 个 ASCII '0'）
+   - Padding: PKCS7
 
+   加密命令:
+   ```bash
+   KEY_HEX=$(printf '%s' '0123456789abcdef0123456789abcdef' | xxd -p | tr -d '\n')
+   IV_HEX=$(printf '%s' '0000000000000000' | xxd -p | tr -d '\n')
+   ENCRYPTED_PWD=$(printf '%s' '{password}' | openssl enc -aes-256-cbc -K "$KEY_HEX" -iv "$IV_HEX" -nosalt | base64)
    ```
-   POST {baseUrl}{apiPrefix}/system/auth/login
-   Header: tenant-id: {tenantId}, Content-Type: application/json
-   Body: {"username": "{username}", "password": "{password}"}
+
+4. **自动登录获取 Token**:
+
+   ```bash
+   curl -s -X POST '{baseUrl}{apiPrefix}/system/auth/login' \
+     -H 'Content-Type: application/json' \
+     -H 'tenant-id: {tenantId}' \
+     --data-raw '{"tenantName":"{tenantName}","username":"{username}","password":"{ENCRYPTED_PWD}","rememberMe":true}'
    ```
 
    从返回 JSON 的 `data` 中提取 `accessToken`，拼接为 `"Bearer {accessToken}"` 保存到 config 的 `token` 字段
-3. **自动获取用户身份**: 用登录获取的 token 调用:
+5. **自动获取用户身份**: 用登录获取的 token 调用:
 
    ```
    GET {baseUrl}{apiPrefix}/system/auth/get-permission-info
@@ -94,18 +107,19 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 
 ```json
 {
-  "pageUrl": "https://xxx.com/neikong/#/daily-report",
-  "baseUrl": "https://xxx.com",
-  "apiPrefix": "/prodneikong/server/admin-api",
-  "username": "lorain",
-  "password": "xxx",
+  "pageUrl": "<内控日报页面地址>",
+  "baseUrl": "<协议+域名>",
+  "apiPrefix": "<API路径前缀>",
+  "username": "<登录用户名>",
+  "password": "<登录密码明文>",
+  "tenantName": "<公司名称>",
   "tenantId": "1",
-  "token": "Bearer xxx",
-  "userId": 194,
-  "deptId": 125,
-  "larkOpenId": "ou_xxx",
-  "repos": ["/path/to/repo1", "/path/to/repo2"],
-  "gitAuthor": "lorain|廖员"
+  "token": "Bearer <accessToken>",
+  "userId": "<自动获取>",
+  "deptId": "<自动获取>",
+  "larkOpenId": "<自动获取>",
+  "repos": ["<git仓库路径1>", "<git仓库路径2>"],
+  "gitAuthor": "<git作者名>"
 }
 ```
 
@@ -125,10 +139,11 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 成功: HTTP 200 且返回用户信息（同时可刷新 config 中的 userId/deptId）
    - 失败: Token 已过期，**自动重新登录**:
-     1. 用 config 中的 `username`、`password`、`tenantId` 调用登录接口: `POST {baseUrl}{apiPrefix}/system/auth/login`
-     2. 从返回 JSON 的 `data` 中提取新 `accessToken`，更新 config.json 中的 `token` 字段
-     3. 再次调用 `get-permission-info` 刷新 userId/deptId
-     4. 全程自动，无需用户干预
+     1. 用 config 中的 `password` 执行 AES-256-CBC 加密（参数同阶段 0-B 步骤 3）
+     2. 用 `username`、加密后密码、`tenantName`、`tenantId` 调用登录接口（curl 格式同阶段 0-B 步骤 4）
+     3. 从返回 JSON 的 `data` 中提取新 `accessToken`，更新 config.json 中的 `token` 字段
+     4. 再次调用 `get-permission-info` 刷新 userId/deptId
+     5. 全程自动，无需用户干预
 
 ### 阶段 2: 数据采集
 
