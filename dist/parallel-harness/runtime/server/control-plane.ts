@@ -189,6 +189,7 @@ export interface RuntimeBridge {
   cancelRun(runId: string, cancelledBy?: string): Promise<void>;
   approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<unknown>;
   rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void>;
+  retryTask?(runId: string, taskId: string, retriedBy?: string): Promise<unknown>;
   // 读操作（现已强制实现，不再是可选）
   listRuns(): Promise<RunSummary[]>;
   getRun?(runId: string): Promise<RunDetail | undefined>;
@@ -253,8 +254,15 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
     }
   }
 
-  async retryTask(_runId: string, _taskId: string): Promise<{ ok: boolean; message: string }> {
-    // runtime 模式下 retry 需要完整的 orchestrator 级重调度，当前未实现
+  async retryTask(runId: string, taskId: string): Promise<{ ok: boolean; message: string }> {
+    if (this.runtime.retryTask) {
+      try {
+        await this.runtime.retryTask(runId, taskId, "control-plane");
+        return { ok: true, message: `Task ${taskId} 已重试` };
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : String(e) };
+      }
+    }
     return { ok: false, message: "runtime 模式下 retryTask 尚未实现，请使用 CLI 重新执行" };
   }
 

@@ -9,6 +9,7 @@ import { createSchedulePlan } from "../../runtime/scheduler/scheduler";
 import { loadEvidenceFiles } from "../../runtime/session/evidence-loader";
 import { ExecutionProxy } from "../../runtime/workers/execution-proxy";
 import { classifyGate, createEvidenceBundle } from "../../runtime/gates/gate-classification";
+import { GateSystem } from "../../runtime/gates/gate-system";
 import { aggregateRunEvidence } from "../../runtime/integrations/report-aggregator";
 import type { TaskGraph, TaskNode } from "../../runtime/orchestrator/task-graph";
 import type { GateResult, RunResult } from "../../runtime/schemas/ga-schemas";
@@ -661,5 +662,96 @@ describe("Hook effect 化", () => {
     const instructions = registry.resolve({ repo_path: "/project" });
     expect(instructions.length).toBe(1);
     expect(instructions[0].content).toContain("TypeScript");
+  });
+});
+
+// ============================================================
+// P0-4: Gate Classification — hasBlockingFailure + classifyResults
+// ============================================================
+
+describe("GateSystem classifyResults", () => {
+  it("signal gate 失败不阻断", () => {
+    const gs = new GateSystem();
+    const results = [
+      createMockGateResult({ gate_type: "review", blocking: true, passed: false }),
+      createMockGateResult({ gate_type: "perf", blocking: true, passed: false }),
+    ];
+    expect(gs.hasBlockingFailure(results)).toBe(false);
+  });
+
+  it("hard gate 失败阻断", () => {
+    const gs = new GateSystem();
+    const results = [
+      createMockGateResult({ gate_type: "test", blocking: true, passed: false }),
+      createMockGateResult({ gate_type: "review", blocking: true, passed: true }),
+    ];
+    expect(gs.hasBlockingFailure(results)).toBe(true);
+  });
+
+  it("classifyResults 正确分类 hard/signal/blocking_failures", () => {
+    const gs = new GateSystem();
+    const results = [
+      createMockGateResult({ gate_type: "test", blocking: true, passed: false }),
+      createMockGateResult({ gate_type: "lint_type", blocking: true, passed: true }),
+      createMockGateResult({ gate_type: "review", blocking: true, passed: false }),
+      createMockGateResult({ gate_type: "perf", blocking: false, passed: false }),
+    ];
+    const classified = gs.classifyResults(results);
+    expect(classified.hard_results.length).toBe(2);
+    expect(classified.signal_results.length).toBe(2);
+    expect(classified.blocking_failures.length).toBe(1);
+    expect(classified.blocking_failures[0].gate_type).toBe("test");
+  });
+});
+
+// ============================================================
+// P0-3: Trusted Execution Plane
+// ============================================================
+
+describe("Trusted Execution Plane", () => {
+  const mockWorkerOutput = {
+    status: "ok" as const,
+    summary: "执行完成",
+    artifacts: [],
+    modified_paths: ["src/main.ts", "src/utils.ts"],
+    tokens_used: 500,
+    duration_ms: 1000,
+  };
+
+  it("prepareExecution 采集 baseline_commit", () => {
+    const proxy = new ExecutionProxy();
+    const prep = proxy.prepareExecution({
+      model_tier: "tier-2",
+      project_root: process.cwd(),
+    });
+    // 在 git 仓库中应该能获取到 baseline_commit
+    expect(prep.baseline_commit).toBeTruthy();
+    expect(typeof prep.baseline_commit).toBe("string");
+  });
+
+  it("finalizeExecution 填充 tool_calls 和 diff_ref", () => {
+    const proxy = new ExecutionProxy();
+    const { attestation } = proxy.finalizeExecution(
+      { model_tier: "tier-2", project_root: "/tmp" },
+      mockWorkerOutput,
+      new Date().toISOString(),
+      false,
+      "abc123def"
+    );
+    // tool_calls 从 modified_paths 派生
+    expect(attestation.tool_calls.length).toBe(2);
+    expect(attestation.tool_calls[0].name).toBe("Edit");
+    expect(attestation.tool_calls[0].args_hash).toBeTruthy();
+    // diff_ref 从 baseline_commit 赋值
+    expect(attestation.diff_ref).toBe("abc123def");
+  });
+
+  it("sandbox_mode worktree 抛出明确错误", () => {
+    const proxy = new ExecutionProxy();
+    expect(() => proxy.prepareExecution({
+      model_tier: "tier-2",
+      project_root: "/tmp",
+      sandbox_mode: "worktree",
+    })).toThrow("worktree");
   });
 });

@@ -17,7 +17,7 @@
 | README.md | Done | English documentation |
 | README.zh.md | Done | Chinese documentation (GA level) |
 | Core runtime available | Done | All 15 runtime modules implemented |
-| Unit tests passing | Done | 219 pass / 0 fail / 499 expect() |
+| Unit tests passing | Done | 295 pass / 0 fail / 649 expect() |
 | Skills scaffolding | Done | 4 Skills (harness / plan / dispatch / verify) |
 | Engine unified entry | Done | OrchestratorRuntime full lifecycle management |
 | Task Graph | Done | DAG construction, validation, dependency resolution |
@@ -76,7 +76,7 @@
 |---------|-----------|--------|
 | v0.1.0 | MVP — Core Schema + Scheduler + Router | Done |
 | v0.5.0 | Beta — Worker Runtime + Gate System + Persistence | Done |
-| v1.0.0 | GA — All 15 modules + 219 tests + complete documentation | Done |
+| v1.0.0 | GA — All 15 modules + 295 tests + complete documentation | Done |
 
 ## Product Positioning vs. spec-autopilot
 

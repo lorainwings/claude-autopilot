@@ -17,6 +17,7 @@ import { createSchedulePlan, getNextBatch } from "../scheduler/scheduler";
 import { routeModel } from "../models/model-router";
 import { packContext, buildTaskContract } from "../session/context-packager";
 import { GateSystem } from "../gates/gate-system";
+import { classifyGate } from "../gates/gate-classification";
 import { ApprovalWorkflow } from "../governance/governance";
 import { WorkerExecutionController, type WorkerExecutionConfig } from "../workers/worker-runtime";
 import { SessionStore, RunStore, AuditTrail, FileStore } from "../persistence/session-persistence";
@@ -231,7 +232,7 @@ const RUN_STATE_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   running:           ["verifying", "blocked", "failed", "partially_failed", "succeeded", "cancelled"],
   verifying:         ["running", "blocked", "failed", "partially_failed", "succeeded"],
   blocked:           ["running", "failed", "cancelled"],
-  failed:            ["archived"],
+  failed:            ["archived", "running"],
   partially_failed:  ["running", "archived"],
   succeeded:         ["archived"],
   cancelled:         ["archived"],
@@ -797,7 +798,7 @@ export class OrchestratorRuntime {
 
   private async planPhase(ctx: ExecutionContext, request: RunRequest): Promise<RunPlan> {
     // 0. Requirement Grounding
-    const { groundRequirement } = await import("../orchestrator/requirement-grounding");
+    const { groundRequirement, buildStageContracts } = await import("../orchestrator/requirement-grounding");
     const grounding = groundRequirement(request);
     emitAudit(ctx, "run_planned", { phase: "requirement_grounding", ambiguity_count: grounding.ambiguity_items.length });
 
@@ -891,6 +892,7 @@ export class OrchestratorRuntime {
       budget_estimate: budgetEstimate,
       pending_approvals: pendingApprovals,
       requirement_grounding: grounding,
+      stage_contracts: buildStageContracts(grounding, taskGraph.tasks),
       planned_at: new Date().toISOString(),
     };
   }
@@ -1310,15 +1312,22 @@ export class OrchestratorRuntime {
     // 收集 run-level gate 结果
     ctx.collectedGateResults.push(...runGates);
 
+    // 使用 classification 路径判定阻断
+    if (this.gateSystem.hasBlockingFailure(runGates)) {
+      const classified = this.gateSystem.classifyResults(runGates);
+      transitionRunStatus(execution, "blocked",
+        `Hard gate 阻断: ${classified.blocking_failures.map(g => g.gate_type).join(", ")}`);
+      for (const g of classified.blocking_failures) {
+        emitAudit(ctx, "gate_blocked", { gate_type: g.gate_type, level: "run", strength: "hard" });
+      }
+      return;
+    }
+
+    // 审计全部结果（含 signal 警告）
     for (const gate of runGates) {
-      if (gate.blocking && !gate.passed) {
-        transitionRunStatus(execution, "blocked", `Run-level gate 阻断: ${gate.gate_type}`);
-        emitAudit(ctx, "gate_blocked", { gate_type: gate.gate_type, level: "run" });
-        return;
-      }
-      if (gate.passed) {
-        emitAudit(ctx, "gate_passed", { gate_type: gate.gate_type, level: "run" });
-      }
+      const strength = classifyGate(gate.gate_type).strength;
+      emitAudit(ctx, gate.passed ? "gate_passed" : "gate_blocked",
+        { gate_type: gate.gate_type, level: "run", strength, signal_only: strength === "signal" });
     }
   }
 
@@ -1766,6 +1775,105 @@ export class OrchestratorRuntime {
 
     const session = await this.sessionStore.getByRunId(runId);
     if (session) await this.sessionStore.complete(session.session_id);
+  }
+
+  /**
+   * 重试指定 run 中的失败 task
+   */
+  async retryTask(runId: string, taskId: string, retriedBy?: string): Promise<RunResult> {
+    if (retriedBy) this.requirePermission(retriedBy, "run.retry");
+
+    // 1. 加载 execution 和 plan
+    const execution = await this.runStore.getExecution(runId);
+    if (!execution) throw new Error(`Run ${runId} 不存在`);
+
+    // 2. 校验 run 状态：必须为 failed 或 partially_failed
+    if (execution.status !== "failed" && execution.status !== "partially_failed") {
+      throw new Error(`Run ${runId} 当前状态 ${execution.status} 不允许重试，需要 failed 或 partially_failed`);
+    }
+
+    // 查找 plan (通过 audit trail)
+    const auditEvents = await this.auditTrail.query({ run_id: runId });
+    const plannedEvent = auditEvents.find((e) => e.type === "run_planned");
+    const planId = (plannedEvent?.payload as Record<string, unknown>)?.plan_id as string | undefined;
+    const plan = planId ? await this.runStore.getPlan(planId) : undefined;
+    if (!plan) throw new Error(`无法找到 Run ${runId} 的执行计划`);
+
+    // 3. 校验 task 存在
+    const task = plan.task_graph.tasks.find(t => t.id === taskId);
+    if (!task) throw new Error(`Task ${taskId} 不存在于 Run ${runId} 的任务图中`);
+
+    // 4. 校验 task 最近 attempt 为 failed
+    const taskAttempts = execution.completed_attempts[taskId] || [];
+    if (taskAttempts.length === 0) {
+      throw new Error(`Task ${taskId} 没有历史执行记录`);
+    }
+    const lastAttempt = taskAttempts[taskAttempts.length - 1];
+    if (lastAttempt.status === "succeeded") {
+      throw new Error(`Task ${taskId} 已成功，不需要重试`);
+    }
+
+    // 5. 下游安全检查：如果下游 task 有成功 attempt，拒绝重试
+    const downstreamTaskIds = plan.task_graph.edges
+      .filter(e => e.from === taskId)
+      .map(e => e.to);
+    for (const dsId of downstreamTaskIds) {
+      const dsAttempts = execution.completed_attempts[dsId] || [];
+      if (dsAttempts.some(a => a.status === "succeeded")) {
+        throw new Error(`下游 Task ${dsId} 已成功，重试 ${taskId} 可能导致不一致`);
+      }
+    }
+
+    // 6. 重置 run 状态为 running
+    transitionRunStatus(execution, "running", `重试 task ${taskId}` + (retriedBy ? ` (by ${retriedBy})` : ""));
+    await this.runStore.saveExecution(execution);
+
+    // 7. 重建 execution context
+    const requestId = (plannedEvent?.payload as Record<string, unknown>)?.request_id as string | undefined
+      || (auditEvents.find(e => e.type === "run_created")?.payload as Record<string, unknown>)?.request_id as string | undefined;
+    const originalRequest = requestId ? await this.runStore.getRequest(requestId) : undefined;
+    const config = originalRequest
+      ? { ...DEFAULT_RUN_CONFIG, ...originalRequest.config }
+      : { ...DEFAULT_RUN_CONFIG };
+
+    const ctx: ExecutionContext = {
+      run_id: runId,
+      batch_id: execution.batch_id,
+      actor: originalRequest?.actor || { id: retriedBy || "system", type: "user", name: retriedBy || "system", roles: [] },
+      project: originalRequest?.project || { root_path: ".", known_modules: [], scope: {} },
+      config,
+      eventBus: this.eventBus,
+      costLedger: execution.cost_ledger,
+      policyEngine: this.policyEngine,
+      ownershipPlan: plan.ownership_plan,
+      auditLog: [],
+      collectedGateResults: [],
+    };
+
+    emitAudit(ctx, "task_retried", { task_id: taskId, retried_by: retriedBy || "system" });
+
+    // 8. 以 escalated tier 重新执行该 task
+    try {
+      await this.executeTask(ctx, execution, task, plan.ownership_plan, plan);
+    } catch {
+      // task 执行失败
+    }
+
+    // 9. 重新判定终态
+    execution.cost_ledger = ctx.costLedger;
+    const finalStatus = this.determineFinalStatus(execution, plan);
+    if (execution.status !== finalStatus) {
+      transitionRunStatus(execution, finalStatus, "重试完成");
+    }
+
+    const result = this.finalizeRun(ctx, execution, plan);
+    result.final_status = execution.status;
+
+    await this.runStore.saveResult(result);
+    await this.auditTrail.recordBatch(ctx.auditLog);
+    await this.runStore.saveExecution(execution);
+
+    return result;
   }
 
   // ============================================================

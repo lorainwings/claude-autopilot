@@ -22,6 +22,7 @@
 import type { TaskNode } from "../orchestrator/task-graph";
 import type { WorkerOutput } from "../orchestrator/role-contracts";
 import type { ExecutionContext } from "../engine/orchestrator-runtime";
+import { classifyGate } from "./gate-classification";
 import {
   generateId,
   SCHEMA_VERSION,
@@ -820,13 +821,39 @@ export class GateSystem {
    * 结合 gate classification: signal gate 即使标记为 blocking 也不阻断，只有 hard gate 失败才阻断。
    */
   hasBlockingFailure(results: GateResult[]): boolean {
-    const { classifyGate } = require("../gates/gate-classification");
     return results.some((r) => {
       if (!r.blocking || r.passed) return false;
       const classification = classifyGate(r.gate_type);
       // 只有 hard gate 失败才真正阻断
       return classification.is_hard_gate;
     });
+  }
+
+  /**
+   * 将 gate 结果按 hard/signal 分类，并提取阻断性失败。
+   */
+  classifyResults(results: GateResult[]): {
+    hard_results: GateResult[];
+    signal_results: GateResult[];
+    blocking_failures: GateResult[];
+  } {
+    const hard_results: GateResult[] = [];
+    const signal_results: GateResult[] = [];
+    const blocking_failures: GateResult[] = [];
+
+    for (const r of results) {
+      const classification = classifyGate(r.gate_type);
+      if (classification.is_hard_gate) {
+        hard_results.push(r);
+        if (r.blocking && !r.passed) {
+          blocking_failures.push(r);
+        }
+      } else {
+        signal_results.push(r);
+      }
+    }
+
+    return { hard_results, signal_results, blocking_failures };
   }
 
   /**

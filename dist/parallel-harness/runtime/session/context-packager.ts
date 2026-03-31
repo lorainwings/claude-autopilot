@@ -55,12 +55,14 @@ const DEFAULT_CONFIG: PackagerConfig = {
  * @param availableFiles 可用文件列表
  * @param config 打包配置
  * @param externalBudget 外部传入的 context budget（来自 routeModel）
+ * @param retryHint 重试次数提示，非零时跳过前 N 个 snippets
  */
 export function packContext(
   task: TaskNode,
   availableFiles: FileInfo[],
   config: Partial<PackagerConfig> = {},
-  externalBudget?: { max_input_tokens: number }
+  externalBudget?: { max_input_tokens: number },
+  retryHint?: number
 ): ContextPack {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
@@ -73,25 +75,44 @@ export function packContext(
     };
   }
 
-  // 1. 筛选相关文件
-  const relevantFiles = selectRelevantFiles(task, availableFiles);
+  const occupancyThreshold = budget.occupancy_threshold ?? 0.8;
+  const role = budget.role;
+
+  // 1. 筛选相关文件 + 角色排序
+  let relevantFiles = selectRelevantFiles(task, availableFiles);
+  if (role) {
+    relevantFiles = sortByRole(relevantFiles, role);
+  }
 
   // 2. 提取代码片段
-  const snippets = extractSnippets(
+  let snippets = extractSnippets(
     task,
     relevantFiles,
     cfg.max_lines_per_file,
     cfg.max_snippets
   );
 
+  // 2b. retry offset — 跳过前 N 个 snippets 确保重试上下文不同
+  const effectiveRetryHint = retryHint ?? 0;
+  if (effectiveRetryHint > 0 && snippets.length > effectiveRetryHint) {
+    snippets = snippets.slice(effectiveRetryHint);
+  }
+
   // 3. 估算 token 使用量
   const estimatedTokens = estimateTokenUsage(task, relevantFiles, snippets);
 
-  // 4. 如果超预算，压缩
+  // 4. occupancy 阈值或超预算时压缩
   let finalSnippets = snippets;
   let compactionPolicy: "none" | "summarize" | "truncate" = "none";
 
-  if (estimatedTokens > budget.max_input_tokens && budget.auto_summarize_on_overflow) {
+  const occupancyBeforeCompact = budget.max_input_tokens > 0
+    ? estimatedTokens / budget.max_input_tokens
+    : 0;
+
+  if (
+    (occupancyBeforeCompact > occupancyThreshold || estimatedTokens > budget.max_input_tokens) &&
+    budget.auto_summarize_on_overflow
+  ) {
     finalSnippets = compressSnippets(snippets, budget.max_input_tokens);
     compactionPolicy = "truncate";
   }
@@ -118,6 +139,7 @@ export function packContext(
     loaded_files_count: relevantFiles.length,
     loaded_snippets_count: finalSnippets.length,
     compaction_policy: compactionPolicy,
+    retry_hint: effectiveRetryHint > 0 ? effectiveRetryHint : undefined,
   };
 }
 
@@ -165,6 +187,35 @@ export interface FileInfo {
 // ============================================================
 // 辅助函数
 // ============================================================
+
+/**
+ * 按角色排序文件：verifier 优先 test 文件，planner 优先 md/config
+ */
+function sortByRole(files: FileInfo[], role: "planner" | "author" | "verifier"): FileInfo[] {
+  return [...files].sort((a, b) => {
+    const scoreA = roleFileScore(a.path, role);
+    const scoreB = roleFileScore(b.path, role);
+    return scoreB - scoreA;
+  });
+}
+
+function roleFileScore(path: string, role: "planner" | "author" | "verifier"): number {
+  const lower = path.toLowerCase();
+  if (role === "verifier") {
+    if (lower.includes("test") || lower.includes("spec")) return 10;
+    if (lower.endsWith(".ts") || lower.endsWith(".js")) return 5;
+    return 1;
+  }
+  if (role === "planner") {
+    if (lower.endsWith(".md") || lower.endsWith(".json") || lower.includes("config")) return 10;
+    if (lower.endsWith(".ts")) return 5;
+    return 1;
+  }
+  // author — source first
+  if (lower.includes("test") || lower.includes("spec")) return 3;
+  if (lower.endsWith(".ts") || lower.endsWith(".js")) return 10;
+  return 1;
+}
 
 function selectRelevantFiles(
   task: TaskNode,

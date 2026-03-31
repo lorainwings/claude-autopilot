@@ -108,6 +108,9 @@ export interface RunPlan extends Versioned {
   /** 需求契约 (Requirement Grounding) */
   requirement_grounding?: import("../orchestrator/requirement-grounding").RequirementGrounding;
 
+  /** 阶段合同 (Stage Contracts) */
+  stage_contracts?: import("../orchestrator/requirement-grounding").StageContract[];
+
   /** 规划时间 */
   planned_at: string;
 }
@@ -712,6 +715,9 @@ export interface RunConfig {
 
   /** 是否启用 autofix */
   enable_autofix: boolean;
+
+  /** 执行沙箱模式 */
+  execution_sandbox_mode?: "none" | "path_check" | "worktree";
 }
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {

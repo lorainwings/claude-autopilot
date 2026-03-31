@@ -12,6 +12,10 @@ export interface ExecutionProxyConfig {
   worker_id?: string;
   /** attempt ID */
   attempt_id?: string;
+  /** baseline commit hash (用于 diff_ref) */
+  baseline_commit?: string;
+  /** 沙箱模式 */
+  sandbox_mode?: "none" | "path_check" | "worktree";
 }
 
 export interface ExecutionAttestation {
@@ -59,7 +63,13 @@ export class ExecutionProxy {
     tool_policy_enforced: boolean;
     tool_policy_serialized?: string;
     started_at: string;
+    baseline_commit?: string;
   } {
+    // worktree 模式暂未实现
+    if (config.sandbox_mode === "worktree") {
+      throw new Error("ExecutionProxy: sandbox_mode 'worktree' 尚未实现 (future feature)");
+    }
+
     const actualModel = MODEL_MAPPING[config.model_tier];
 
     // 验证 project_root 非空
@@ -78,6 +88,23 @@ export class ExecutionProxy {
       });
     }
 
+    // 采集 baseline commit (如果提供了就直接使用，否则尝试 git rev-parse)
+    let baselineCommit = config.baseline_commit;
+    if (!baselineCommit) {
+      try {
+        const proc = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+          cwd: config.project_root,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        if (proc.exitCode === 0) {
+          baselineCommit = new TextDecoder().decode(proc.stdout).trim();
+        }
+      } catch {
+        // git 不可用，baseline_commit 保持 undefined
+      }
+    }
+
     return {
       validated_model: actualModel,
       validated_cwd: config.project_root,
@@ -85,6 +112,7 @@ export class ExecutionProxy {
       tool_policy_enforced: hasExplicitPolicy ?? false,
       tool_policy_serialized: toolPolicySerialized,
       started_at: new Date().toISOString(),
+      baseline_commit: baselineCommit,
     };
   }
 
@@ -97,6 +125,7 @@ export class ExecutionProxy {
     workerOutput: WorkerOutput,
     startedAt: string,
     toolPolicyEnforced?: boolean,
+    baselineCommit?: string,
   ): { output: WorkerOutput; attestation: ExecutionAttestation } {
     const actualModel = MODEL_MAPPING[config.model_tier];
     const endedAt = new Date().toISOString();
@@ -122,12 +151,18 @@ export class ExecutionProxy {
           ? "success"
           : "failure";
 
+    // 从 modified_paths 派生 tool_calls
+    const toolCalls = workerOutput.modified_paths.map((p) => ({
+      name: "Edit",
+      args_hash: simpleHash(p),
+    }));
+
     const attestation: ExecutionAttestation = {
       attempt_id: config.attempt_id || `att_${Date.now()}`,
       worker_id: config.worker_id || "local",
       repo_root: config.project_root,
       actual_model: actualModel,
-      tool_calls: [],
+      tool_calls: toolCalls,
       modified_paths: workerOutput.modified_paths,
       sandbox_violations: sandboxViolations,
       token_usage: { input: workerOutput.tokens_used, output: 0 },
@@ -135,6 +170,7 @@ export class ExecutionProxy {
       started_at: startedAt,
       ended_at: endedAt,
       tool_policy_enforced: toolPolicyEnforced ?? false,
+      diff_ref: baselineCommit || config.baseline_commit,
       execution_outcome: executionOutcome,
     };
 
@@ -151,4 +187,15 @@ export class ExecutionProxy {
     const startedAt = new Date().toISOString();
     return this.finalizeExecution(config, workerOutput, startedAt);
   }
+}
+
+/** 简单字符串哈希（非密码学，仅用于 attestation 标识） */
+function simpleHash(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0;
+  }
+  return `h_${Math.abs(hash).toString(36)}`;
 }

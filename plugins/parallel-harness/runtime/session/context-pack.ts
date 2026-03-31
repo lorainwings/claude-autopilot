@@ -67,6 +67,9 @@ export interface ContextPack {
 
   /** 压缩策略 */
   compaction_policy: "none" | "summarize" | "truncate";
+
+  /** 重试提示：非零时表示第 N 次重试，上下文应有所不同 */
+  retry_hint?: number;
 }
 
 /** 约束条件 */
@@ -94,6 +97,12 @@ export interface ContextBudget {
 
   /** 超预算时是否自动摘要 */
   auto_summarize_on_overflow: boolean;
+
+  /** Occupancy 阈值 (0-1)，超过时提前触发 compaction */
+  occupancy_threshold?: number;
+
+  /** 角色类型，影响上下文优先级排序 */
+  role?: "planner" | "author" | "verifier";
 }
 
 // ============================================================

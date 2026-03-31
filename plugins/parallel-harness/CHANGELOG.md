@@ -109,5 +109,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **EventBus Observability**: 38 event types with pub/sub and wildcard subscriptions
 - **Control Plane API**: HTTP API (port 9800) with embedded dashboard
 - **4 Skills**: /harness (main), /harness-plan, /harness-dispatch, /harness-verify
-- **Comprehensive Test Suite**: 219 tests, 499 assertions, 0 failures
+- **Comprehensive Test Suite**: 295 tests, 649 assertions, 0 failures
 - **12 Documentation Files**: Architecture, operator guide, admin guide, policy guide, integration guide, troubleshooting, FAQ, security, marketplace readiness, release checklist, capabilities, examples
