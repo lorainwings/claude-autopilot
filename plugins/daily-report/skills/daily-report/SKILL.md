@@ -16,6 +16,20 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 
 若配置文件不存在或用户传入 `--init`，执行初始化引导（详见 `references/setup-guide.md`）:
 
+向用户展示以下提示框（原样输出，保持格式）:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║   🔔  首次配置提示                                         ║
+║                                                            ║
+║   首次使用需完成飞书授权 + 内控系统登录，约 3-5 分钟。     ║
+║   ✅ 配置完成后保存在本地，后续使用直接跳过，秒级启动！    ║
+║   请耐心完成以下一次性引导流程。                           ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+```
+
 **0-A: lark-cli 环境准备**
 
 1. 检查 `which lark-cli`，未安装则引导:
@@ -24,50 +38,76 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    npm install -g @larksuite/cli
    ```
 
-2. 安装 lark-cli Skill（接入 AI Agent 必需）:
+2. 强制安装 lark-cli Skill（无需用户确认，直接执行）:
 
-   ```
+   ```bash
    npx skills add larksuite/cli -y -g
    ```
 
-   安装后提示用户**重启 Claude Code** 使 skill 生效
+   安装完成后提示用户**重启 Claude Code** 使 skill 生效
 3. 初始化飞书应用凭据（首次必需）:
 
-   ```
-   lark-cli config init --new
+   在后台执行:
+
+   ```bash
+   lark-cli config init --new 2>&1
    ```
 
-   终端会输出授权 URL。**必须将命令完整输出原样展示给用户，严禁折叠、省略或摘要**。从输出中提取 URL，使用 `open <URL>`（macOS）自动在浏览器打开。页面显示飞书应用权限列表，提示用户**滚动到底，把能开的权限都开启**，点击【开通并授权】完成
-4. 授权飞书 scope（逐个 scope 授权，每个都会输出浏览器验证链接）:
+   命令输出包含授权 URL 和终端二维码。**处理规则**:
+   - **禁止原样输出二维码**: 终端二维码在 Claude 窗口中会被折叠导致无法扫描，**不要展示**
+   - **提取 URL**: 从输出中提取 `https://` 开头的授权链接
+   - **自动打开浏览器**: 立即执行 `open <URL>` 在用户默认浏览器中打开（macOS），**不要等待用户手动复制**
+   - **文字提示**: 告知用户"已在浏览器打开授权页面"，请在页面上**滚动到底，把能开的权限都开启**，点击【开通并授权】
+   - 等待命令自动退出（用户完成授权后终端自动确认）
+4. 授权飞书 scope（逐个授权，每个都会输出设备验证链接）:
 
-   ```
-   lark-cli auth login --scope "im:message:readonly"
-   lark-cli auth login --scope "im:chat:readonly"
-   lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg:get_as_user contact:user.base:readonly"
+   依次执行以下命令:
+
+   ```bash
+   lark-cli auth login --scope "im:message:readonly" 2>&1
+   lark-cli auth login --scope "im:chat:readonly" 2>&1
+   lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg:get_as_user contact:user.base:readonly" 2>&1
    ```
 
-   **关键规则**: 每条命令执行后，终端输出设备验证链接（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`）:
-   - **严禁折叠**: 必须将命令的完整输出原样展示给用户，不得折叠、截断或摘要化
-   - **自动打开**: 从输出中提取验证 URL，使用 `open <URL>`（macOS）自动在浏览器打开
-   - 等待用户在浏览器完成授权，终端自动确认后继续下一条
+   **每条命令的处理流程**:
+   - 从输出中提取设备验证 URL（形如 `https://accounts.feishu.cn/oauth/v1/device/verify?...`）
+   - **立即执行 `open <URL>`** 自动在用户默认浏览器打开，**无需用户手动复制链接**
+   - **禁止原样输出二维码/验证码图形**: 仅以文字告知用户"已在浏览器打开授权页面，请完成授权"
+   - 等待命令自动退出后继续下一条
    > 注意: 部分 scope（如 `search:message`）需要管理员审批，非必需可跳过
 
-**0-B: 内控日报 API 配置**
+**0-B: 内控日报 API 配置**（可与 0-A 步骤 1-2 **并行**: lark-cli 安装是自动化命令，安装的同时即可开始收集用户输入）
 
 1. 询问用户**内控日报页面地址** → 保存为 `pageUrl`（如 `https://xxx.com/prodneikong/pc/workhours/research`），自动推导:
    - `baseUrl`: 提取协议+域名（如 `https://xxx.com`）
    - `apiPrefix`: 提取路径首段，拼接 `/server/admin-api`（如 `/prodneikong/server/admin-api`）
    - `tenantId`: 默认 `"1"`
-2. **引导用户填入登录凭据**: 提示用户打开内控系统登录页面，查看并提供以下三项信息（首次填入后存入本地 config，后续自动读取，不再重复询问）:
-   - **公司名称**（登录页的租户/公司选择项）→ 保存为 `tenantName`
-   - **用户名**（登录页的账号输入框）→ 保存为 `username`
-   - **密码**（登录页的密码输入框）→ 保存为 `password`（明文存于本地，传输时自动加密）
+2. **逐步引导用户填入登录凭据**（对应内控系统登录页面的三个表单字段，首次填入后存入本地 config，后续自动读取，不再重复询问）:
+
+   > 提示用户打开内控系统登录页面，对照页面逐项填写。
+
+   **第一项 — 公司名称**: 对应登录页顶部的"租户/公司"选择框，输入其中显示的公司名称 → 保存为 `tenantName`
+
+   **第二项 — 用户名**: 对应登录页"账号"输入框 → 保存为 `username`
+
+   **第三项 — 密码**: 对应登录页"密码"输入框 → 保存为 `password`（明文存于本地，传输时自动 AES-256-CBC 加密）
+
+   向用户展示以下提示框:
+
+   ```
+   ┌──────────────────────────────────────────────────────┐
+   │ 💡 这三项仅需首次填写，安全保存在本地配置文件中，    │
+   │    后续运行自动读取，无需再次输入。                  │
+   └──────────────────────────────────────────────────────┘
+   ```
+
 3. **密码加密**: 内控系统登录接口要求密码经 AES-256-CBC 加密后传输，加密参数:
    - Key: `0123456789abcdef0123456789abcdef`（UTF-8，32 字节）
    - IV: `0000000000000000`（UTF-8，16 个 ASCII '0'）
    - Padding: PKCS7
 
    加密命令:
+
    ```bash
    KEY_HEX=$(printf '%s' '0123456789abcdef0123456789abcdef' | xxd -p | tr -d '\n')
    IV_HEX=$(printf '%s' '0000000000000000' | xxd -p | tr -d '\n')
@@ -130,11 +170,14 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 1. 读取 `~/.config/daily-report/config.json`，不存在则转入阶段 0
 2. 检查 lark-cli 是否可用: `which lark-cli`
    - 不可用: **阻断流程**，按阶段 0-A 步骤 1-2 引导安装
-3. 验证飞书权限可用: 通过 lark-cli skill 尝试获取群聊列表（少量数据即可）
+3. 检查 lark-cli 配置状态: `lark-cli auth status 2>&1`
+   - 返回 `"not configured"` 错误（exit code 2）: 说明 lark-cli 已安装但未初始化，**自动转入阶段 0-A 步骤 3**（执行 `lark-cli config init --new`）完成首次配置
+   - 返回正常状态: 继续
+4. 验证飞书权限可用: 通过 lark-cli skill 尝试获取群聊列表（少量数据即可）
    - 成功: 继续
-   - 返回 `missing_scope` 错误: lark-cli 错误信息会明确告知缺少哪些 scope 并给出修复命令（形如 `lark-cli auth login --scope "xxx"`），在后台执行该命令，**将完整输出原样展示给用户（严禁折叠）**，从输出中提取验证 URL 并用 `open <URL>` 自动在浏览器打开
+   - 返回 `missing_scope` 错误: lark-cli 错误信息会明确告知缺少哪些 scope 并给出修复命令（形如 `lark-cli auth login --scope "xxx"`），在后台执行该命令，从输出中提取验证 URL 并用 `open <URL>` **自动在浏览器打开**（禁止原样输出二维码图形，仅文字提示用户完成授权）
    - 部分 scope 需要管理员审批: 提示用户联系管理员
-4. 验证内控 Token 有效性: 用 `curl` 调用用户信息接口
+5. 验证内控 Token 有效性: 用 `curl` 调用用户信息接口
    - 接口: `GET {baseUrl}{apiPrefix}/system/auth/get-permission-info`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
    - 成功: HTTP 200 且返回用户信息（同时可刷新 config 中的 userId/deptId）
@@ -154,22 +197,26 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 - `--range START~END`: 指定日期范围 (如 `2026-03-24~2026-03-28`)
 - 自动排除周末 (周六、周日)
 
-**并行执行以下采集:**
+**以下 5 项采集任务相互独立，使用 Agent 工具并行调度以最大化效率:**
 
-1. **Git 提交记录**
-   - 遍历 `config.repos` 中每个仓库路径
-   - 执行: `git -C {repo} log --author="{gitAuthor}" --after="{startDate}" --before="{endDate+1day}" --format="%H|%ad|%s" --date=format:"%Y-%m-%d"`
-   - 按日期聚合提交，提取 commit message 摘要
-   - `gitAuthor` 支持 `|` 分隔的多个别名
+> **并行策略**: 将 Git 采集和飞书采集分别派发给 2 个 sub-Agent（它们涉及多仓遍历/多群分页，逻辑较重），同时用 3 个并行 Bash tool calls 执行 3 个简单 API 查询。5 路任务在同一条消息中同时发出。
 
-2. **飞书聊天记录**
-   - 通过 lark-cli skill **自动获取用户所在的全部群聊列表**，无需用户手动配置 chat_id
-   - 遍历全部群聊，通过 lark-cli skill 拉取每个群在目标日期范围内的聊天消息
-   - 日期范围由用户参数决定: 日报扫描当天消息，周报扫描本周，月报扫描本月（与 git 提交的日期范围一致）
-   - **分页处理**: 每次拉取消息后检查返回结果中的 `has_more` 字段，若为 `true`，必须用返回的 `page_token` 继续拉取下一页，循环直到 `has_more` 为 `false`
-   - 若返回 `missing_scope` 错误，按错误的 `hint` 字段执行对应授权命令补充权限
-   - 用 `config.larkOpenId` 过滤消息的 `sender.id` 字段，只保留自己发送的消息
-   - **消息结构（关键）**: lark-cli 返回的每条消息结构如下，`content` 在**顶层**，不在 `body` 下:
+**Agent 1 — Git 提交记录采集**
+
+- 遍历 `config.repos` 中每个仓库路径
+- 执行: `git -C {repo} log --author="{gitAuthor}" --after="{startDate}" --before="{endDate+1day}" --format="%H|%ad|%s" --date=format:"%Y-%m-%d"`
+- 按日期聚合提交，提取 commit message 摘要
+- `gitAuthor` 支持 `|` 分隔的多个别名
+
+**Agent 2 — 飞书聊天记录采集**
+
+- 通过 lark-cli skill **自动获取用户所在的全部群聊列表**，无需用户手动配置 chat_id
+- 遍历全部群聊，通过 lark-cli skill 拉取每个群在目标日期范围内的聊天消息
+- 日期范围由用户参数决定: 日报扫描当天消息，周报扫描本周，月报扫描本月（与 git 提交的日期范围一致）
+- **分页处理**: 每次拉取消息后检查返回结果中的 `has_more` 字段，若为 `true`，必须用返回的 `page_token` 继续拉取下一页，循环直到 `has_more` 为 `false`
+- 若返回 `missing_scope` 错误，按错误的 `hint` 字段执行对应授权命令补充权限
+- 用 `config.larkOpenId` 过滤消息的 `sender.id` 字段，只保留自己发送的消息
+- **消息结构（关键）**: lark-cli 返回的每条消息结构如下，`content` 在**顶层**，不在 `body` 下:
 
      ```json
      {
@@ -182,21 +229,24 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 
      正确取法: `message.content`（顶层字段）。**严禁**使用 `message.body.content`，那会得到空值
 
-3. **事项分类列表**
-   - 调用: `GET {baseUrl}{apiPrefix}/pm/work-hour-matter/list?deptId={deptId}`
-   - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
-   - 返回当前部门下的事项列表 (id + name)，用于匹配 matterId
+**Bash 并行调用 3 — 事项分类列表**
 
-4. **部门列表**（辅助上下文）
-   - 调用: `GET {baseUrl}{apiPrefix}/system/dept/simple-list`
-   - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
-   - 返回部门树形结构，用于理解组织关系
+- 调用: `GET {baseUrl}{apiPrefix}/pm/work-hour-matter/list?deptId={deptId}`
+- Header: `Authorization: {token}`, `tenant-id: {tenantId}`
+- 返回当前部门下的事项列表 (id + name)，用于匹配 matterId
 
-5. **医院/项目组别**（辅助上下文）
-   - 调用: `POST {baseUrl}{apiPrefix}/pm/fcs/product-category/list-exclude-integrated`
-   - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
-   - Body: `{"pageSize":9999,"pageNo":1,"name":"","parentId":0}`
-   - 返回医院/项目分类列表，辅助日报内容归类
+**Bash 并行调用 4 — 部门列表**（辅助上下文）
+
+- 调用: `GET {baseUrl}{apiPrefix}/system/dept/simple-list`
+- Header: `Authorization: {token}`, `tenant-id: {tenantId}`
+- 返回部门树形结构，用于理解组织关系
+
+**Bash 并行调用 5 — 医院/项目组别**（辅助上下文）
+
+- 调用: `POST {baseUrl}{apiPrefix}/pm/fcs/product-category/list-exclude-integrated`
+- Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
+- Body: `{"pageSize":9999,"pageNo":1,"name":"","parentId":0}`
+- 返回医院/项目分类列表，辅助日报内容归类
 
 ### 阶段 3: 日报生成
 
@@ -226,7 +276,14 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 └──────────┴──────────────────────────┴──────┘
 ```
 
-1. **等待确认**: 用户可修改条目、调整分类和工时后确认
+1. **交互确认**: 展示完日报表格后，使用 **AskUserQuestion** 工具弹出确认面板:
+
+   问题: "日报内容已生成，请确认或调整:"
+   选项:
+   - **确认提交** (Recommended): 直接进入阶段 4 批量提交
+   - **修改内容**: 用户在备注中说明要修改的条目（如调整分类、工时、描述），修改后重新展示表格并再次弹出确认
+   - **补充条目**: 用户在备注中补充遗漏的工作内容，添加后重新展示表格并再次弹出确认
+   - **取消**: 终止流程，不提交
 
 ### 阶段 4: 批量提交
 

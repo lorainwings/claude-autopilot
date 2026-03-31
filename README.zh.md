@@ -6,6 +6,7 @@
 
 [![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
 [![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
+[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 插件列表
@@ -14,7 +15,7 @@
 |------|------|------|
 | [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.2.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.2.0 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
-| [daily-report](plugins/daily-report/) | 1.0.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
+| [daily-report](plugins/daily-report/README.zh.md) | 1.1.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 
 ## 快速安装
 
@@ -121,6 +122,28 @@ runtime/
 └── schemas/         — GA 级数据契约
 ```
 
+## 什么是 daily-report？
+
+**daily-report** 是一个 Claude Code Skill 插件，自动化内控日报的生成与提交。它聚合 git 提交记录和飞书聊天消息，生成结构化工作日报，并自动完成分类匹配和工时分配。
+
+### 核心特性
+
+- **多源数据聚合** — 整合 git 提交日志和飞书群聊消息，全面覆盖每日工作内容
+- **并行数据采集** — 多 Agent 架构，并发执行 git 仓库扫描、飞书群消息爬取和 API 查询
+- **智能分类匹配** — 基于关键词自动匹配事项分类（需求开发、问题修复、代码重构、文档编写、会议沟通）
+- **智能工时分配** — 每天固定 8h，按条目数等比分配，0.5h 粒度
+- **AES 加密登录** — AES-256-CBC 密码加密，安全对接内控系统
+- **Token 自动刷新** — 自动管理凭据，过期自动重新登录
+- **批量提交** — 一键提交，自动检测并跳过已填日期
+- **交互式审核** — 表格形式预览，AskUserQuestion 确认后提交
+
+### 工作流
+
+```
+阶段 0: 初始化（首次）→ 阶段 1: 环境检查 → 阶段 2: 数据采集（5 路并行）
+    → 阶段 3: 生成 + 审核 → 阶段 4: 批量提交
+```
+
 ## 文档
 
 ### spec-autopilot
@@ -154,12 +177,21 @@ runtime/
 | [常见问题](plugins/parallel-harness/docs/FAQ.zh.md) | 常见问题解答 |
 | [插件 README](plugins/parallel-harness/README.zh.md) | 完整插件文档 |
 
+### daily-report
+
+| 文档 | 说明 |
+|------|------|
+| [初始化引导](plugins/daily-report/skills/daily-report/references/setup-guide.md) | 首次配置完整指南 |
+| [插件 README](plugins/daily-report/README.zh.md) | 完整插件文档 |
+| [更新日志](plugins/daily-report/CHANGELOG.md) | 版本历史 |
+
 ## 系统要求
 
 - **Claude Code** CLI (v1.0.0+)
 - **python3** (3.8+) — spec-autopilot Hook 脚本依赖
 - **bun** (1.0+) — parallel-harness 运行时和测试依赖
 - **bash** (4.0+) — Hook 脚本执行
+- **Node.js** — daily-report 依赖（lark-cli）
 - **git** — 版本控制集成
 
 ## 仓库结构
@@ -170,11 +202,13 @@ claude-autopilot/
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
 │   ├── test-spec-autopilot.yml
-│   └── test-parallel-harness.yml
+│   ├── test-parallel-harness.yml
+│   └── test-daily-report.yml
 ├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # 构建产出（用于市场安装）
 │   ├── spec-autopilot/
-│   └── parallel-harness/
+│   ├── parallel-harness/
+│   └── daily-report/
 ├── plugins/                 # 插件源码
 │   ├── spec-autopilot/
 │   │   ├── skills/          # 7 个 Skill 定义
@@ -190,6 +224,8 @@ claude-autopilot/
 │       ├── tools/           # CLI 工具和辅助脚本
 │       ├── tests/           # 219 个测试，499 个断言
 │       └── docs/            # 完整文档
+│   └── daily-report/
+│       └── skills/          # Skill 定义 + 初始化引导
 ├── Makefile                 # 构建、测试、初始化快捷入口
 ├── README.md                # 英文说明
 ├── README.zh.md             # 本文件

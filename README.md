@@ -6,6 +6,7 @@
 
 [![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
 [![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
+[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Plugins
@@ -14,7 +15,7 @@
 |--------|---------|-------------|
 | [spec-autopilot](plugins/spec-autopilot/) | 5.2.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.2.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
-| [daily-report](plugins/daily-report/) | 1.1.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
+| [daily-report](plugins/daily-report/README.md) | 1.1.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 
 ## Quick Install
 
@@ -121,6 +122,28 @@ runtime/
 └── schemas/         — GA-Level Data Contracts
 ```
 
+## What is daily-report?
+
+**daily-report** is a Claude Code Skill plugin that automates internal daily work report generation and submission. It aggregates git commit history and Lark (Feishu) chat messages to produce structured reports with automatic categorization and time allocation.
+
+### Key Features
+
+- **Multi-Source Aggregation** — Combines git commit logs and Lark chat history for comprehensive daily reports
+- **Parallel Data Collection** — Multi-Agent architecture for concurrent git repo scanning, Lark group crawling, and API queries
+- **Auto-Categorization** — Keyword-based intelligent work item classification (development, bugfix, refactoring, docs, meetings)
+- **Smart Time Allocation** — 8h/day proportional distribution with 0.5h granularity
+- **AES Encrypted Login** — Secure AES-256-CBC password encryption for internal system authentication
+- **Token Auto-Refresh** — Automatic credential management with expired token re-authentication
+- **Batch Submission** — One-click submission with duplicate date detection and auto-skip
+- **Interactive Review** — Table-format preview with AskUserQuestion confirmation before submission
+
+### Workflow
+
+```
+Phase 0: Init (first run) → Phase 1: Env Check → Phase 2: Collect (5-way parallel)
+    → Phase 3: Generate + Review → Phase 4: Batch Submit
+```
+
 ## Documentation
 
 ### spec-autopilot
@@ -154,12 +177,21 @@ runtime/
 | [FAQ](plugins/parallel-harness/docs/FAQ.md) | Frequently asked questions |
 | [Plugin README](plugins/parallel-harness/README.md) | Full plugin documentation |
 
+### daily-report
+
+| Document | Description |
+|----------|-------------|
+| [Setup Guide](plugins/daily-report/skills/daily-report/references/setup-guide.md) | First-time initialization walkthrough |
+| [Plugin README](plugins/daily-report/README.md) | Full plugin documentation |
+| [Changelog](plugins/daily-report/CHANGELOG.md) | Version history |
+
 ## Requirements
 
 - **Claude Code** CLI (v1.0.0+)
 - **python3** (3.8+) — required for spec-autopilot hook scripts
 - **bun** (1.0+) — required for parallel-harness runtime and tests
 - **bash** (4.0+) — hook script execution
+- **Node.js** — required for daily-report (lark-cli dependency)
 - **git** — version control integration
 
 ## Repository Structure
@@ -170,11 +202,13 @@ claude-autopilot/
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
 │   ├── test-spec-autopilot.yml
-│   └── test-parallel-harness.yml
+│   ├── test-parallel-harness.yml
+│   └── test-daily-report.yml
 ├── .githooks/               # Git hooks (pre-commit)
 ├── dist/                    # Built plugins (for marketplace install)
 │   ├── spec-autopilot/
-│   └── parallel-harness/
+│   ├── parallel-harness/
+│   └── daily-report/
 ├── plugins/                 # Plugin source code
 │   ├── spec-autopilot/
 │   │   ├── skills/          # 7 Skill definitions
@@ -190,6 +224,8 @@ claude-autopilot/
 │       ├── tools/           # CLI tools and utilities
 │       ├── tests/           # 219 tests, 499 assertions
 │       └── docs/            # Full documentation
+│   └── daily-report/
+│       └── skills/          # Skill definition + setup guide
 ├── Makefile                 # Build, test, setup shortcuts
 ├── README.md                # This file
 ├── LICENSE                  # MIT License
