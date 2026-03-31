@@ -138,9 +138,21 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
    - 通过 lark-cli skill **自动获取用户所在的全部群聊列表**，无需用户手动配置 chat_id
    - 遍历全部群聊，通过 lark-cli skill 拉取每个群在目标日期范围内的聊天消息
    - 日期范围由用户参数决定: 日报扫描当天消息，周报扫描本周，月报扫描本月（与 git 提交的日期范围一致）
-   - lark-cli skill 会自动处理参数格式和分页，只需提供 chat_id、起止时间
+   - **分页处理**: 每次拉取消息后检查返回结果中的 `has_more` 字段，若为 `true`，必须用返回的 `page_token` 继续拉取下一页，循环直到 `has_more` 为 `false`
    - 若返回 `missing_scope` 错误，按错误的 `hint` 字段执行对应授权命令补充权限
    - 用 `config.larkOpenId` 过滤消息的 `sender.id` 字段，只保留自己发送的消息
+   - **消息结构（关键）**: lark-cli 返回的每条消息结构如下，`content` 在**顶层**，不在 `body` 下:
+
+     ```json
+     {
+       "content": "消息文本内容",
+       "msg_type": "text",
+       "sender": { "id": "ou_xxx" },
+       "create_time": "2026-03-31 17:20"
+     }
+     ```
+
+     正确取法: `message.content`（顶层字段）。**严禁**使用 `message.body.content`，那会得到空值
 
 3. **事项分类列表**
    - 调用: `GET {baseUrl}{apiPrefix}/pm/work-hour-matter/list?deptId={deptId}`
