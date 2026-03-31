@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.1](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.0...daily-report-v1.2.1) (2026-03-31)
+
+
+### Fixed
+
+* **daily-report:** 补全工程化链路并改用 AskUserQuestion 收集配置 ([a152510](https://github.com/lorainwings/claude-autopilot/commit/a152510c85f862e120db78fb0c4d7c969f6a74ac))
+
 ## [1.2.0](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.1.0...daily-report-v1.2.0) (2026-03-31)
 
 
