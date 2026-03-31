@@ -34,7 +34,10 @@
       "release-type": "simple",
       "component": "daily-report",
       "extra-files": [
-        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" }
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
+        "README.md",
+        "README.zh.md",
+        "CLAUDE.md"
       ]
     }
   }

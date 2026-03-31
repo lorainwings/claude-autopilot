@@ -2,7 +2,7 @@
 
 > 此文件为 daily-report 插件的工程法则。
 > 所有 AI Agent 在执行期间必须遵守。
-> 版本: 1.0.0 <!-- x-release-please-version -->
+> 版本: 1.1.0 <!-- x-release-please-version -->
 
 ## 插件定位
 
@@ -31,6 +31,13 @@
 <!-- DEV-ONLY-BEGIN -->
 
 ## 开发规范
+
+### 发版纪律
+
+1. **release-please 主要方式**: PR 合入 `main` → release-please 自动创建 Release PR → 合并即发版
+2. **Conventional Commits 驱动**: commit message 遵循 `feat(daily-report):` / `fix(daily-report):` 前缀，release-please 据此计算版本号
+3. **禁止散弹式修改版本号**: 不得人工修改 `.claude-plugin/plugin.json`、`README.md`、`README.zh.md`、`CLAUDE.md` 中的版本号，由 release-please 统一管理
+4. **推送前必须通过 CI**: `make dr-ci`（`dr-lint` → `dr-build`）全部通过后才允许 `git push`
 
 ### 目录结构
 
