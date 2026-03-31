@@ -1,7 +1,7 @@
 ---
 name: daily-report
 description: 基于 git 提交和飞书聊天记录，自动生成并提交内控日报
-argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
+argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END] [自然语言]"
 ---
 
 # daily-report Skill
@@ -195,6 +195,14 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END]"
 - 默认: 当天 (若当天是工作日) 或本周所有工作日
 - `--date YYYY-MM-DD`: 指定单天
 - `--range START~END`: 指定日期范围 (如 `2026-03-24~2026-03-28`)
+- **自然语言**: 用户可在 `/daily-report` 后直接用自然语言描述日期范围，自动解析为具体日期:
+  - "今天" / "今日" → 当天
+  - "昨天" → 昨天
+  - "本周" / "这周" → 本周一至今天（或本周五，取较早者）
+  - "上周" → 上周一至上周五
+  - "本月" / "这个月" → 本月 1 日至今天
+  - "上月" / "上个月" → 上月 1 日至上月最后一天
+  - 其他自然语言描述（如"最近三天"、"3月24号到28号"）→ 智能解析为对应日期范围
 - 自动排除周末 (周六、周日)
 
 **以下 5 项采集任务相互独立，使用 Agent 工具并行调度以最大化效率:**
