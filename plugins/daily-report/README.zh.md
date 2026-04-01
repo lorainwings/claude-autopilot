@@ -5,7 +5,7 @@
 > 基于 git 提交和飞书聊天记录，自动生成并提交内控日报。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
-![Version](https://img.shields.io/badge/version-1.2.1-blue.svg) <!-- x-release-please-version -->
+![Version](https://img.shields.io/badge/version-1.2.2) <!-- x-release-please-version -->
 
 ## 概述
 

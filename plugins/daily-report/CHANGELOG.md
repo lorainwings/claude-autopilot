@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.2](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.1...daily-report-v1.2.2) (2026-04-01)
+
+
+### Fixed
+
+* **daily-report:** 修复 CI 路径过滤和 post-release 文档版本同步 ([a5cc393](https://github.com/lorainwings/claude-autopilot/commit/a5cc3931f75370aa2a771beb166306d00e8fbe58))
+
 ## [1.2.1](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.0...daily-report-v1.2.1) (2026-03-31)
 
 
