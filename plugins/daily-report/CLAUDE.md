@@ -38,6 +38,8 @@
 2. **Conventional Commits 驱动**: commit message 遵循 `feat(daily-report):` / `fix(daily-report):` 前缀，release-please 据此计算版本号
 3. **禁止散弹式修改版本号**: 不得人工修改 `.claude-plugin/plugin.json`、`README.md`、`README.zh.md`、`CLAUDE.md` 中的版本号，由 release-please 统一管理
 4. **推送前必须通过 CI**: `make dr-ci`（`dr-lint` → `dr-build`）全部通过后才允许 `git push`
+5. **post-release 自动回写**: Release PR 合并后，CI 会自动同步 `dist/daily-report/`、插件文档、根 README 版本表和 `.claude-plugin/marketplace.json`
+6. **插件级路径隔离**: 仅修改 `plugins/daily-report/**` 时，只应触发 `test-daily-report.yml`；若改动 `scripts/`、`Makefile` 等共享文件，触发多条 workflow 属于预期
 
 ### 目录结构
 

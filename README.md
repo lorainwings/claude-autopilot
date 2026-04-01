@@ -15,7 +15,7 @@
 |--------|---------|-------------|
 | [spec-autopilot](plugins/spec-autopilot/) | 5.2.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.2.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
-| [daily-report](plugins/daily-report/README.md) | 1.1.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
+| [daily-report](plugins/daily-report/README.md) | 1.2.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 
 ## Quick Install
 
@@ -236,6 +236,8 @@ claude-autopilot/
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+Plugin-only changes trigger only the matching plugin workflow. After a release PR is merged into `main`, `release-please` and the post-release job rebuild `dist/`, sync plugin docs, refresh the root README version table, and update `.claude-plugin/marketplace.json`.
 
 ```bash
 # Clone the repository

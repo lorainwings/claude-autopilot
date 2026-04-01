@@ -238,6 +238,8 @@ claude-autopilot/
 
 欢迎贡献！请参阅 [CONTRIBUTING.zh.md](CONTRIBUTING.zh.md) 了解指南。
 
+插件级改动只会触发对应插件的 workflow。Release PR 合入 `main` 后，`release-please` 与 post-release job 会自动重建 `dist/`、同步插件文档、回写根 README 版本表，并更新 `.claude-plugin/marketplace.json`。
+
 ```bash
 # 克隆仓库
 git clone https://github.com/lorainwings/claude-autopilot.git

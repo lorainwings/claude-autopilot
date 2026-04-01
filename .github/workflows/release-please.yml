@@ -76,6 +76,7 @@ jobs:
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
           PH_VER="${{ needs.release-please.outputs.ph_version }}"
+          DR_VER="${{ needs.release-please.outputs.dr_version }}"
 
           # spec-autopilot README badge
           if [ -n "$SA_VER" ]; then
@@ -91,6 +92,14 @@ jobs:
             sed -i "s/\*\*Version\*\*: [0-9][0-9.]* (GA)/**Version**: ${PH_VER} (GA)/" plugins/parallel-harness/README.md
             # 中文 版本信息: - **版本**: v1.1.2 (GA) <!-- x-release-please-version -->
             sed -i "s/\*\*版本\*\*: v\{0,1\}[0-9][0-9.]* (GA)/**版本**: v${PH_VER} (GA)/" plugins/parallel-harness/README.zh.md
+          fi
+
+          # daily-report README badge + CLAUDE.md 版本
+          # release-please 的 x-release-please-version 对 badge URL 中的版本无法匹配，需要 sed 兜底
+          if [ -n "$DR_VER" ]; then
+            sed -i "s/version-[0-9][0-9.]*-blue/version-${DR_VER}-blue/g" plugins/daily-report/README.md plugins/daily-report/README.zh.md
+            # CLAUDE.md: > 版本: 1.1.0 <!-- x-release-please-version -->
+            sed -i "s/> 版本: [0-9][0-9.]*/> 版本: ${DR_VER}/" plugins/daily-report/CLAUDE.md
           fi
 
       - name: Update root README version table
@@ -110,7 +119,7 @@ jobs:
           fi
 
           if [ -n "$DR_VER" ]; then
-            sed -i "s/| \[daily-report\](plugins\/daily-report\/) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/) | $DR_VER/" README.md
+            sed -i "s/| \[daily-report\](plugins\/daily-report\/README\.md) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/README.md) | $DR_VER/" README.md
             sed -i "s/| \[daily-report\](plugins\/daily-report\/README\.zh\.md) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/README.zh.md) | $DR_VER/" README.zh.md
           fi
 
@@ -195,6 +204,8 @@ jobs:
             plugins/spec-autopilot/README.md plugins/spec-autopilot/README.zh.md \
             plugins/parallel-harness/README.md plugins/parallel-harness/README.zh.md \
             plugins/parallel-harness/docs/ \
+            plugins/daily-report/README.md plugins/daily-report/README.zh.md \
+            plugins/daily-report/CLAUDE.md \
             README.md README.zh.md \
             .claude-plugin/marketplace.json
           if git diff --cached --quiet; then

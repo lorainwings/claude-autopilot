@@ -126,13 +126,15 @@ Open a PR against `main` with a clear description of your changes.
 
 - **Primary**: [release-please](https://github.com/googleapis/release-please) automates version bumps, CHANGELOG generation, and GitHub Releases via Conventional Commits
 - **Fallback**: `tools/release.sh` (interactive wizard) for manual releases when release-please is unavailable
-- Never manually edit version numbers in plugin.json, marketplace.json, README.md, or CHANGELOG.md
+- Merge release work into `main`; release-please will open the Release PR, and the post-release job will sync `dist/`, plugin docs, root README tables, and `.claude-plugin/marketplace.json`
+- Never manually edit version numbers in plugin.json, marketplace.json, README.md, root README tables, or CHANGELOG.md
 
 ### Build Discipline
 
 - Run `make build` after modifying any runtime files
 - `dist/` is auto-generated — all changes go in source
 - Test files never enter `dist/`
+- Plugin-only changes should stay inside the matching plugin path so GitHub Actions only runs that plugin's workflow; shared files such as `scripts/` or `Makefile` intentionally fan out to multiple workflows
 
 ## Commit Message Convention
 

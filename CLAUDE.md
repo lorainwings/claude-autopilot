@@ -88,7 +88,7 @@
 1. **自动化流程**: PR 合入 `main` → release-please 自动创建 Release PR → 合并即发版
 2. **Conventional Commits 驱动**: commit message 遵循 `feat:` / `fix:` / `refactor:` / `perf:` 等前缀，release-please 据此计算版本号和生成 CHANGELOG
 3. **多包配置**: `release-please-config.json` 定义三个插件的发版规则，每个插件独立版本
-4. **post-release 自动化**: CI 发版后自动更新 dist/、README badge、marketplace.json 版本号
+4. **post-release 自动化**: CI 发版后自动更新 `dist/`、插件 README/CLAUDE、根 README 版本表和 `.claude-plugin/marketplace.json`
 
 ### 手动 fallback
 
@@ -185,6 +185,7 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 ### CI 关键行为
 
 1. **路径过滤**: 每条 pipeline 仅在对应插件目录有变更时触发
+   共享文件（如 `scripts/`、`Makefile`、`.shellcheckrc`）改动会按影响面触发多个 pipeline，这是预期行为
 2. **release-please 分支 bypass**: pre-commit hook 检测到 `release-please--*` 分支自动跳过
 3. **bot commit bypass**: CI discipline 检查自动跳过 release-please 和 post-release bot 提交
 4. **dist freshness 验证**: CI 构建后对比 tracked + untracked files，不一致则失败

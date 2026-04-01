@@ -129,13 +129,15 @@ git push origin feature/my-feature
 
 - **主要方式**: [release-please](https://github.com/googleapis/release-please) 通过 Conventional Commits 自动管理版本升级、CHANGELOG 生成和 GitHub Releases
 - **备用方式**: `tools/release.sh`（交互向导）仅在 release-please 不可用时使用
-- 禁止手动编辑 plugin.json、marketplace.json、README.md 或 CHANGELOG.md 中的版本号
+- 发版变更统一合入 `main`；release-please 会创建 Release PR，post-release job 会同步 `dist/`、插件文档、根 README 版本表和 `.claude-plugin/marketplace.json`
+- 禁止手动编辑 plugin.json、marketplace.json、README.md、根 README 版本表或 CHANGELOG.md 中的版本号
 
 ### 构建纪律
 
 - 修改任何运行时文件后运行 `make build`
 - `dist/` 是自动生成的 — 所有修改在源码中进行
 - 测试文件不会进入 `dist/`
+- 仅修改某个插件时，应尽量把改动限制在对应插件目录内，这样 GitHub Actions 只会跑该插件的 workflow；`scripts/`、`Makefile` 等共享文件改动会有意触发多个 workflow
 
 ## Commit Message 规范
 
