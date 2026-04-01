@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TEST_LAYER: contract
 # test_reference_files.sh — Section 30: v3.2.0 reference files existence
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

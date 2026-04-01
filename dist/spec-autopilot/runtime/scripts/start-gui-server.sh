@@ -1,16 +1,51 @@
 #!/usr/bin/env bash
 # start-gui-server.sh
-# v5.4 GUI 服务器守护进程启动器 (稳定性 + 可观测性增强)
+# v5.5 GUI 服务器守护进程启动器 (结构化 JSON 输出增强)
 # Purpose: 检测 autopilot-server 是否存活，未存活则后台启动
 # Usage:
 #   bash runtime/scripts/start-gui-server.sh [project_root]       # 默认：检测+启动
 #   bash runtime/scripts/start-gui-server.sh --stop               # 通过 PID 文件终止服务器
 #   bash runtime/scripts/start-gui-server.sh --check-health       # 检测进程是否存活，死掉则重启
-# Output: 一行优雅提示或静默（已存活时）
+# Output:
+#   stdout: 结构化 JSON（前缀 GUI_SERVER_JSON:），包含 status/http_url/ws_url/health_url 等字段
+#   stderr: 诊断信息（人类可读）
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --- 端口配置 ---
+HTTP_PORT=9527
+WS_PORT=9528
+
+# --- 结构化 JSON 输出 ---
+# 所有诊断信息输出到 stderr，JSON 输出到 stdout
+# 调用方通过 GUI_SERVER_JSON: 前缀解析结构化数据
+emit_json() {
+  local status="$1"
+  local reused="${2:-false}"
+  local started="${3:-false}"
+  local error="${4:-}"
+
+  local http_url="http://localhost:${HTTP_PORT}"
+  local ws_url="ws://localhost:${WS_PORT}"
+  local health_url="http://localhost:${HTTP_PORT}/api/health"
+
+  # 使用 printf 手动构建 JSON，避免对 jq 的硬依赖
+  local json
+  if [ -n "$error" ]; then
+    # 转义 error 中的双引号和反斜杠
+    local escaped_error
+    escaped_error=$(printf '%s' "$error" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s,"error":"%s"}' \
+      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started" "$escaped_error")
+  else
+    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s}' \
+      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started")
+  fi
+
+  echo "GUI_SERVER_JSON:${json}"
+}
 
 # --- Parse mode flag ---
 MODE="start"
@@ -35,14 +70,14 @@ SERVER_ERR_LOG="$LOGS_DIR/gui-server.err.log"
 check_server_alive() {
   local resp
   # 优先使用 /api/health 端点（v5.9），fallback 到 /api/info
-  resp=$(curl -s --max-time 1 http://localhost:9527/api/health 2>/dev/null) ||
-    resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
+  resp=$(curl -s --max-time 1 http://localhost:${HTTP_PORT}/api/health 2>/dev/null) ||
+    resp=$(curl -s --max-time 1 http://localhost:${HTTP_PORT}/api/info 2>/dev/null) || return 1
   # Validate response belongs to THIS project (prevent cross-project false positives)
   if [ -n "$resp" ]; then
     local resp_root
     # /api/health 不含 projectRoot，使用 /api/info 验证归属
     local info_resp
-    info_resp=$(curl -s --max-time 1 http://localhost:9527/api/info 2>/dev/null) || return 1
+    info_resp=$(curl -s --max-time 1 http://localhost:${HTTP_PORT}/api/info 2>/dev/null) || return 1
     resp_root=$(echo "$info_resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('projectRoot',''))" 2>/dev/null) || true
     if [ -z "$resp_root" ]; then
       # Server too old to return projectRoot — reject (cannot verify ownership)
@@ -119,7 +154,7 @@ stop_server() {
       kill -9 "$pid" 2>/dev/null || true
     fi
     remove_pid
-    echo "[INFO] GUI server (PID $pid) stopped"
+    echo "[INFO] GUI server (PID $pid) stopped" >&2
     return 0
   else
     remove_pid
@@ -182,6 +217,7 @@ case "$MODE" in
   check-health)
     # 检测进程是否存活，若死掉则重启
     if check_server_alive; then
+      emit_json "reused" "true" "false"
       exit 0
     fi
     # HTTP 不通 — 检查 PID 是否存活
@@ -196,8 +232,10 @@ case "$MODE" in
     fi
     # 重启
     if start_server; then
-      echo "✨ GUI 服务器已自动重启，大盘见 http://localhost:9527"
+      echo "✨ GUI 服务器已自动重启，大盘见 http://localhost:${HTTP_PORT}" >&2
+      emit_json "started" "false" "true"
     else
+      emit_json "failed" "false" "false" "健康检查重启失败"
       exit 1
     fi
     ;;
@@ -205,12 +243,14 @@ case "$MODE" in
   start)
     # 先检查 PID 文件中的进程是否存活
     if check_pid_alive && check_server_alive; then
-      # Already running, silent exit
+      # 已运行，复用现有服务器
+      emit_json "reused" "true" "false"
       exit 0
     fi
 
     # HTTP 探活（兼容无 PID 文件但已有服务的情况）
     if check_server_alive; then
+      emit_json "reused" "true" "false"
       exit 0
     fi
 
@@ -219,9 +259,11 @@ case "$MODE" in
 
     # Not running, start it
     if start_server; then
-      echo "✨ 引擎已启动，GUI 大盘见 http://localhost:9527"
+      echo "✨ 引擎已启动，GUI 大盘见 http://localhost:${HTTP_PORT}" >&2
+      emit_json "started" "false" "true"
     else
-      # Failed to start, but don't block autopilot execution
+      # 启动失败，输出失败 JSON 但不阻断 autopilot 执行
+      emit_json "failed" "false" "false" "GUI 服务器启动失败"
       exit 0
     fi
     ;;

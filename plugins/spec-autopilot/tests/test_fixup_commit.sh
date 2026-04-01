@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TEST_LAYER: docs_consistency
 # test_fixup_commit.sh — Section 51: Fixup commit uses git add -A + fail-closed semantics
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,7 +1,7 @@
 /**
- * App -- v5.9 主应用组件 (orchestration-first)
- * 三栏布局: 左侧时间轴 | 中心(OrchestrationPanel + Kanban + LogWorkbench) | 右侧遥测(可折叠)
- * 核心变更: 主窗口优先展示编排信息，遥测降级为折叠面板
+ * App -- v7.0 主应用组件 (orchestration-first + report-visible)
+ * 三栏布局: 左侧时间轴 | 中心(OrchestrationPanel + PhasePipelineOverview + GateBlockCard + ReportCard) | 右侧遥测(可折叠)
+ * v7.0 变更: 主窗口只保留编排控制信息，LogWorkbench 下沉为二级诊断面板
  */
 
 import { useEffect, memo, useState } from "react";
@@ -13,6 +13,7 @@ import { OrchestrationPanel } from "./components/OrchestrationPanel";
 import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
 import { LogWorkbench } from "./components/LogWorkbench";
+import { ReportCard } from "./components/ReportCard";
 import type { ModelRoutingState } from "./store";
 
 declare const __PLUGIN_VERSION__: string;
@@ -81,6 +82,8 @@ export function App() {
   const hasEvents = useStore((s) => s.events.length > 0);
   const modelRouting = useStore((s) => s.modelRouting);
   const [telemetryOpen, setTelemetryOpen] = useState(false);
+  // v7.0: 主窗口默认显示 orchestration 视图，diagnostics 为二级面板
+  const [activeView, setActiveView] = useState<"orchestration" | "diagnostics">("orchestration");
 
   useEffect(() => {
     wsBridge.connect();
@@ -174,6 +177,29 @@ export function App() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
+          {/* v7.0: 视图切换按钮 */}
+          <div className="flex items-center border border-border rounded overflow-hidden">
+            <button
+              onClick={() => setActiveView("orchestration")}
+              className={`px-2 py-0.5 text-[10px] font-mono transition-colors ${
+                activeView === "orchestration"
+                  ? "bg-cyan/15 text-cyan border-r border-cyan/30"
+                  : "text-text-muted hover:text-text-bright border-r border-border"
+              }`}
+            >
+              编排
+            </button>
+            <button
+              onClick={() => setActiveView("diagnostics")}
+              className={`px-2 py-0.5 text-[10px] font-mono transition-colors ${
+                activeView === "diagnostics"
+                  ? "bg-cyan/15 text-cyan"
+                  : "text-text-muted hover:text-text-bright"
+              }`}
+            >
+              诊断
+            </button>
+          </div>
           {/* 遥测面板展开/折叠按钮 */}
           <button
             onClick={() => setTelemetryOpen(!telemetryOpen)}
@@ -240,15 +266,24 @@ export function App() {
 
             {hasEvents && (
               <>
-                {/* ParallelKanban (Top) */}
-                <div className="h-[42%]">
-                  <ParallelKanban />
-                </div>
-
-                {/* Log Workbench (Bottom) */}
-                <div className="h-[58%]">
-                  <LogWorkbench />
-                </div>
+                {activeView === "orchestration" ? (
+                  <>
+                    {/* v7.0: 编排视图 — PhasePipelineOverview + ReportCard + Kanban */}
+                    <div className="h-[50%] overflow-auto">
+                      <ParallelKanban />
+                    </div>
+                    <div className="h-[50%] overflow-auto p-4 space-y-3">
+                      <ReportCard />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 诊断视图 — LogWorkbench (二级面板) */}
+                    <div className="h-full">
+                      <LogWorkbench />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>

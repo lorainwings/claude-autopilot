@@ -179,18 +179,113 @@ export interface ModelRoutingConfig {
 
 // --- v6.0 新增类型 ---
 
-/** state-snapshot.json 结构化控制态 (WS-C) */
+/** 恢复来源枚举 — GUI 可见恢复状态 (工作包 G) */
+export type RecoverySource =
+  | "fresh"
+  | "snapshot_resume"
+  | "checkpoint_resume"
+  | "progress_resume"
+  | "snapshot_hash_mismatch";
+
+/** 报告状态 — Phase 6 测试报告产物 (工作包 D) */
+export interface ReportState {
+  report_format: "allure" | "junit" | "custom" | "none" | null;
+  report_path: string | null;
+  report_url: string | null;
+  allure_results_dir: string | null;
+  allure_preview_url: string | null;
+  suite_results: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    error: number;
+  } | null;
+  anomaly_alerts: string[];
+}
+
+/** TDD 审计摘要 — Phase 5 TDD 产物 (工作包 I) */
+export interface TddAuditSummary {
+  cycle_count: number;
+  red_violations: number;
+  green_violations: number;
+  refactor_rollbacks: number;
+  red_commands: string[];
+  green_commands: string[];
+}
+
+/** Dispatch 计划/实际记录 (工作包 H) */
+export interface DispatchRecord {
+  requested_agent: string;
+  resolved_agent: string;
+  priority_source: "project" | "plugin" | "builtin";
+  ownership: string[];
+  validators: string[];
+  model_routing: string | null;
+  status: "planned" | "dispatched" | "completed" | "failed" | "reconciled";
+}
+
+/** Fixup manifest 条目 (工作包 J) */
+export interface FixupManifestEntry {
+  checkpoint_id: string;
+  checkpoint_phase: number;
+  expected_fixup_message: string;
+  actual_sha: string | null;
+  squash_result: "pending" | "squashed" | "missing";
+}
+
+/** state-snapshot.json 结构化控制态 (v7.0 — 统一控制面) */
 export interface StateSnapshot {
   schema_version: string;
   snapshot_hash: string;
+  /** 执行模式 */
+  mode: AutopilotMode;
+  /** 当前 phase */
+  current_phase: number;
+  /** 已执行的 phase 列表 */
+  executed_phases: number[];
+  /** 已跳过的 phase 列表 (mode-dependent) */
+  skipped_phases: number[];
+  /** gate 前沿 */
   gate_frontier: number;
   next_action: string;
-  requirement_packet_hash: string | null;
-  phase_results: Record<string, { status: string; timestamp: string }>;
-  review_status: string | null;
-  fixup_status: string | null;
-  archive_status: string | null;
+  /** 恢复来源 */
+  recovery_source: RecoverySource;
+  /** 恢复原因 */
+  recovery_reason: string | null;
+  /** 恢复置信度 */
   recovery_confidence: "high" | "medium" | "low" | null;
+  /** 恢复起始 phase */
+  resume_from_phase: number | null;
+  /** 恢复时丢弃的产物 */
+  discarded_artifacts: string[];
+  /** 恢复时需要重放的任务 */
+  replay_required_tasks: string[];
+  /** 需求包哈希 */
+  requirement_packet_hash: string | null;
+  /** 各 phase 结果 */
+  phase_results: Record<string, { status: string; timestamp: string }>;
+  /** review 状态 */
+  review_status: string | null;
+  /** fixup 状态 */
+  fixup_status: string | null;
+  /** 归档状态 */
+  archive_status: string | null;
+  /** 报告状态 (工作包 D) */
+  report_state: ReportState | null;
+  /** TDD 审计摘要 (工作包 I) */
+  tdd_audit: TddAuditSummary | null;
+  /** 活跃 agent 列表 */
+  active_agents: DispatchRecord[];
+  /** 活跃任务列表 */
+  active_tasks: string[];
+  /** 模型路由信息 */
+  model_routing: {
+    requested_model: string | null;
+    effective_model: string | null;
+    fallback_model: string | null;
+    routing_reason: string | null;
+  } | null;
 }
 
 /** archive-readiness.json 归档就绪判定 (Phase 7, WS-H) */
@@ -220,6 +315,21 @@ export interface OrchestrationOverview {
     fixupComplete: boolean;
     reviewGatePassed: boolean;
     ready: boolean;
+  } | null;
+  /** 恢复来源 (工作包 G) */
+  recoverySource: RecoverySource | null;
+  /** 恢复原因 */
+  recoveryReason: string | null;
+  /** 报告状态 (工作包 D) */
+  reportState: ReportState | null;
+  /** TDD 审计 (工作包 I) */
+  tddAudit: TddAuditSummary | null;
+  /** 决策生命周期 (工作包 B) */
+  decisionLifecycle: {
+    requestId: string;
+    phase: number;
+    action: string;
+    state: "idle" | "pending" | "accepted" | "applied" | "superseded" | "expired";
   } | null;
 }
 

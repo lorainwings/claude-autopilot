@@ -8,9 +8,14 @@
 # Pure read-only: does NOT modify any files or git state.
 # Scans checkpoints, lock file, git state, state-snapshot.json, and computes recovery options.
 #
-# v6.0:
-#   - Reads state-snapshot.json as primary recovery control state
-#   - Outputs resume_from_phase, discarded_artifacts, replay_required_tasks,
+# v7.0:
+#   - 读取 state-snapshot.json 作为首要恢复控制态
+#   - 输出 recovery_source 字段，优先级:
+#     snapshot hash 有效 → "snapshot_resume", checkpoint → "checkpoint_resume",
+#     progress → "progress_resume", 无 → "fresh"
+#   - checkpoint 扫描只作为灾备 fallback，不再与 snapshot 同级
+#   - hash 有效时恢复只走 snapshot 路径
+#   - 输出 resume_from_phase, discarded_artifacts, replay_required_tasks,
 #     recovery_reason, recovery_confidence
 #   - Hash consistency verification for fail-closed recovery
 #
@@ -226,7 +231,7 @@ for entry in sorted(os.listdir(changes_dir)):
             except Exception:
                 pass
 
-    # v6.0: Read state-snapshot.json if available
+    # v7.0: 读取 state-snapshot.json（如果可用）
     state_snapshot = None
     snapshot_file = os.path.join(change_path, 'context', 'state-snapshot.json')
     if os.path.isfile(snapshot_file):
@@ -242,14 +247,30 @@ for entry in sorted(os.listdir(changes_dir)):
             state_snapshot = {
                 'exists': True,
                 'hash_valid': hash_valid,
+                'schema_version': sdata.get('schema_version', '6.0'),
                 'snapshot_hash': stored_hash,
                 'gate_frontier': sdata.get('gate_frontier', 0),
                 'next_action': sdata.get('next_action', {}),
                 'requirement_packet_hash': sdata.get('requirement_packet_hash'),
                 'last_completed_phase': sdata.get('last_completed_phase', 0),
+                # v7.0 新增字段
+                'mode': sdata.get('mode') or sdata.get('execution_mode', 'full'),
+                'current_phase': sdata.get('current_phase'),
+                'executed_phases': sdata.get('executed_phases', []),
+                'skipped_phases': sdata.get('skipped_phases', []),
+                'recovery_source': sdata.get('recovery_source', 'fresh'),
+                'recovery_reason': sdata.get('recovery_reason'),
+                'resume_from_phase': sdata.get('resume_from_phase'),
+                'discarded_artifacts': sdata.get('discarded_artifacts', []),
+                'replay_required_tasks': sdata.get('replay_required_tasks', []),
+                'report_state': sdata.get('report_state'),
+                'active_agents': sdata.get('active_agents', []),
+                'active_tasks': sdata.get('active_tasks', []),
+                'model_routing': sdata.get('model_routing'),
+                'recovery_confidence': sdata.get('recovery_confidence', 'high'),
             }
         except Exception:
-            state_snapshot = {'exists': True, 'hash_valid': False, 'snapshot_hash': '', 'gate_frontier': 0, 'next_action': {}, 'requirement_packet_hash': None, 'last_completed_phase': 0}
+            state_snapshot = {'exists': True, 'hash_valid': False, 'schema_version': '', 'snapshot_hash': '', 'gate_frontier': 0, 'next_action': {}, 'requirement_packet_hash': None, 'last_completed_phase': 0, 'mode': 'full', 'current_phase': None, 'executed_phases': [], 'skipped_phases': [], 'recovery_source': 'fresh', 'recovery_reason': None, 'resume_from_phase': None, 'discarded_artifacts': [], 'replay_required_tasks': [], 'report_state': None, 'active_agents': [], 'active_tasks': [], 'model_routing': None, 'recovery_confidence': 'low'}
 
     if not os.path.isdir(pr_dir):
         changes.append({
@@ -411,12 +432,18 @@ elif has_checkpoints or has_partial_progress:
 # Compute recovery options for selected change
 recovery_options = {'continue': None, 'specify_range': [], 'reset': {'phase': 1}}
 recommended_phase = 1
-# v6.0: Enhanced recovery metadata
+# v7.0: 恢复元数据（含 recovery_source 优先级逻辑）
 resume_from_phase = 1
 discarded_artifacts = []
 replay_required_tasks = []
 recovery_reason = 'fresh_start'
 recovery_confidence = 'high'
+# v7.0: recovery_source 优先级:
+#   snapshot hash 有效 -> snapshot_resume
+#   checkpoint 存在 -> checkpoint_resume (灾备 fallback)
+#   progress 存在 -> progress_resume
+#   无 -> fresh
+recovery_source = 'fresh'
 
 if selected_change:
     sc = None
@@ -431,7 +458,7 @@ if selected_change:
         progress_map = {pf['phase']: pf for pf in sc.get('progress_files', [])}
         state_snap = sc.get('state_snapshot')
 
-        # v6.0: Use state-snapshot.json if available and hash-valid
+        # v7.0: snapshot hash 有效 → 恢复只走 snapshot 路径（首要路径）
         if state_snap and state_snap.get('exists') and state_snap.get('hash_valid'):
             snap_next = state_snap.get('next_action', {}).get('phase')
             snap_gate = state_snap.get('gate_frontier', 0)
@@ -444,6 +471,7 @@ if selected_change:
                 resume_from_phase = snap_next
                 recovery_reason = 'state_snapshot_resume'
                 recovery_confidence = 'high'
+                recovery_source = 'snapshot_resume'
             # specify_range from snapshot gate_frontier
             completed_phases = []
             for p in phase_seq:
@@ -453,6 +481,7 @@ if selected_change:
             recovery_options['specify_range'] = completed_phases
 
         elif has_final_checkpoints:
+            # v7.0: checkpoint 扫描作为灾备 fallback（snapshot 不可用时）
             # Use first_incomplete_phase — correctly handles gaps
             fip = first_incomplete_phase(sc, phase_seq)
             if fip is not None:
@@ -465,6 +494,7 @@ if selected_change:
                 resume_from_phase = fip
                 recovery_reason = 'checkpoint_resume'
                 recovery_confidence = 'medium' if sc.get('has_gaps') else 'high'
+                recovery_source = 'checkpoint_resume'
             else:
                 recommended_phase = sc['last_valid_phase']  # all done
                 resume_from_phase = sc['last_valid_phase']
@@ -500,24 +530,26 @@ if selected_change:
             resume_from_phase = recovery_phase
             recovery_reason = 'progress_resume'
             recovery_confidence = 'medium'
+            recovery_source = 'progress_resume'
 
-        # v6.0: Compute discarded_artifacts (phases after resume point that have artifacts)
+        # v7.0: Compute discarded_artifacts (phases after resume point that have artifacts)
         for p in phase_seq:
             if p >= resume_from_phase:
                 cs_list = [x for x in sc.get('checkpoint_scan', []) if x['phase'] == p]
                 if cs_list and cs_list[0].get('file') and cs_list[0]['status'] not in ('ok', 'warning'):
                     discarded_artifacts.append({'phase': p, 'file': cs_list[0]['file'], 'reason': f'Phase {p} incomplete/failed'})
 
-        # v6.0: Compute replay_required_tasks
+        # v7.0: Compute replay_required_tasks
         if resume_from_phase == 5 and phase5_tasks_incomplete(sc):
             for pf in sc.get('progress_files', []):
                 if pf['phase'] == 5 and pf['status'] == 'in_progress':
                     replay_required_tasks.append({'phase': 5, 'step': pf['step'], 'reason': 'Phase 5 task incomplete'})
 
-        # v6.0: Fail-closed for corrupted snapshot
+        # v7.0: snapshot hash 不一致时 fail-closed
         if state_snap and state_snap.get('exists') and not state_snap.get('hash_valid'):
             recovery_confidence = 'low'
             recovery_reason = 'snapshot_hash_mismatch'
+            recovery_source = 'fresh'  # hash 失败时不信任 snapshot，降级为 fresh
 
 # --- Compute git_risk_level ---
 # rebase_in_progress or merge_in_progress -> high; worktree_residuals -> medium; has fixup -> low; else -> none
@@ -547,7 +579,7 @@ if selected_change is not None and recovery_options.get('continue') is not None:
         auto_continue_eligible = True
         recovery_interaction_required = False
 
-# v6.0: Override auto_continue if snapshot hash failed
+# v7.0: Override auto_continue if snapshot hash failed
 if recovery_confidence == 'low':
     auto_continue_eligible = False
     recovery_interaction_required = True
@@ -570,7 +602,8 @@ result = {
     'recovery_interaction_required': recovery_interaction_required,
     'auto_continue_eligible': auto_continue_eligible,
     'git_risk_level': git_risk_level,
-    # v6.0: Enhanced recovery metadata
+    # v7.0: 增强恢复元数据（含 recovery_source）
+    'recovery_source': recovery_source,
     'resume_from_phase': resume_from_phase,
     'discarded_artifacts': discarded_artifacts,
     'replay_required_tasks': replay_required_tasks,

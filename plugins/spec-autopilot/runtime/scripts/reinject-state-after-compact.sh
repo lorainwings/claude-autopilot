@@ -7,8 +7,10 @@
 #   "Use a SessionStart hook with a compact matcher to re-inject critical context
 #    after every compaction."
 #
-# v6.0: Prioritizes state-snapshot.json (structured control state) over autopilot-state.md.
+# v7.0: Prioritizes state-snapshot.json (统一控制面工件) over autopilot-state.md.
 #        Verifies snapshot_hash consistency before injecting structured state.
+#        Supports v7.0 新增字段: mode, current_phase, executed_phases, skipped_phases,
+#        recovery_source, report_state, active_agents, model_routing 等.
 #        Falls back to markdown only if JSON is missing or corrupted.
 
 set -uo pipefail
@@ -64,7 +66,7 @@ if [ -z "$STATE_FILE" ] && [ -z "$SNAPSHOT_JSON" ]; then
   exit 0
 fi
 
-# --- v6.0: Try structured state-snapshot.json first (primary path) ---
+# --- v7.0: 优先使用结构化 state-snapshot.json（主路径）---
 SNAPSHOT_VALID=false
 if [ -n "$SNAPSHOT_JSON" ] && [ -f "$SNAPSHOT_JSON" ] && command -v python3 &>/dev/null; then
   SNAPSHOT_OUTPUT=$(python3 -c "
@@ -75,18 +77,19 @@ try:
     with open(snapshot_file) as f:
         data = json.load(f)
 
-    # Verify schema_version
-    if data.get('schema_version') != '6.0':
+    # 验证 schema_version（兼容 6.0 和 7.0）
+    sv = data.get('schema_version', '')
+    if sv not in ('6.0', '7.0'):
         print('INVALID:schema_version_mismatch', file=sys.stderr)
         sys.exit(1)
 
-    # Verify snapshot_hash consistency
+    # 验证 snapshot_hash 一致性
     stored_hash = data.get('snapshot_hash', '')
     if not stored_hash:
         print('INVALID:no_snapshot_hash', file=sys.stderr)
         sys.exit(1)
 
-    # Recompute hash (exclude snapshot_hash field itself)
+    # 重新计算 hash（排除 snapshot_hash 字段本身）
     verify_data = {k: v for k, v in data.items() if k != 'snapshot_hash'}
     verify_content = json.dumps(verify_data, sort_keys=True, ensure_ascii=False)
     computed_hash = hashlib.sha256(verify_content.encode('utf-8')).hexdigest()[:16]
@@ -95,9 +98,10 @@ try:
         print(f'INVALID:hash_mismatch stored={stored_hash} computed={computed_hash}', file=sys.stderr)
         sys.exit(1)
 
-    # Structured output
+    # 提取结构化字段
     change_name = data.get('change_name', 'unknown')
-    mode = data.get('execution_mode', 'full')
+    # v7.0: 优先使用 'mode' 字段，回退到 'execution_mode'
+    mode = data.get('mode') or data.get('execution_mode', 'full')
     gate_frontier = data.get('gate_frontier', 0)
     last_completed = data.get('last_completed_phase', 0)
     next_action = data.get('next_action', {})
@@ -110,22 +114,60 @@ try:
     phase5_tasks = data.get('phase5_task_details', [])
     snapshot_hash = stored_hash
 
+    # v7.0 新增字段（向后兼容：缺失时提供默认值）
+    current_phase = data.get('current_phase', next_phase)
+    executed_phases = data.get('executed_phases', [])
+    skipped_phases = data.get('skipped_phases', [])
+    recovery_source_saved = data.get('recovery_source', 'fresh')
+    recovery_reason = data.get('recovery_reason')
+    resume_from_phase = data.get('resume_from_phase')
+    discarded_artifacts = data.get('discarded_artifacts', [])
+    replay_required_tasks = data.get('replay_required_tasks', [])
+    report_state = data.get('report_state')
+    active_agents = data.get('active_agents', [])
+    model_routing = data.get('model_routing')
+    recovery_confidence = data.get('recovery_confidence', 'high')
+
+    # v7.0: 验证所有新字段的存在性（仅 v7.0 schema 需要）
+    if sv == '7.0':
+        required_v7_fields = ['mode', 'current_phase', 'executed_phases', 'skipped_phases',
+                              'recovery_source', 'report_state', 'active_agents', 'active_tasks',
+                              'discarded_artifacts', 'replay_required_tasks']
+        missing_fields = [f for f in required_v7_fields if f not in data]
+        if missing_fields:
+            print(f'WARNING: v7.0 schema missing fields: {missing_fields}', file=sys.stderr)
+
+    # v7.0: 恢复时将 recovery_source 设置为 snapshot_resume
+    actual_recovery_source = 'snapshot_resume'
+
     print('=== AUTOPILOT STATE RESTORED (STRUCTURED) ===')
     print()
-    print(f'Structured recovery from state-snapshot.json (hash={snapshot_hash})')
+    print(f'Structured recovery from state-snapshot.json v{sv} (hash={snapshot_hash})')
+    print(f'Recovery source: {actual_recovery_source} (saved as: {recovery_source_saved})')
     print()
     print(f'## Control State')
     print(f'- Change: {change_name}')
     print(f'- Mode: {mode}')
+    print(f'- Current phase: {current_phase}')
     print(f'- Gate frontier: Phase {gate_frontier}')
     print(f'- Last completed: Phase {last_completed}')
     print(f'- Next action: Phase {next_phase} ({next_action.get(\"type\", \"resume\")})')
+    print(f'- Recovery source: {actual_recovery_source}')
+    print(f'- Recovery confidence: {recovery_confidence}')
     if req_hash:
         print(f'- Requirement packet hash: {req_hash}')
     if anchor_sha:
         print(f'- Anchor SHA: {anchor_sha}')
     print(f'- Snapshot hash: {snapshot_hash} (verified)')
     print()
+
+    # v7.0: 已执行/跳过阶段
+    if executed_phases:
+        print(f'## Executed Phases: {executed_phases}')
+        print()
+    if skipped_phases:
+        print(f'## Skipped Phases (mode={mode}): {skipped_phases}')
+        print()
 
     # Phase results table
     print('## Phase Results')
@@ -140,11 +182,45 @@ try:
         print(f'| {pnum_str}. {name} | {status} | {summary or \"-\"} |')
     print()
 
+    # v7.0: Report state
+    if report_state and any(v for v in report_state.values() if v):
+        print('## Report State')
+        if report_state.get('report_format'):
+            print(f'- Format: {report_state[\"report_format\"]}')
+        if report_state.get('report_path'):
+            print(f'- Path: {report_state[\"report_path\"]}')
+        if report_state.get('report_url'):
+            print(f'- URL: {report_state[\"report_url\"]}')
+        if report_state.get('allure_results_dir'):
+            print(f'- Allure results: {report_state[\"allure_results_dir\"]}')
+        if report_state.get('suite_results'):
+            print(f'- Suite results: available')
+        anomalies = report_state.get('anomaly_alerts', [])
+        if anomalies:
+            print(f'- Anomaly alerts: {len(anomalies)} alert(s)')
+        print()
+
     # Active tasks
     if active_tasks:
         print('## Active Tasks (in-progress)')
         for at in active_tasks:
             print(f'- Phase {at[\"phase\"]}: sub-step={at[\"step\"]}')
+        print()
+
+    # v7.0: Active agents
+    if active_agents:
+        print('## Active Agents')
+        for ag in active_agents:
+            print(f'- Agent {ag.get(\"id\", \"unknown\")}: phase={ag.get(\"phase\")}, task={ag.get(\"task\")}')
+        print()
+
+    # v7.0: Model routing
+    if model_routing:
+        print('## Model Routing')
+        if isinstance(model_routing, dict) and model_routing.get('raw_config'):
+            print(f'  {model_routing[\"raw_config\"][:200]}')
+        else:
+            print(f'  {json.dumps(model_routing)[:200]}')
         print()
 
     # Task progress
@@ -161,9 +237,22 @@ try:
             print(f'| {td[\"number\"]} | {td[\"status\"]} | {td.get(\"summary\", \"-\")} |')
         print()
 
+    # v7.0: Discarded artifacts / replay required tasks
+    if discarded_artifacts:
+        print('## Discarded Artifacts')
+        for da in discarded_artifacts:
+            print(f'- Phase {da.get(\"phase\")}: {da.get(\"file\")} ({da.get(\"reason\", \"\")})')
+        print()
+    if replay_required_tasks:
+        print('## Replay Required Tasks')
+        for rt in replay_required_tasks:
+            print(f'- Phase {rt.get(\"phase\")}: step={rt.get(\"step\")} ({rt.get(\"reason\", \"\")})')
+        print()
+
     print('=== DETERMINISTIC RECOVERY INSTRUCTION ===')
     print()
     print(f'ACTION REQUIRED: Resume autopilot from Phase {next_phase} (mode: {mode}, change: {change_name}).')
+    print(f'Recovery source: {actual_recovery_source}')
     if active_tasks:
         at = active_tasks[-1]
         print(f'NOTE: Phase {at[\"phase\"]} was in-progress at sub-step \"{at[\"step\"]}\" when compaction occurred.')

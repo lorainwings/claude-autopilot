@@ -171,7 +171,7 @@ export function ParallelKanban() {
             return (
               <div
                 key={agent.agent_id}
-                className={`${isExpanded ? "w-96" : "w-64"} shrink-0 ${isActive ? "bg-elevated" : "bg-deep"} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden cursor-pointer transition-all duration-200`}
+                className={`${isExpanded ? "w-96" : "w-64"} shrink-0 ${isActive ? "bg-elevated" : "bg-deep"} border border-border rounded ${borderColor.replace("border-", "border-l-4 border-l-")} p-3 flex flex-col justify-between relative overflow-hidden cursor-pointer transition-all duration-200`}
                 onClick={() => setExpandedAgentId(isExpanded ? null : agent.agent_id)}
               >
                 {isActive && (
@@ -278,7 +278,7 @@ export function ParallelKanban() {
                   return (
                     <div
                       key={`p${phase}:${task.task_name}`}
-                      className={`w-64 shrink-0 ${statusCfg.bgColor} border-l-4 ${borderColor} p-3 flex flex-col justify-between relative overflow-hidden`}
+                      className={`w-64 shrink-0 ${statusCfg.bgColor} border border-border rounded ${borderColor.replace("border-", "border-l-4 border-l-")} p-3 flex flex-col justify-between relative overflow-hidden`}
                     >
                       {/* Running pulse overlay */}
                       {isRunning && tddCfg && (

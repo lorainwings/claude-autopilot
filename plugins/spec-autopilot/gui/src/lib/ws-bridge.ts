@@ -22,7 +22,7 @@ export interface AutopilotEvent {
 
 type EventHandler = (events: AutopilotEvent[]) => void;
 type AckHandler = (data: { action: string; phase: number; timestamp: string }) => void;
-/** H-2/H-1: snapshot meta 包含 archiveReadiness、requirementPacketHash 等编排关键数据 */
+/** v7.0: snapshot meta 包含完整编排关键数据 */
 export type SnapshotMeta = {
   archiveReadiness?: {
     timestamp: string;
@@ -33,6 +33,40 @@ export type SnapshotMeta = {
   } | null;
   requirementPacketHash?: string | null;
   gateFrontier?: number | null;
+  /** v7.0: 恢复状态 */
+  recoverySource?: string | null;
+  recoveryReason?: string | null;
+  recoveryConfidence?: string | null;
+  /** v7.0: 报告状态 */
+  reportState?: {
+    report_format: string | null;
+    report_path: string | null;
+    report_url: string | null;
+    allure_results_dir: string | null;
+    allure_preview_url: string | null;
+    suite_results: {
+      total: number;
+      passed: number;
+      failed: number;
+      skipped: number;
+      error: number;
+    } | null;
+    anomaly_alerts: string[];
+  } | null;
+  /** v7.0: TDD 审计 */
+  tddAudit?: {
+    cycle_count: number;
+    red_violations: number;
+    green_violations: number;
+    refactor_rollbacks: number;
+    red_commands: string[];
+    green_commands: string[];
+  } | null;
+  /** v7.0: 执行进度 */
+  executedPhases?: number[];
+  skippedPhases?: number[];
+  mode?: string | null;
+  currentPhase?: number | null;
 };
 type MetaHandler = (meta: SnapshotMeta) => void;
 

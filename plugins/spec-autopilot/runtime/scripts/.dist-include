@@ -35,6 +35,8 @@ emit-agent-event.sh
 emit-gate-event.sh
 emit-model-routing-event.sh
 emit-phase-event.sh
+emit-report-ready-event.sh
+emit-tdd-audit-event.sh
 emit-task-progress.sh
 install-statusline-config.sh
 parallel-merge-guard.sh
@@ -51,6 +53,15 @@ validate-config.sh
 validate-decision-format.sh
 validate-json-envelope.sh
 write-phase-progress.sh
+validate-requirement-packet.sh
+validate-openspec-artifacts.sh
+
+# ── Dispatch 治理与 fixup 校验 (工作包 H + J) ──
+generate-dispatch-plan.sh
+generate-dispatch-actual.sh
+reconcile-dispatch.sh
+generate-fixup-manifest.sh
+validate-fixup-manifest.sh
 
 # ── Deprecated (兼容窗口，计划于下个大版本移除) ──
 # anti-rationalization-check.sh → post-task-validator.sh (v4.0)

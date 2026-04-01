@@ -8,10 +8,24 @@ import { sanitizeForApi } from "../security/sanitize";
 
 /** 构建 snapshot 消息中的 meta 字段（从 snapshotState 提取编排关键数据） */
 function buildSnapshotMeta(): Record<string, unknown> {
+  const ss = snapshotState.stateSnapshot;
   return {
     archiveReadiness: snapshotState.archiveReadiness ?? null,
-    requirementPacketHash: snapshotState.stateSnapshot?.requirement_packet_hash ?? null,
-    gateFrontier: snapshotState.stateSnapshot?.gate_frontier ?? null,
+    requirementPacketHash: ss?.requirement_packet_hash ?? null,
+    gateFrontier: ss?.gate_frontier ?? null,
+    // v7.0: 恢复状态 (工作包 G)
+    recoverySource: ss?.recovery_source ?? null,
+    recoveryReason: ss?.recovery_reason ?? null,
+    recoveryConfidence: ss?.recovery_confidence ?? null,
+    // v7.0: 报告状态 (工作包 D)
+    reportState: ss?.report_state ?? null,
+    // v7.0: TDD 审计 (工作包 I)
+    tddAudit: ss?.tdd_audit ?? null,
+    // v7.0: 执行进度
+    executedPhases: ss?.executed_phases ?? [],
+    skippedPhases: ss?.skipped_phases ?? [],
+    mode: ss?.mode ?? snapshotState.mode ?? null,
+    currentPhase: ss?.current_phase ?? null,
   };
 }
 

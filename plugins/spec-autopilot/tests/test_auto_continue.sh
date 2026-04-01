@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TEST_LAYER: docs_consistency
 # test_auto_continue.sh — 自动推进语义测试
 # 验证 requirement packet 确认后自动推进到 archive-ready
 set -uo pipefail

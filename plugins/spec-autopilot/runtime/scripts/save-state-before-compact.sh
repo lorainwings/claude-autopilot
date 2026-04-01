@@ -10,7 +10,7 @@
 #
 # This script is the "save" half. The "restore" half is reinject-state-after-compact.sh.
 # Output: Writes state to openspec/changes/<active>/context/autopilot-state.md
-#         AND openspec/changes/<active>/context/state-snapshot.json (v6.0: 结构化控制态)
+#         AND openspec/changes/<active>/context/state-snapshot.json (v7.0: 统一控制面工件)
 
 set -uo pipefail
 
@@ -265,14 +265,16 @@ if os.path.isfile(req_file):
     except Exception:
         pass
 
-# v6.0: Build and write state-snapshot.json (structured control state)
+# v7.0: 构建统一控制面工件 state-snapshot.json
 now_iso = datetime.now(timezone.utc).isoformat()
+
+# --- 活跃任务（从进度条目中提取 in_progress 的子步骤）---
 active_tasks = []
 for pe in progress_entries:
     if pe['status'] == 'in_progress':
         active_tasks.append({'phase': pe['phase'], 'step': pe['step']})
 
-# Build phase_results dict for JSON (keyed by string phase number)
+# --- 构建 phase_results 字典（以字符串 phase 编号为 key）---
 json_phase_results = {}
 for pnum in phase_scan_list:
     if pnum in phase_results_full:
@@ -280,10 +282,132 @@ for pnum in phase_scan_list:
     else:
         json_phase_results[str(pnum)] = {'status': 'pending', 'summary': '', 'file': None, 'artifacts': []}
 
+# --- v7.0 新增: current_phase（当前正在执行或待执行的阶段）---
+current_phase = next_phase
+if active_tasks:
+    # 如果有正在进行的任务，以最高 phase 为当前阶段
+    current_phase = max(at['phase'] for at in active_tasks)
+
+# --- v7.0 新增: executed_phases（已执行完成的阶段列表）---
+executed_phases = []
+for pnum in phase_scan_list:
+    if pnum in phase_results_full and phase_results_full[pnum]['status'] in ('ok', 'warning', 'failed', 'blocked', 'error'):
+        executed_phases.append(pnum)
+
+# --- v7.0 新增: skipped_phases（根据 mode 跳过的阶段）---
+full_phases = [1, 2, 3, 4, 5, 6, 7]
+skipped_phases = [p for p in full_phases if p not in phase_scan_list]
+
+# --- v7.0 新增: recovery_source（恢复来源，保存时默认为 "fresh"）---
+recovery_source = 'fresh'
+recovery_reason = None
+resume_from_phase = None
+
+# --- v7.0 新增: discarded_artifacts（需要丢弃的工件）---
+discarded_artifacts = []
+
+# --- v7.0 新增: replay_required_tasks（需要重放的任务）---
+replay_required_tasks = []
+
+# --- v7.0 新增: report_state（Phase 6 报告产物扫描）---
+report_state = {
+    'report_format': None,
+    'report_path': None,
+    'report_url': None,
+    'allure_results_dir': None,
+    'suite_results': None,
+    'anomaly_alerts': [],
+}
+# 从 Phase 6 结果中扫描报告信息
+if 6 in phase_results_full:
+    p6_data = phase_results_full[6]
+    p6_artifacts = p6_data.get('artifacts', [])
+    for artifact in p6_artifacts:
+        if isinstance(artifact, str):
+            if artifact.endswith('.html'):
+                report_state['report_path'] = artifact
+                report_state['report_format'] = 'html'
+            elif artifact.endswith('.md'):
+                report_state['report_path'] = artifact
+                report_state['report_format'] = 'markdown'
+            elif 'allure-results' in artifact:
+                report_state['allure_results_dir'] = artifact
+        elif isinstance(artifact, dict):
+            if artifact.get('type') == 'report':
+                report_state['report_path'] = artifact.get('path')
+                report_state['report_format'] = artifact.get('format')
+                report_state['report_url'] = artifact.get('url')
+            elif artifact.get('type') == 'allure':
+                report_state['allure_results_dir'] = artifact.get('path')
+            elif artifact.get('type') == 'suite_results':
+                report_state['suite_results'] = artifact.get('data')
+            elif artifact.get('type') == 'anomaly':
+                report_state['anomaly_alerts'].append(artifact)
+# 扫描 Phase 6 报告文件目录
+p6_report_dir = os.path.join(change_dir, 'context', 'reports')
+if os.path.isdir(p6_report_dir):
+    for rpt in sorted(glob.glob(os.path.join(p6_report_dir, '*'))):
+        rpt_name = os.path.basename(rpt)
+        if rpt_name.endswith('.html') and not report_state['report_path']:
+            report_state['report_path'] = rpt
+            report_state['report_format'] = 'html'
+        elif 'allure-results' in rpt_name and not report_state['allure_results_dir']:
+            report_state['allure_results_dir'] = rpt
+
+# --- v7.0 新增: active_agents（当前活跃的 agent 列表）---
+active_agents = []
+agents_dir = os.path.join(change_dir, 'context', 'agents')
+if os.path.isdir(agents_dir):
+    for agent_file in sorted(glob.glob(os.path.join(agents_dir, 'agent-*.json'))):
+        try:
+            with open(agent_file) as f:
+                adata = json.load(f)
+            if adata.get('status') == 'running':
+                active_agents.append({
+                    'id': adata.get('id', os.path.basename(agent_file)),
+                    'phase': adata.get('phase'),
+                    'task': adata.get('task'),
+                    'started_at': adata.get('started_at'),
+                })
+        except Exception:
+            pass
+
+# --- v7.0 新增: model_routing（当前模型路由信息）---
+model_routing = None
+routing_file = os.path.join(change_dir, '..', '..', '..', '.claude', 'autopilot.config.yaml')
+routing_file = os.path.normpath(routing_file)
+if os.path.isfile(routing_file):
+    try:
+        # 简单提取 model_routing 相关配置
+        with open(routing_file) as f:
+            cfg_content = f.read()
+        # 解析 YAML 需要 pyyaml，用正则做 fallback
+        import re
+        model_match = re.search(r'model_routing:\s*\n((?:\s+.+\n)*)', cfg_content)
+        if model_match:
+            model_routing = {'raw_config': model_match.group(0).strip()[:500]}
+    except Exception:
+        pass
+
 snapshot_data = {
-    'schema_version': '6.0',
+    'schema_version': '7.0',
     'saved_at': now_iso,
     'change_name': change_name,
+    # --- v7.0 新增字段 ---
+    'mode': exec_mode,
+    'current_phase': current_phase,
+    'executed_phases': executed_phases,
+    'skipped_phases': skipped_phases,
+    'recovery_source': recovery_source,
+    'recovery_reason': recovery_reason,
+    'resume_from_phase': resume_from_phase,
+    'discarded_artifacts': discarded_artifacts,
+    'replay_required_tasks': replay_required_tasks,
+    'report_state': report_state,
+    'active_agents': active_agents,
+    'active_tasks': active_tasks,
+    'model_routing': model_routing,
+    # --- 保留的 v6.0 字段 ---
     'execution_mode': exec_mode,
     'anchor_sha': anchor_sha or None,
     'requirement_packet_hash': requirement_packet_hash or None,
@@ -296,7 +420,6 @@ snapshot_data = {
     },
     'phase_results': json_phase_results,
     'phase_sequence': phase_scan_list,
-    'active_tasks': active_tasks,
     'tasks_progress': {
         'completed': tasks_checked,
         'remaining': tasks_unchecked,
@@ -306,9 +429,10 @@ snapshot_data = {
     'review_status': None,
     'fixup_status': None,
     'archive_status': None,
+    'recovery_confidence': 'high',
 }
 
-# v6.0: Compute snapshot content hash for consistency verification
+# v7.0: 在所有字段写入后最后计算 snapshot_hash
 snapshot_content = json.dumps(snapshot_data, sort_keys=True, ensure_ascii=False)
 snapshot_hash = hashlib.sha256(snapshot_content.encode('utf-8')).hexdigest()[:16]
 snapshot_data['snapshot_hash'] = snapshot_hash
@@ -325,7 +449,7 @@ lines = [
     f'',
     f'> Auto-saved before context compaction at {now_iso}',
     f'> This file is auto-generated. Re-injected into context after compaction.',
-    f'> **Primary control state**: state-snapshot.json (snapshot_hash={snapshot_hash})',
+    f'> **Primary control state**: state-snapshot.json v7.0 (snapshot_hash={snapshot_hash})',
     f'',
     f'## Current Progress',
     f'',

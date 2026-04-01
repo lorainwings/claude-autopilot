@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TEST_LAYER: docs_consistency
 # test_search_policy.sh — Section 52: Search policy rule engine
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

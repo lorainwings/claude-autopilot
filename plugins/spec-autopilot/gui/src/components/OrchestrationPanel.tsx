@@ -12,6 +12,7 @@ import type {
   ServerHealth,
   AgentInfo,
   OrchestrationOverview,
+  RecoverySource,
 } from "../store";
 
 const PHASE_LABELS: Record<number, string> = {
@@ -305,24 +306,39 @@ const ModelSection = memo(function ModelSection({
   );
 });
 
-// --- 恢复状态区 ---
+// --- 恢复状态区 (v7.0 — 结构化恢复来源) ---
+const RECOVERY_LABELS: Record<string, { label: string; color: string }> = {
+  fresh: { label: "全新启动", color: "text-emerald" },
+  snapshot_resume: { label: "快照恢复", color: "text-cyan" },
+  checkpoint_resume: { label: "检查点恢复", color: "text-amber" },
+  progress_resume: { label: "进度恢复", color: "text-amber" },
+  snapshot_hash_mismatch: { label: "快照哈希不匹配", color: "text-rose" },
+};
+
 const RecoverySection = memo(function RecoverySection({
   recoverySource,
+  recoveryReason,
 }: {
-  recoverySource: "fresh" | "recovery" | null;
+  recoverySource: RecoverySource | null;
+  recoveryReason?: string | null;
 }) {
+  const info = recoverySource ? RECOVERY_LABELS[recoverySource] : null;
+
   return (
     <div className="px-3 py-2 border-b border-border">
       <SectionHeader title="恢复状态" dotColor="bg-cyan" />
       <div className="text-[10px] font-mono">
-        {recoverySource === "recovery" ? (
-          <span className="text-amber font-bold">崩溃恢复</span>
-        ) : recoverySource === "fresh" ? (
-          <span className="text-emerald">全新启动</span>
+        {info ? (
+          <span className={`font-bold ${info.color}`}>{info.label}</span>
         ) : (
           <span className="text-text-muted">--</span>
         )}
       </div>
+      {recoveryReason && (
+        <div className="text-[9px] font-mono text-text-muted mt-0.5 truncate">
+          {recoveryReason}
+        </div>
+      )}
     </div>
   );
 });
@@ -522,7 +538,10 @@ export const OrchestrationPanel = memo(function OrchestrationPanel() {
       <ModelSection routing={modelRouting} />
 
       {/* 恢复来源 */}
-      <RecoverySection recoverySource={recoverySource} />
+      <RecoverySection
+        recoverySource={orchestration.recoverySource ?? recoverySource}
+        recoveryReason={orchestration.recoveryReason}
+      />
 
       {/* 上下文预算 */}
       <ContextBudgetSection budget={orchestration.contextBudget} />

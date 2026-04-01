@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TEST_LAYER: behavior
 # test_gui_server_closures.sh — GUI/Server 编排状态闭环测试 (Workstream H)
 # 验证:
 #   H-3: snapshot-builder 使用 config.ts 的 projectRoot（而非仅依赖 env var）

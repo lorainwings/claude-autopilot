@@ -65,6 +65,7 @@ export function createHttpServer() {
             break;
           }
         }
+        const ss = snapshotState.stateSnapshot;
         return new Response(JSON.stringify({
           version,
           projectRoot: sanitizePath(projectRoot),
@@ -81,8 +82,22 @@ export function createHttpServer() {
           // H-2: 暴露 archive readiness 状态
           archiveReadiness: snapshotState.archiveReadiness ?? null,
           // H-1/H-3: 暴露 stateSnapshot 关键字段
-          requirementPacketHash: snapshotState.stateSnapshot?.requirement_packet_hash ?? null,
-          gateFrontier: snapshotState.stateSnapshot?.gate_frontier ?? null,
+          requirementPacketHash: ss?.requirement_packet_hash ?? null,
+          gateFrontier: ss?.gate_frontier ?? null,
+          // v7.0: 暴露恢复状态 (工作包 G)
+          recoverySource: ss?.recovery_source ?? null,
+          recoveryReason: ss?.recovery_reason ?? null,
+          recoveryConfidence: ss?.recovery_confidence ?? null,
+          // v7.0: 暴露报告状态 (工作包 D)
+          reportState: ss?.report_state ?? null,
+          // v7.0: 暴露 TDD 审计 (工作包 I)
+          tddAudit: ss?.tdd_audit ?? null,
+          // v7.0: 暴露执行 phase 信息
+          executedPhases: ss?.executed_phases ?? [],
+          skippedPhases: ss?.skipped_phases ?? [],
+          // v7.0: 活跃 agent 和任务
+          activeAgents: ss?.active_agents ?? [],
+          activeTasks: ss?.active_tasks ?? [],
         }), {
           headers: { "Content-Type": "application/json", ...corsHeaders(req) },
         });

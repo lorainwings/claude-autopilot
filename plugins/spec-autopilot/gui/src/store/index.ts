@@ -98,7 +98,42 @@ export interface ServerHealth {
   statusLineInstalled: boolean;
 }
 
-/** 编排概览状态 (v5.9 orchestration-first) */
+/** 恢复来源枚举 (工作包 G) */
+export type RecoverySource =
+  | "fresh"
+  | "snapshot_resume"
+  | "checkpoint_resume"
+  | "progress_resume"
+  | "snapshot_hash_mismatch";
+
+/** 报告状态 (工作包 D) */
+export interface ReportState {
+  report_format: "allure" | "junit" | "custom" | "none" | null;
+  report_path: string | null;
+  report_url: string | null;
+  allure_results_dir: string | null;
+  allure_preview_url: string | null;
+  suite_results: {
+    total: number;
+    passed: number;
+    failed: number;
+    skipped: number;
+    error: number;
+  } | null;
+  anomaly_alerts: string[];
+}
+
+/** TDD 审计摘要 (工作包 I) */
+export interface TddAuditSummary {
+  cycle_count: number;
+  red_violations: number;
+  green_violations: number;
+  refactor_rollbacks: number;
+  red_commands: string[];
+  green_commands: string[];
+}
+
+/** 编排概览状态 (v7.0 统一控制面) */
 export interface OrchestrationOverview {
   /** 目标摘要（从 session_start 或 phase_start payload 推断） */
   goalSummary: string | null;
@@ -115,6 +150,21 @@ export interface OrchestrationOverview {
     fixupComplete: boolean;
     reviewGatePassed: boolean;
     ready: boolean;
+  } | null;
+  /** 恢复来源 (工作包 G) */
+  recoverySource: RecoverySource | null;
+  /** 恢复原因 */
+  recoveryReason: string | null;
+  /** 报告状态 (工作包 D) */
+  reportState: ReportState | null;
+  /** TDD 审计 (工作包 I) */
+  tddAudit: TddAuditSummary | null;
+  /** 决策生命周期 (工作包 B) */
+  decisionLifecycle: {
+    requestId: string;
+    phase: number;
+    action: string;
+    state: "idle" | "pending" | "accepted" | "applied" | "superseded" | "expired";
   } | null;
 }
 
@@ -141,8 +191,8 @@ interface AppState {
   decisionAcked: boolean;
   /** 决策生命周期 (v5.2) */
   decisionLifecycle: DecisionLifecycle | null;
-  /** 恢复来源 (v5.2) */
-  recoverySource: "fresh" | "recovery" | null;
+  /** 恢复来源 (v7.0 — 从 null 升级为结构化) */
+  recoverySource: RecoverySource | null;
   /** 模型路由聚合状态 (v5.4) */
   modelRouting: ModelRoutingState;
   /** 模型路由历史记录 (v5.4) */
@@ -160,6 +210,18 @@ interface AppState {
     archiveReadiness?: { overall: string; checks?: Record<string, unknown>; block_reasons?: string[] } | null;
     requirementPacketHash?: string | null;
     gateFrontier?: number | null;
+    recoverySource?: string | null;
+    recoveryReason?: string | null;
+    reportState?: {
+      report_format: string | null;
+      report_path: string | null;
+      report_url: string | null;
+      allure_results_dir: string | null;
+      allure_preview_url: string | null;
+      suite_results: { total: number; passed: number; failed: number; skipped: number; error: number } | null;
+      anomaly_alerts: string[];
+    } | null;
+    tddAudit?: TddAuditSummary | null;
   }) => void;
   setConnected: (connected: boolean) => void;
   setHttpOk: (ok: boolean) => void;
@@ -371,6 +433,11 @@ const DEFAULT_ORCHESTRATION: OrchestrationOverview = {
   requirementPacketHash: null,
   contextBudget: null,
   archiveReadiness: null,
+  recoverySource: null,
+  recoveryReason: null,
+  reportState: null,
+  tddAudit: null,
+  decisionLifecycle: null,
 };
 
 export const useStore = create<AppState>((set) => ({
@@ -412,6 +479,7 @@ export const useStore = create<AppState>((set) => ({
         "model_routing", "model_effective", "model_fallback",
         "parallel_plan", "parallel_batch_start", "parallel_batch_end",
         "parallel_task_ready", "parallel_task_blocked", "parallel_fallback",
+        "report_ready", "tdd_audit", "archive_readiness",
       ]);
       const MAX_CRITICAL = 400;
       const MAX_REGULAR = 2400;
@@ -647,6 +715,69 @@ export const useStore = create<AppState>((set) => ({
             ready: Boolean(p.ready),
           };
         }
+
+        // v7.0: 报告就绪事件 (工作包 D)
+        if (event.type === "report_ready") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.reportState = {
+            report_format: (p.report_format as ReportState["report_format"]) ?? null,
+            report_path: (p.report_path as string) ?? null,
+            report_url: (p.report_url as string) ?? null,
+            allure_results_dir: (p.allure_results_dir as string) ?? null,
+            allure_preview_url: (p.allure_preview_url as string) ?? null,
+            suite_results: p.suite_results ? {
+              total: Number((p.suite_results as Record<string, unknown>).total ?? 0),
+              passed: Number((p.suite_results as Record<string, unknown>).passed ?? 0),
+              failed: Number((p.suite_results as Record<string, unknown>).failed ?? 0),
+              skipped: Number((p.suite_results as Record<string, unknown>).skipped ?? 0),
+              error: Number((p.suite_results as Record<string, unknown>).error ?? 0),
+            } : null,
+            anomaly_alerts: Array.isArray(p.anomaly_alerts) ? (p.anomaly_alerts as string[]) : [],
+          };
+        }
+
+        // v7.0: TDD 审计事件 (工作包 I)
+        if (event.type === "tdd_audit") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.tddAudit = {
+            cycle_count: Number(p.cycle_count ?? 0),
+            red_violations: Number(p.red_violations ?? 0),
+            green_violations: Number(p.green_violations ?? 0),
+            refactor_rollbacks: Number(p.refactor_rollbacks ?? 0),
+            red_commands: Array.isArray(p.red_commands) ? (p.red_commands as string[]) : [],
+            green_commands: Array.isArray(p.green_commands) ? (p.green_commands as string[]) : [],
+          };
+        }
+
+        // v7.0: 恢复来源事件 (工作包 G)
+        if (event.type === "session_start") {
+          const p = event.payload as Record<string, unknown>;
+          if (typeof p.recovery_source === "string") {
+            orchestration.recoverySource = p.recovery_source as RecoverySource;
+          }
+          if (typeof p.recovery_reason === "string") {
+            orchestration.recoveryReason = p.recovery_reason;
+          }
+        }
+
+        // v7.0: 决策生命周期事件 (工作包 B) — decisionLifecycle 不再只是占位字段
+        if (event.type === "gate_block") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.decisionLifecycle = {
+            requestId: (p.request_id as string) ?? `gate-${event.phase}-${event.sequence}`,
+            phase: event.phase,
+            action: "pending",
+            state: "pending",
+          };
+        }
+        if (event.type === "gate_pass") {
+          if (orchestration.decisionLifecycle && orchestration.decisionLifecycle.phase === event.phase) {
+            orchestration.decisionLifecycle = {
+              ...orchestration.decisionLifecycle,
+              state: "applied",
+            };
+          }
+        }
       }
 
       // G2 fix: Auto-reset decisionAcked when a new gate_block arrives after the acked one
@@ -702,6 +833,7 @@ export const useStore = create<AppState>((set) => ({
   initOrchestrationFromMeta: (meta) =>
     set((state) => {
       const orchestration = { ...state.orchestration };
+      let recoverySource = state.recoverySource;
 
       // H-2: archive readiness — 仅当事件流尚未提供时用 meta fallback
       if (meta.archiveReadiness && !orchestration.archiveReadiness) {
@@ -719,7 +851,29 @@ export const useStore = create<AppState>((set) => ({
         orchestration.requirementPacketHash = meta.requirementPacketHash;
       }
 
-      return { orchestration };
+      // v7.0: 恢复状态 (工作包 G) — recoverySource 不再永远是 null
+      if (meta.recoverySource && !orchestration.recoverySource) {
+        orchestration.recoverySource = meta.recoverySource as RecoverySource;
+        recoverySource = meta.recoverySource as RecoverySource;
+      }
+      if (meta.recoveryReason && !orchestration.recoveryReason) {
+        orchestration.recoveryReason = meta.recoveryReason;
+      }
+
+      // v7.0: 报告状态 (工作包 D) — 从 meta 初始化
+      if (meta.reportState && !orchestration.reportState) {
+        orchestration.reportState = {
+          ...meta.reportState,
+          report_format: meta.reportState.report_format as ReportState["report_format"],
+        };
+      }
+
+      // v7.0: TDD 审计 (工作包 I)
+      if (meta.tddAudit && !orchestration.tddAudit) {
+        orchestration.tddAudit = meta.tddAudit;
+      }
+
+      return { orchestration, recoverySource };
     }),
 
   setConnected: (connected) => set((state) => ({
