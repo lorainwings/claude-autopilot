@@ -35,8 +35,6 @@
       "component": "daily-report",
       "extra-files": [
         { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
-        "README.md",
-        "README.zh.md",
         "CLAUDE.md"
       ]
     }
