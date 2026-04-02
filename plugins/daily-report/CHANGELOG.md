@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.4](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.3...daily-report-v1.2.4) (2026-04-02)
+
+
+### Fixed
+
+* **daily-report:** 修复线框对齐、浏览器打开、飞书命令、表单收集、数据自检、日报审批等6项问题 ([2e4c199](https://github.com/lorainwings/claude-autopilot/commit/2e4c199e34551e83dbff9d44837ec3711ca542d8))
+
 ## [1.2.3](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.2...daily-report-v1.2.3) (2026-04-01)
 
 
