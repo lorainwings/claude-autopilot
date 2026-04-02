@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.3.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.2...spec-autopilot-v5.3.0) (2026-04-02)
+
+
+### Added
+
+* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/lorainwings/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
+
+
+### Fixed
+
+* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/lorainwings/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
+* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/lorainwings/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
+
 ## [5.2.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.1...spec-autopilot-v5.2.2) (2026-03-30)
 
 
