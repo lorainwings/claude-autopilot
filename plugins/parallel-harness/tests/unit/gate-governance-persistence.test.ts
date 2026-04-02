@@ -110,7 +110,7 @@ describe("GateSystem", () => {
   it("evaluate 只评估 enabledTypes 中的 gate", async () => {
     const gs = new GateSystem();
     const ctx = createMockContext();
-    const workerOutput: WorkerOutput = { status: "ok", summary: "完成", artifacts: [], modified_paths: [], tokens_used: 0, duration_ms: 100 };
+    const workerOutput: WorkerOutput = { status: "ok", summary: "完成", artifacts: [], modified_paths: [], tokens_used: 0, duration_ms: 100, actual_tool_calls: [], exit_code: 0 };
     const results = await gs.evaluate({ ctx, workerOutput, level: "task" }, ["review"]);
     expect(results.length).toBe(1);
     expect(results[0].gate_type).toBe("review");
@@ -119,7 +119,7 @@ describe("GateSystem", () => {
   it("security gate 检测敏感文件", async () => {
     const gs = new GateSystem();
     const ctx = createMockContext();
-    const workerOutput: WorkerOutput = { status: "ok", summary: "", artifacts: [], modified_paths: [".env"], tokens_used: 0, duration_ms: 0 };
+    const workerOutput: WorkerOutput = { status: "ok", summary: "", artifacts: [], modified_paths: [".env"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 };
     const results = await gs.evaluate({ ctx, workerOutput, level: "run" }, ["security"]);
     expect(results.length).toBe(1);
     expect(results[0].passed).toBe(false);
@@ -268,7 +268,7 @@ describe("MergeGuard", () => {
     const tasks = [createMockTask({ id: "t1" })];
     const graph = createMockGraph(tasks);
     const ownership = createMockOwnershipPlan(["t1"]);
-    const outputs = new Map<string, WorkerOutput>([["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/t1/file.ts"], tokens_used: 0, duration_ms: 0 }]]);
+    const outputs = new Map<string, WorkerOutput>([["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/t1/file.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }]]);
     const result = guard.check(ctx, graph, ownership, outputs);
     expect(result.allowed).toBe(true);
     expect(result.ownership_violations.length).toBe(0);
@@ -281,7 +281,7 @@ describe("MergeGuard", () => {
     const graph = createMockGraph(tasks);
     const ownership = createMockOwnershipPlan(["t1"]);
     // t1 只允许写 src/t1/，但实际修改了 lib/
-    const outputs = new Map<string, WorkerOutput>([["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["lib/other.ts"], tokens_used: 0, duration_ms: 0 }]]);
+    const outputs = new Map<string, WorkerOutput>([["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["lib/other.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }]]);
     const result = guard.check(ctx, graph, ownership, outputs);
     expect(result.ownership_violations.length).toBeGreaterThan(0);
     expect(result.allowed).toBe(false);
@@ -300,8 +300,8 @@ describe("MergeGuard", () => {
       conflicts: [], has_unresolvable_conflicts: false, downgrade_suggestions: [],
     };
     const outputs = new Map<string, WorkerOutput>([
-      ["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/shared.ts"], tokens_used: 0, duration_ms: 0 }],
-      ["t2", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/shared.ts"], tokens_used: 0, duration_ms: 0 }],
+      ["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/shared.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }],
+      ["t2", { status: "ok", summary: "", artifacts: [], modified_paths: ["src/shared.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }],
     ]);
     const result = guard.check(ctx, graph, ownership, outputs);
     expect(result.file_conflicts.length).toBeGreaterThan(0);
@@ -321,8 +321,8 @@ describe("MergeGuard", () => {
       conflicts: [], has_unresolvable_conflicts: false, downgrade_suggestions: [],
     };
     const outputs = new Map<string, WorkerOutput>([
-      ["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["db/schema.ts"], tokens_used: 0, duration_ms: 0 }],
-      ["t2", { status: "ok", summary: "", artifacts: [], modified_paths: ["db/schema.ts"], tokens_used: 0, duration_ms: 0 }],
+      ["t1", { status: "ok", summary: "", artifacts: [], modified_paths: ["db/schema.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }],
+      ["t2", { status: "ok", summary: "", artifacts: [], modified_paths: ["db/schema.ts"], tokens_used: 0, duration_ms: 0, actual_tool_calls: [], exit_code: 0 }],
     ]);
     const result = guard.check(ctx, graph, ownership, outputs);
     expect(result.file_conflicts[0].resolution).toBe("manual");

@@ -192,6 +192,8 @@ describe("Execution Proxy", () => {
     modified_paths: ["src/main.ts"],
     tokens_used: 500,
     duration_ms: 1000,
+    actual_tool_calls: [] as Array<{ name: string; args_hash: string }>,
+    exit_code: 0,
   };
 
   it("生成 execution attestation", () => {
@@ -386,6 +388,8 @@ describe("ExecutionProxy prepare/finalize 分离", () => {
     modified_paths: ["src/main.ts"],
     tokens_used: 500,
     duration_ms: 1000,
+    actual_tool_calls: [] as Array<{ name: string; args_hash: string }>,
+    exit_code: 0,
   };
 
   it("prepareExecution 返回验证后的执行配置", () => {
@@ -716,6 +720,8 @@ describe("Trusted Execution Plane", () => {
     modified_paths: ["src/main.ts", "src/utils.ts"],
     tokens_used: 500,
     duration_ms: 1000,
+    actual_tool_calls: [] as Array<{ name: string; args_hash: string }>,
+    exit_code: 0,
   };
 
   it("prepareExecution 采集 baseline_commit", () => {

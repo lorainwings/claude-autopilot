@@ -10,9 +10,11 @@ import { describe, expect, it, test } from "bun:test";
 import {
   routeModel,
   applyEscalationPolicy,
+  routeWithOccupancy,
+  RoutingStatsCollector,
   DEFAULT_TIER_CONFIGS,
 } from "../../runtime/models/model-router";
-import type { RoutingRequest } from "../../runtime/models/model-router";
+import type { RoutingRequest, OccupancyRoutingInput } from "../../runtime/models/model-router";
 
 // ============================================================
 // 辅助函数
@@ -142,5 +144,106 @@ describe("applyEscalationPolicy", () => {
     // tier-3 + 任意次数 -> 保持 tier-3（已到最高）
     expect(applyEscalationPolicy("tier-3", 1)).toBe("tier-3");
     expect(applyEscalationPolicy("tier-3", 5)).toBe("tier-3");
+  });
+});
+
+// ============================================================
+// routeWithOccupancy — occupancy-aware 路由
+// ============================================================
+
+function createOccupancyInput(overrides: Partial<OccupancyRoutingInput> = {}): OccupancyRoutingInput {
+  return {
+    complexity: "medium",
+    risk_level: "low",
+    retry_count: 0,
+    occupancy_ratio: 0.5,
+    available_tokens: 0,
+    ...overrides,
+  };
+}
+
+describe("routeWithOccupancy", () => {
+  it("低 occupancy 不降级", () => {
+    const result = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.3 }));
+    expect(result.downgraded_by_occupancy).toBe(false);
+    expect(result.recommended_tier).toBe("tier-2");
+  });
+
+  it("高 occupancy (>0.75) 降一级", () => {
+    const result = routeWithOccupancy(createOccupancyInput({
+      complexity: "high",
+      occupancy_ratio: 0.8,
+    }));
+    expect(result.downgraded_by_occupancy).toBe(true);
+    // high -> tier-3 -> 降一级 -> tier-2
+    expect(result.recommended_tier).toBe("tier-2");
+  });
+
+  it("严重 occupancy (>0.9) 降两级", () => {
+    const result = routeWithOccupancy(createOccupancyInput({
+      complexity: "high",
+      occupancy_ratio: 0.95,
+    }));
+    expect(result.downgraded_by_occupancy).toBe(true);
+    // high -> tier-3 -> 降两级 -> tier-1
+    expect(result.recommended_tier).toBe("tier-1");
+  });
+
+  it("tier-1 不会降到更低", () => {
+    const result = routeWithOccupancy(createOccupancyInput({
+      complexity: "low",
+      occupancy_ratio: 0.95,
+    }));
+    expect(result.recommended_tier).toBe("tier-1");
+  });
+
+  it("调整后的上下文预算随 occupancy 缩减", () => {
+    const lowOcc = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.2 }));
+    const highOcc = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.8 }));
+    expect(highOcc.adjusted_context_budget).toBeLessThan(lowOcc.adjusted_context_budget);
+  });
+
+  it("occupancy_factor 包含描述信息", () => {
+    const result = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.85 }));
+    expect(result.occupancy_factor).toContain("警告");
+  });
+});
+
+// ============================================================
+// RoutingStatsCollector — 趋势统计
+// ============================================================
+
+describe("RoutingStatsCollector", () => {
+  it("记录路由统计", () => {
+    const collector = new RoutingStatsCollector();
+    const result = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.5 }));
+    collector.record(result, 0.5);
+
+    const stats = collector.getStats();
+    expect(stats.total_routings).toBe(1);
+    expect(stats.avg_occupancy).toBeCloseTo(0.5, 2);
+  });
+
+  it("记录 occupancy 降级次数", () => {
+    const collector = new RoutingStatsCollector();
+    const normal = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.3 }));
+    const downgraded = routeWithOccupancy(createOccupancyInput({ occupancy_ratio: 0.85 }));
+
+    collector.record(normal, 0.3);
+    collector.record(downgraded, 0.85);
+
+    const stats = collector.getStats();
+    expect(stats.total_routings).toBe(2);
+    expect(stats.occupancy_downgrades).toBe(1);
+  });
+
+  it("reset 清空统计", () => {
+    const collector = new RoutingStatsCollector();
+    const result = routeWithOccupancy(createOccupancyInput());
+    collector.record(result, 0.5);
+    collector.reset();
+
+    const stats = collector.getStats();
+    expect(stats.total_routings).toBe(0);
   });
 });

@@ -101,6 +101,12 @@ export interface WorkerOutput {
 
   /** 执行耗时（毫秒） */
   duration_ms: number;
+
+  /** 真实 tool calls 记录（非自报） */
+  actual_tool_calls: Array<{ name: string; args_hash: string }>;
+
+  /** 执行退出码 */
+  exit_code: number;
 }
 
 /** Worker 接口 */

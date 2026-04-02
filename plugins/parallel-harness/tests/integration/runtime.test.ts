@@ -31,6 +31,8 @@ class MockSuccessAdapter implements WorkerAdapter {
       modified_paths: paths,
       tokens_used: 500,
       duration_ms: 50,
+      actual_tool_calls: [],
+      exit_code: 0,
     };
   }
 }
@@ -44,6 +46,8 @@ class MockFailAdapter implements WorkerAdapter {
       modified_paths: [],
       tokens_used: 0,
       duration_ms: 10,
+      actual_tool_calls: [],
+      exit_code: 1,
     };
   }
 }

@@ -30,6 +30,8 @@ class MockWorkerAdapter implements WorkerAdapter {
       modified_paths: input.contract.allowed_paths.map(p => p + "file.ts"),
       tokens_used: 500,
       duration_ms: 100,
+      actual_tool_calls: [],
+      exit_code: 0,
     };
   }
 }

@@ -625,6 +625,8 @@ export class OrchestratorRuntime {
             modified_paths: succeeded.modified_files || [],
             tokens_used: succeeded.tokens_used || 0,
             duration_ms: 0,
+            actual_tool_calls: [],
+            exit_code: 0,
           });
         }
       }
@@ -2168,6 +2170,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
           modified_paths: [],
           tokens_used: 0,
           duration_ms: Date.now() - startTime,
+          actual_tool_calls: [],
+          exit_code: exitCode,
         };
       }
 
@@ -2187,6 +2191,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
         modified_paths: modifiedPaths,
         tokens_used: parsed.cost_usd ? Math.round(parsed.cost_usd * 100000) : 5000,
         duration_ms: Date.now() - startTime,
+        actual_tool_calls: [],
+        exit_code: 0,
       };
     } catch {
       // claude CLI 不可用 — 返回 warning 状态，不伪装成功
@@ -2197,6 +2203,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
         modified_paths: [],
         tokens_used: 0,
         duration_ms: Date.now() - startTime,
+        actual_tool_calls: [],
+        exit_code: -1,
       };
     }
   }

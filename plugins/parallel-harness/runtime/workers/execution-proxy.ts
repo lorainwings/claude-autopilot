@@ -199,3 +199,39 @@ function simpleHash(input: string): string {
   }
   return `h_${Math.abs(hash).toString(36)}`;
 }
+
+/** 工具策略违规错误 */
+export class ToolPolicyViolationError extends Error {
+  constructor(
+    public readonly tool_name: string,
+    public readonly policy: { allowed: string[]; denied: string[] }
+  ) {
+    super(`工具策略违规: "${tool_name}" 不在允许列表中或被明确拒绝`);
+    this.name = "ToolPolicyViolationError";
+  }
+}
+
+/**
+ * 验证 tool call 是否符合策略
+ * - 如果有 allowed 列表，tool 必须在列表中
+ * - 如果有 denied 列表，tool 不能在列表中
+ * - 两个列表都为空时默认放行
+ */
+export function validateToolCall(
+  toolName: string,
+  config: ExecutionProxyConfig
+): boolean {
+  const { allowed_tools, denied_tools } = config;
+
+  // denied 列表优先检查
+  if (denied_tools && denied_tools.length > 0) {
+    if (denied_tools.includes(toolName)) return false;
+  }
+
+  // allowed 列表检查（空列表 = 不限制）
+  if (allowed_tools && allowed_tools.length > 0) {
+    return allowed_tools.includes(toolName);
+  }
+
+  return true;
+}

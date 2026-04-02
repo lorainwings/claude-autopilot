@@ -276,3 +276,145 @@ function buildReasoning(tier: ModelTier, request: RoutingRequest): string {
   parts.push(`-> 最终推荐 ${tier}`);
   return parts.join(", ");
 }
+
+// ============================================================
+// Occupancy-Aware Routing — P2-5 数据化调优
+// ============================================================
+
+export interface OccupancyRoutingInput {
+  complexity: ComplexityLevel;
+  risk_level: RiskLevel;
+  retry_count: number;
+  task_type_hint?: string;
+  /** 上下文占用率 (0-1) */
+  occupancy_ratio: number;
+  /** 可用 token 预算 */
+  available_tokens: number;
+}
+
+export interface OccupancyRoutingResult extends RoutingResult {
+  /** 是否因 occupancy 降级 */
+  downgraded_by_occupancy: boolean;
+  /** 调整后的上下文预算 */
+  adjusted_context_budget: number;
+  /** occupancy 因子描述 */
+  occupancy_factor: string;
+}
+
+/**
+ * 基于 occupancy 的动态模型路由
+ *
+ * 当上下文占用率高时：
+ * - 降低模型 tier（减少生成量）
+ * - 缩减上下文预算
+ * - 优先使用高效模型
+ */
+export function routeWithOccupancy(
+  input: OccupancyRoutingInput,
+  tierConfigs: TierConfig[] = DEFAULT_TIER_CONFIGS
+): OccupancyRoutingResult {
+  // 先做基础路由
+  const baseResult = routeModel(
+    {
+      complexity: input.complexity,
+      risk_level: input.risk_level,
+      token_budget: input.available_tokens,
+      retry_count: input.retry_count,
+      task_type_hint: input.task_type_hint,
+    },
+    tierConfigs
+  );
+
+  let downgraded = false;
+  let finalTier = baseResult.recommended_tier;
+  let occupancyFactor = "正常";
+
+  // 高 occupancy 时降级 tier
+  if (input.occupancy_ratio > 0.9) {
+    // 严重：降两级
+    finalTier = downgradeTier(downgradeTier(finalTier));
+    downgraded = true;
+    occupancyFactor = `严重 (${(input.occupancy_ratio * 100).toFixed(1)}%)，降两级`;
+  } else if (input.occupancy_ratio > 0.75) {
+    // 警告：降一级
+    finalTier = downgradeTier(finalTier);
+    downgraded = true;
+    occupancyFactor = `警告 (${(input.occupancy_ratio * 100).toFixed(1)}%)，降一级`;
+  }
+
+  // 根据 occupancy 调整上下文预算
+  const budgetFactor = Math.max(0.3, 1 - input.occupancy_ratio);
+  const adjustedBudget = Math.floor(baseResult.context_budget * budgetFactor);
+
+  const tierConfig = tierConfigs.find(c => c.tier === finalTier) || tierConfigs[1];
+
+  return {
+    recommended_tier: finalTier,
+    tier_config: tierConfig,
+    context_budget: baseResult.context_budget,
+    max_retries: tierConfig.max_retry,
+    reasoning: `${baseResult.reasoning}${downgraded ? ` [occupancy 降级: ${occupancyFactor}]` : ""}`,
+    downgraded_by_occupancy: downgraded,
+    adjusted_context_budget: adjustedBudget,
+    occupancy_factor: occupancyFactor,
+  };
+}
+
+function downgradeTier(tier: ModelTier): ModelTier {
+  switch (tier) {
+    case "tier-3": return "tier-2";
+    case "tier-2": return "tier-1";
+    case "tier-1": return "tier-1";
+    default: return tier;
+  }
+}
+
+// ============================================================
+// Routing Statistics — 趋势统计
+// ============================================================
+
+export interface RoutingStats {
+  total_routings: number;
+  tier_distribution: Record<ModelTier, number>;
+  avg_occupancy: number;
+  occupancy_downgrades: number;
+  escalations: number;
+}
+
+export class RoutingStatsCollector {
+  private stats: RoutingStats = {
+    total_routings: 0,
+    tier_distribution: { "tier-1": 0, "tier-2": 0, "tier-3": 0 },
+    avg_occupancy: 0,
+    occupancy_downgrades: 0,
+    escalations: 0,
+  };
+  private occupancySum = 0;
+
+  record(result: OccupancyRoutingResult, occupancy: number): void {
+    this.stats.total_routings++;
+    this.stats.tier_distribution[result.recommended_tier]++;
+    this.occupancySum += occupancy;
+    this.stats.avg_occupancy = this.occupancySum / this.stats.total_routings;
+    if (result.downgraded_by_occupancy) this.stats.occupancy_downgrades++;
+  }
+
+  recordEscalation(): void {
+    this.stats.escalations++;
+  }
+
+  getStats(): RoutingStats {
+    return { ...this.stats };
+  }
+
+  reset(): void {
+    this.stats = {
+      total_routings: 0,
+      tier_distribution: { "tier-1": 0, "tier-2": 0, "tier-3": 0 },
+      avg_occupancy: 0,
+      occupancy_downgrades: 0,
+      escalations: 0,
+    };
+    this.occupancySum = 0;
+  }
+}
