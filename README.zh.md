@@ -48,7 +48,7 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 - **事件总线** — 通过 `events.jsonl` + WebSocket 实时事件流
 - **GUI V2 大盘** — 三栏实时仪表盘，含 decision_ack 决策反馈闭环
 - **并行执行** — 域级并行 Agent，文件所有权强制
-- **模块化测试** — 76 个测试文件，692+ 个断言
+- **模块化测试** — 102 个测试文件，1245+ 个断言
 
 ### 架构
 
@@ -213,7 +213,7 @@ claude-autopilot/
 │   │   ├── scripts/         # Hook 脚本 + 工具
 │   │   ├── hooks/           # Hook 注册
 │   │   ├── gui/             # GUI V2 大盘 (React + Tailwind)
-│   │   ├── tests/           # 76 个测试文件，692+ 个断言
+│   │   ├── tests/           # 102 个测试文件，1245+ 个断言
 │   │   └── docs/            # 完整文档 (中英双语)
 │   └── parallel-harness/
 │       ├── runtime/         # 15 个核心模块 (engine, orchestrator, scheduler 等)

@@ -354,7 +354,7 @@ spec-autopilot/
 │       ├── lib/                 (工具函数)
 │       └── fonts/               (本地 woff2 字体)
 ├── hooks/hooks.json  (Hook 注册)
-├── tests/            (76 个测试文件, 692+ 断言)
+├── tests/            (102 个测试文件, 1245+ 断言)
 └── docs/             (文档)
 ```
 
@@ -364,5 +364,5 @@ spec-autopilot/
 | `scripts/` | Hook scripts + event emitters + shared modules |
 | `gui/` | GUI V2 dashboard (v5.0.8): React + TypeScript + Tailwind v4 |
 | `hooks/` | Hook registration (`hooks.json`) |
-| `tests/` | 76 test files, 692+ assertions |
+| `tests/` | 102 test files, 1245+ assertions |
 | `docs/` | Documentation |
