@@ -288,8 +288,8 @@ LOOP:
 具体流程：
 1. 将完整结构化提示词（背景、功能清单、决策结论、技术方案、验收标准等）作为 `AskUserQuestion` 的 question 字段内容展示
 2. 选项: “确认，开始实施 (Recommended)” / “需要补充修改”
-3. 选”补充” → 回到 1.6 循环
-4. 选”确认” → **立即**进入 1.9 写入 `requirement-packet.json` 和 Phase 1 checkpoint，除非 `after_phase_1 === true`，否则**不得**再插入任何”下一步做什么”的元问题
+3. 选"补充" → 回到 1.6 循环
+4. 选"确认" → **立即**进入 1.9 写入 `requirement-packet.json` 和 Phase 1 checkpoint，除非 `after_phase_1 === true`，否则**不得**再插入任何"下一步做什么"的元问题
 
 **禁止模式**（违反即等同违反状态机硬约束）：
 - ❌ 用文字输出需求提示词，然后追问”请确认以上需求是否准确？”
