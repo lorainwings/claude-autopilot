@@ -103,7 +103,7 @@ sleep 0.3
 
 if [ -f "$TMP_PROJECT/_ws_out/init.json" ]; then
   MSG1=$(cat "$TMP_PROJECT/_ws_out/init.json")
-  if echo "$MSG1" | grep -q '"type":"snapshot"'; then
+  if grep -q '"type":"snapshot"' <<< "$MSG1"; then
     green "  PASS: 1a. WS 初始连接收到 snapshot 消息"
     PASS=$((PASS + 1))
   else
@@ -180,7 +180,7 @@ ar = m.get('archiveReadiness', {})
 print(f\"pkt={m.get('requirementPacketHash','')},gf={m.get('gateFrontier','')},ar={ar.get('overall','') if isinstance(ar, dict) else ''}\")
 " 2>/dev/null || echo "ERROR")
 
-  if echo "$LAST_META" | grep -q "pkt=pkt-new"; then
+  if grep -q "pkt=pkt-new" <<< "$LAST_META"; then
     green "  PASS: 2b. 最新 snapshot requirementPacketHash = pkt-new"
     PASS=$((PASS + 1))
   else
@@ -188,7 +188,7 @@ print(f\"pkt={m.get('requirementPacketHash','')},gf={m.get('gateFrontier','')},a
     FAIL=$((FAIL + 1))
   fi
 
-  if echo "$LAST_META" | grep -q "gf=7"; then
+  if grep -q "gf=7" <<< "$LAST_META"; then
     green "  PASS: 2c. 最新 snapshot gateFrontier = 7"
     PASS=$((PASS + 1))
   else
@@ -196,7 +196,7 @@ print(f\"pkt={m.get('requirementPacketHash','')},gf={m.get('gateFrontier','')},a
     FAIL=$((FAIL + 1))
   fi
 
-  if echo "$LAST_META" | grep -q "ar=ready"; then
+  if grep -q "ar=ready" <<< "$LAST_META"; then
     green "  PASS: 2d. 最新 snapshot archiveReadiness.overall = ready"
     PASS=$((PASS + 1))
   else
@@ -212,7 +212,7 @@ fi
 sleep 0.5
 API_INFO=$(curl -s --max-time 3 "http://localhost:${HTTP_PORT}/api/info" 2>/dev/null || echo "{}")
 
-if echo "$API_INFO" | grep -q "pkt-new"; then
+if grep -q "pkt-new" <<< "$API_INFO"; then
   green "  PASS: 3a. /api/info requirementPacketHash = pkt-new"
   PASS=$((PASS + 1))
 else

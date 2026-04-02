@@ -199,14 +199,14 @@ echo '{"change":"feat-reinject","mode":"full","pid":"99999","started":"2026-01-0
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 # Now run reinject from that dir
 REINJECT_OUTPUT=$(cd "$TMPDIR" && bash "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null)
-if echo "$REINJECT_OUTPUT" | grep -q "STRUCTURED"; then
+if grep -q "STRUCTURED" <<< "$REINJECT_OUTPUT"; then
   green "  PASS: 5a. reinject uses structured path"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 5a. reinject did not use structured path"
   FAIL=$((FAIL + 1))
 fi
-if echo "$REINJECT_OUTPUT" | grep -q "verified"; then
+if grep -q "verified" <<< "$REINJECT_OUTPUT"; then
   green "  PASS: 5b. reinject shows hash verified"
   PASS=$((PASS + 1))
 else
@@ -233,14 +233,14 @@ with open(sys.argv[1], 'w') as f:
     json.dump(data, f)
 " "$SNAP_FILE" 2>/dev/null
 REINJECT_OUTPUT=$(cd "$TMPDIR" && bash "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null)
-if echo "$REINJECT_OUTPUT" | grep -q "LEGACY"; then
+if grep -q "LEGACY" <<< "$REINJECT_OUTPUT"; then
   green "  PASS: 6a. reinject falls back to legacy on tampered snapshot"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 6a. reinject did not fall back to legacy"
   FAIL=$((FAIL + 1))
 fi
-if echo "$REINJECT_OUTPUT" | grep -q "hash verification"; then
+if grep -q "hash verification" <<< "$REINJECT_OUTPUT"; then
   green "  PASS: 6b. reinject warns about hash verification failure"
   PASS=$((PASS + 1))
 else

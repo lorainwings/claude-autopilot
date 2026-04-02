@@ -37,37 +37,37 @@ run_guard() {
 
 # 1a. --no-verify must be blocked
 output=$(run_guard "git commit --no-verify -m \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1a. --no-verify blocked" 0 $?
 
 # 1b. -n short flag must be blocked
 output=$(run_guard "git commit -n -m \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1b. -n short flag blocked" 0 $?
 
 # 1c. -nm combined flags must be blocked
 output=$(run_guard "git commit -nm \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1c. -nm combined blocked" 0 $?
 
 # 1d. -amn combined flags must be blocked
 output=$(run_guard "git commit -amn \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1d. -amn combined blocked" 0 $?
 
 # 1e. -c commit.noVerify=true must be blocked
 output=$(run_guard "git -c commit.noVerify=true commit -m \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1e. -c commit.noVerify=true blocked" 0 $?
 
 # 1f. HUSKY=0 must be blocked
 output=$(run_guard "HUSKY=0 git commit -m \"test\"")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1f. HUSKY=0 blocked" 0 $?
 
 # 1g. push --no-verify must be blocked
 output=$(run_guard "git push --no-verify")
-echo "$output" | grep -q '"deny"'
+grep -q '"deny"' <<< "$output"
 assert_exit "1g. push --no-verify blocked" 0 $?
 
 echo ""
@@ -157,6 +157,8 @@ git -C "$E2E_DIR" init -q
 # Copy tracked hook files
 cp "$GITHOOKS_DIR/pre-commit" "$E2E_DIR/.githooks/pre-commit"
 chmod +x "$E2E_DIR/.githooks/pre-commit"
+cp "$GITHOOKS_DIR/pre-push" "$E2E_DIR/.githooks/pre-push"
+chmod +x "$E2E_DIR/.githooks/pre-push"
 cp "$SETUP_SCRIPT" "$E2E_DIR/scripts/setup-hooks.sh"
 chmod +x "$E2E_DIR/scripts/setup-hooks.sh"
 
@@ -199,7 +201,7 @@ commit_output=$(git -C "$E2E_DIR" -c user.name="Test" -c user.email="test@test.c
 assert_exit "5c. commit proceeds (info-only CHANGELOG check)" 0 "$commit_exit"
 
 # Verify: info message about CHANGELOG is shown
-echo "$commit_output" | grep -q "CHANGELOG.md not updated"
+grep -q "CHANGELOG.md not updated" <<< "$commit_output"
 assert_exit "5d. info message mentions CHANGELOG.md" 0 $?
 
 # ============================================
@@ -220,6 +222,8 @@ git -C "$DRIFT_DIR" init -q
 # Copy hook and setup
 cp "$GITHOOKS_DIR/pre-commit" "$DRIFT_DIR/.githooks/pre-commit"
 chmod +x "$DRIFT_DIR/.githooks/pre-commit"
+cp "$GITHOOKS_DIR/pre-push" "$DRIFT_DIR/.githooks/pre-push"
+chmod +x "$DRIFT_DIR/.githooks/pre-push"
 cp "$SETUP_SCRIPT" "$DRIFT_DIR/scripts/setup-hooks.sh"
 
 # Plugin at 2.0.0, marketplace deliberately stale at 1.0.0
@@ -277,7 +281,7 @@ if command -v jq &>/dev/null; then
   fi
 
   # 6b. Error output mentions version mismatch
-  if echo "$drift_output" | grep -q "Version mismatch"; then
+  if grep -q "Version mismatch" <<< "$drift_output"; then
     green "  PASS: 6b. error output mentions 'Version mismatch'"
     PASS=$((PASS + 1))
   else

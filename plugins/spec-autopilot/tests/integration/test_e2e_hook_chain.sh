@@ -18,7 +18,7 @@ HOOK_INPUT="{\"tool_name\":\"Task\",\"cwd\":\"$REPO_ROOT\",\"tool_input\":{\"pro
 
 export SCRIPT_DIR
 result=$(echo "$HOOK_INPUT" | python3 "$SCRIPT_DIR/_post_task_validator.py" 2>/dev/null)
-if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
   green "  PASS: E2E-1a. valid Phase 2 Task passes full hook chain"
   PASS=$((PASS + 1))
 else

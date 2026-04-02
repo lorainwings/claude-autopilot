@@ -6,11 +6,11 @@ SA  := plugins/spec-autopilot
 PH  := plugins/parallel-harness
 DR  := plugins/daily-report
 
-# lint 工具版本 — 与 .github/workflows/test-spec-autopilot.yml 保持一致
+# lint 工具版本 — 与 .github/workflows/ci.yml 保持一致
 RUFF_VERSION  := 0.15.7
 MYPY_VERSION  := 1.15.0
 
-.PHONY: hooks setup test build lint format typecheck ci \
+.PHONY: hooks setup test build lint format typecheck smoke ci \
         ph-test ph-typecheck ph-build ph-lint ph-setup \
         dr-build dr-lint dr-ci \
         release release-dry \
@@ -90,7 +90,10 @@ typecheck: hooks ## Run TypeScript type checks (spec-autopilot gui + server)
 	  echo "[skip] runtime/server/tsconfig.json not found"; \
 	fi
 
-ci: hooks lint typecheck test build ## spec-autopilot CI: lint → typecheck → test → build
+ci: hooks lint typecheck test smoke build ## spec-autopilot CI: lint → typecheck → test → smoke → build
+
+smoke: ## Run spec-autopilot release smoke suite
+	@bash $(SA)/tests/smoke_release.sh
 
 # ── parallel-harness targets ───────────────────────────────────────
 

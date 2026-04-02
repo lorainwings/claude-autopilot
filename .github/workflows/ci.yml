@@ -1,0 +1,542 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Force run all plugins'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 0: 检测影响面 + release 上下文
+  # ════════════════════════════════════════════════════════════════════
+  detect:
+    name: Detect affected plugins
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      skip_ci: ${{ steps.release.outputs.skip }}
+      skip_dist_stale: ${{ steps.release.outputs.skip_dist_stale }}
+      run_sa: ${{ steps.summary.outputs.run_sa }}
+      run_ph: ${{ steps.summary.outputs.run_ph }}
+      run_dr: ${{ steps.summary.outputs.run_dr }}
+      affected: ${{ steps.summary.outputs.affected }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect release context
+        id: release
+        run: |
+          eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
+          echo "skip=${SKIP_WHOLE_CI}" >> "$GITHUB_OUTPUT"
+          echo "skip_dist_stale=${SKIP_DIST_STALE}" >> "$GITHUB_OUTPUT"
+
+      - name: Force all (workflow_dispatch)
+        id: force
+        if: github.event_name == 'workflow_dispatch' && inputs.force_all
+        run: |
+          echo "run_sa=true" >> "$GITHUB_OUTPUT"
+          echo "run_ph=true" >> "$GITHUB_OUTPUT"
+          echo "run_dr=true" >> "$GITHUB_OUTPUT"
+
+      - name: Detect changed paths
+        if: steps.force.conclusion == 'skipped'
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        with:
+          filters: |
+            spec-autopilot:
+              - 'plugins/spec-autopilot/**'
+              - 'dist/spec-autopilot/**'
+            parallel-harness:
+              - 'plugins/parallel-harness/**'
+              - 'dist/parallel-harness/**'
+            daily-report:
+              - 'plugins/daily-report/**'
+              - 'dist/daily-report/**'
+            shared:
+              - 'scripts/**'
+              - '.githooks/**'
+              - '.github/**'
+              - 'Makefile'
+              - '.shellcheckrc'
+              - '.editorconfig'
+              - 'release-please-config.json'
+              - '.release-please-manifest.json'
+              - '.claude-plugin/marketplace.json'
+
+      - name: Compute affected summary
+        id: summary
+        run: |
+          # force_all 或 shared infra 变更 => 全插件
+          FORCE="${{ steps.force.outputs.run_sa }}"
+          SHARED="${{ steps.filter.outputs.shared }}"
+
+          if [ "$FORCE" = "true" ] || [ "$SHARED" = "true" ]; then
+            SA=true; PH=true; DR=true
+          else
+            SA="${{ steps.filter.outputs.spec-autopilot }}"
+            PH="${{ steps.filter.outputs.parallel-harness }}"
+            DR="${{ steps.filter.outputs.daily-report }}"
+          fi
+
+          # 写入所有决策到 GITHUB_OUTPUT
+          echo "run_sa=$SA" >> "$GITHUB_OUTPUT"
+          echo "run_ph=$PH" >> "$GITHUB_OUTPUT"
+          echo "run_dr=$DR" >> "$GITHUB_OUTPUT"
+
+          AFFECTED=""
+          [ "$SA" = "true" ] && AFFECTED="spec-autopilot"
+          [ "$PH" = "true" ] && AFFECTED="$AFFECTED parallel-harness"
+          [ "$DR" = "true" ] && AFFECTED="$AFFECTED daily-report"
+          AFFECTED=$(echo "$AFFECTED" | xargs)  # trim
+
+          echo "affected=$AFFECTED" >> "$GITHUB_OUTPUT"
+          echo "ℹ️  Affected: $AFFECTED (force=$FORCE shared=$SHARED)"
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 1: Release discipline (共享, 按受影响插件动态检查)
+  # ════════════════════════════════════════════════════════════════════
+  release-discipline:
+    name: Release Discipline
+    needs: [detect]
+    if: needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.affected != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Determine base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -n "$BEFORE" ] && git rev-parse --verify "${BEFORE}^{commit}" >/dev/null 2>&1; then
+              echo "ref=${BEFORE}" >> "$GITHUB_OUTPUT"
+            else
+              echo "ref=${{ github.sha }}~1" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Check release discipline
+        run: |
+          AFFECTED="${{ needs.detect.outputs.affected }}"
+          for plugin in $AFFECTED; do
+            echo "── Checking $plugin ──"
+            bash scripts/check-release-discipline.sh "${{ steps.base.outputs.ref }}" "${{ github.sha }}" "$plugin"
+          done
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 2: spec-autopilot CI
+  # ════════════════════════════════════════════════════════════════════
+  sa-test:
+    name: spec-autopilot / Tests (${{ matrix.os }})
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_sa == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify python3
+        run: python3 --version
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
+
+      - name: Install GUI dependencies
+        run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
+
+      - name: Run hook test suite
+        run: bash plugins/spec-autopilot/tests/run_all.sh
+
+      - name: Run release smoke suite
+        run: bash plugins/spec-autopilot/tests/smoke_release.sh
+
+  sa-lint:
+    name: spec-autopilot / Lint
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_sa == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck + shfmt
+        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+
+      - name: Install ruff + mypy
+        run: |
+          RUFF_V=$(grep '^RUFF_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          MYPY_V=$(grep '^MYPY_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          pip install "ruff==${RUFF_V}" "mypy==${MYPY_V}"
+
+      - name: Run lint
+        run: make lint
+
+  sa-typecheck:
+    name: spec-autopilot / TypeCheck
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_sa == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
+
+      - name: Install GUI dependencies
+        run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
+
+      - name: Install server dependencies
+        run: cd plugins/spec-autopilot/runtime/server && bun install --frozen-lockfile
+
+      - name: Run typecheck
+        run: make typecheck
+
+  sa-build:
+    name: spec-autopilot / Build dist
+    needs: [detect, release-discipline, sa-test, sa-lint, sa-typecheck]
+    if: |
+      always() &&
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_sa == 'true' &&
+      (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
+      needs.sa-test.result == 'success' &&
+      needs.sa-lint.result == 'success' &&
+      needs.sa-typecheck.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/spec-autopilot/gui/bun.lock
+
+      - name: Install GUI dependencies
+        run: cd plugins/spec-autopilot/gui && bun install --frozen-lockfile
+
+      - name: Build dist
+        run: make build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/spec-autopilot/.claude-plugin
+          test -f dist/spec-autopilot/.claude-plugin/plugin.json
+          test -d dist/spec-autopilot/hooks
+          test -d dist/spec-autopilot/skills
+          test -d dist/spec-autopilot/runtime
+          test -f dist/spec-autopilot/CLAUDE.md
+          echo "dist/spec-autopilot structure OK"
+
+      - name: Check dist freshness
+        if: needs.detect.outputs.skip_dist_stale != 'true'
+        run: bash scripts/check-dist-freshness.sh spec-autopilot --ci-git-check
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 2: parallel-harness CI
+  # ════════════════════════════════════════════════════════════════════
+  ph-typecheck:
+    name: parallel-harness / TypeCheck
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_ph == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/parallel-harness/bun.lock
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Run typecheck
+        run: make ph-typecheck
+
+  ph-test:
+    name: parallel-harness / Tests (${{ matrix.os }})
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_ph == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/parallel-harness/bun.lock
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Run tests
+        run: make ph-test
+
+  ph-lint:
+    name: parallel-harness / Lint
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_ph == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: make ph-lint
+
+  ph-build:
+    name: parallel-harness / Build dist
+    needs: [detect, release-discipline, ph-typecheck, ph-test, ph-lint]
+    if: |
+      always() &&
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_ph == 'true' &&
+      (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
+      needs.ph-typecheck.result == 'success' &&
+      needs.ph-test.result == 'success' &&
+      needs.ph-lint.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/parallel-harness/bun.lock
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Build dist
+        run: make ph-build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/parallel-harness/.claude-plugin
+          test -f dist/parallel-harness/.claude-plugin/plugin.json
+          test -d dist/parallel-harness/runtime
+          test -d dist/parallel-harness/skills
+          test -d dist/parallel-harness/config
+          test -f dist/parallel-harness/CLAUDE.md
+          echo "dist/parallel-harness structure OK"
+
+      - name: Check dist freshness
+        if: needs.detect.outputs.skip_dist_stale != 'true'
+        run: bash scripts/check-dist-freshness.sh parallel-harness --ci-git-check
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 2: daily-report CI
+  # ════════════════════════════════════════════════════════════════════
+  dr-lint:
+    name: daily-report / Lint
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_dr == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: make dr-lint
+
+  dr-build:
+    name: daily-report / Build dist
+    needs: [detect, release-discipline, dr-lint]
+    if: |
+      always() &&
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_dr == 'true' &&
+      (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
+      needs.dr-lint.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build dist
+        run: make dr-build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/daily-report/.claude-plugin
+          test -f dist/daily-report/.claude-plugin/plugin.json
+          test -d dist/daily-report/skills
+          test -f dist/daily-report/CLAUDE.md
+          echo "dist/daily-report structure OK"
+
+      - name: Check dist freshness
+        if: needs.detect.outputs.skip_dist_stale != 'true'
+        run: bash scripts/check-dist-freshness.sh daily-report --ci-git-check
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 3: 统一 summary (branch protection 的唯一 required check)
+  # ════════════════════════════════════════════════════════════════════
+  summary:
+    name: CI Summary
+    needs: [detect, release-discipline, sa-test, sa-lint, sa-typecheck, sa-build, ph-typecheck, ph-test, ph-lint, ph-build, dr-lint, dr-build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate results
+        run: |
+          echo "=== CI Summary ==="
+          echo ""
+
+          # 如果整个 CI 被跳过 (post-release bot)
+          if [ "${{ needs.detect.outputs.skip_ci }}" = "true" ]; then
+            echo "✅ CI skipped (post-release bot commit)"
+            exit 0
+          fi
+
+          # 如果没有受影响的插件
+          AFFECTED="${{ needs.detect.outputs.affected }}"
+          if [ -z "$AFFECTED" ]; then
+            echo "✅ No plugins affected — nothing to check"
+            exit 0
+          fi
+
+          echo "Affected plugins: $AFFECTED"
+          echo ""
+
+          FAILED=0
+
+          # 检查 release-discipline
+          RD_RESULT="${{ needs.release-discipline.result }}"
+          if [ "$RD_RESULT" != "success" ] && [ "$RD_RESULT" != "skipped" ]; then
+            echo "❌ release-discipline: $RD_RESULT"
+            FAILED=1
+          else
+            echo "✅ release-discipline: $RD_RESULT"
+          fi
+
+          # 检查 spec-autopilot jobs
+          SA="${{ needs.detect.outputs.run_sa }}"
+          if [ "$SA" = "true" ]; then
+            for job in sa-test sa-lint sa-typecheck sa-build; do
+              case "$job" in
+                sa-test)      RESULT="${{ needs.sa-test.result }}" ;;
+                sa-lint)      RESULT="${{ needs.sa-lint.result }}" ;;
+                sa-typecheck) RESULT="${{ needs.sa-typecheck.result }}" ;;
+                sa-build)     RESULT="${{ needs.sa-build.result }}" ;;
+              esac
+              if [ "$RESULT" != "success" ]; then
+                echo "❌ $job: $RESULT"
+                FAILED=1
+              else
+                echo "✅ $job: $RESULT"
+              fi
+            done
+          else
+            echo "⏭️  spec-autopilot: skipped (not affected)"
+          fi
+
+          # 检查 parallel-harness jobs
+          PH="${{ needs.detect.outputs.run_ph }}"
+          if [ "$PH" = "true" ]; then
+            for job_label in ph-typecheck ph-test ph-lint ph-build; do
+              case "$job_label" in
+                ph-typecheck) RESULT="${{ needs.ph-typecheck.result }}" ;;
+                ph-test)      RESULT="${{ needs.ph-test.result }}" ;;
+                ph-lint)      RESULT="${{ needs.ph-lint.result }}" ;;
+                ph-build)     RESULT="${{ needs.ph-build.result }}" ;;
+              esac
+              if [ "$RESULT" != "success" ]; then
+                echo "❌ $job_label: $RESULT"
+                FAILED=1
+              else
+                echo "✅ $job_label: $RESULT"
+              fi
+            done
+          else
+            echo "⏭️  parallel-harness: skipped (not affected)"
+          fi
+
+          # 检查 daily-report jobs
+          DR="${{ needs.detect.outputs.run_dr }}"
+          if [ "$DR" = "true" ]; then
+            for job_label in dr-lint dr-build; do
+              case "$job_label" in
+                dr-lint)  RESULT="${{ needs.dr-lint.result }}" ;;
+                dr-build) RESULT="${{ needs.dr-build.result }}" ;;
+              esac
+              if [ "$RESULT" != "success" ]; then
+                echo "❌ $job_label: $RESULT"
+                FAILED=1
+              else
+                echo "✅ $job_label: $RESULT"
+              fi
+            done
+          else
+            echo "⏭️  daily-report: skipped (not affected)"
+          fi
+
+          echo ""
+          if [ "$FAILED" -eq 1 ]; then
+            echo "❌ CI failed — see above for details"
+            exit 1
+          fi
+          echo "✅ All checks passed"

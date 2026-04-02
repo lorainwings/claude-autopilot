@@ -4,9 +4,7 @@
 
 > Claude Code 插件市场 — 规范驱动的全自动交付流水线编排 + 并行 AI 工程控制面。
 
-[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
-[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
-[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
+[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 插件列表
@@ -201,10 +199,10 @@ claude-autopilot/
 ├── .claude-plugin/          # 市场配置
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   ├── test-spec-autopilot.yml
-│   ├── test-parallel-harness.yml
-│   └── test-daily-report.yml
-├── .githooks/               # Git hooks (pre-commit)
+│   ├── ci.yml               # 统一 CI 入口（检测 → 矩阵 → 汇总）
+│   ├── ci-sweep.yml         # 定时全量扫描
+│   └── release-please.yml
+├── .githooks/               # Git hooks (pre-commit, pre-push)
 ├── dist/                    # 构建产出（用于市场安装）
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
@@ -238,7 +236,7 @@ claude-autopilot/
 
 欢迎贡献！请参阅 [CONTRIBUTING.zh.md](CONTRIBUTING.zh.md) 了解指南。
 
-插件级改动只会触发对应插件的 workflow。Release PR 合入 `main` 后，`release-please` 与 post-release job 会自动重建 `dist/`、同步插件文档、回写根 README 版本表，并更新 `.claude-plugin/marketplace.json`。
+插件级改动只会触发统一 `ci.yml` 中对应插件的 CI jobs。Release PR 合入 `main` 后，`release-please` 与 post-release job 会自动重建 `dist/`、同步插件文档、回写根 README 版本表，并更新 `.claude-plugin/marketplace.json`。
 
 ```bash
 # 克隆仓库

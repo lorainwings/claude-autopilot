@@ -8,7 +8,7 @@
 #
 # What it does:
 #   1. Sets core.hooksPath to .githooks/ (local config only)
-#   2. Verifies .githooks/pre-commit exists and is executable
+#   2. Verifies .githooks/pre-commit and .githooks/pre-push exist and are executable
 #   3. Warns if stale .git/hooks/pre-commit exists
 
 set -euo pipefail
@@ -22,19 +22,21 @@ fi
 cd "$REPO_ROOT"
 
 HOOKS_DIR=".githooks"
-HOOK_FILE="$HOOKS_DIR/pre-commit"
+HOOK_FILES=("$HOOKS_DIR/pre-commit" "$HOOKS_DIR/pre-push")
 
 # --- Verify tracked hooks exist ---
-if [ ! -f "$HOOK_FILE" ]; then
-  echo "Error: $HOOK_FILE not found. Ensure the repo is fully checked out." >&2
-  exit 1
-fi
+for HOOK_FILE in "${HOOK_FILES[@]}"; do
+  if [ ! -f "$HOOK_FILE" ]; then
+    echo "Error: $HOOK_FILE not found. Ensure the repo is fully checked out." >&2
+    exit 1
+  fi
 
-# --- Ensure executable ---
-if [ ! -x "$HOOK_FILE" ]; then
-  chmod +x "$HOOK_FILE"
-  echo "Fixed: set executable bit on $HOOK_FILE"
-fi
+  # --- Ensure executable ---
+  if [ ! -x "$HOOK_FILE" ]; then
+    chmod +x "$HOOK_FILE"
+    echo "Fixed: set executable bit on $HOOK_FILE"
+  fi
+done
 
 # --- Set core.hooksPath ---
 CURRENT=$(git config --local core.hooksPath 2>/dev/null || true)

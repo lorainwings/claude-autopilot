@@ -4,9 +4,7 @@
 
 > A Claude Code plugin marketplace — spec-driven autopilot orchestration and parallel AI engineering control-plane.
 
-[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
-[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
-[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
+[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Plugins
@@ -201,10 +199,10 @@ claude-autopilot/
 ├── .claude-plugin/          # Marketplace configuration
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   ├── test-spec-autopilot.yml
-│   ├── test-parallel-harness.yml
-│   └── test-daily-report.yml
-├── .githooks/               # Git hooks (pre-commit)
+│   ├── ci.yml               # Unified CI entry (detect → matrix → summary)
+│   ├── ci-sweep.yml         # Scheduled full sweep
+│   └── release-please.yml
+├── .githooks/               # Git hooks (pre-commit, pre-push)
 ├── dist/                    # Built plugins (for marketplace install)
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
@@ -237,7 +235,7 @@ claude-autopilot/
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Plugin-only changes trigger only the matching plugin workflow. After a release PR is merged into `main`, `release-please` and the post-release job rebuild `dist/`, sync plugin docs, refresh the root README version table, and update `.claude-plugin/marketplace.json`.
+Plugin-only changes trigger only the matching plugin CI jobs within the unified `ci.yml` workflow. After a release PR is merged into `main`, `release-please` and the post-release job rebuild `dist/`, sync plugin docs, refresh the root README version table, and update `.claude-plugin/marketplace.json`.
 
 ```bash
 # Clone the repository

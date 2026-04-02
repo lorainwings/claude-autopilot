@@ -42,7 +42,7 @@ fi
 # 4d. Verify markdown structure
 if [ -f "$SNAPSHOT_FILE" ]; then
   CONTENT=$(cat "$SNAPSHOT_FILE")
-  if echo "$CONTENT" | grep -q "Phase 1 Context Snapshot"; then
+  if grep -q "Phase 1 Context Snapshot" <<< "$CONTENT"; then
     green "  PASS: 4d. markdown has Phase 1 header"
     PASS=$((PASS + 1))
   else

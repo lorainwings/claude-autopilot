@@ -176,7 +176,7 @@ cat >"$V6_ENV/logs/agent-dispatch-record.json" <<'JSON'
 JSON
 echo "phase5-api" >"$V6_ENV/logs/.active-agent-phase-5"
 result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
-if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
   green "  PASS: 7a. agent marker 精确匹配 dispatch record → 通过"
   PASS=$((PASS + 1))
 else
@@ -192,7 +192,7 @@ assert_contains "7b. 无匹配 record → correlation missing block" "$result" "
 # 7c. 无 agent marker → phase-only 回退
 rm -f "$V6_ENV/logs/.active-agent-phase-5" "$V6_ENV/logs/.active-agent-id" 2>/dev/null || true
 result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
-if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
   green "  PASS: 7c. 无 agent marker → phase-only 回退 → 通过"
   PASS=$((PASS + 1))
 else

@@ -1,5 +1,7 @@
 # CI/CD 全流程审计与修复方案
 
+> **已归档**: 此文档为 2026-03-29 审计快照。CI 架构已重构为统一 `ci.yml` + `dorny/paths-filter`，原 `test-*.yml` 已删除。当前架构见根 `CLAUDE.md` CI/CD 规范章节。
+
 > 生成时间: 2026-03-29
 > 适用范围: lorainwings/claude-autopilot monorepo 全部 CI workflow
 > 用途: 直接喂给 Claude Code / Codex 执行修复

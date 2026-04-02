@@ -40,7 +40,7 @@ if proc.stdout.strip():
 
 # 33a. Valid Phase 2 envelope → no block output
 result=$(run_validator 2 '{"status":"ok","summary":"Created OpenSpec","artifacts":["openspec/changes/test/proposal.md"],"alternatives":["Option A","Option B"]}')
-if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
   green "  PASS: 33a. valid Phase 2 envelope → no block"
   PASS=$((PASS + 1))
 else
@@ -82,7 +82,7 @@ assert_contains "33i. Phase 1 missing decisions → block" "$result" "block"
 
 # 33j. Phase 1 valid small complexity → no block
 result=$(run_validator 1 '{"status":"ok","summary":"requirements done","complexity":"small","requirement_type":"feature","decisions":[{"point":"auth method","choice":"JWT"}]}')
-if [ -z "$result" ] || ! echo "$result" | grep -q '"block"'; then
+if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
   green "  PASS: 33j. Phase 1 small complexity valid → no block"
   PASS=$((PASS + 1))
 else
