@@ -21,7 +21,9 @@ assert_exit() {
 
 assert_contains() {
   local name="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -q "$needle"; then
+  # Use here-string (<<<) instead of echo|grep pipe to avoid SIGPIPE
+  # when grep -q closes stdin early under pipefail (Ubuntu/GNU bash).
+  if grep -q "$needle" <<< "$haystack"; then
     green "  PASS: $name (contains '$needle')"
     PASS=$((PASS + 1))
   else
@@ -32,7 +34,9 @@ assert_contains() {
 
 assert_not_contains() {
   local name="$1" haystack="$2" needle="$3"
-  if ! echo "$haystack" | grep -q "$needle"; then
+  # Use here-string (<<<) instead of echo|grep pipe to avoid SIGPIPE
+  # when grep -q closes stdin early under pipefail (Ubuntu/GNU bash).
+  if ! grep -q "$needle" <<< "$haystack"; then
     green "  PASS: $name (correctly missing '$needle')"
     PASS=$((PASS + 1))
   else
@@ -44,7 +48,7 @@ assert_not_contains() {
 assert_json_field() {
   local name="$1" json="$2" field="$3" expected="$4"
   local actual
-  actual=$(echo "$json" | python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" 2>/dev/null || echo "")
+  actual=$(python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" <<< "$json" 2>/dev/null || echo "")
   if [ "$actual" = "$expected" ]; then
     green "  PASS: $name (.$field == '$expected')"
     PASS=$((PASS + 1))

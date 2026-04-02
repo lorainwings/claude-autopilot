@@ -22,7 +22,7 @@
 ```
 ├── .claude-plugin/              # 市场配置 (marketplace.json — 版本号由自动化维护)
 ├── .githooks/                   # Git pre-commit hook (非 Husky)
-├── .github/workflows/           # CI: test-spec-autopilot / test-parallel-harness / test-daily-report / release-please
+├── .github/workflows/           # CI: ci.yml (统一入口) / ci-sweep.yml (定时全量) / release-please.yml
 ├── dist/                        # 构建产物 (git tracked，供市场安装)
 │   ├── spec-autopilot/          # spec-autopilot 发布产物
 │   ├── parallel-harness/        # parallel-harness 发布产物
@@ -45,7 +45,8 @@
 - 修改 parallel-harness 源码 → `plugins/parallel-harness/`
 - 修改 daily-report 源码 → `plugins/daily-report/`
 - 查看市场配置 → `.claude-plugin/marketplace.json`
-- 查看 CI 定义 → `.github/workflows/`
+- 查看 CI 定义 → `.github/workflows/ci.yml` (统一入口, 含 `dorny/paths-filter` 配置)
+- 查看 dist 一致性校验 → `scripts/check-dist-freshness.sh`
 - 查看版本清单 → `.release-please-manifest.json`
 
 ## Git Worktree 安全规范
@@ -159,7 +160,7 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 
 | 插件 | 命令 | 框架 | 基线 |
 |------|------|------|------|
-| spec-autopilot | `make test` | Bash 测试套件 | 76 文件, 692+ 断言 |
+| spec-autopilot | `make test` | Bash 测试套件 | 102 文件, 1245+ 断言 |
 | parallel-harness | `make ph-test` | `bun test` | 219 tests, 499 assertions |
 
 ### 推送前检查清单
@@ -173,23 +174,40 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 
 ## CI/CD 规范
 
-### 四条 Pipeline
+### Pipeline 架构
 
-| Workflow | 触发条件 | Job 链 |
-|----------|---------|--------|
-| `test-spec-autopilot.yml` | `plugins/spec-autopilot/**` 变更 | release-discipline → test-hooks → lint → typecheck → build-dist |
-| `test-parallel-harness.yml` | `plugins/parallel-harness/**` 变更 | release-discipline → ph-typecheck → ph-test → ph-lint → ph-build |
-| `test-daily-report.yml` | `plugins/daily-report/**` 变更 | release-discipline → dr-lint → dr-build |
+| Workflow | 触发条件 | 职责 |
+|----------|---------|------|
+| `ci.yml` | push/PR to `main` | 统一入口: 检测受影响插件 → 动态生成 matrix → 按插件执行 lint/test/typecheck/build/dist 校验 → 输出稳定 summary check |
+| `ci-sweep.yml` | 每周一定时 + 手动 | 延迟发现防线: 全插件全量 CI (ubuntu + macOS) |
 | `release-please.yml` | push to `main` | release-please → post-release (dist 构建 + 版本同步) |
+
+### 影响面解析 (单一真相)
+
+`dorny/paths-filter@v3` 是 CI 中判断受影响插件的唯一机制 (配置在 `ci.yml` detect job 中):
+
+- 命中 `plugins/<plugin>/**` 或 `dist/<plugin>/**` → 仅该插件
+- 命中 `shared` filter (`scripts/`、`.github/`、`Makefile`、`.shellcheckrc` 等) → 全插件
+- 新增插件时需在 `ci.yml` 的 `filters` 配置中添加对应条目
+
+### dist 一致性校验 (统一机制)
+
+`scripts/check-dist-freshness.sh` 被以下场景共同调用:
+
+- **pre-commit**: 自动检测 + 重建
+- **pre-push**: 全插件最终防线
+- **CI**: build 后校验
+- **release/post-release**: 与普通 build 使用相同约束
 
 ### CI 关键行为
 
-1. **路径过滤**: 每条 pipeline 仅在对应插件目录有变更时触发
-   共享文件（如 `scripts/`、`Makefile`、`.shellcheckrc`）改动会按影响面触发多个 pipeline，这是预期行为
-2. **release-please 分支 bypass**: pre-commit hook 检测到 `release-please--*` 分支自动跳过
-3. **bot commit bypass**: CI discipline 检查自动跳过 release-please 和 post-release bot 提交
-4. **dist freshness 验证**: CI 构建后对比 tracked + untracked files，不一致则失败
-5. **跨平台测试**: 测试在 `ubuntu-latest` + `macos-latest` 上并行运行
+1. **统一 summary check**: `CI Summary` 是 branch protection 的唯一 required check，不会因 path skip 导致 pending
+2. **动态 matrix**: 仅跑受影响插件，共享基础设施变更自动升级为全插件 CI
+3. **release-please 分支 bypass**: pre-commit hook 检测到 `release-please--*` 分支自动跳过
+4. **bot commit bypass**: CI discipline 检查自动跳过 release-please 和 post-release bot 提交
+5. **dist freshness 验证**: CI 构建后调用统一脚本对比，不一致则失败
+6. **跨平台测试**: spec-autopilot 和 parallel-harness 在 `ubuntu-latest` + `macos-latest` 上并行运行
+7. **定时全量 sweep**: 每周一全插件扫描，防止路径过滤遗漏共享问题
 
 ## 分支策略
 
@@ -207,6 +225,8 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 
 - 使用 `.githooks/` 目录（非 Husky），通过 `core.hooksPath` 配置
 - 初始化: `make setup` 或 `bash scripts/setup-hooks.sh`
+- **pre-commit**: 测试 + lint + 版本校验 + dist 自动重建
+- **pre-push**: 全插件 dist freshness 最终防线
 - pre-commit hook 包含 hooksPath 自保护机制（检测到 `/dev/null` 自动恢复）
 
 ### 严禁 hooksPath 破坏
@@ -245,7 +265,7 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 1. **源码隔离**: 每个插件在 `plugins/<name>/` 下完全自包含，禁止跨插件 import
 2. **依赖隔离**: 每个插件有独立的 `package.json` / `bun.lock`，禁止共享 `node_modules`
 3. **版本独立**: 两个插件各自独立版本号，独立 CHANGELOG
-4. **CI 独立**: 各插件有独立的 CI workflow，按路径过滤触发
+4. **CI 统一**: 所有插件共用 `ci.yml` 统一入口，通过 `dorny/paths-filter` 按路径动态触发
 
 ### 共享层
 
@@ -266,10 +286,12 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 2. 在 `.claude-plugin/marketplace.json` 注册
 3. 在 `release-please-config.json` 和 `.release-please-manifest.json` 添加包配置
 4. 在 `Makefile` 添加对应 target
-5. 在 `.github/workflows/` 添加独立 CI workflow
-6. 在 `.githooks/pre-commit` 添加对应的 dist rebuild 逻辑
-7. 在根目录 `README.md` / `README.zh.md` 插件表格中添加条目
-8. 在 `.gitignore` 确保 `!dist/<new-name>/` 被跟踪
+5. 在 `.github/workflows/ci.yml` 的 `dorny/paths-filter` filters 中添加插件条目和 CI jobs
+6. 在 `.github/workflows/ci-sweep.yml` 中添加对应的 sweep job
+7. 在 `scripts/check-dist-freshness.sh` 中添加对应 case 分支
+8. 在 `.githooks/pre-commit` 添加对应的 dist rebuild 逻辑
+9. 在根目录 `README.md` / `README.zh.md` 插件表格中添加条目
+10. 在 `.gitignore` 确保 `!dist/<new-name>/` 被跟踪
 
 ## 绝对禁止清单
 

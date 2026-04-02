@@ -112,7 +112,7 @@ fi
 # ── P0: 路径脱敏验证 ──
 EVENTS_FOR_SANITIZE=$(curl -s --max-time 2 http://localhost:9527/api/events)
 # 检查返回值中不含原始用户路径（$TMP_DIR 以 /tmp 或 /var 开头，不含 /Users/）
-if echo "$EVENTS_FOR_SANITIZE" | grep -q '"/Users/[^"]*"'; then
+if grep -q '"/Users/[^"]*"' <<< "$EVENTS_FOR_SANITIZE"; then
   red "  FAIL: API 返回中包含未脱敏的 /Users/ 路径"
   FAIL=$((FAIL + 1))
 else
@@ -135,7 +135,7 @@ assert_contains "raw-tail returns cursor" "$RAW_TAIL" '"cursor"'
 CURSOR=$(echo "$RAW_TAIL" | grep -o '"cursor":[0-9]*' | head -1 | cut -d: -f2)
 if [ -n "$CURSOR" ] && [ "$CURSOR" -gt 0 ]; then
   RAW_TAIL_EMPTY=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR")
-  if echo "$RAW_TAIL_EMPTY" | grep -q '"lines":\[\]'; then
+  if grep -q '"lines":\[\]' <<< "$RAW_TAIL_EMPTY"; then
     green "  PASS: 游标到末尾后返回空行"
     PASS=$((PASS + 1))
   else

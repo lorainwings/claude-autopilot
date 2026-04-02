@@ -108,7 +108,7 @@ fi
 # E2E-2i. find_checkpoint finds latest file for phase
 echo '{"status":"ok"}' > "$RECOVERY_DIR/phase-1-requirements.json"
 result=$(find_checkpoint "$RECOVERY_DIR" 1)
-if [ -n "$result" ] && echo "$result" | grep -q "phase-1-requirements.json"; then
+if [ -n "$result" ] && grep -q "phase-1-requirements.json" <<< "$result"; then
   green "  PASS: E2E-2i. find_checkpoint locates phase-1"
   PASS=$((PASS + 1))
 else

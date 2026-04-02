@@ -4,18 +4,16 @@
 
 > A Claude Code plugin marketplace — spec-driven autopilot orchestration and parallel AI engineering control-plane.
 
-[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
-[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
-[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
+[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Plugins
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [spec-autopilot](plugins/spec-autopilot/) | 5.2.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
+| [spec-autopilot](plugins/spec-autopilot/) | 5.3.0 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.2.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
-| [daily-report](plugins/daily-report/README.md) | 1.2.3 | Auto-generate and submit daily work reports from git commits and Lark chat history |
+| [daily-report](plugins/daily-report/README.md) | 1.2.4 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 
 ## Quick Install
 
@@ -50,7 +48,7 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 - **Event Bus** — Real-time event streaming via `events.jsonl` + WebSocket
 - **GUI V2 Dashboard** — Three-column real-time dashboard with decision_ack feedback loop
 - **Parallel Execution** — Domain-level parallel agents with file ownership enforcement
-- **Modular Test Suite** — 76 test files with 692+ assertions
+- **Modular Test Suite** — 102 test files with 1245+ assertions
 
 ### Architecture
 
@@ -201,10 +199,10 @@ claude-autopilot/
 ├── .claude-plugin/          # Marketplace configuration
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   ├── test-spec-autopilot.yml
-│   ├── test-parallel-harness.yml
-│   └── test-daily-report.yml
-├── .githooks/               # Git hooks (pre-commit)
+│   ├── ci.yml               # Unified CI entry (detect → matrix → summary)
+│   ├── ci-sweep.yml         # Scheduled full sweep
+│   └── release-please.yml
+├── .githooks/               # Git hooks (pre-commit, pre-push)
 ├── dist/                    # Built plugins (for marketplace install)
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
@@ -215,7 +213,7 @@ claude-autopilot/
 │   │   ├── scripts/         # Hook scripts + utilities
 │   │   ├── hooks/           # Hook registration
 │   │   ├── gui/             # GUI V2 dashboard (React + Tailwind)
-│   │   ├── tests/           # 76 test files, 692+ assertions
+│   │   ├── tests/           # 102 test files, 1245+ assertions
 │   │   └── docs/            # Full documentation (EN + ZH)
 │   └── parallel-harness/
 │       ├── runtime/         # 15 core modules (engine, orchestrator, scheduler, etc.)
@@ -237,7 +235,7 @@ claude-autopilot/
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Plugin-only changes trigger only the matching plugin workflow. After a release PR is merged into `main`, `release-please` and the post-release job rebuild `dist/`, sync plugin docs, refresh the root README version table, and update `.claude-plugin/marketplace.json`.
+Plugin-only changes trigger only the matching plugin CI jobs within the unified `ci.yml` workflow. After a release PR is merged into `main`, `release-please` and the post-release job rebuild `dist/`, sync plugin docs, refresh the root README version table, and update `.claude-plugin/marketplace.json`.
 
 ```bash
 # Clone the repository

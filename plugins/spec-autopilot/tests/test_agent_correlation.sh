@@ -23,14 +23,14 @@ assert_exit "2a. emit-tool-event.sh with .active-agent-id → exit 0" 0 "$EXIT_C
 # 2b. Verify agent_id appears in events.jsonl
 if [ -f "$REPO_ROOT/logs/events.jsonl" ]; then
   LAST_EVENT=$(tail -1 "$REPO_ROOT/logs/events.jsonl")
-  if echo "$LAST_EVENT" | grep -q '"agent_id"'; then
+  if grep -q '"agent_id"' <<< "$LAST_EVENT"; then
     green "  PASS: 2b. event contains agent_id field"
     PASS=$((PASS + 1))
   else
     red "  FAIL: 2b. event missing agent_id field"
     FAIL=$((FAIL + 1))
   fi
-  if echo "$LAST_EVENT" | grep -q 'phase3-openspec-ff'; then
+  if grep -q 'phase3-openspec-ff' <<< "$LAST_EVENT"; then
     green "  PASS: 2c. agent_id value matches .active-agent-id"
     PASS=$((PASS + 1))
   else
@@ -48,7 +48,7 @@ fi
 rm -f "$REPO_ROOT/logs/.active-agent-id"
 echo "$TOOL_JSON" | bash "$SCRIPT_DIR/emit-tool-event.sh" 2>/dev/null
 LAST_EVENT=$(tail -1 "$REPO_ROOT/logs/events.jsonl" 2>/dev/null)
-if echo "$LAST_EVENT" | grep -q '"agent_id"'; then
+if grep -q '"agent_id"' <<< "$LAST_EVENT"; then
   red "  FAIL: 2d. agent_id present when .active-agent-id absent"
   FAIL=$((FAIL + 1))
 else
@@ -62,7 +62,7 @@ echo "phase-session" > "$REPO_ROOT/logs/.active-agent-session-sess-2"
 TOOL_JSON_SESSION='{"session_id":"sess-2","tool_name":"Read","tool_input":{"file_path":"/tmp/test.txt"},"tool_result":{"output":"file contents"},"cwd":"'"$REPO_ROOT"'"}'
 echo "$TOOL_JSON_SESSION" | bash "$SCRIPT_DIR/emit-tool-event.sh" 2>/dev/null
 LAST_EVENT=$(tail -1 "$REPO_ROOT/logs/events.jsonl" 2>/dev/null)
-if echo "$LAST_EVENT" | grep -q 'phase-session'; then
+if grep -q 'phase-session' <<< "$LAST_EVENT"; then
   green "  PASS: 2e. session-scoped agent marker wins"
   PASS=$((PASS + 1))
 else

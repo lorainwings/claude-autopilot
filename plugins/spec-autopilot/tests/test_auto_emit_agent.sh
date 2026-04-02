@@ -56,7 +56,7 @@ assert_exit "1g. dispatch valid autopilot Task → exit 0" 0 "$RESULT"
 # 1h. Verify .active-agent-id file was written
 if [ -f "$REPO_ROOT/logs/.active-agent-id" ]; then
   AGENT_ID=$(cat "$REPO_ROOT/logs/.active-agent-id")
-  if echo "$AGENT_ID" | grep -q "phase2"; then
+  if grep -q "phase2" <<< "$AGENT_ID"; then
     green "  PASS: 1h. .active-agent-id contains phase2 agent_id"
     PASS=$((PASS + 1))
   else

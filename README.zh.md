@@ -4,18 +4,16 @@
 
 > Claude Code 插件市场 — 规范驱动的全自动交付流水线编排 + 并行 AI 工程控制面。
 
-[![spec-autopilot Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-spec-autopilot.yml)
-[![parallel-harness Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-parallel-harness.yml)
-[![daily-report Tests](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/test-daily-report.yml)
+[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 插件列表
 
 | 插件 | 版本 | 说明 |
 |------|------|------|
-| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.2.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
+| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.3.0 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.2.0 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
-| [daily-report](plugins/daily-report/README.zh.md) | 1.2.3 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
+| [daily-report](plugins/daily-report/README.zh.md) | 1.2.4 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 
 ## 快速安装
 
@@ -50,7 +48,7 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 - **事件总线** — 通过 `events.jsonl` + WebSocket 实时事件流
 - **GUI V2 大盘** — 三栏实时仪表盘，含 decision_ack 决策反馈闭环
 - **并行执行** — 域级并行 Agent，文件所有权强制
-- **模块化测试** — 76 个测试文件，692+ 个断言
+- **模块化测试** — 102 个测试文件，1245+ 个断言
 
 ### 架构
 
@@ -201,10 +199,10 @@ claude-autopilot/
 ├── .claude-plugin/          # 市场配置
 │   └── marketplace.json
 ├── .github/workflows/       # CI/CD
-│   ├── test-spec-autopilot.yml
-│   ├── test-parallel-harness.yml
-│   └── test-daily-report.yml
-├── .githooks/               # Git hooks (pre-commit)
+│   ├── ci.yml               # 统一 CI 入口（检测 → 矩阵 → 汇总）
+│   ├── ci-sweep.yml         # 定时全量扫描
+│   └── release-please.yml
+├── .githooks/               # Git hooks (pre-commit, pre-push)
 ├── dist/                    # 构建产出（用于市场安装）
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
@@ -215,7 +213,7 @@ claude-autopilot/
 │   │   ├── scripts/         # Hook 脚本 + 工具
 │   │   ├── hooks/           # Hook 注册
 │   │   ├── gui/             # GUI V2 大盘 (React + Tailwind)
-│   │   ├── tests/           # 76 个测试文件，692+ 个断言
+│   │   ├── tests/           # 102 个测试文件，1245+ 个断言
 │   │   └── docs/            # 完整文档 (中英双语)
 │   └── parallel-harness/
 │       ├── runtime/         # 15 个核心模块 (engine, orchestrator, scheduler 等)
@@ -238,7 +236,7 @@ claude-autopilot/
 
 欢迎贡献！请参阅 [CONTRIBUTING.zh.md](CONTRIBUTING.zh.md) 了解指南。
 
-插件级改动只会触发对应插件的 workflow。Release PR 合入 `main` 后，`release-please` 与 post-release job 会自动重建 `dist/`、同步插件文档、回写根 README 版本表，并更新 `.claude-plugin/marketplace.json`。
+插件级改动只会触发统一 `ci.yml` 中对应插件的 CI jobs。Release PR 合入 `main` 后，`release-please` 与 post-release job 会自动重建 `dist/`、同步插件文档、回写根 README 版本表，并更新 `.claude-plugin/marketplace.json`。
 
 ```bash
 # 克隆仓库

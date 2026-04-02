@@ -1,0 +1,165 @@
+name: CI Sweep (Scheduled)
+
+# 延迟发现防线：定时全量 CI 扫描，防止路径过滤遗漏共享问题
+on:
+  schedule:
+    # 每周一 UTC 04:00 (北京时间 12:00) 全量扫描
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-sweep
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ── spec-autopilot 全量 ──
+  sa-sweep:
+    name: sweep / spec-autopilot (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify python3
+        run: python3 --version
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: |
+            plugins/spec-autopilot/gui/bun.lock
+            plugins/spec-autopilot/runtime/server/bun.lock
+
+      - name: Install dependencies
+        run: |
+          (cd plugins/spec-autopilot/gui && bun install --frozen-lockfile)
+          (cd plugins/spec-autopilot/runtime/server && bun install --frozen-lockfile)
+
+      - name: Install lint tools (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+          RUFF_V=$(grep '^RUFF_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          MYPY_V=$(grep '^MYPY_VERSION' Makefile | head -1 | sed 's/.*:= *//')
+          pip install "ruff==${RUFF_V}" "mypy==${MYPY_V}"
+
+      - name: Test
+        run: |
+          make test
+          bash plugins/spec-autopilot/tests/smoke_release.sh
+
+      - name: Lint (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: make lint
+
+      - name: TypeCheck (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: make typecheck
+
+      - name: Build dist (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          make build
+          bash scripts/check-dist-freshness.sh spec-autopilot --ci-git-check
+
+  # ── parallel-harness 全量 ──
+  ph-sweep:
+    name: sweep / parallel-harness (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          cache: true
+          cache-dependency-path: plugins/parallel-harness/bun.lock
+
+      - name: Install dependencies
+        run: cd plugins/parallel-harness && bun install --frozen-lockfile
+
+      - name: Install shellcheck (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Test
+        run: make ph-test
+
+      - name: TypeCheck (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: make ph-typecheck
+
+      - name: Lint (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: make ph-lint
+
+      - name: Build dist (ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          make ph-build
+          bash scripts/check-dist-freshness.sh parallel-harness --ci-git-check
+
+  # ── daily-report 全量 ──
+  dr-sweep:
+    name: sweep / daily-report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint + Build
+        run: |
+          make dr-lint
+          make dr-build
+          bash scripts/check-dist-freshness.sh daily-report --ci-git-check
+
+  # ── workflow lint (actionlint) ──
+  workflow-lint:
+    name: sweep / workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint workflows
+        uses: rhysd/actionlint@03d0035246f3e81f36aed592ffb4bebf33a03106 # v1.7.7
+
+  # ── Sweep summary ──
+  sweep-summary:
+    name: Sweep Summary
+    needs: [sa-sweep, ph-sweep, dr-sweep, workflow-lint]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate
+        run: |
+          FAILED=0
+          for job in sa-sweep ph-sweep dr-sweep workflow-lint; do
+            case "$job" in
+              sa-sweep)      R="${{ needs.sa-sweep.result }}" ;;
+              ph-sweep)      R="${{ needs.ph-sweep.result }}" ;;
+              dr-sweep)      R="${{ needs.dr-sweep.result }}" ;;
+              workflow-lint) R="${{ needs.workflow-lint.result }}" ;;
+            esac
+            if [ "$R" != "success" ]; then
+              echo "❌ $job: $R"
+              FAILED=1
+            else
+              echo "✅ $job: $R"
+            fi
+          done
+          [ "$FAILED" -eq 1 ] && exit 1
+          echo "✅ Full sweep passed"

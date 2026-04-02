@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# pre-push hook: 推送前最终防线
+# 确保 dist 与源码一致，且 dist 变更已提交，避免"本地能过、CI 报 stale"
+
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# ── release-please branch bypass ──
+_CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
+  exit 0
+fi
+
+# ── 1. dist 内容一致性 (源码 vs dist 工作树) ──
+echo "🔍 Pre-push: checking dist freshness..."
+if ! bash "$REPO_ROOT/scripts/check-dist-freshness.sh" all; then
+  echo ""
+  echo "❌ dist is stale. Run the appropriate 'make *-build' and commit before pushing."
+  exit 1
+fi
+
+# ── 2. dist 变更是否已提交 (防止 build 了但没 commit) ──
+# 三层检查: unstaged changes / staged-but-uncommitted / untracked files
+UNCOMMITTED=0
+for plugin in spec-autopilot parallel-harness daily-report; do
+  if [ -d "dist/$plugin" ]; then
+    # unstaged: working tree vs index
+    if ! git diff --quiet -- "dist/$plugin" 2>/dev/null; then
+      echo "❌ dist/$plugin has unstaged changes"
+      UNCOMMITTED=1
+    fi
+    # staged but not committed: index vs HEAD
+    if ! git diff --cached --quiet -- "dist/$plugin" 2>/dev/null; then
+      echo "❌ dist/$plugin has staged but uncommitted changes"
+      UNCOMMITTED=1
+    fi
+    # untracked
+    _untracked=$(git ls-files --others --exclude-standard "dist/$plugin")
+    if [ -n "$_untracked" ]; then
+      echo "❌ dist/$plugin has untracked files"
+      UNCOMMITTED=1
+    fi
+  fi
+done
+
+if [ "$UNCOMMITTED" -eq 1 ]; then
+  echo ""
+  echo "❌ dist/ has uncommitted changes. Stage and commit before pushing."
+  exit 1
+fi
+
+echo "✅ Pre-push checks passed"

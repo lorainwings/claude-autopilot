@@ -66,7 +66,7 @@ mkdir -p "$COMMON_TEST_DIR/changes/feature-a"
 mkdir -p "$COMMON_TEST_DIR/changes/feature-b"
 echo '{"change":"feature-a"}' > "$COMMON_TEST_DIR/changes/.autopilot-active"
 result=$(find_active_change "$COMMON_TEST_DIR/changes")
-if echo "$result" | grep -q "feature-a"; then
+if grep -q "feature-a" <<< "$result"; then
   green "  PASS: find_active_change lock file priority"
   PASS=$((PASS + 1))
 else
@@ -88,7 +88,7 @@ fi
 mkdir -p "$COMMON_TEST_DIR/changes2/_archived"
 mkdir -p "$COMMON_TEST_DIR/changes2/real-change"
 result=$(find_active_change "$COMMON_TEST_DIR/changes2")
-if echo "$result" | grep -q "real-change"; then
+if grep -q "real-change" <<< "$result"; then
   green "  PASS: find_active_change excludes _prefix"
   PASS=$((PASS + 1))
 else
@@ -124,7 +124,7 @@ fi
 mkdir -p "$COMMON_TEST_DIR/phase-results"
 echo '{"status":"ok"}' > "$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
 result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
-if [ -n "$result" ] && echo "$result" | grep -q "phase-3-ff.json"; then
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
   green "  PASS: find_checkpoint finds phase-3"
   PASS=$((PASS + 1))
 else

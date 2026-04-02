@@ -60,7 +60,7 @@ if [ -n "$STAGED" ]; then
     for script in $CHANGED_SCRIPTS; do
       script_basename=$(basename "$script" .sh)
       if [ -n "$TEST_FILES_DIFF" ]; then
-        if ! echo "$TEST_FILES_DIFF" | grep -q "test_.*${script_basename}"; then
+        if ! grep -q "test_.*${script_basename}" <<< "$TEST_FILES_DIFF"; then
           MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}.sh\n"
         fi
       else
@@ -104,7 +104,13 @@ fi
 #   - This hook only validates consistency (read-only), never modifies files
 #   - When ready to release: bash tools/release.sh <patch|minor|major> <plugin>
 
-PLUGIN_CHANGED=$(git diff --cached --name-only | grep -q "plugins/spec-autopilot/" && echo "yes" || echo "no")
+# 先缓存一次 staged 文件列表，避免后续多次 pipe + grep -q 在 pipefail 下误判
+_CACHED_NAMES=$(git diff --cached --name-only || true)
+
+PLUGIN_CHANGED="no"
+if grep -q "plugins/spec-autopilot/" <<< "$_CACHED_NAMES"; then
+  PLUGIN_CHANGED="yes"
+fi
 
 if [ "$PLUGIN_CHANGED" = "yes" ]; then
   echo "📚 Checking documentation sync..."
@@ -121,7 +127,7 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
 
   # CHANGELOG enforcement (info-only — release-please manages changelogs automatically)
   if [ -n "$SUBSTANTIVE_PLUGIN_FILES" ]; then
-    if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
+    if ! grep -q "CHANGELOG.md" <<< "$_CACHED_NAMES"; then
       echo "ℹ️  Plugin code modified but CHANGELOG.md not updated (release-please will handle this)"
       echo ""
     fi
@@ -152,16 +158,16 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   fi
 
   # Warn if Hook scripts changed but docs not updated
-  if git diff --cached --name-only | grep -q "plugins/spec-autopilot/scripts/.*\.sh"; then
-    if ! git diff --cached --name-only | grep -q "plugins/spec-autopilot/README.md\|plugins/spec-autopilot/docs/"; then
+  if grep -q "plugins/spec-autopilot/scripts/.*\.sh" <<< "$_CACHED_NAMES"; then
+    if ! grep -q "plugins/spec-autopilot/README.md\|plugins/spec-autopilot/docs/" <<< "$_CACHED_NAMES"; then
       echo "⚠️  Warning: Hook scripts modified but docs not updated"
       echo ""
     fi
   fi
 
   # Warn if Skills changed but README not updated
-  if git diff --cached --name-only | grep -q "plugins/spec-autopilot/skills/.*/SKILL\.md"; then
-    if ! git diff --cached --name-only | grep -q "plugins/spec-autopilot/README.md"; then
+  if grep -q "plugins/spec-autopilot/skills/.*/SKILL\.md" <<< "$_CACHED_NAMES"; then
+    if ! grep -q "plugins/spec-autopilot/README.md" <<< "$_CACHED_NAMES"; then
       echo "⚠️  Warning: Skill files modified but README.md not updated"
       echo ""
     fi
@@ -187,61 +193,9 @@ fi
 # Part 2.7: spec-autopilot dist staleness guard
 # ============================================
 # 仅当 Part 2.5 未执行过 rebuild 时才检测（避免同一次 hook 重复 rebuild）
+# 使用统一脚本 scripts/check-dist-freshness.sh
 if [ "${SA_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/spec-autopilot" ] && [ -d "dist/spec-autopilot" ]; then
-  SA_DIST_STALE="no"
-  # 对比白名单目录：hooks, skills
-  for _dir in hooks skills; do
-    _src="plugins/spec-autopilot/$_dir"
-    _dst="dist/spec-autopilot/$_dir"
-    if [ -d "$_src" ]; then
-      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
-        SA_DIST_STALE="yes"
-        break
-      fi
-    fi
-  done
-  # 对比 runtime/scripts/（按 .dist-include manifest 逐文件比对）
-  if [ "$SA_DIST_STALE" = "no" ]; then
-    _manifest="plugins/spec-autopilot/runtime/scripts/.dist-include"
-    if [ -f "$_manifest" ]; then
-      while IFS= read -r _line; do
-        _line="${_line%%#*}"
-        _line="$(echo "$_line" | xargs)"
-        [ -z "$_line" ] && continue
-        _src_f="plugins/spec-autopilot/runtime/scripts/$_line"
-        _dst_f="dist/spec-autopilot/runtime/scripts/$_line"
-        if [ -f "$_src_f" ] && [ -f "$_dst_f" ]; then
-          if ! diff -q "$_src_f" "$_dst_f" >/dev/null 2>&1; then
-            SA_DIST_STALE="yes"
-            break
-          fi
-        elif [ -f "$_src_f" ]; then
-          SA_DIST_STALE="yes"
-          break
-        fi
-      done < "$_manifest"
-    fi
-  fi
-  # 对比 runtime/server/ TS 模块
-  if [ "$SA_DIST_STALE" = "no" ] && [ -d "plugins/spec-autopilot/runtime/server/src" ]; then
-    if ! diff -rq "plugins/spec-autopilot/runtime/server/src" "dist/spec-autopilot/runtime/server/src" >/dev/null 2>&1; then
-      SA_DIST_STALE="yes"
-    fi
-  fi
-  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
-  if [ "$SA_DIST_STALE" = "no" ] && [ -f "plugins/spec-autopilot/CLAUDE.md" ]; then
-    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/spec-autopilot/CLAUDE.md" 2>/dev/null; then
-      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/spec-autopilot/CLAUDE.md")
-    else
-      _expected=$(cat "plugins/spec-autopilot/CLAUDE.md")
-    fi
-    _actual=$(cat "dist/spec-autopilot/CLAUDE.md" 2>/dev/null || echo "")
-    if [ "$_expected" != "$_actual" ]; then
-      SA_DIST_STALE="yes"
-    fi
-  fi
-
-  if [ "$SA_DIST_STALE" = "yes" ]; then
+  if ! bash scripts/check-dist-freshness.sh spec-autopilot 2>/dev/null; then
     echo "📦 dist/spec-autopilot/ 与源码不一致（可能由 rebase 引起），自动重建..."
     if bash plugins/spec-autopilot/tools/build-dist.sh; then
       git add dist/spec-autopilot/
@@ -257,14 +211,17 @@ fi
 # ============================================
 # Part 3: parallel-harness dist rebuild
 # ============================================
-PH_CHANGED=$(git diff --cached --name-only | grep -q "plugins/parallel-harness/" && echo "yes" || echo "no")
+PH_CHANGED="no"
+if grep -q "plugins/parallel-harness/" <<< "$_CACHED_NAMES"; then
+  PH_CHANGED="yes"
+fi
 
 if [ "$PH_CHANGED" = "yes" ]; then
   # Skip metadata-only changes (CHANGELOG, README, package.json version bump, etc.)
   PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/parallel-harness/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
 
   if [ -n "$PH_SUBSTANTIVE" ]; then
-    # shellcheck lint (与 CI make ph-lint 对齐)
+    # lint build script (与 CI make ph-lint 对齐)
     if command -v shellcheck >/dev/null 2>&1; then
       echo "🔍 shellcheck parallel-harness build script..."
       if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
@@ -293,33 +250,9 @@ fi
 # Part 3.5: parallel-harness dist staleness guard
 # ============================================
 # 仅当 Part 3 未执行过 rebuild 时才检测
+# 使用统一脚本 scripts/check-dist-freshness.sh
 if [ "${PH_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/parallel-harness" ] && [ -d "dist/parallel-harness" ]; then
-  PH_DIST_STALE="no"
-  # 对比白名单目录：runtime, skills, config, .claude-plugin
-  for _dir in runtime skills config .claude-plugin; do
-    _src="plugins/parallel-harness/$_dir"
-    _dst="dist/parallel-harness/$_dir"
-    if [ -d "$_src" ]; then
-      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
-        PH_DIST_STALE="yes"
-        break
-      fi
-    fi
-  done
-  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
-  if [ "$PH_DIST_STALE" = "no" ] && [ -f "plugins/parallel-harness/CLAUDE.md" ]; then
-    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/parallel-harness/CLAUDE.md" 2>/dev/null; then
-      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/parallel-harness/CLAUDE.md")
-    else
-      _expected=$(cat "plugins/parallel-harness/CLAUDE.md")
-    fi
-    _actual=$(cat "dist/parallel-harness/CLAUDE.md" 2>/dev/null || echo "")
-    if [ "$_expected" != "$_actual" ]; then
-      PH_DIST_STALE="yes"
-    fi
-  fi
-
-  if [ "$PH_DIST_STALE" = "yes" ]; then
+  if ! bash scripts/check-dist-freshness.sh parallel-harness 2>/dev/null; then
     echo "📦 dist/parallel-harness/ 与源码不一致（可能由 rebase 引起），自动重建..."
     if bash plugins/parallel-harness/tools/build-dist.sh; then
       git add dist/parallel-harness/
@@ -335,7 +268,10 @@ fi
 # ============================================
 # Part 3.6: daily-report dist rebuild
 # ============================================
-DR_CHANGED=$(git diff --cached --name-only | grep -q "plugins/daily-report/" && echo "yes" || echo "no")
+DR_CHANGED="no"
+if grep -q "plugins/daily-report/" <<< "$_CACHED_NAMES"; then
+  DR_CHANGED="yes"
+fi
 
 if [ "$DR_CHANGED" = "yes" ]; then
   # Skip metadata-only changes
@@ -358,33 +294,9 @@ fi
 # ============================================
 # Part 3.7: daily-report dist staleness guard
 # ============================================
+# 使用统一脚本 scripts/check-dist-freshness.sh
 if [ "${DR_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/daily-report" ] && [ -d "dist/daily-report" ]; then
-  DR_DIST_STALE="no"
-  # 对比白名单目录：skills, .claude-plugin
-  for _dir in skills .claude-plugin; do
-    _src="plugins/daily-report/$_dir"
-    _dst="dist/daily-report/$_dir"
-    if [ -d "$_src" ]; then
-      if ! diff -rq "$_src" "$_dst" >/dev/null 2>&1; then
-        DR_DIST_STALE="yes"
-        break
-      fi
-    fi
-  done
-  # 对比 CLAUDE.md（需考虑 DEV-ONLY 裁剪）
-  if [ "$DR_DIST_STALE" = "no" ] && [ -f "plugins/daily-report/CLAUDE.md" ]; then
-    if grep -q "<!-- DEV-ONLY-BEGIN -->" "plugins/daily-report/CLAUDE.md" 2>/dev/null; then
-      _expected=$(sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' "plugins/daily-report/CLAUDE.md")
-    else
-      _expected=$(cat "plugins/daily-report/CLAUDE.md")
-    fi
-    _actual=$(cat "dist/daily-report/CLAUDE.md" 2>/dev/null || echo "")
-    if [ "$_expected" != "$_actual" ]; then
-      DR_DIST_STALE="yes"
-    fi
-  fi
-
-  if [ "$DR_DIST_STALE" = "yes" ]; then
+  if ! bash scripts/check-dist-freshness.sh daily-report 2>/dev/null; then
     echo "📦 dist/daily-report/ 与源码不一致（可能由 rebase 引起），自动重建..."
     if bash plugins/daily-report/tools/build-dist.sh; then
       git add dist/daily-report/

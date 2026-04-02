@@ -82,7 +82,7 @@ for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
   if [ -n "$FILTER" ]; then
     MATCHED=false
     for pattern in "$@"; do
-      if echo "$test_name" | grep -q "$pattern"; then
+      if grep -q "$pattern" <<< "$test_name"; then
         MATCHED=true
         break
       fi
@@ -99,8 +99,8 @@ for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
     exit_code=$?
   fi
 
-  pass=$(echo "$output" | grep -o 'PASS:' | wc -l | tr -d ' ')
-  fail=$(echo "$output" | grep -o 'FAIL:' | wc -l | tr -d ' ')
+  pass=$(grep -o 'PASS:' <<< "$output" | wc -l | tr -d ' ')
+  fail=$(grep -o 'FAIL:' <<< "$output" | wc -l | tr -d ' ')
   TOTAL_PASS=$((TOTAL_PASS + pass))
 
   # 分层统计

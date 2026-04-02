@@ -207,7 +207,7 @@ fi
 
 # 第二轮：使用上一轮 cursor 读取，应返回空（已到 EOF）
 TAIL_2=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR_1")
-if echo "$TAIL_2" | grep -q '"lines":\[\]'; then
+if grep -q '"lines":\[\]' <<< "$TAIL_2"; then
   green "  PASS: 3c. at EOF returns empty lines"
   PASS=$((PASS + 1))
 else
@@ -223,7 +223,7 @@ EOF
 TAIL_3=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR_1")
 assert_contains "3d. new data after append" "$TAIL_3" '"lines"'
 # 新数据的 lines 不应为空
-if echo "$TAIL_3" | grep -q '"lines":\[\]'; then
+if grep -q '"lines":\[\]' <<< "$TAIL_3"; then
   red "  FAIL: 3e. should have new lines after append"
   FAIL=$((FAIL + 1))
 else
@@ -331,7 +331,7 @@ echo ""
 echo "  [6] Path sanitization"
 
 ALL_EVENTS=$(curl -s --max-time 2 http://localhost:9527/api/events)
-if echo "$ALL_EVENTS" | grep -q '"/Users/[^"]*"'; then
+if grep -q '"/Users/[^"]*"' <<< "$ALL_EVENTS"; then
   red "  FAIL: 6a. API leaks /Users/ paths"
   FAIL=$((FAIL + 1))
 else
@@ -339,7 +339,7 @@ else
   PASS=$((PASS + 1))
 fi
 
-if echo "$ALL_EVENTS" | grep -q '"/home/[^"]*"'; then
+if grep -q '"/home/[^"]*"' <<< "$ALL_EVENTS"; then
   red "  FAIL: 6b. API leaks /home/ paths"
   FAIL=$((FAIL + 1))
 else
@@ -383,7 +383,7 @@ printf '\n{"source":"hook","hook_name":"SessionEnd","captured_at":"2026-03-17T00
 
 # 再次读取，应能获取到新的正常行
 TAIL_AFTER=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$HUGE_CURSOR")
-if echo "$TAIL_AFTER" | grep -q '"lines":\[\]'; then
+if grep -q '"lines":\[\]' <<< "$TAIL_AFTER"; then
   # 可能 cursor 已经跳过了，再用 cursor 0 重读验证文件仍可解析
   TAIL_FULL=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=0&lines=500")
   assert_contains "7c. full re-read still works" "$TAIL_FULL" '"lines"'
