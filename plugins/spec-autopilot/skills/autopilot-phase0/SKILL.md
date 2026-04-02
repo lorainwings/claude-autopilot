@@ -119,12 +119,14 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 **从断点继续** → 不清理事件文件（保留历史事件供 GUI 展示已完成 Phase）。
 
-### Step 7: 创建阶段任务（v5.5 恢复状态增强）
+### Step 7: 创建阶段任务（v5.5 恢复状态增强, v7.0.1 顺序强制）
 
 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链：
 - **full 模式**: 创建 Phase 1-7（7 个任务）
 - **lite 模式**: 创建 Phase 1, 5, 6, 7（4 个任务），Phase 5 blockedBy Phase 1，Phase 6 blockedBy Phase 5
 - **minimal 模式**: 创建 Phase 1, 5, 7（3 个任务），Phase 5 blockedBy Phase 1
+
+**创建顺序强制约束**: TaskCreate 调用**必须严格按 Phase 编号升序**逐个执行（Phase 1 → 2 → 3 → 4 → 5 → 6 → 7），**禁止**乱序创建或并行创建。Task 列表的展示顺序取决于创建顺序，乱序创建会导致 Phase 编号在任务列表中错位（如 1,2,5,4,3,7,6），严重影响用户体验。
 
 **崩溃恢复时的任务状态标记**（基于 `recovery_phase`）：
 

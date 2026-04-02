@@ -89,7 +89,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 > **Checkpoint 范围**: Phase 1-7 产生 checkpoint 文件。Phase 0 在主线程执行，不写 checkpoint。
 
-## 连续执行硬约束（v6.0）
+## 连续执行硬约束（v6.0, v7.0.1 用户交互边界明确化）
 
 当某个阶段满足以下条件时，主线程**必须立即继续到下一个阶段**，不得把阶段完成本身当作新的用户决策点：
 - 当前阶段最终状态为 `ok` 或 `warning`
@@ -97,13 +97,15 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 - `config.gates.user_confirmation.after_phase_{N}` 不为 `true`
 - 不存在 gate blocked、崩溃恢复歧义或 archive readiness 阻断
 
+**用户交互边界**: Phase 1 是**唯一**需要用户主动确认的阶段（通过 AskUserQuestion 确认需求）。Phase 2-7 全部自动完成，除非显式配置了 `user_confirmation.after_phase_{N}` 或遇到 gate blocked。
+
 允许输出简短进度信息，但输出后必须直接执行下一阶段。**禁止**额外提问例如：
 - `下一步是 Phase 2（OpenSpec 规范生成）还是需要先审查 Phase 1 的输出？`
 - `Phase N 已完成。要继续下一阶段还是先审查当前产物？`
-- 任何仅用于把控制权交还给用户、但并非协议要求的“继续/审查/暂停”问题
+- 任何仅用于把控制权交还给用户、但并非协议要求的”继续/审查/暂停”问题
 
 唯一允许的中断来源：
-- Phase 1 尚有未闭合决策点或最终 requirement packet 未确认
+- Phase 1 尚有未闭合决策点或最终 requirement packet 未确认（必须使用 AskUserQuestion）
 - 显式开启的 `user_confirmation.after_phase_{N}`
 - gate blocked / retry / fix / override 决策
 - Phase 7 archive readiness blocked 或非 autopilot fixup 风险确认
@@ -199,7 +201,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
       \"timestamp\":\"ISO-8601\"}
      Then: git add -A && git commit --fixup=$ANCHOR_SHA -m 'fixup! autopilot: Phase 1 interim (decision round N)'")
    ```
-7. 生成结构化提示词 → 用户最终确认
+7. 生成结构化提示词 → **必须通过 AskUserQuestion 工具**展示提示词并让用户确认（严禁纯文字输出确认，详见 `references/phase1-requirements.md` 1.8 节）
 8. 写入 `phase-1-requirements.json` checkpoint + `requirement-packet.json`（Phase 1 唯一结构化产出，含 sha256 hash）+ git fixup（使用后台 Checkpoint Agent，同统一调度模板 Step 5+7）
    **v5.1**: 写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 9. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`，**v6.0 默认 false**——需求评审完成后默认自动推进）

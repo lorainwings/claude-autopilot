@@ -281,14 +281,22 @@ LOOP:
 
 > **上下文隔离红线**：以上所有数据均来自 JSON 信封中的结构化字段，**禁止**主线程 Read 子 Agent 的正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md）来构造结构化提示词。
 
-## 1.8 最终确认
+## 1.8 最终确认（v7.0.1 AskUserQuestion 强制）
 
-展示完整提示词，AskUserQuestion:
-"以上需求理解是否准确？如有遗漏请补充。"
-选项: "确认，开始实施 (Recommended)" / "需要补充修改"
-- 选"补充" → 回到 1.6 循环
-- 选"确认" → **立即**进入 1.9 写入 `requirement-packet.json` 和 Phase 1 checkpoint，除非 `after_phase_1 === true`，否则**不得**再插入任何“下一步做什么”的元问题
-- **禁止示例**：
+**硬约束**: 最终需求确认**必须且只能**通过 `AskUserQuestion` 工具完成，**严禁**通过纯文字输出让用户确认。
+
+具体流程：
+1. 将完整结构化提示词（背景、功能清单、决策结论、技术方案、验收标准等）作为 `AskUserQuestion` 的 question 字段内容展示
+2. 选项: “确认，开始实施 (Recommended)” / “需要补充修改”
+3. 选”补充” → 回到 1.6 循环
+4. 选”确认” → **立即**进入 1.9 写入 `requirement-packet.json` 和 Phase 1 checkpoint，除非 `after_phase_1 === true`，否则**不得**再插入任何”下一步做什么”的元问题
+
+**禁止模式**（违反即等同违反状态机硬约束）：
+- ❌ 用文字输出需求提示词，然后追问”请确认以上需求是否准确？”
+- ❌ 先输出提示词文字，再用 AskUserQuestion 问”是否继续”
+- ✅ 唯一正确方式：将提示词完整嵌入 AskUserQuestion 的 question 字段，一次性展示+确认
+
+**禁止示例**：
   - `下一步是 Phase 2（OpenSpec 规范生成）还是需要先审查 Phase 1 的输出？`
   - `Phase 1 已完成，要继续还是暂停？`
 
