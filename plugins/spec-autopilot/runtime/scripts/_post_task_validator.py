@@ -119,6 +119,7 @@ phase_required = {
 }
 phase_recommended = {
     4: ["test_traceability"],
+    5: ["test_driven_evidence"],
     6: ["suite_results", "anomaly_alerts", "red_evidence", "sample_failure_excerpt"],
 }
 
@@ -173,6 +174,30 @@ if phase_num == 5 and envelope.get("status") == "ok":
             output_block(
                 f"Phase 5 TDD metrics check failed: total_cycles={total_cycles} (expected >= 1). "
                 "At least one complete RED-GREEN-REFACTOR cycle must be recorded."
+            )
+
+    # test_driven_evidence L2 check (non-TDD full mode — informational, not blocking)
+    tde = envelope.get("test_driven_evidence")
+    if tde is not None and isinstance(tde, dict):
+        red_ok = tde.get("red_verified", False)
+        green_ok = tde.get("green_verified", False)
+        skip_reason = tde.get("red_skipped_reason")
+        if red_ok and green_ok:
+            print(
+                "INFO: Phase 5 test-driven evidence: valid RED→GREEN transition verified",
+                file=sys.stderr,
+            )
+        elif not red_ok and skip_reason:
+            print(
+                f"WARNING: Phase 5 test-driven evidence: RED skipped ({skip_reason}) — "
+                "evidence does not prove RED→GREEN transition",
+                file=sys.stderr,
+            )
+        elif not green_ok:
+            print(
+                "WARNING: Phase 5 test-driven evidence: GREEN not verified — "
+                "implementation may not satisfy Phase 4 tests",
+                file=sys.stderr,
             )
 
 if phase_num in phase_recommended:

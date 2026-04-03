@@ -99,13 +99,20 @@ PAYLOAD=$(jq -n \
   }')
 
 # 发射事件到 events.jsonl
+# 写入 change 级日志（向后兼容）
 EVENTS_FILE="$CHANGES_DIR/$CHANGE_NAME/logs/events.jsonl"
 mkdir -p "$(dirname "$EVENTS_FILE")"
+
+# 同时写入项目根 logs/events.jsonl（服务端归一化读取源）
+PROJECT_ROOT=$(cd "$CHANGES_DIR/../.." 2>/dev/null && pwd || pwd)
+PROJECT_EVENTS_DIR="$PROJECT_ROOT/logs"
+PROJECT_EVENTS_FILE="$PROJECT_EVENTS_DIR/events.jsonl"
+mkdir -p "$PROJECT_EVENTS_DIR" 2>/dev/null || true
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 EVENT_ID="report-ready-$(date +%s%N 2>/dev/null || date +%s)"
 
-jq -n -c \
+EVENT_JSON=$(jq -n -c \
   --arg type "report_ready" \
   --argjson phase 6 \
   --arg mode "$MODE" \
@@ -126,7 +133,13 @@ jq -n -c \
     phase_label: "测试报告",
     total_phases: 8,
     payload: $payload
-  }' >>"$EVENTS_FILE"
+  }')
+
+# 写入 change 级日志（向后兼容）
+echo "$EVENT_JSON" >>"$EVENTS_FILE"
+
+# 写入项目根 logs/events.jsonl（服务端归一化读取源）
+echo "$EVENT_JSON" >>"$PROJECT_EVENTS_FILE" 2>/dev/null || true
 
 # 同时写入 state-snapshot 的 report_state
 if [[ -f "$CONTEXT_DIR/state-snapshot.json" ]]; then

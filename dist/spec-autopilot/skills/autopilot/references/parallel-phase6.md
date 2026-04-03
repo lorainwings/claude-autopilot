@@ -71,3 +71,5 @@ Task(subagent_type: "qa-expert", run_in_background: true,
 1. 合并所有套件的测试结果
 2. 运行 `npx allure generate allure-results/ -o allure-report/ --clean`
 3. 汇总 pass_rate、异常提醒、报告链接
+4. 设置 `report_url` 为本地文件路径（`file:///path/to/allure-report/index.html`）
+   — Phase 7 Step 2.5 启动 Allure 服务后，最终展示链接将更新为 `http://localhost:{port}`

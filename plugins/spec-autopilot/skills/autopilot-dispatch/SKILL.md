@@ -343,6 +343,21 @@ dispatch skill 在构造 Phase 5 prompt **之前**，自行读取以下参考文
 
 > 主线程不再读取这些文档。dispatch skill 作为 Skill 调用，上下文独立于主线程。
 
+**Phase 4 测试文件注入（full 模式测试驱动增强）**:
+
+当主线程传入 `phase4_test_files`（非空数组）时，dispatch 在构造子 Agent prompt 时**必须**注入测试驱动开发段落：
+
+1. **Task 级测试映射**（优先）：当主线程同时传入 `phase4_test_traceability`（`[{test, requirement}]`）时，dispatch **必须**按 task 描述与 `requirement` 字段匹配，仅向每个 task 的 prompt 注入与其相关的测试文件：
+   - 匹配算法：task 描述/标题中的关键词与 `requirement` 字段做模糊匹配
+   - 匹配到 → 仅注入匹配的测试文件
+   - 未匹配到（task 描述与所有 requirement 均无交集）→ 不注入测试先行段落（该 task 无 Phase 4 覆盖）
+2. **扁平注入**（向后兼容）：当 `phase4_test_traceability` 不可用时，将全部 `phase4_test_files` 注入到 prompt 的 `## 测试驱动开发（Phase 4 测试先行验证）` 段落
+3. 串行模式（路径 B）：按 Task Prompt 模板中的 `{if phase4_test_files}` 条件块注入
+4. 并行模式（路径 A）：按域 Agent 模板中的 `{if phase4_test_files}` 条件块注入
+5. Batch Scheduler 模式：按 Batch 派发模板中的 `{if phase4_test_files}` 条件块注入
+
+> 当 `phase4_test_files` 为空（lite/minimal 模式或 Phase 4 未执行）时，不注入测试驱动段落，子 Agent prompt 与之前行为一致。
+
 Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.parallel.enabled` 决定。
 当 `config.phases.implementation.tdd_mode: true` 且模式为 `full` 时，进入 **TDD 模式**（路径 C）。
 
@@ -382,7 +397,26 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
     - **REFACTOR Task**（当 `tdd_refactor: true`）: `Task(prompt: "TDD REFACTOR — 清理代码 for task-N")`
       - prompt 注入 "keep tests green, don't add behavior"
       - 禁止修改测试文件
+  - **TDD 进度事件发射（主线程）**: 主线程在每个 TDD 步骤的 Task 派发前后，**必须**发射带 `tdd_step` 参数的进度事件，使 GUI 看板能实时展示 RED/GREEN/REFACTOR 状态：
+    ```
+    # RED 步骤开始
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode} "red"')
+    → 派发 RED Task → 等待完成 → L2 验证（exit_code ≠ 0）
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode} "red"')
+
+    # GREEN 步骤开始
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode} "green"')
+    → 派发 GREEN Task → 等待完成 → L2 验证（exit_code = 0）
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode} "green"')
+
+    # REFACTOR 步骤开始（可选）
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode} "refactor"')
+    → 派发 REFACTOR Task → 等待完成 → L2 验证（测试仍通过）
+    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode} "refactor"')
+    ```
+    > 失败时 status 改为 `failed`，tdd_step 保持当前步骤值。GUI 据此展示 TDD 步骤图标（🔴🟢🔵）。
   - **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律文档
+    - 域 Agent prompt 中**必须**注入 `emit-task-progress.sh` 调用模板（含 `tdd_step` 参数），要求域 Agent 在每个 task 的 RED/GREEN/REFACTOR 步骤前后发射进度事件
     - 详见 `references/tdd-cycle.md` 并行 TDD 章节中的 prompt 模板
 
 - 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）

@@ -129,6 +129,11 @@ for each task in task_list:
   │   - 主线程写入 test_intent 到当前 task context          │
   │   - test_intent 为空 → BLOCK: 禁止派发 RED Task        │
   │                                                       │
+  │ Step 0.5: 发射 RED 开始进度事件                         │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     running {N} {total} {mode} "red"')                │
+  │                                                       │
   │ Step 1: Task(prompt: "TDD RED — 写失败测试")           │
   │   - 子 Agent 仅写测试文件，禁止写实现代码              │
   │   - prompt 注入 Iron Law + 反合理化 + 反模式指南       │
@@ -147,9 +152,20 @@ for each task in task_list:
   │     → 记录 failing_signal = {                          │
   │         exit_code, assertion_message, test_file        │
   │       }                                                │
+  │                                                       │
+  │ Step 2.5: 发射 RED 完成进度事件                         │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     passed {N} {total} {mode} "red"')                 │
+  │   失败时 status 改为 "failed"                           │
   └───────────────────────────────────────────────────────┘
 
   ┌─── GREEN ────────────────────────────────────────────┐
+  │ Step 2.6: 发射 GREEN 开始进度事件                       │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     running {N} {total} {mode} "green"')              │
+  │                                                       │
   │ Step 3: Task(prompt: "TDD GREEN — 写最小实现")         │
   │   - 子 Agent 写最小代码让测试通过                      │
   │   - Iron Law: 禁止过度设计（YAGNI）                    │
@@ -167,9 +183,20 @@ for each task in task_list:
   │   验证其他测试未被破坏:                                │
   │   full_result = Bash("{full_test_command}")            │
   │   IF 其他测试失败 → 修复实现，不修改测试               │
+  │                                                       │
+  │ Step 4.5: 发射 GREEN 完成进度事件                       │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     passed {N} {total} {mode} "green"')               │
+  │   失败时 status 改为 "failed"                           │
   └───────────────────────────────────────────────────────┘
 
   ┌─── REFACTOR (当 tdd_refactor: true) ─────────────────┐
+  │ Step 4.6: 发射 REFACTOR 开始进度事件                    │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     running {N} {total} {mode} "refactor"')           │
+  │                                                       │
   │ Step 5: Task(prompt: "TDD REFACTOR — 清理代码")        │
   │   - 删除重复、改善命名、提取辅助函数                   │
   │   - 禁止改变行为、禁止修改测试文件                     │
@@ -182,6 +209,12 @@ for each task in task_list:
   │     → 记录 tdd_cycle.refactor = { reverted: true }    │
   │   IF exit_code == 0:                                  │
   │     → PASS: 记录 tdd_cycle.refactor = {verified: true}│
+  │                                                       │
+  │ Step 6.5: 发射 REFACTOR 完成进度事件                    │
+  │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
+  │     emit-task-progress.sh "task-{N}-{slug}"           │
+  │     passed {N} {total} {mode} "refactor"')            │
+  │   回滚时 status 改为 "failed"                           │
   └───────────────────────────────────────────────────────┘
 
   Checkpoint: phase5-tasks/task-N.json

@@ -374,6 +374,34 @@ Task(
 - Task #{n}: {summary} — 已完成
 {end for}
 
+{if phase4_test_files}
+## 测试驱动开发（Phase 4 测试先行验证）
+Phase 4 已设计以下测试用例，你必须在实施前后进行验证：
+
+### 测试文件
+{for each test_file in phase4_test_files}
+- {test_file}
+{end for}
+
+### 执行流程（RED→GREEN）
+1. **RED 验证**（实施前）：运行上述测试，确认测试**失败**（exit_code ≠ 0）
+   - 记录失败输出摘要（前 3 行）作为 red_output_excerpt
+   - 如果测试已通过（exit_code = 0）：设置 red_verified=false, red_skipped_reason=\"test_already_passing\"，继续实施
+2. **实施 task**：按任务描述实现功能代码
+3. **GREEN 验证**（实施后）：运行相同测试，确认测试**通过**（exit_code = 0）
+   - 如果仍失败，修复实现代码（禁止修改测试用例）
+
+### 测试驱动证据（必须包含在返回信封中）
+在返回 JSON 中增加:
+\"test_driven_evidence\": {
+  \"phase4_tests_path\": \"测试文件路径\",
+  \"red_verified\": true/false,
+  \"green_verified\": true/false,
+  \"red_output_excerpt\": \"失败输出摘要\",
+  \"red_skipped_reason\": null | \"test_already_passing\"
+}
+{end if}
+
 ## 上下文（由控制器提取，禁止自行读取计划文件）
 {context_injection}
 
@@ -388,7 +416,7 @@ Task(
 
 ## 返回要求
 执行完毕后返回 JSON 信封：
-{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\", \"test_driven_evidence\": {...}}
 "
 )
 ```
@@ -466,6 +494,23 @@ Task(
 ## 前序 task 摘要（只读参考）
 {completed_task_summaries}
 
+{if phase4_test_files}
+## 测试驱动开发（Phase 4 测试先行验证）
+Phase 4 已设计以下与本 task 相关的测试用例：
+
+### 测试文件
+{for each test_file in phase4_test_files}
+- {test_file}
+{end for}
+
+### 执行流程（RED→GREEN）
+1. **RED 验证**（实施前）：运行上述测试，确认测试**失败**（exit_code ≠ 0），记录 red_output_excerpt
+2. **实施 task**：按任务描述实现功能代码
+3. **GREEN 验证**（实施后）：运行相同测试，确认测试**通过**（exit_code = 0）
+
+在返回 JSON 中增加 \"test_driven_evidence\" 字段。
+{end if}
+
 ## 上下文（由控制器提取，禁止自行读取计划文件）
 {context_injection}
 
@@ -479,7 +524,7 @@ Task(
 
 ## 返回要求
 执行完毕后返回 JSON 信封：
-{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\"}
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"test_result\": \"N/M passed\", \"test_driven_evidence\": {...}}
 "
 )
 {end for}

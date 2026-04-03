@@ -12,6 +12,50 @@ curl -sf {service.health_url} || echo "WARN: {service.name} 不可达"
 
 ## 实施指令
 
+### 测试先行验证（仅 full 模式且 Phase 4 已执行时生效）
+
+当 Phase 4 的测试用例文件已存在时（由控制器注入 `phase4_test_files`），每个 task 的实施必须遵循以下测试驱动流程：
+
+1. **RED 验证**（实施前）：运行 Phase 4 设计的与当前 task 相关的测试用例，确认测试**失败**（证明测试有效且功能尚未实现）
+   ```
+   {for each test_file in phase4_test_files relevant to current task}
+   运行: {suite.command} {test_file}
+   预期: exit_code ≠ 0（测试应失败）
+   记录: red_output_excerpt（失败输出摘要）
+   {end for}
+   ```
+   > **RED 已通过处理**：如果测试已通过（exit_code = 0），说明功能已存在或测试无效：
+   > - 设置 `red_verified: false`（不能证明经历了有效的 RED→GREEN 转变）
+   > - 设置 `red_skipped_reason: "test_already_passing"`
+   > - 继续实施 task（不阻断），但证据标记为不完整
+
+2. **实施 task**：按照任务描述实现功能代码（正常实施流程）
+
+3. **GREEN 验证**（实施后）：运行相同的 Phase 4 测试用例，确认测试**通过**
+   ```
+   {for each test_file in phase4_test_files relevant to current task}
+   运行: {suite.command} {test_file}
+   预期: exit_code = 0（测试应通过）
+   {end for}
+   ```
+   > 如果测试仍失败，修复实现代码（禁止修改测试用例），直到测试通过。
+
+4. **记录 RED→GREEN 证据**：在返回信封中包含 `test_driven_evidence` 字段：
+   ```json
+   "test_driven_evidence": {
+     "phase4_tests_path": "测试文件路径",
+     "red_verified": true/false,
+     "green_verified": true/false,
+     "red_output_excerpt": "失败输出摘要（前 3 行）",
+     "red_skipped_reason": null | "test_already_passing"
+   }
+   ```
+   > `red_verified: true` 仅当 RED 阶段测试确实失败时设置。若测试已通过则 `red_verified: false` + `red_skipped_reason`。
+
+> **无 Phase 4 测试时**（lite/minimal 模式）：跳过测试先行验证，直接进入正常实施流程。
+
+### 正常实施流程
+
 1. 执行 openspec-apply-change 逐个实施 tasks.md 中的未完成任务
 2. 分级测试策略：
 

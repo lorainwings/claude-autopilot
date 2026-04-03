@@ -175,6 +175,27 @@ Task(
 - Task #{n}: {summary} — 已合并到主分支
 {end for}
 
+{if phase4_test_files}
+## 测试驱动开发（Phase 4 测试先行验证）
+Phase 4 已设计以下测试用例，与本域的 task 相关：
+
+### 测试文件
+{for each test_file in phase4_test_files}
+- {test_file}
+{end for}
+
+### 执行流程（每个 task 均需遵循 RED→GREEN）
+对每个 task，在实施前后执行验证：
+1. **RED 验证**（实施前）：运行相关测试，确认测试**失败**（exit_code ≠ 0），记录 red_output_excerpt
+   - 如果测试已通过（exit_code = 0）：设置 red_verified=false, red_skipped_reason="test_already_passing"，继续实施
+2. **实施 task**：按任务描述实现功能代码
+3. **GREEN 验证**（实施后）：运行相同测试，确认测试**通过**（exit_code = 0）
+   - 如果仍失败，修复实现代码（禁止修改测试用例）
+
+在汇总 JSON 信封中增加 \"test_driven_evidence\" 字段，记录所有 task 的 RED→GREEN 证据。
+red_verified 仅在测试确实失败时为 true；测试已通过时为 false + red_skipped_reason。
+{end if}
+
 ## 上下文（由控制器提取，禁止自行读取计划文件）
 {context_injection}
 
@@ -201,7 +222,7 @@ unified-write-edit-check Hook 会拦截越权修改。
 
 ## 返回要求
 执行完毕后返回 JSON 信封：
-{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"tasks_completed\": [1,2,3], \"test_result\": \"N/M passed\"}
+{\"status\": \"ok|warning|blocked|failed\", \"summary\": \"...\", \"artifacts\": [...], \"tasks_completed\": [1,2,3], \"test_result\": \"N/M passed\", \"test_driven_evidence\": {...}}
 "
 )
 {end for}
