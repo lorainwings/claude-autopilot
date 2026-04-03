@@ -28,52 +28,82 @@ argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END] [自然语言]"
 
 **0-A: lark-cli 环境准备**
 
-1. 检查 `which lark-cli`，未安装则引导: `npm install -g @larksuite/cli`
+> **幂等原则**: 每个步骤执行前先检查是否已完成，已完成则跳过，禁止重复执行。
 
-2. 强制安装 lark-cli Skill（无需用户确认，直接执行）:
+**授权命令自动开浏览器模板**（所有 lark-cli 授权命令统一使用此脚本，Bash timeout 设为 600000）:
+
+```bash
+_T=$(mktemp)
+{CMD} > "$_T" 2>&1 &
+_P=$!
+_URL=""
+for _i in $(seq 1 60); do
+  _URL=$(grep -oE 'https://[^ ]+' "$_T" 2>/dev/null | head -1)
+  [ -n "$_URL" ] && break
+  kill -0 $_P 2>/dev/null || break
+  sleep 0.5
+done
+[ -n "$_URL" ] && open "$_URL"
+wait $_P
+cat "$_T"
+rm -f "$_T"
+```
+
+将 `{CMD}` 替换为实际命令。URL 提取后立即 `open` 打开浏览器，绝对禁止展示 URL 文本、输出二维码、让用户手动复制。仅以文字告知用户在浏览器完成授权。
+
+1. 检查 lark-cli 是否已安装: `which lark-cli`
+   - 已安装 → 跳到步骤 2
+   - 未安装 → 引导: `npm install -g @larksuite/cli`
+
+2. 检查 lark-cli Skill 是否已安装:
+
+   **判断方法（按优先级）**:
+   a. 当前会话的可用 skill 列表中存在 `lark-im`、`lark-contact` 等 lark-* 系列 skill → 已安装且已加载，跳到步骤 3
+   b. 检查文件系统 `ls ~/.claude/skills/lark-im` 存在 → 已安装但当前会话未加载，执行 `/reload-plugins` 热重载后继续步骤 3
+   c. 以上都不存在 → 未安装，执行安装:
+
+     ```bash
+     npx skills add larksuite/cli -y -g
+     ```
+
+     安装完成后执行 `/reload-plugins` 热重载 skill，然后继续步骤 3。
+
+3. 检查飞书应用凭据是否已配置:
 
    ```bash
-   npx skills add larksuite/cli -y -g
+   lark-cli auth status 2>&1; echo "EXIT:$?"
    ```
 
-   安装完成后向用户展示双线框提示框，内容:
-   - 重要：安装完成后必须重启 Claude Code 使 skill 生效。
-   - 请执行以下操作：
-   - 1. 退出当前 Claude Code 会话
-   - 2. 重新启动 Claude Code
-   - 3. 再次运行 /daily-report 继续
+   - exit code 0（已配置）→ 跳到步骤 4
+   - exit code 非 0（未配置）→ 使用上述「自动开浏览器模板」执行 `lark-cli config init --new`
+     - 文字告知: "已在浏览器打开授权页面，请滚动到底开启所有权限，点击【开通并授权】"
 
-3. 初始化飞书应用凭据（首次必需）:
-
-   在后台执行: `lark-cli config init --new 2>&1`
-
-   **浏览器打开铁律（适用于所有飞书授权步骤，无例外）**:
-   - 从命令输出中提取 `https://` 开头的 URL
-   - **立即**在同一条消息中用并行 Bash 调用执行 `open <URL>` 打开浏览器
-   - **零等待、零超时、零延迟** — 提取到 URL 后的第一个动作就是 `open`
-   - **绝对禁止**: 将 URL 文本展示给用户、输出二维码、等待超时后才打开、让用户手动复制
-   - 仅以文字告知: "已在浏览器打开授权页面，请滚动到底开启所有权限，点击【开通并授权】"
-   - 等待 lark-cli 命令自动退出
-
-4. 授权飞书 scope（逐个授权，每个都会输出设备验证链接）:
-
-   依次执行以下命令:
+4. 检查飞书 scope 是否已全部授权:
 
    ```bash
-   lark-cli auth login --scope "im:message:readonly" 2>&1
-   lark-cli auth login --scope "im:chat:readonly" 2>&1
-   lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg:get_as_user contact:user.base:readonly" 2>&1
+   lark-cli im chats list --page-size 1 --format json 2>&1
    ```
 
-   **每条命令处理流程**: 同上述「浏览器打开铁律」— 提取 URL → 立即 `open` → 文字提示 → 等待退出 → 下一条
+   - 成功返回数据 → scope 已就绪，跳过全部授权
+   - 返回 `missing_scope` 错误 → 依次使用「自动开浏览器模板」执行以下命令（每条等前一条完成后再执行）:
+
+     ```bash
+     lark-cli auth login --scope "im:message:readonly"
+     lark-cli auth login --scope "im:chat:readonly"
+     lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg:get_as_user contact:user.base:readonly"
+     ```
+
+     每条命令文字告知: "已在浏览器打开授权页面，请完成授权"
 
    > 所有 scope 均为用户自助授权，无需管理员审批。禁止请求需要管理员审批的 scope。
 
 **0-B: 内控日报 API 配置**（可与 0-A 步骤 1-2 **并行**）
 
-使用 **AskUserQuestion** 工具**逐步**收集配置信息。每次仅问**一个**问题，用户回答后再问下一个:
+> **幂等检查**: 先读取 `~/.config/daily-report/config.json`，若 `pageUrl`、`username`、`password`、`tenantName` 四个字段**均已存在且非空**，则**跳过整个 0-B**（直接进入密码加密和登录步骤 3-5）。仅当缺少任一字段时才收集缺失项。
 
-**第 1 步 — 日报页面地址**:
+使用 **AskUserQuestion** 工具**逐步**收集**缺失的**配置信息。每次仅问**一个**问题，用户回答后再问下一个:
+
+**第 1 步 — 日报页面地址**（config 中 `pageUrl` 缺失时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入内控日报系统的页面地址（完整 URL）"
@@ -86,7 +116,7 @@ AskUserQuestion 参数:
 - `apiPrefix`: 提取路径首段拼接 `/server/admin-api`
 - `tenantId`: 默认 `"1"`
 
-**第 2 步 — 公司名称**:
+**第 2 步 — 公司名称**（config 中 `tenantName` 缺失时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入公司名称（对应登录页顶部"租户/公司"选择框中显示的名称）"
@@ -96,7 +126,7 @@ AskUserQuestion 参数:
 
 → 保存为 `tenantName`
 
-**第 3 步 — 登录账号**:
+**第 3 步 — 登录账号**（config 中 `username` 缺失时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入内控系统登录账号（对应登录页"账号"输入框）"
@@ -106,7 +136,7 @@ AskUserQuestion 参数:
 
 → 保存为 `username`
 
-**第 4 步 — 登录密码**:
+**第 4 步 — 登录密码**（config 中 `password` 缺失时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入内控系统登录密码（明文存于本地，传输时自动 AES-256-CBC 加密）"
@@ -116,7 +146,7 @@ AskUserQuestion 参数:
 
 → 保存为 `password`
 
-收集完毕后向用户展示单线框提示框，内容:
+若有任何字段被收集，向用户展示单线框提示框，内容:
 - 以上信息仅需首次填写，安全保存在本地配置文件中，后续运行自动读取，无需再次输入。
 
 3. **密码加密**: 内控系统登录接口要求密码经 AES-256-CBC 加密后传输，加密参数:
@@ -153,13 +183,17 @@ AskUserQuestion 参数:
 
 **0-C: 获取飞书身份**
 
+> **幂等检查**: config 中 `larkOpenId` 已存在且非空时跳过。
+
 1. 执行 `lark-cli contact +get-user` 获取当前登录用户信息，提取 `open_id`，保存到 config 的 `larkOpenId` 字段
 
 **0-D: 补充配置**
 
+> **幂等检查**: config 中 `repos` 和 `gitAuthor` 均已存在且非空时跳过整个 0-D。仅收集缺失项。
+
 使用 **AskUserQuestion** 逐步收集:
 
-**第 5 步 — Git 仓库路径**:
+**第 5 步 — Git 仓库路径**（config 中 `repos` 缺失或为空数组时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入需要扫描的 git 仓库路径（绝对路径，多个用英文逗号分隔）"
@@ -169,7 +203,7 @@ AskUserQuestion 参数:
 
 按逗号分割 → 保存为 `repos` 数组
 
-**第 6 步 — Git 作者名**:
+**第 6 步 — Git 作者名**（config 中 `gitAuthor` 缺失时）:
 
 AskUserQuestion 参数:
 - 问题: "请输入 git 提交中使用的作者名（多个别名用 | 分隔）"
@@ -209,12 +243,17 @@ AskUserQuestion 参数:
 1. 读取 `~/.config/daily-report/config.json`，不存在则转入阶段 0
 2. 检查 lark-cli 是否可用: `which lark-cli`
    - 不可用: **阻断流程**，按阶段 0-A 步骤 1-2 引导安装
-3. 检查 lark-cli 配置状态: `lark-cli auth status 2>&1`
-   - 返回 `"not configured"` 错误（exit code 2）: 自动转入阶段 0-A 步骤 3
-   - 返回正常状态: 继续
+3. 检查 lark-cli 配置状态:
+
+   ```bash
+   lark-cli auth status 2>&1; echo "EXIT:$?"
+   ```
+
+   - exit code 0（已配置且已授权）: 继续
+   - exit code 非 0（未配置）: 自动转入阶段 0-A 步骤 3
 4. 验证飞书权限可用: 执行 `lark-cli im chats list --page-size 1 --format json`
    - 成功: 继续
-   - 返回 `missing_scope` 错误: 从错误信息提取修复命令执行，按「浏览器打开铁律」处理授权 URL
+   - 返回 `missing_scope` 错误: 仅对缺失的 scope 使用阶段 0-A「自动开浏览器模板」执行补充授权
    - 禁止请求需要管理员审批的 scope
 5. 验证内控 Token 有效性: 用 `curl` 调用用户信息接口
    - 接口: `GET {baseUrl}{apiPrefix}/system/auth/get-permission-info`

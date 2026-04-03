@@ -20,7 +20,11 @@
 
 飞书聊天记录是日报生成的必要数据来源。lark-cli 是飞书官方开源 CLI 工具，覆盖 11 大业务域、200+ 命令。
 
+> **幂等原则**: 每个步骤执行前先检查是否已完成，已完成则跳过，禁止重复执行。
+
 ### 1.1 安装 CLI 本体
+
+先检查: `which lark-cli`，已安装则跳过。
 
 ```bash
 npm install -g @larksuite/cli
@@ -34,25 +38,22 @@ lark-cli --help
 
 ### 1.2 安装 Skill（接入 AI Agent 必需）
 
+**检测是否已安装**（按优先级）:
+1. 当前会话的可用 skill 列表中存在 lark-* 系列 skill → 已安装且已加载，跳过
+2. 文件系统 `~/.claude/skills/lark-im` 存在 → 已安装但当前会话未加载，执行 `/reload-plugins` 热重载
+3. 都不存在 → 未安装，执行安装后 `/reload-plugins` 热重载
+
 lark-cli 需要安装 skill 才能被 Claude Code 等 AI Agent 调用（自动执行，无需用户确认）:
 
 ```bash
 npx skills add larksuite/cli -y -g
 ```
 
-安装完成后向用户展示以下提示:
-
-```
-╔═════════════════════════════════════════════════════════════╗
-║ ⚠️  重要：安装完成后必须重启 Claude Code 使 skill 生效。    ║
-║    请执行以下操作：                                         ║
-║    1. 退出当前 Claude Code 会话                             ║
-║    2. 重新启动 Claude Code                                  ║
-║    3. 再次运行 /daily-report 继续                           ║
-╚═════════════════════════════════════════════════════════════╝
-```
+安装完成后执行 `/reload-plugins` 即可在当前会话中热重载 skill，无需重启 Claude Code。
 
 ### 1.3 初始化飞书应用凭据
+
+先检查: `lark-cli auth status`，exit code 0 表示已配置，跳过此步。
 
 ```bash
 lark-cli config init --new
@@ -64,6 +65,27 @@ lark-cli config init --new
 - **提取 URL**: 从输出中提取 `https://` 开头的授权链接
 - **自动打开浏览器**: 立即执行 `open <URL>`（macOS）在用户默认浏览器中打开，无需用户手动复制
 
+**自动开浏览器脚本模板**（所有授权命令统一使用，Bash timeout 设为 600000）:
+
+```bash
+_T=$(mktemp)
+{CMD} > "$_T" 2>&1 &
+_P=$!
+_URL=""
+for _i in $(seq 1 60); do
+  _URL=$(grep -oE 'https://[^ ]+' "$_T" 2>/dev/null | head -1)
+  [ -n "$_URL" ] && break
+  kill -0 $_P 2>/dev/null || break
+  sleep 0.5
+done
+[ -n "$_URL" ] && open "$_URL"
+wait $_P
+cat "$_T"
+rm -f "$_T"
+```
+
+将 `{CMD}` 替换为实际命令。URL 提取后立即通过 `open` 在默认浏览器打开，命令在后台等待用户完成授权。
+
 用户在浏览器中完成以下操作:
 
 1. 系统会自动创建一个名为"飞书 CLI"的机器人应用
@@ -73,10 +95,12 @@ lark-cli config init --new
 
 ### 1.4 授权飞书权限 (scope)
 
+先检查: `lark-cli im chats list --page-size 1 --format json`，成功返回数据则跳过全部授权。
+
 lark-cli 通过逐个 scope 授权的方式获取飞书 API 权限。每条授权命令执行后，终端会输出设备验证链接和二维码。**处理规则**与 1.3 相同:
 
 - **禁止原样输出二维码**: 在 Claude 窗口中会折叠显示不完整
-- 从输出中提取验证 URL，**立即执行 `open <URL>`** 自动在浏览器打开
+- 使用上述「自动开浏览器脚本模板」执行授权命令，URL 自动在浏览器打开
 - 仅以文字告知用户"已在浏览器打开授权页面，请完成授权"
 
 日报插件所需的核心 scope:
@@ -109,14 +133,18 @@ lark-cli auth login --scope "im:message.group_msg:get_as_user im:message.p2p_msg
 
 ## 三、内控日报 API 配置
 
+> **幂等原则**: 先读取 `~/.config/daily-report/config.json`，已存在的字段直接复用，仅收集缺失项。所有字段都齐全时跳过整个配置收集流程。
+
 ### 3.1 提供账号信息
 
-Claude 会**逐步引导**你填入以下信息（对应内控系统登录页面的表单字段）:
+Claude 会**逐步引导**你填入**缺失的**配置（对应内控系统登录页面的表单字段）:
 
 1. **日报页面地址**: 浏览器中打开日报的 URL（如 `https://xxx.com/neikong/#/daily-report`），系统自动推导 API 地址
 2. **公司名称**: 对应登录页顶部的"租户/公司"选择框
 3. **用户名**: 对应登录页"账号"输入框
 4. **密码**: 对应登录页"密码"输入框（明文存本地，传输时自动加密）
+
+以上已配置过的项会自动跳过，不会重复询问。
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -134,7 +162,7 @@ Claude 会用你提供的账号密码调用登录接口，自动获取:
 
 ### 3.3 补充配置
 
-Claude 还会询问:
+Claude 还会询问**缺失的**配置项（已配置过的自动跳过）:
 
 - **Git 仓库路径**: 需要扫描提交记录的本地仓库路径列表
 - **Git Author**: 你的 git 提交作者名 (支持 `|` 分隔多个别名，如 `lorain|廖员`)
