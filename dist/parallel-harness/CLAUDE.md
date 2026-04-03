@@ -69,4 +69,4 @@ Task Attempt: pending → pre_check → executing → post_check → succeeded/f
 - 所有新代码必须有对应测试
 - 测试覆盖 happy path 和关键 failure path
 - 使用 `bun test` 运行测试
-- 186+ 测试基线必须保持通过
+- 295+ 测试基线必须保持通过

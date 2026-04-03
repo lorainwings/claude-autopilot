@@ -149,8 +149,8 @@ See the [Policy Guide](docs/policy-guide.md) for full policy rule configuration.
 ## Test Coverage
 
 ```
-219 pass / 0 fail / 499 expect() calls
-9 test files covering all runtime modules
+295 pass / 0 fail / 649 expect() calls
+13 test files covering all runtime modules
 ```
 
 Test coverage includes:
@@ -224,7 +224,24 @@ The two plugins are **complementary**, not replacements:
 - **Schema Version**: 1.0.0
 - **Runtime**: Bun
 - **Language**: TypeScript
-- **Tests**: 219 pass / 0 fail / 499 expect()
+- **Tests**: 295 pass / 0 fail / 649 expect()
+
+## Capabilities Maturity
+
+| Capability | Status | Notes |
+|-----------|--------|-------|
+| Task Graph + DAG Scheduling | GA | Ownership-aware batch scheduling |
+| Model Router (3-tier) | GA | Cost-aware routing with tier constraints |
+| Gate System (9 gate types) | GA | Hard/signal classification, blocking semantics |
+| Execution Proxy + Attestation | GA | tool_calls, diff_ref, sandbox enforcement |
+| Context Packager | GA | Occupancy threshold, role-aware sorting, retry offset |
+| Persistence (Session/Run/Audit) | GA | File-backed stores with flush |
+| RBAC + Approval Workflow | GA | Role-based access, cross-process resume |
+| Stage Contracts | Beta | Domain-grouped delivery contracts in RunPlan |
+| retryTask | Beta | Single-task retry with downstream safety check |
+| Trusted Execution Plane | Beta | baseline_commit capture, path_check sandbox |
+| PR/CI Integration | GA | GitHub provider with repo_root binding |
+| Worktree Sandbox | Planned | Full git worktree isolation for workers |
 
 ## License
 

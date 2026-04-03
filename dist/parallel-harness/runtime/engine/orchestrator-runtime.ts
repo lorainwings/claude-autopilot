@@ -17,6 +17,7 @@ import { createSchedulePlan, getNextBatch } from "../scheduler/scheduler";
 import { routeModel } from "../models/model-router";
 import { packContext, buildTaskContract } from "../session/context-packager";
 import { GateSystem } from "../gates/gate-system";
+import { classifyGate } from "../gates/gate-classification";
 import { ApprovalWorkflow } from "../governance/governance";
 import { WorkerExecutionController, type WorkerExecutionConfig } from "../workers/worker-runtime";
 import { SessionStore, RunStore, AuditTrail, FileStore } from "../persistence/session-persistence";
@@ -231,7 +232,7 @@ const RUN_STATE_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   running:           ["verifying", "blocked", "failed", "partially_failed", "succeeded", "cancelled"],
   verifying:         ["running", "blocked", "failed", "partially_failed", "succeeded"],
   blocked:           ["running", "failed", "cancelled"],
-  failed:            ["archived"],
+  failed:            ["archived", "running"],
   partially_failed:  ["running", "archived"],
   succeeded:         ["archived"],
   cancelled:         ["archived"],
@@ -546,7 +547,51 @@ export class OrchestratorRuntime {
       }
 
       // Phase 3: Schedule + Execute
-      await this.executeHookPhase("pre_dispatch", ctx);
+      const preDispatchEffects = await this.executeHookPhase("pre_dispatch", ctx);
+
+      // 消费 hook effects：影响运行时行为
+      for (const effect of preDispatchEffects) {
+        switch (effect.type) {
+          case "require_approval": {
+            // hook 要求审批 — 如果尚未被 auto-approve 则阻断
+            const reason = (effect.payload.reason as string) || "hook triggered approval";
+            const approvalResult = this.approvalWorkflow.requestApproval({
+              run_id: ctx.run_id,
+              action: "hook_approval",
+              reason,
+              triggered_rules: ["hook_effect"],
+              status: "pending",
+              requested_at: new Date().toISOString(),
+            } as any);
+            if (approvalResult.status !== "approved") {
+              emitAudit(ctx, "approval_requested", { source: "hook_effect", reason });
+            }
+            break;
+          }
+          case "reduce_concurrency": {
+            // hook 要求降低并发
+            const newMax = (effect.payload.max_concurrency as number) || 1;
+            ctx.config.max_concurrency = Math.min(ctx.config.max_concurrency, newMax);
+            emitAudit(ctx, "run_planned", { effect: "reduce_concurrency", new_max: ctx.config.max_concurrency });
+            break;
+          }
+          case "add_gate": {
+            // hook 要求追加 gate 类型到 enabled_gates
+            const gateType = effect.payload.gate_type as string;
+            if (gateType && !ctx.config.enabled_gates.includes(gateType as any)) {
+              ctx.config.enabled_gates.push(gateType as any);
+              emitAudit(ctx, "run_planned", { effect: "add_gate", gate_type: gateType });
+            }
+            break;
+          }
+          case "add_instruction": {
+            // hook 要求追加 instruction — 记录审计，实际注入在 executeTask 中完成
+            emitAudit(ctx, "run_planned", { effect: "add_instruction", content: effect.payload.content });
+            break;
+          }
+        }
+      }
+
       transitionRunStatus(execution, "scheduled", "已调度");
       transitionRunStatus(execution, "running", "开始执行");
       emitAudit(ctx, "run_started", {});
@@ -580,6 +625,8 @@ export class OrchestratorRuntime {
             modified_paths: succeeded.modified_files || [],
             tokens_used: succeeded.tokens_used || 0,
             duration_ms: 0,
+            actual_tool_calls: [],
+            exit_code: 0,
           });
         }
       }
@@ -594,42 +641,179 @@ export class OrchestratorRuntime {
         transitionRunStatus(execution, "blocked", `MergeGuard 阻断: ${mergeGuardResult.blocking_reasons.join("; ")}`);
       }
 
-      // Phase 5b: 终态判定（在 MergeGuard 之后）
+      // Phase 5b-pre: P1-2 HiddenEvalRunner — 在终态判定之前执行，结果影响终态
+      let hiddenEvalBlocked = false;
+      try {
+        const { createDefaultHiddenSuites, runHiddenEvalForRelease } = await import("../verifiers/hidden-eval-runner");
+        const hiddenSuites = createDefaultHiddenSuites(ctx.project.root_path);
+        // 使用真实测试数据：只取 run 级 test gate（排除 TEST-DEFERRED 的 task 级结果）
+        const testGates = ctx.collectedGateResults.filter(g =>
+          g.gate_type === "test" &&
+          g.gate_level === "run" // 只取 run 级，排除 task 级 TEST-DEFERRED
+        );
+        // fallback: 如果没有 run 级 test gate，取所有非 DEFERRED 的 test gate
+        const effectiveTestGates = testGates.length > 0
+          ? testGates
+          : ctx.collectedGateResults.filter(g =>
+              g.gate_type === "test" &&
+              !g.conclusion?.findings?.some(f => f.rule_id === "TEST-DEFERRED")
+            );
+        const testCount = effectiveTestGates.length > 0 ? effectiveTestGates.length : 1;
+        const testPassCount = effectiveTestGates.filter(g => g.passed).length;
+        const hiddenResult = await runHiddenEvalForRelease(
+          hiddenSuites,
+          { test_count: testCount, pass_count: testPassCount },
+          ctx.project.root_path
+        );
+        if (hiddenResult.gate_recommendation === "block") {
+          hiddenEvalBlocked = true;
+        }
+        // 存储结果供后续报告使用
+        (ctx as any)._hiddenEvalResult = hiddenResult;
+      } catch { /* hidden eval 非关键路径 */ }
+
+      // Phase 5b: 终态判定（在 MergeGuard + HiddenEval 之后）
       const finalStatus = this.determineFinalStatus(execution, plan);
       if (execution.status !== finalStatus) {
         transitionRunStatus(execution, finalStatus, "执行完成");
       }
-
-      // Phase 5c: 生成 ExecutionProxy attestations 并写入审计
-      const { ExecutionProxy } = await import("../workers/execution-proxy");
-      const proxy = new ExecutionProxy();
-      for (const [taskId, output] of workerOutputsMap) {
-        const task = plan.task_graph.tasks.find(t => t.id === taskId);
-        const { attestation } = proxy.wrapExecution({
-          model_tier: (task?.model_tier || "tier-2") as ModelTier,
-          project_root: ctx.project.root_path,
-          sandbox_paths: task?.allowed_paths,
-        }, output);
-        emitAudit(ctx, "task_completed", {
-          task_id: taskId,
-          attestation_model: attestation.actual_model,
-          sandbox_violations: attestation.sandbox_violations,
-          modified_paths: attestation.modified_paths,
-        }, taskId);
+      // hidden eval block 降级终态
+      if (hiddenEvalBlocked && execution.status === "succeeded") {
+        transitionRunStatus(execution, "blocked", "HiddenEval 阻断: 隐藏评估未通过");
       }
+
+      // Phase 5c: 使用执行时真实收集的 attestation（不再 finalize 重建）
+      const allAttestations: import("../workers/execution-proxy").ExecutionAttestation[] =
+        (ctx as any)._collectedAttestations || [];
 
       // Phase 5d: 生成最终报告（含 evidence aggregation）
       const result = this.finalizeRun(ctx, execution, plan);
       result.final_status = execution.status;
 
-      // 将 report aggregator 接入主链
+      // 将 report aggregator 接入主链（含 attestation 证据）
       const { aggregateRunEvidence } = await import("../integrations/report-aggregator");
-      const runReport = aggregateRunEvidence(result, ctx.collectedGateResults);
+      const runReport = aggregateRunEvidence(result, ctx.collectedGateResults, allAttestations);
       // evidence refs 写入质量报告的 recommendations
       result.quality_report.recommendations = [
         ...result.quality_report.recommendations,
-        ...runReport.evidence_refs.map(r => `[${r.type}] ${r.ref_id}: ${r.description}`),
+        ...runReport.evidence_refs.map(r => `[${r.type}${r.strength ? `/${r.strength}` : ""}] ${r.ref_id}: ${r.description}`),
       ];
+
+      // P1-1: StageContractEngine — 基于 run 执行结果构建审计用阶段摘要
+      // 注意：当前是推断式阶段摘要（从执行结果反推涉及阶段），而非全流程生命周期图。
+      // 全流程生命周期图需要真正的 phase transition 驱动（如 LifecycleSpecStore.recordTransition），
+      // 当前 parallel-harness 的 run 模型不覆盖 requirement/product_design/ui_design/tech_plan 阶段。
+      try {
+        const { buildStageGraph } = await import("../lifecycle/stage-contract-engine");
+        const { LifecycleSpecStore } = await import("../lifecycle/lifecycle-spec-store");
+        const lifecycleStore = new LifecycleSpecStore();
+
+        const hasSucceeded = execution.status === "succeeded";
+        const hasFailed = execution.status === "failed" || execution.status === "partially_failed";
+
+        // 从 run 执行结果直接推断涉及的标准阶段（不依赖 domain → phase 映射）
+        // 所有 run 至少涉及 implementation 阶段
+        lifecycleStore.setSpec("implementation", {
+          status: (hasSucceeded ? "completed" : hasFailed ? "blocked" : "in_progress") as any,
+          ...(hasSucceeded ? { completed_at: new Date().toISOString() } : {}),
+          ...(execution.started_at ? { started_at: execution.started_at } : {}),
+        });
+
+        // 如果有测试 gate 结果，说明经历了 testing 阶段
+        const hasTestGates = ctx.collectedGateResults.some(g => g.gate_type === "test");
+        if (hasTestGates) {
+          const testsPassed = ctx.collectedGateResults
+            .filter(g => g.gate_type === "test" && g.gate_level === "run")
+            .every(g => g.passed);
+          lifecycleStore.setSpec("testing", {
+            status: (testsPassed ? "completed" : "blocked") as any,
+          });
+        }
+
+        // 如果生成了报告，说明经历了 reporting 阶段
+        if (result.generated_reports && result.generated_reports.length > 0) {
+          lifecycleStore.setSpec("reporting", {
+            status: "completed" as any,
+            completed_at: new Date().toISOString(),
+          });
+        }
+
+        const stageGraph = buildStageGraph(lifecycleStore);
+        emitAudit(ctx, "run_completed", {
+          stage_graph: {
+            current_phase: stageGraph.current_phase,
+            completed: stageGraph.completed_phases.length,
+            blocked: stageGraph.blocked_phases.length,
+            is_inferred: true, // 标注为推断值而非真实生命周期转换
+          },
+        });
+      } catch { /* lifecycle 非关键路径 */ }
+
+      // P1-2: 写入 hidden eval 结果到报告
+      const hiddenEvalResult = (ctx as any)._hiddenEvalResult;
+      if (hiddenEvalResult) {
+        if (hiddenEvalResult.gate_recommendation === "block") {
+          result.quality_report.recommendations.push("[hidden-eval/blocking] 隐藏评估未通过，建议复查");
+        } else if (hiddenEvalResult.gate_recommendation === "warn") {
+          result.quality_report.recommendations.push("[hidden-eval/signal] 隐藏评估存在差异，建议关注");
+        }
+      }
+
+      // P1-3: ReportTemplateEngine 主链化 — 生成正式报告
+      try {
+        const { ReportTemplateEngine, generateFinalReports } = await import("../integrations/report-template-engine");
+        const reportEngine = new ReportTemplateEngine();
+        const finalReports = generateFinalReports(reportEngine, {
+          run_id: ctx.run_id,
+          run_result: result,
+          evidence_refs: runReport.evidence_refs.map(r => ({
+            ref_id: r.ref_id,
+            kind: r.type,
+            description: r.description,
+          })),
+          gate_results: ctx.collectedGateResults,
+        });
+        if (finalReports.size > 0) {
+          result.quality_report.recommendations.push(`[reports] 已生成 ${finalReports.size} 份正式报告`);
+          // Finding 5 修正: 持久化报告摘要到 RunResult
+          result.generated_reports = [];
+          for (const [reportType, report] of finalReports) {
+            result.generated_reports.push({
+              report_type: reportType,
+              executive_summary: report.executive_summary,
+              generated_at: new Date().toISOString(),
+            });
+          }
+        }
+      } catch { /* report 非关键路径 */ }
+
+      // Grounding evidence 追溯到报告
+      if (plan.requirement_grounding) {
+        const totalPlanned = plan.task_graph.tasks.length;
+        const totalCompleted = result.completed_tasks.length;
+        const allPassed = totalCompleted === totalPlanned && result.failed_tasks.length === 0;
+        const groundingEvidence = plan.requirement_grounding.acceptance_matrix.map(item => {
+          // 阻断性验收项：只有全部任务完成且无失败时才算满足
+          // 非阻断性验收项：有任何成功即可
+          const met = item.blocking
+            ? allPassed
+            : totalCompleted > 0;
+          return {
+            category: item.category,
+            criterion: item.criterion,
+            blocking: item.blocking,
+            met,
+          };
+        });
+        // 将未满足的 grounding 追溯作为 recommendations
+        for (const ge of groundingEvidence) {
+          if (!ge.met) {
+            result.quality_report.recommendations.push(
+              `[grounding/${ge.blocking ? "blocking" : "signal"}] ${ge.category}: ${ge.criterion}`
+            );
+          }
+        }
+      }
 
       emitAudit(ctx, execution.status === "succeeded" ? "run_completed" : "run_failed", {
         final_status: execution.status,
@@ -660,6 +844,7 @@ export class OrchestratorRuntime {
             base_branch: "main",
             labels: ["parallel-harness"],
             modified_files: [...allModifiedFiles],
+            repo_root: ctx.project.root_path,
           });
           result.pr_artifacts = {
             pr_url: prResult.pr_url,
@@ -738,7 +923,7 @@ export class OrchestratorRuntime {
 
   private async planPhase(ctx: ExecutionContext, request: RunRequest): Promise<RunPlan> {
     // 0. Requirement Grounding
-    const { groundRequirement } = await import("../orchestrator/requirement-grounding");
+    const { groundRequirement, buildStageContracts } = await import("../orchestrator/requirement-grounding");
     const grounding = groundRequirement(request);
     emitAudit(ctx, "run_planned", { phase: "requirement_grounding", ambiguity_count: grounding.ambiguity_items.length });
 
@@ -832,6 +1017,7 @@ export class OrchestratorRuntime {
       budget_estimate: budgetEstimate,
       pending_approvals: pendingApprovals,
       requirement_grounding: grounding,
+      stage_contracts: buildStageContracts(grounding, taskGraph.tasks),
       planned_at: new Date().toISOString(),
     };
   }
@@ -1022,26 +1208,120 @@ export class OrchestratorRuntime {
       transitionAttemptStatus(attempt, "executing", "执行中");
       emitAudit(ctx, "worker_started", { attempt_number: attemptNum, model_tier: attempt.model_tier }, task.id, attempt.attempt_id);
 
+      // 提升 worktree 相关变量到 try 之外，确保 catch 可以访问
+      const savedRootPath = ctx.project.root_path;
+      let worktreePathForCleanup: string | undefined;
+      let worktreeBranchForCleanup: string | undefined;
+      let proxyForCleanup: any;
+
       try {
-        // 打包上下文 - 传递当前任务到 context
+        // 打包上下文 - 传递当前任务到 context，传入 routing 的 context_budget（Workstream D 闭环）
         const prevTask = (ctx as any).currentTask;
         (ctx as any).currentTask = task;
-        const contextPack = packContext(task, this.getAvailableFiles(ctx));
+        const contextPack = packContext(
+          task,
+          this.getAvailableFiles(ctx),
+          {},
+          { max_input_tokens: routingResult.context_budget },
+          undefined,
+          ctx.project.root_path
+        );
         (ctx as any).currentTask = prevTask;
 
         const contract = buildTaskContract(task, contextPack);
 
+        // 注入 grounding criteria 到 contract（Workstream E 闭环）
+        if (plan.requirement_grounding) {
+          const { extractGroundingCriteria } = await import("../orchestrator/requirement-grounding");
+          contract.grounding_criteria = extractGroundingCriteria(plan.requirement_grounding);
+          contract.required_approvals = plan.requirement_grounding.required_approvals;
+        }
+
+        // 注入 instruction 到 contract（Workstream G effect 化）
+        if (this.instructionRegistry) {
+          const instructions = this.instructionRegistry.resolve({
+            repo_path: ctx.project.root_path,
+          });
+          if (instructions.length > 0) {
+            contract.context.constraints.coding_standards = instructions.map(i => i.content);
+          }
+        }
+
+        // ExecutionProxy: 前置准备（proxy 成为真实执行入口，绑定 model/tool policy/cwd）
+        const { ExecutionProxy } = await import("../workers/execution-proxy");
+        const proxy = new ExecutionProxy();
+        const proxyPrep = proxy.prepareExecution({
+          model_tier: currentTier,
+          project_root: ctx.project.root_path,
+          sandbox_paths: task.allowed_paths,
+          allowed_tools: contract.context.constraints.allowed_paths.length > 0 ? undefined : undefined,
+          denied_tools: ["TaskStop", "EnterWorktree"],
+          worker_id: `worker_${task.id}`,
+          attempt_id: attempt.attempt_id,
+          sandbox_mode: ctx.config.execution_sandbox_mode || "path_check",
+        });
+
+        // 记录到外层变量，确保 catch/ownership 路径可访问
+        worktreePathForCleanup = proxyPrep.worktree_path;
+        worktreeBranchForCleanup = proxyPrep.worktree_branch;
+        proxyForCleanup = proxy;
+
         // 调用 Worker — 通过 WorkerExecutionController（带超时/沙箱/能力校验）
+        // validated_cwd 和 tool_policy 由 proxy 提供
         const executionResult = await this.workerController.execute({
           contract,
           model_tier: attempt.model_tier,
-          project_root: ctx.project.root_path,
+          project_root: proxyPrep.validated_cwd,
           max_idle_ms: ctx.config.timeout_ms,
+          tool_policy: proxyPrep.tool_policy_serialized,
         });
         const workerOutput = executionResult.output;
 
+        // P0-4: worktree 模式下，改动保留在 worktree 中直到 gate 通过才合并
+        // 记录 worktree cwd 供 gate 使用（gate 将在 worktree 目录中执行命令）
+        const effectiveCwd = proxyPrep.worktree_path || ctx.project.root_path;
+        // 临时覆盖 ctx.project.root_path 让 gate evaluator 在正确目录执行
+        const originalRootPath = ctx.project.root_path;
+        if (proxyPrep.worktree_path) {
+          ctx.project.root_path = proxyPrep.worktree_path;
+        }
+
+        // ExecutionProxy: 后置 attestation（真实执行数据生成 attestation）
+        const { attestation } = proxy.finalizeExecution(
+          {
+            model_tier: currentTier,
+            project_root: ctx.project.root_path,
+            sandbox_paths: task.allowed_paths,
+            denied_tools: ["TaskStop", "EnterWorktree"],
+            worker_id: `worker_${task.id}`,
+            attempt_id: attempt.attempt_id,
+          },
+          workerOutput,
+          proxyPrep.started_at,
+          proxyPrep.tool_policy_enforced,
+          proxyPrep.baseline_commit,
+          proxyPrep.validated_cwd, // P0-4 修正: 传入实际执行目录
+        );
+
+        // 收集 attestation 到 ctx 供 finalize 阶段直接使用（不再事后重建）
+        if (!(ctx as any)._collectedAttestations) (ctx as any)._collectedAttestations = [];
+        (ctx as any)._collectedAttestations.push(attestation);
+
+        // 记录 attestation 到审计（attestation 成为 durable truth）
+        emitAudit(ctx, "worker_completed", {
+          attestation_model: attestation.actual_model,
+          attestation_outcome: attestation.execution_outcome,
+          sandbox_violations: attestation.sandbox_violations,
+          modified_paths: attestation.modified_paths,
+          tool_policy_enforced: attestation.tool_policy_enforced,
+          context_occupancy: contextPack.occupancy_ratio,
+          context_compaction: contextPack.compaction_policy,
+        }, task.id, attempt.attempt_id);
+
         // 检测 worker 是否真实执行成功
         if (workerOutput.status === "failed" || workerOutput.status === "blocked") {
+          ctx.project.root_path = originalRootPath; // 恢复 root_path
+          if (proxyPrep.worktree_path) proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
           transitionAttemptStatus(attempt, "failed", `Worker 返回 ${workerOutput.status}: ${workerOutput.summary}`);
           attempt.failure_class = "transient_tool_failure";
           attempt.failure_detail = workerOutput.summary;
@@ -1051,7 +1331,8 @@ export class OrchestratorRuntime {
           continue;
         }
         if (workerOutput.status === "warning" && workerOutput.modified_paths.length === 0) {
-          // 降级模式：CLI 不可用且未产出任何修改 — 视为失败，不可伪装成功
+          ctx.project.root_path = originalRootPath; // 恢复 root_path
+          if (proxyPrep.worktree_path) proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
           transitionAttemptStatus(attempt, "failed", `Worker 降级执行无产出: ${workerOutput.summary}`);
           attempt.failure_class = "unsupported_capability";
           attempt.failure_detail = workerOutput.summary;
@@ -1072,6 +1353,11 @@ export class OrchestratorRuntime {
         if (ownershipAssignment) {
           const violations = validateOwnership(ownershipAssignment, workerOutput.modified_paths);
           if (violations.length > 0) {
+            // 恢复 root_path 和清理 worktree
+            ctx.project.root_path = originalRootPath;
+            if (proxyPrep.worktree_path) {
+              proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
+            }
             transitionAttemptStatus(attempt, "failed", `所有权违规: ${violations.map((v) => v.message).join("; ")}`);
             attempt.failure_class = "ownership_conflict";
             lastFailureClass = attempt.failure_class;
@@ -1117,11 +1403,47 @@ export class OrchestratorRuntime {
             ...(execution.completed_attempts[task.id] || []), attempt
           ];
 
+          // P0-4: gate 失败 — 不合并 worktree 改动到主仓，只清理
+          ctx.project.root_path = originalRootPath;
+          if (proxyPrep.worktree_path) {
+            proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);          }
+
           // 模型升级由下一次循环顶部的动态路由自动处理（retry_count 增加 → tier 提升）
           continue;
         }
 
-        // 成功
+        // P0-4: worktree 合并必须在 attempt 标为 succeeded 之前执行
+        // 此时 attempt 仍在 post_check 态，迁移到 failed 合法
+        ctx.project.root_path = originalRootPath;
+        if (proxyPrep.worktree_path && proxyPrep.worktree_branch) {
+          const merged = proxy.mergeWorktreeChanges(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
+          if (!merged) {
+            // 合并失败 — attempt 从 post_check → failed（合法迁移）
+            transitionAttemptStatus(attempt, "failed", "Worktree 合并失败：cherry-pick 冲突或脏仓状态");
+            attempt.failure_class = "ownership_conflict";
+            attempt.failure_detail = `worktree merge failed: ${proxyPrep.worktree_path}`;
+            lastFailureClass = attempt.failure_class;
+
+            emitAudit(ctx, "worker_failed", {
+              failure_class: "ownership_conflict",
+              reason: "worktree_merge_failed_post_gate",
+              worktree_path: proxyPrep.worktree_path,
+              worktree_branch: proxyPrep.worktree_branch,
+              action: "worktree_preserved_for_manual_recovery",
+            }, task.id, attempt.attempt_id);
+
+            execution.completed_attempts[task.id] = [
+              ...(execution.completed_attempts[task.id] || []), attempt
+            ];
+            // 不清理 worktree — 这是数据恢复的唯一面
+            continue; // 进入重试循环
+          } else {
+            // 合并成功才清理 worktree 和临时分支
+            proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
+          }
+        }
+
+        // 成功 — worktree 合并已完成（或非 worktree 模式）
         transitionAttemptStatus(attempt, "succeeded", "执行成功");
         emitAudit(ctx, "worker_completed", {
           tokens_used: workerOutput.tokens_used,
@@ -1149,8 +1471,17 @@ export class OrchestratorRuntime {
 
         return; // 成功，退出重试循环
       } catch (error) {
-        transitionAttemptStatus(attempt, "failed", `执行错误: ${error instanceof Error ? error.message : String(error)}`);
-        attempt.failure_class = "transient_tool_failure";
+        // 异常路径：恢复 root_path 和清理 worktree（使用提升到外层的变量）
+        ctx.project.root_path = savedRootPath;
+        if (worktreePathForCleanup && proxyForCleanup) {
+          proxyForCleanup.cleanupWorktree(savedRootPath, worktreePathForCleanup, worktreeBranchForCleanup);
+        }
+        // 仅当 attempt 尚未处于终态时才迁移（避免 succeeded→failed 非法迁移）
+        const terminalStates = ["succeeded", "failed", "cancelled", "timed_out"];
+        if (!terminalStates.includes(attempt.status)) {
+          transitionAttemptStatus(attempt, "failed", `执行错误: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        attempt.failure_class = attempt.failure_class || "transient_tool_failure";
         attempt.failure_detail = error instanceof Error ? error.message : String(error);
         lastFailureClass = attempt.failure_class;
 
@@ -1176,23 +1507,57 @@ export class OrchestratorRuntime {
     execution: RunExecution,
     plan: RunPlan
   ): Promise<void> {
+    // Finding 2 修正: 聚合所有 attempt（含失败）的 workerOutput，确保安全 gate 不遗漏
+    const allModifiedPaths: string[] = [];
+    const allArtifacts: string[] = [];
+    let totalTokens = 0;
+    let maxDuration = 0;
+    for (const attempts of Object.values(execution.completed_attempts)) {
+      for (const att of attempts) {
+        // 安全检查需要覆盖所有 attempt（含失败的），防止敏感文件写入逃逸
+        allModifiedPaths.push(...att.modified_files);
+        if (att.status === "succeeded") {
+          allArtifacts.push(...att.artifacts);
+          totalTokens += att.tokens_used;
+          maxDuration = Math.max(maxDuration, att.duration_ms || 0);
+        }
+      }
+    }
+    const aggregatedWorkerOutput = allModifiedPaths.length > 0 ? {
+      status: "ok" as const,
+      summary: `Run 级聚合: ${allModifiedPaths.length} 个文件修改`,
+      modified_paths: [...new Set(allModifiedPaths)],
+      artifacts: [...new Set(allArtifacts)],
+      tokens_used: totalTokens,
+      duration_ms: maxDuration,
+      actual_tool_calls: [] as Array<{ name: string; args_hash: string }>,
+      exit_code: 0,
+    } : undefined;
+
     const runGates = await this.gateSystem.evaluate(
-      { ctx, plan, level: "run" },
+      { ctx, plan, level: "run", workerOutput: aggregatedWorkerOutput },
       ctx.config.enabled_gates
     );
 
     // 收集 run-level gate 结果
     ctx.collectedGateResults.push(...runGates);
 
+    // 使用 classification 路径判定阻断
+    if (this.gateSystem.hasBlockingFailure(runGates)) {
+      const classified = this.gateSystem.classifyResults(runGates);
+      transitionRunStatus(execution, "blocked",
+        `Hard gate 阻断: ${classified.blocking_failures.map(g => g.gate_type).join(", ")}`);
+      for (const g of classified.blocking_failures) {
+        emitAudit(ctx, "gate_blocked", { gate_type: g.gate_type, level: "run", strength: "hard" });
+      }
+      return;
+    }
+
+    // 审计全部结果（含 signal 警告）
     for (const gate of runGates) {
-      if (gate.blocking && !gate.passed) {
-        transitionRunStatus(execution, "blocked", `Run-level gate 阻断: ${gate.gate_type}`);
-        emitAudit(ctx, "gate_blocked", { gate_type: gate.gate_type, level: "run" });
-        return;
-      }
-      if (gate.passed) {
-        emitAudit(ctx, "gate_passed", { gate_type: gate.gate_type, level: "run" });
-      }
+      const strength = classifyGate(gate.gate_type).strength;
+      emitAudit(ctx, gate.passed ? "gate_passed" : "gate_blocked",
+        { gate_type: gate.gate_type, level: "run", strength, signal_only: strength === "signal" });
     }
   }
 
@@ -1575,13 +1940,13 @@ export class OrchestratorRuntime {
       await this.runLevelGates(ctx, execution, plan);
     }
 
-    // Finalize
+    // Finalize — 与 normal path 使用同一套终态判定逻辑
     execution.cost_ledger = ctx.costLedger;
-    const result = this.finalizeRun(ctx, execution, plan);
-    const finalStatus = this.determineFinalStatus(execution);
+    const finalStatus = this.determineFinalStatus(execution, plan);
     if (execution.status !== finalStatus) {
       transitionRunStatus(execution, finalStatus, "恢复执行完成");
     }
+    const result = this.finalizeRun(ctx, execution, plan);
     result.final_status = execution.status;
 
     await this.runStore.saveResult(result);
@@ -1640,6 +2005,105 @@ export class OrchestratorRuntime {
 
     const session = await this.sessionStore.getByRunId(runId);
     if (session) await this.sessionStore.complete(session.session_id);
+  }
+
+  /**
+   * 重试指定 run 中的失败 task
+   */
+  async retryTask(runId: string, taskId: string, retriedBy?: string): Promise<RunResult> {
+    if (retriedBy) this.requirePermission(retriedBy, "run.retry");
+
+    // 1. 加载 execution 和 plan
+    const execution = await this.runStore.getExecution(runId);
+    if (!execution) throw new Error(`Run ${runId} 不存在`);
+
+    // 2. 校验 run 状态：必须为 failed 或 partially_failed
+    if (execution.status !== "failed" && execution.status !== "partially_failed") {
+      throw new Error(`Run ${runId} 当前状态 ${execution.status} 不允许重试，需要 failed 或 partially_failed`);
+    }
+
+    // 查找 plan (通过 audit trail)
+    const auditEvents = await this.auditTrail.query({ run_id: runId });
+    const plannedEvent = auditEvents.find((e) => e.type === "run_planned");
+    const planId = (plannedEvent?.payload as Record<string, unknown>)?.plan_id as string | undefined;
+    const plan = planId ? await this.runStore.getPlan(planId) : undefined;
+    if (!plan) throw new Error(`无法找到 Run ${runId} 的执行计划`);
+
+    // 3. 校验 task 存在
+    const task = plan.task_graph.tasks.find(t => t.id === taskId);
+    if (!task) throw new Error(`Task ${taskId} 不存在于 Run ${runId} 的任务图中`);
+
+    // 4. 校验 task 最近 attempt 为 failed
+    const taskAttempts = execution.completed_attempts[taskId] || [];
+    if (taskAttempts.length === 0) {
+      throw new Error(`Task ${taskId} 没有历史执行记录`);
+    }
+    const lastAttempt = taskAttempts[taskAttempts.length - 1];
+    if (lastAttempt.status === "succeeded") {
+      throw new Error(`Task ${taskId} 已成功，不需要重试`);
+    }
+
+    // 5. 下游安全检查：如果下游 task 有成功 attempt，拒绝重试
+    const downstreamTaskIds = plan.task_graph.edges
+      .filter(e => e.from === taskId)
+      .map(e => e.to);
+    for (const dsId of downstreamTaskIds) {
+      const dsAttempts = execution.completed_attempts[dsId] || [];
+      if (dsAttempts.some(a => a.status === "succeeded")) {
+        throw new Error(`下游 Task ${dsId} 已成功，重试 ${taskId} 可能导致不一致`);
+      }
+    }
+
+    // 6. 重置 run 状态为 running
+    transitionRunStatus(execution, "running", `重试 task ${taskId}` + (retriedBy ? ` (by ${retriedBy})` : ""));
+    await this.runStore.saveExecution(execution);
+
+    // 7. 重建 execution context
+    const requestId = (plannedEvent?.payload as Record<string, unknown>)?.request_id as string | undefined
+      || (auditEvents.find(e => e.type === "run_created")?.payload as Record<string, unknown>)?.request_id as string | undefined;
+    const originalRequest = requestId ? await this.runStore.getRequest(requestId) : undefined;
+    const config = originalRequest
+      ? { ...DEFAULT_RUN_CONFIG, ...originalRequest.config }
+      : { ...DEFAULT_RUN_CONFIG };
+
+    const ctx: ExecutionContext = {
+      run_id: runId,
+      batch_id: execution.batch_id,
+      actor: originalRequest?.actor || { id: retriedBy || "system", type: "user", name: retriedBy || "system", roles: [] },
+      project: originalRequest?.project || { root_path: ".", known_modules: [], scope: {} },
+      config,
+      eventBus: this.eventBus,
+      costLedger: execution.cost_ledger,
+      policyEngine: this.policyEngine,
+      ownershipPlan: plan.ownership_plan,
+      auditLog: [],
+      collectedGateResults: [],
+    };
+
+    emitAudit(ctx, "task_retried", { task_id: taskId, retried_by: retriedBy || "system" });
+
+    // 8. 以 escalated tier 重新执行该 task
+    try {
+      await this.executeTask(ctx, execution, task, plan.ownership_plan, plan);
+    } catch {
+      // task 执行失败
+    }
+
+    // 9. 重新判定终态
+    execution.cost_ledger = ctx.costLedger;
+    const finalStatus = this.determineFinalStatus(execution, plan);
+    if (execution.status !== finalStatus) {
+      transitionRunStatus(execution, finalStatus, "重试完成");
+    }
+
+    const result = this.finalizeRun(ctx, execution, plan);
+    result.final_status = execution.status;
+
+    await this.runStore.saveResult(result);
+    await this.auditTrail.recordBatch(ctx.auditLog);
+    await this.runStore.saveExecution(execution);
+
+    return result;
   }
 
   // ============================================================
@@ -1823,23 +2287,44 @@ export class OrchestratorRuntime {
   }
 
   /**
-   * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks
+   * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks。
+   * Hook 返回的 effects 会被收集并影响主链行为（Workstream G effect 化）。
    */
   private async executeHookPhase(
     phase: import("../capabilities/capability-registry").HookPhase,
     ctx: ExecutionContext
-  ): Promise<void> {
-    if (!this.hookRegistry) return;
+  ): Promise<import("../capabilities/capability-registry").HookEffect[]> {
+    if (!this.hookRegistry) return [];
     try {
-      await this.hookRegistry.executePhase(phase, {
+      const results = await this.hookRegistry.executePhase(phase, {
         run_id: ctx.run_id,
         data: { timestamp: new Date().toISOString() },
       });
+
+      // 收集所有 hook 产生的 effects
+      const effects: import("../capabilities/capability-registry").HookEffect[] = [];
+      for (const result of results) {
+        if (result.effects) {
+          effects.push(...result.effects);
+        }
+      }
+
+      // 如果有 effects，记录到审计
+      if (effects.length > 0) {
+        emitAudit(ctx, "run_planned", {
+          phase: `hook_${phase}`,
+          effects_count: effects.length,
+          effect_types: effects.map(e => e.type),
+        });
+      }
+
+      return effects;
     } catch (err) {
       emitAudit(ctx, "run_failed", {
         phase: `hook_${phase}`,
         error: err instanceof Error ? err.message : String(err),
       });
+      return [];
     }
   }
 
@@ -1913,6 +2398,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
           modified_paths: [],
           tokens_used: 0,
           duration_ms: Date.now() - startTime,
+          actual_tool_calls: [],
+          exit_code: exitCode,
         };
       }
 
@@ -1932,6 +2419,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
         modified_paths: modifiedPaths,
         tokens_used: parsed.cost_usd ? Math.round(parsed.cost_usd * 100000) : 5000,
         duration_ms: Date.now() - startTime,
+        actual_tool_calls: [],
+        exit_code: 0,
       };
     } catch {
       // claude CLI 不可用 — 返回 warning 状态，不伪装成功
@@ -1942,6 +2431,8 @@ export class LocalWorkerAdapter implements WorkerAdapter {
         modified_paths: [],
         tokens_used: 0,
         duration_ms: Date.now() - startTime,
+        actual_tool_calls: [],
+        exit_code: -1,
       };
     }
   }

@@ -1,5 +1,6 @@
 import { readFileSync, existsSync, statSync, readdirSync } from "fs";
 import { join, relative } from "path";
+import { normalizePath, type NormalizedPath } from "../schemas/ga-schemas";
 
 export interface FileInfo {
   path: string;
@@ -38,19 +39,22 @@ export function loadEvidenceFiles(
   const files: FileInfo[] = [];
   const seen = new Set<string>();
 
-  for (const pattern of task.allowed_paths) {
+  // 归一化路径：支持绝对路径、相对路径、"." 场景
+  const normalizedPaths = task.allowed_paths.map(p => normalizePath(p, cfg.project_root));
+
+  for (const np of normalizedPaths) {
     if (files.length >= cfg.max_files_per_task) break;
 
-    // "." 或 "./" 表示项目根目录 — 扫描根目录下的顶层文件
-    if (pattern === "." || pattern === "./") {
-      collectFromDirectory(cfg.project_root, cfg, files, seen, 1);
+    // repo_root — 扫描根目录下的顶层文件
+    if (np.kind === "repo_root") {
+      collectFromDirectory(np.repo_absolute, cfg, files, seen, 1);
       continue;
     }
 
     // glob 模式 — 使用 Bun.Glob
-    if (pattern.includes("*")) {
+    if (np.kind === "glob") {
       try {
-        const glob = new Bun.Glob(pattern);
+        const glob = new Bun.Glob(np.repo_relative);
         for (const match of glob.scanSync({ cwd: cfg.project_root, absolute: false })) {
           if (files.length >= cfg.max_files_per_task) break;
           collectFile(join(cfg.project_root, match), cfg, files, seen);
@@ -61,17 +65,21 @@ export function loadEvidenceFiles(
       continue;
     }
 
-    const fullPath = join(cfg.project_root, pattern);
+    // 使用归一化后的绝对路径
+    const fullPath = np.repo_absolute;
     if (!existsSync(fullPath)) continue;
 
     const stat = statSync(fullPath);
     if (stat.isDirectory()) {
-      // 目录 — 递归扫描
       collectFromDirectory(fullPath, cfg, files, seen, 3);
     } else {
-      // 精确文件
       collectFile(fullPath, cfg, files, seen);
     }
+  }
+
+  // P0-1: 若 allowed_paths 非空但未选出文件，标记 context_blocked
+  if (task.allowed_paths.length > 0 && files.length === 0) {
+    console.warn(`[EvidenceLoader] context_blocked: allowed_paths=${JSON.stringify(task.allowed_paths)} 但未选出任何文件`);
   }
 
   return files;

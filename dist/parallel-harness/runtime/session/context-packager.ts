@@ -19,6 +19,7 @@ import type {
   CodeSnippet,
   TaskContract,
 } from "./context-pack";
+import { normalizePath } from "../schemas/ga-schemas";
 
 // ============================================================
 // 配置
@@ -51,35 +52,78 @@ const DEFAULT_CONFIG: PackagerConfig = {
 
 /**
  * 为任务打包上下文
+ * @param task 任务节点
+ * @param availableFiles 可用文件列表
+ * @param config 打包配置
+ * @param externalBudget 外部传入的 context budget（来自 routeModel）
+ * @param retryHint 重试次数提示，非零时跳过前 N 个 snippets
  */
 export function packContext(
   task: TaskNode,
   availableFiles: FileInfo[],
-  config: Partial<PackagerConfig> = {}
+  config: Partial<PackagerConfig> = {},
+  externalBudget?: { max_input_tokens: number },
+  retryHint?: number,
+  repoRoot?: string
 ): ContextPack {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
-  // 1. 筛选相关文件
-  const relevantFiles = selectRelevantFiles(task, availableFiles);
+  // 使用外部 budget 覆盖默认值（context budget 闭环）
+  let budget = cfg.default_budget;
+  if (externalBudget && externalBudget.max_input_tokens > 0) {
+    budget = {
+      ...budget,
+      max_input_tokens: externalBudget.max_input_tokens,
+    };
+  }
+
+  const occupancyThreshold = budget.occupancy_threshold ?? 0.8;
+  const role = budget.role;
+
+  // 1. 筛选相关文件 + 角色排序
+  let relevantFiles = selectRelevantFiles(task, availableFiles, repoRoot);
+  if (role) {
+    relevantFiles = sortByRole(relevantFiles, role);
+  }
 
   // 2. 提取代码片段
-  const snippets = extractSnippets(
+  let snippets = extractSnippets(
     task,
     relevantFiles,
     cfg.max_lines_per_file,
     cfg.max_snippets
   );
 
+  // 2b. retry offset — 跳过前 N 个 snippets 确保重试上下文不同
+  const effectiveRetryHint = retryHint ?? 0;
+  if (effectiveRetryHint > 0 && snippets.length > effectiveRetryHint) {
+    snippets = snippets.slice(effectiveRetryHint);
+  }
+
   // 3. 估算 token 使用量
   const estimatedTokens = estimateTokenUsage(task, relevantFiles, snippets);
 
-  // 4. 如果超预算，压缩
+  // 4. occupancy 阈值或超预算时压缩
   let finalSnippets = snippets;
-  let budget = cfg.default_budget;
+  let compactionPolicy: "none" | "summarize" | "truncate" = "none";
 
-  if (estimatedTokens > budget.max_input_tokens && budget.auto_summarize_on_overflow) {
+  const occupancyBeforeCompact = budget.max_input_tokens > 0
+    ? estimatedTokens / budget.max_input_tokens
+    : 0;
+
+  if (
+    (occupancyBeforeCompact > occupancyThreshold || estimatedTokens > budget.max_input_tokens) &&
+    budget.auto_summarize_on_overflow
+  ) {
     finalSnippets = compressSnippets(snippets, budget.max_input_tokens);
+    compactionPolicy = "truncate";
   }
+
+  // 5. 计算占用率
+  const finalTokens = estimateTokenUsage(task, relevantFiles, finalSnippets);
+  const occupancyRatio = budget.max_input_tokens > 0
+    ? Math.min(finalTokens / budget.max_input_tokens, 1.0)
+    : 0;
 
   return {
     task_summary: buildTaskSummary(task),
@@ -93,6 +137,11 @@ export function packContext(
     },
     test_requirements: task.required_tests,
     budget,
+    occupancy_ratio: occupancyRatio,
+    loaded_files_count: relevantFiles.length,
+    loaded_snippets_count: finalSnippets.length,
+    compaction_policy: compactionPolicy,
+    retry_hint: effectiveRetryHint > 0 ? effectiveRetryHint : undefined,
   };
 }
 
@@ -141,20 +190,55 @@ export interface FileInfo {
 // 辅助函数
 // ============================================================
 
+/**
+ * 按角色排序文件：verifier 优先 test 文件，planner 优先 md/config
+ */
+function sortByRole(files: FileInfo[], role: "planner" | "author" | "verifier"): FileInfo[] {
+  return [...files].sort((a, b) => {
+    const scoreA = roleFileScore(a.path, role);
+    const scoreB = roleFileScore(b.path, role);
+    return scoreB - scoreA;
+  });
+}
+
+function roleFileScore(path: string, role: "planner" | "author" | "verifier"): number {
+  const lower = path.toLowerCase();
+  if (role === "verifier") {
+    if (lower.includes("test") || lower.includes("spec")) return 10;
+    if (lower.endsWith(".ts") || lower.endsWith(".js")) return 5;
+    return 1;
+  }
+  if (role === "planner") {
+    if (lower.endsWith(".md") || lower.endsWith(".json") || lower.includes("config")) return 10;
+    if (lower.endsWith(".ts")) return 5;
+    return 1;
+  }
+  // author — source first
+  if (lower.includes("test") || lower.includes("spec")) return 3;
+  if (lower.endsWith(".ts") || lower.endsWith(".js")) return 10;
+  return 1;
+}
+
 function selectRelevantFiles(
   task: TaskNode,
-  files: FileInfo[]
+  files: FileInfo[],
+  repoRoot?: string
 ): FileInfo[] {
+  const root = repoRoot || process.cwd();
   return files.filter((f) => {
-    // 在允许路径内
-    const isAllowed = task.allowed_paths.some(
-      (p) => f.path.startsWith(p) || f.path === p
-    );
+    // 归一化比较：支持绝对/相对/root 路径
+    const isAllowed = task.allowed_paths.length === 0 || task.allowed_paths.some((p) => {
+      if (p === "." || p === "./") return true; // repo_root 匹配所有
+      const np = normalizePath(p, root);
+      const fp = normalizePath(f.path, root);
+      return fp.repo_relative.startsWith(np.repo_relative) || fp.repo_relative === np.repo_relative;
+    });
 
-    // 不在禁止路径内
-    const isForbidden = task.forbidden_paths.some(
-      (p) => f.path.startsWith(p) || f.path === p
-    );
+    const isForbidden = task.forbidden_paths.some((p) => {
+      const np = normalizePath(p, root);
+      const fp = normalizePath(f.path, root);
+      return fp.repo_relative.startsWith(np.repo_relative) || fp.repo_relative === np.repo_relative;
+    });
 
     return isAllowed && !isForbidden;
   });

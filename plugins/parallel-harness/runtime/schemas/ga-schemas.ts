@@ -40,6 +40,90 @@ export function generateId(prefix: string): string {
 }
 
 // ============================================================
+// 统一路径系统 (P0-1)
+// ============================================================
+
+/** 归一化路径 — 统一路径语义，消除 relative/absolute/root 歧义 */
+export interface NormalizedPath {
+  /** 相对于仓库根的路径 */
+  repo_relative: string;
+  /** 仓库根的绝对路径 */
+  repo_absolute: string;
+  /** 路径类型 */
+  kind: "file" | "dir" | "glob" | "repo_root";
+}
+
+/** 将任意路径归一化为 NormalizedPath */
+export function normalizePath(rawPath: string, repoRoot: string): NormalizedPath {
+  const { resolve, relative, isAbsolute } = require("path");
+  const { existsSync, statSync } = require("fs");
+
+  // 处理 "." 和 "./" — 表示仓库根
+  if (rawPath === "." || rawPath === "./") {
+    return { repo_relative: ".", repo_absolute: resolve(repoRoot), kind: "repo_root" };
+  }
+
+  // glob 模式
+  if (rawPath.includes("*")) {
+    const rel = isAbsolute(rawPath) ? relative(repoRoot, rawPath) : rawPath;
+    return { repo_relative: rel, repo_absolute: resolve(repoRoot, rel), kind: "glob" };
+  }
+
+  // 绝对路径 → 转为相对路径
+  const absPath = isAbsolute(rawPath) ? rawPath : resolve(repoRoot, rawPath);
+  const relPath = relative(repoRoot, absPath);
+
+  // 判断 file/dir
+  let kind: NormalizedPath["kind"] = "file";
+  try {
+    if (existsSync(absPath) && statSync(absPath).isDirectory()) {
+      kind = "dir";
+    }
+  } catch {
+    // 路径不存在时默认为 file
+  }
+
+  return { repo_relative: relPath, repo_absolute: absPath, kind };
+}
+
+/** 批量归一化路径 */
+export function normalizePathList(rawPaths: string[], repoRoot: string): NormalizedPath[] {
+  return rawPaths.map(p => normalizePath(p, repoRoot));
+}
+
+// ============================================================
+// 成本与 Token 预算分层 (P0-2)
+// ============================================================
+
+/** 成本预算 — 控制执行总花费 */
+export interface CostBudget {
+  /** 最大成本单位 (抽象值，可映射到 USD) */
+  max_cost_units: number;
+  /** 剩余成本单位 */
+  remaining_cost_units: number;
+}
+
+/** Token 预算 — 控制模型调用的 token 上限 */
+export interface TokenBudget {
+  /** 最大输入 token 数 */
+  max_input_tokens: number;
+  /** 最大输出 token 数 */
+  max_output_tokens: number;
+}
+
+/** 使用量遥测 — 记录真实消耗 */
+export interface UsageTelemetry {
+  /** 输入 token 数 */
+  input_tokens: number;
+  /** 输出 token 数 */
+  output_tokens: number;
+  /** 数据来源 */
+  usage_source: "provider" | "estimated";
+  /** 成本单位消耗 */
+  cost_units: number;
+}
+
+// ============================================================
 // Run Schema — 顶层执行单元
 // ============================================================
 
@@ -107,6 +191,9 @@ export interface RunPlan extends Versioned {
 
   /** 需求契约 (Requirement Grounding) */
   requirement_grounding?: import("../orchestrator/requirement-grounding").RequirementGrounding;
+
+  /** 阶段合同 (Stage Contracts) */
+  stage_contracts?: import("../orchestrator/requirement-grounding").StageContract[];
 
   /** 规划时间 */
   planned_at: string;
@@ -180,6 +267,13 @@ export interface RunResult extends Versioned {
   /** PR 产出 (如有) */
   pr_artifacts?: PRArtefacts;
 
+  /** 正式报告产出 (P1-3: 由 ReportTemplateEngine 生成) */
+  generated_reports?: Array<{
+    report_type: string;
+    executive_summary: string;
+    generated_at: string;
+  }>;
+
   /** 完成时间 */
   completed_at: string;
 
@@ -237,11 +331,14 @@ export interface TaskAttempt extends Versioned {
   /** 产出物 */
   artifacts: string[];
 
-  /** Token 使用量 */
+  /** Token 使用量 (废弃，请使用 usage_telemetry) */
   tokens_used: number;
 
-  /** 成本 (相对值) */
+  /** 成本 (废弃，请使用 usage_telemetry) */
   cost: number;
+
+  /** 使用量遥测 (P0-2) */
+  usage_telemetry?: UsageTelemetry;
 
   /** 失败分类 (如果失败) */
   failure_class?: FailureClass;
@@ -579,11 +676,14 @@ export interface CostEntry {
   /** 模型 Tier */
   model_tier: ModelTier;
 
-  /** Token 使用量 */
+  /** Token 使用量 (总量，向后兼容) */
   tokens_used: number;
 
   /** 成本 */
   cost: number;
+
+  /** 使用量遥测 (P0-2: input/output 分离) */
+  usage_telemetry?: UsageTelemetry;
 
   /** 时间戳 */
   recorded_at: string;
@@ -595,6 +695,11 @@ export interface CostSummary {
   tier_distribution: Record<ModelTier, number>;
   total_retries: number;
   budget_utilization: number; // 0-1
+  /** P0-2: 按来源分类的使用量汇总 */
+  telemetry_breakdown?: {
+    provider_reported: { input_tokens: number; output_tokens: number; cost_units: number };
+    estimated: { input_tokens: number; output_tokens: number; cost_units: number };
+  };
 }
 
 // ============================================================
@@ -695,6 +800,12 @@ export interface RunConfig {
   /** 预算上限 (相对值) */
   budget_limit: number;
 
+  /** 成本预算 (P0-2: 替代 budget_limit 的结构化成本控制) */
+  cost_budget?: CostBudget;
+
+  /** Token 预算 (P0-2: 独立的 token 控制) */
+  token_budget?: TokenBudget;
+
   /** 默认最高 Tier */
   max_model_tier: ModelTier;
 
@@ -712,6 +823,9 @@ export interface RunConfig {
 
   /** 是否启用 autofix */
   enable_autofix: boolean;
+
+  /** 执行沙箱模式 */
+  execution_sandbox_mode?: "none" | "path_check" | "worktree";
 }
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {

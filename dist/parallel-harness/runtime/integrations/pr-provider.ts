@@ -51,6 +51,10 @@ export interface CreatePRRequest {
   draft?: boolean;
   /** 本次 run 实际修改的文件路径列表，用于精确 git add（避免 add -A 污染） */
   modified_files?: string[];
+  /** 目标仓库根目录，所有 git/gh 操作的显式 cwd */
+  repo_root?: string;
+  /** 预期的 git remote URL，用于校验 repo identity */
+  expected_remote?: string;
 }
 
 export interface PRResult {
@@ -93,9 +97,10 @@ export type MergeStrategy = "merge" | "squash" | "rebase";
 // GitHub Provider — 通过 gh CLI 实现
 // ============================================================
 
-async function execGh(args: string[]): Promise<{ stdout: string; exitCode: number }> {
+async function execGh(args: string[], cwd?: string): Promise<{ stdout: string; exitCode: number }> {
   try {
     const proc = Bun.spawn(["gh", ...args], {
+      cwd,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -107,9 +112,10 @@ async function execGh(args: string[]): Promise<{ stdout: string; exitCode: numbe
   }
 }
 
-async function execShellForGit(cmd: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+async function execShellForGit(cmd: string, cwd?: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   try {
     const proc = Bun.spawn(["sh", "-c", cmd], {
+      cwd,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -124,16 +130,63 @@ async function execShellForGit(cmd: string): Promise<{ stdout: string; stderr: s
   }
 }
 
+/**
+ * Preflight check: 校验目标目录是否是合法的 git 仓库
+ */
+async function verifyRepoIdentity(
+  repoRoot: string,
+  expectedRemote?: string
+): Promise<{ valid: boolean; error?: string }> {
+  // 检查是否是 git 仓库
+  const gitCheck = await execShellForGit("git rev-parse --is-inside-work-tree", repoRoot);
+  if (gitCheck.exitCode !== 0 || gitCheck.stdout !== "true") {
+    return { valid: false, error: `目录 ${repoRoot} 不是 git 仓库` };
+  }
+
+  // 检查 remote URL 是否匹配预期
+  if (expectedRemote) {
+    const remoteCheck = await execShellForGit("git remote get-url origin", repoRoot);
+    if (remoteCheck.exitCode !== 0) {
+      return { valid: false, error: "无法获取 origin remote URL" };
+    }
+    if (!remoteCheck.stdout.includes(expectedRemote)) {
+      return { valid: false, error: `remote URL ${remoteCheck.stdout} 不匹配预期 ${expectedRemote}` };
+    }
+  }
+
+  return { valid: true };
+}
+
 export class GitHubPRProvider implements PRProvider {
   name = "github";
+  /** 当前绑定的 repo_root — 由 createPR 设置，后续操作复用 */
+  private repoRoot?: string;
+
+  constructor(repoRoot?: string) {
+    this.repoRoot = repoRoot;
+  }
 
   /**
    * 创建 PR：先执行完整 git pipeline (branch → commit → push)，再创建 PR
+   * 所有 git/gh 操作显式绑定 repo_root 作为 cwd
    */
   async createPR(request: CreatePRRequest): Promise<PRResult> {
+    const cwd = request.repo_root || this.repoRoot;
+    // 记住 repo_root 供后续操作复用
+    if (cwd) this.repoRoot = cwd;
+
+    // Preflight: 校验 repo identity
+    if (cwd) {
+      const identity = await verifyRepoIdentity(cwd, request.expected_remote);
+      if (!identity.valid) {
+        throw new Error(`PR preflight 失败: ${identity.error}`);
+      }
+    }
+
     // Step 1: 创建并切换到 head branch（fail-fast）
     const checkoutResult = await execShellForGit(
-      `git checkout -b ${request.head_branch} 2>/dev/null || git checkout ${request.head_branch}`
+      `git checkout -b ${request.head_branch} 2>/dev/null || git checkout ${request.head_branch}`,
+      cwd
     );
     if (checkoutResult.exitCode !== 0) {
       throw new Error(`git checkout 失败: ${checkoutResult.stderr || checkoutResult.stdout}`);
@@ -142,15 +195,16 @@ export class GitHubPRProvider implements PRProvider {
     // Step 2: 仅暂存 run-owned 文件（避免 add -A 污染无关改动）
     if (request.modified_files && request.modified_files.length > 0) {
       for (const file of request.modified_files) {
-        await execShellForGit(`git add -- "${file}"`);
+        await execShellForGit(`git add -- "${file}"`, cwd);
       }
     } else {
-      await execShellForGit("git add -A");
+      await execShellForGit("git add -A", cwd);
     }
 
     // Step 3: 提交（fail-fast，不使用 --allow-empty）
     const commitResult = await execShellForGit(
-      `git commit -m "[parallel-harness] ${request.title.replace(/"/g, '\\"')}"`
+      `git commit -m "[parallel-harness] ${request.title.replace(/"/g, '\\"')}"`,
+      cwd
     );
     if (commitResult.exitCode !== 0) {
       // 无变更可提交时不是致命错误
@@ -161,13 +215,14 @@ export class GitHubPRProvider implements PRProvider {
 
     // Step 4: Push 到远端（fail-fast）
     const pushResult = await execShellForGit(
-      `git push -u origin ${request.head_branch}`
+      `git push -u origin ${request.head_branch}`,
+      cwd
     );
     if (pushResult.exitCode !== 0) {
       throw new Error(`git push 失败: ${pushResult.stderr || pushResult.stdout}`);
     }
 
-    // Step 4: 创建 PR
+    // Step 5: 创建 PR
     const args = [
       "pr", "create",
       "--title", request.title,
@@ -183,7 +238,7 @@ export class GitHubPRProvider implements PRProvider {
       for (const reviewer of request.reviewers) args.push("--reviewer", reviewer);
     }
 
-    const { stdout, exitCode } = await execGh(args);
+    const { stdout, exitCode } = await execGh(args, cwd);
     if (exitCode !== 0) {
       throw new Error(`gh pr create 失败: ${stdout}`);
     }
@@ -201,10 +256,11 @@ export class GitHubPRProvider implements PRProvider {
   }
 
   async addReviewComment(prId: string, comment: ReviewCommentRequest): Promise<void> {
+    const cwd = this.repoRoot;
     // 先获取 commit SHA
     const { stdout: commitId } = await execGh([
       "pr", "view", prId, "--json", "headRefOid", "-q", ".headRefOid",
-    ]);
+    ], cwd);
     if (!commitId) throw new Error("无法获取 PR head commit SHA");
 
     const { exitCode, stdout } = await execGh([
@@ -215,16 +271,17 @@ export class GitHubPRProvider implements PRProvider {
       "-F", `line=${comment.line}`,
       "-f", `side=${comment.side || "RIGHT"}`,
       "-f", `commit_id=${commitId}`,
-    ]);
+    ], cwd);
     if (exitCode !== 0) {
       throw new Error(`gh api PR comment 失败: ${stdout}`);
     }
   }
 
   async setCheckStatus(prId: string, check: CheckStatusRequest): Promise<void> {
+    const cwd = this.repoRoot;
     const { stdout: headSha } = await execGh([
       "pr", "view", prId, "--json", "headRefOid", "-q", ".headRefOid",
-    ]);
+    ], cwd);
     if (!headSha) throw new Error("无法获取 PR head SHA");
 
     const args = [
@@ -240,17 +297,18 @@ export class GitHubPRProvider implements PRProvider {
       args.push("-f", `output[summary]=${check.output.summary}`);
     }
 
-    const { exitCode, stdout: result } = await execGh(args);
+    const { exitCode, stdout: result } = await execGh(args, cwd);
     if (exitCode !== 0) {
       throw new Error(`gh api check-runs 失败: ${result}`);
     }
   }
 
   async getPR(prId: string): Promise<PRInfo> {
+    const cwd = this.repoRoot;
     const { stdout, exitCode } = await execGh([
       "pr", "view", prId,
       "--json", "number,url,state,title,headRefName,baseRefName,files",
-    ]);
+    ], cwd);
 
     if (exitCode !== 0) {
       throw new Error(`gh pr view 失败: ${stdout}`);
@@ -278,11 +336,12 @@ export class GitHubPRProvider implements PRProvider {
   }
 
   async mergePR(prId: string, strategy: MergeStrategy): Promise<void> {
+    const cwd = this.repoRoot;
     const strategyFlag = strategy === "squash" ? "--squash"
       : strategy === "rebase" ? "--rebase"
       : "--merge";
 
-    const { exitCode, stdout } = await execGh(["pr", "merge", prId, strategyFlag, "--auto"]);
+    const { exitCode, stdout } = await execGh(["pr", "merge", prId, strategyFlag, "--auto"], cwd);
     if (exitCode !== 0) {
       throw new Error(`gh pr merge 失败: ${stdout}`);
     }

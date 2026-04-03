@@ -340,14 +340,21 @@ export class WorkerExecutionController {
   }
 
   private async executeWithTimeout(input: WorkerInput): Promise<WorkerOutput> {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Worker 执行超时 (${this.config.timeout_ms}ms)`)), this.config.timeout_ms);
-    });
-
-    return Promise.race([
-      this.adapter.execute(input),
-      timeoutPromise,
-    ]);
+    let timer: ReturnType<typeof setTimeout>;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Worker 执行超时 (${this.config.timeout_ms}ms)`)),
+          this.config.timeout_ms
+        );
+      });
+      return await Promise.race([
+        this.adapter.execute(input),
+        timeoutPromise,
+      ]);
+    } finally {
+      clearTimeout(timer!);
+    }
   }
 
   private validateOutputPaths(output: WorkerOutput, sandbox: PathSandbox): void {

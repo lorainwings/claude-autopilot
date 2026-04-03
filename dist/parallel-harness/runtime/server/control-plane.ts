@@ -27,6 +27,8 @@ export interface ControlPlaneDataProvider {
   getRun(runId: string): Promise<RunDetail | undefined>;
   getAuditLog(runId: string): Promise<AuditEvent[]>;
   getGateResults(runId: string): Promise<GateResult[]>;
+  /** 获取生命周期阶段视图 */
+  getLifecyclePhases?(runId: string): Promise<LifecyclePhaseView[]>;
   // 写操作
   cancelRun?(runId: string): Promise<{ ok: boolean; message: string }>;
   retryTask?(runId: string, taskId: string): Promise<{ ok: boolean; message: string }>;
@@ -97,6 +99,24 @@ export interface TimelineEvent {
   type: string;
   task_id?: string;
   message: string;
+}
+
+// ============================================================
+// Lifecycle Phase View — 生命周期阶段视图
+// ============================================================
+
+export interface LifecyclePhaseView {
+  phase: string;
+  status: "not_started" | "in_progress" | "completed" | "blocked" | "skipped";
+  order: number;
+  artifacts_count: number;
+  required_artifacts_count: number;
+  gates_passed: number;
+  gates_total: number;
+  started_at?: string;
+  completed_at?: string;
+  owner?: string;
+  blockers: string[];
 }
 
 // ============================================================
@@ -179,6 +199,24 @@ export class InMemoryDataProvider implements ControlPlaneDataProvider {
     run.status = "failed";
     return { ok: true, message: `审批 ${approvalId} 已拒绝，Run ${runId} 标记为失败` };
   }
+
+  async getLifecyclePhases(_runId: string): Promise<LifecyclePhaseView[]> {
+    // 默认返回标准 8 阶段视图
+    const phases = [
+      "requirement", "product_design", "ui_design", "tech_plan",
+      "architecture", "implementation", "testing", "reporting",
+    ];
+    return phases.map((phase, index) => ({
+      phase,
+      status: "not_started" as const,
+      order: index,
+      artifacts_count: 0,
+      required_artifacts_count: 1,
+      gates_passed: 0,
+      gates_total: 1,
+      blockers: [],
+    }));
+  }
 }
 
 // ============================================================
@@ -189,6 +227,7 @@ export interface RuntimeBridge {
   cancelRun(runId: string, cancelledBy?: string): Promise<void>;
   approveAndResume(runId: string, approvalId: string, decidedBy: string): Promise<unknown>;
   rejectRun(runId: string, approvalId: string, decidedBy: string, reason?: string): Promise<void>;
+  retryTask?(runId: string, taskId: string, retriedBy?: string): Promise<unknown>;
   // 读操作（现已强制实现，不再是可选）
   listRuns(): Promise<RunSummary[]>;
   getRun?(runId: string): Promise<RunDetail | undefined>;
@@ -253,8 +292,15 @@ export class RuntimeBridgeDataProvider implements ControlPlaneDataProvider {
     }
   }
 
-  async retryTask(_runId: string, _taskId: string): Promise<{ ok: boolean; message: string }> {
-    // runtime 模式下 retry 需要完整的 orchestrator 级重调度，当前未实现
+  async retryTask(runId: string, taskId: string): Promise<{ ok: boolean; message: string }> {
+    if (this.runtime.retryTask) {
+      try {
+        await this.runtime.retryTask(runId, taskId, "control-plane");
+        return { ok: true, message: `Task ${taskId} 已重试` };
+      } catch (e) {
+        return { ok: false, message: e instanceof Error ? e.message : String(e) };
+      }
+    }
     return { ok: false, message: "runtime 模式下 retryTask 尚未实现，请使用 CLI 重新执行" };
   }
 
@@ -361,7 +407,7 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
         return Response.json(runs);
       }
 
-      if (path.startsWith("/api/runs/") && !path.includes("/audit") && !path.includes("/gates")) {
+      if (path.startsWith("/api/runs/") && !path.includes("/audit") && !path.includes("/gates") && !path.includes("/lifecycle")) {
         const runId = path.split("/api/runs/")[1];
         const run = await provider.getRun(runId);
         if (!run) return Response.json({ error: "Run not found" }, { status: 404 });
@@ -378,6 +424,15 @@ export function createControlPlaneServer(config: Partial<ControlPlaneConfig> = {
         const runId = path.split("/api/runs/")[1].split("/gates")[0];
         const gates = await provider.getGateResults(runId);
         return Response.json(gates);
+      }
+
+      if (path.match(/\/api\/runs\/[^/]+\/lifecycle/)) {
+        const runId = path.split("/api/runs/")[1].split("/lifecycle")[0];
+        if (provider.getLifecyclePhases) {
+          const phases = await provider.getLifecyclePhases(runId);
+          return Response.json(phases);
+        }
+        return Response.json([]);
       }
 
       if (path === "/api/health") {
@@ -503,6 +558,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       <div class="panel-body task-graph" id="d-graph"></div>
     </div>
 
+    <div class="panel">
+      <div class="panel-header">生命周期阶段 (Phase Graph)</div>
+      <div class="panel-body" id="d-lifecycle" style="display:flex;gap:4px;flex-wrap:wrap;padding:12px"></div>
+    </div>
+
     <div class="grid">
       <div class="panel">
         <div class="panel-header">任务列表</div>
@@ -600,6 +660,21 @@ async function showDetail(runId) {
     tlEl.innerHTML = events.map(e =>
       '<li><span class="time">' + fmtTime(e.timestamp) + '</span>' + (e.type||e.message||'') + (e.task_id?' ['+e.task_id.slice(0,8)+']':'') + '</li>'
     ).join('') || '<li style="color:#8b949e">无时间线数据</li>';
+
+    // Lifecycle Phases
+    try {
+      const lcRes = await apiFetch('/api/runs/' + runId + '/lifecycle');
+      const phases = await lcRes.json();
+      const lcEl = document.getElementById('d-lifecycle');
+      const statusColor = { not_started: '#8b949e', in_progress: '#d29922', completed: '#3fb950', blocked: '#f85149', skipped: '#6e7681' };
+      lcEl.innerHTML = phases.map((p, i) =>
+        '<div style="text-align:center;padding:8px 12px;border-radius:6px;border:1px solid ' + (statusColor[p.status]||'#30363d') + ';min-width:90px">' +
+        '<div style="font-size:11px;color:' + (statusColor[p.status]||'#8b949e') + '">' + p.status + '</div>' +
+        '<div style="font-weight:600;font-size:13px;margin:4px 0">' + p.phase + '</div>' +
+        '<div style="font-size:10px;color:#8b949e">工件 ' + p.artifacts_count + '/' + p.required_artifacts_count + ' | Gate ' + p.gates_passed + '/' + p.gates_total + '</div>' +
+        '</div>' + (i < phases.length - 1 ? '<div style="display:flex;align-items:center;color:#6e7681">→</div>' : '')
+      ).join('') || '<div style="color:#8b949e">无生命周期数据</div>';
+    } catch { document.getElementById('d-lifecycle').innerHTML = '<div style="color:#8b949e">生命周期数据不可用</div>'; }
 
   } catch(e) { console.error(e); }
 }

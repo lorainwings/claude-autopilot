@@ -45,7 +45,7 @@ bun test tests/unit/
 bunx tsc --noEmit
 ```
 
-Expected result: `219 pass / 0 fail`.
+Expected result: `295 pass / 0 fail`.
 
 ---
 

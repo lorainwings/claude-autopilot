@@ -17,7 +17,7 @@
 | README.md | 已完成 | 英文说明文档 |
 | README.zh.md | 已完成 | 中文说明文档（GA 级） |
 | 核心运行时可用 | 已完成 | 15 个 runtime 模块全部实现 |
-| 单元测试通过 | 已完成 | 219 pass / 0 fail / 499 expect() |
+| 单元测试通过 | 已完成 | 295 pass / 0 fail / 649 expect() |
 | Skills 骨架 | 已完成 | 4 个 Skill（harness / plan / dispatch / verify） |
 | Engine 统一入口 | 已完成 | OrchestratorRuntime 完整生命周期管理 |
 | Task Graph | 已完成 | DAG 构建、验证、依赖解析 |
@@ -76,7 +76,7 @@
 |------|--------|------|
 | v0.1.0 | MVP — 核心 Schema + 调度器 + 路由器 | 已完成 |
 | v0.5.0 | Beta — Worker Runtime + Gate System + Persistence | 已完成 |
-| v1.0.0 | GA — 全部 15 模块 + 219 测试 + 完整文档 | 已完成 |
+| v1.0.0 | GA — 全部 15 模块 + 295 测试 + 完整文档 | 已完成 |
 
 ## 与 spec-autopilot 产品定位
 
