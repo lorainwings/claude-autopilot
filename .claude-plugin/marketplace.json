@@ -28,7 +28,7 @@
       "source": "./dist/daily-report",
       "description": "Auto-generate and submit daily work reports from git commits and Lark chat history",
       "category": "productivity",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ]
 }
