@@ -81,7 +81,7 @@ rm -f "$_T"
 4. 检查飞书 scope 是否已全部授权:
 
    ```bash
-   lark-cli im chats list --page-size 1 --format json 2>&1
+   lark-cli im chats list --page-all --format json 2>&1
    ```
 
    - 成功返回数据 → scope 已就绪，跳过全部授权
@@ -251,7 +251,7 @@ AskUserQuestion 参数:
 
    - exit code 0（已配置且已授权）: 继续
    - exit code 非 0（未配置）: 自动转入阶段 0-A 步骤 3
-4. 验证飞书权限可用: 执行 `lark-cli im chats list --page-size 1 --format json`
+4. 验证飞书权限可用: 执行 `lark-cli im chats list --page-all --format json`
    - 成功: 继续
    - 返回 `missing_scope` 错误: 仅对缺失的 scope 使用阶段 0-A「自动开浏览器模板」执行补充授权
    - 禁止请求需要管理员审批的 scope
@@ -278,66 +278,75 @@ AskUserQuestion 参数:
   - 其他自然语言描述 → 智能解析为对应日期范围
 - 自动排除周末 (周六、周日)
 
-**以下采集任务相互独立，使用 Agent 工具并行调度以最大化效率:**
+**以下采集任务相互独立，使用后台 Agent 并行调度以最大化效率:**
 
-> **并行策略**: 将 Git 采集和飞书采集分别派发给 2 个 sub-Agent，同时用 3 个并行 Bash tool calls 执行 3 个简单 API 查询。5 路任务在同一条消息中同时发出。
+> **并行策略**: 在**同一条消息**中同时发出 4 个后台 Agent（`run_in_background: true`）+ 3 个 Bash tool calls，共 7 路并行。主线程无需等待，所有后台 Agent 完成后系统会自动通知。收到全部通知后，主线程汇总所有结果进入阶段 2.5。
 
-**Agent 1 — Git 提交记录采集**
+**后台 Agent 1 — Git 提交记录采集**（`run_in_background: true`）
 
+- prompt 中传入: `repos` 列表、`gitAuthor`、`startDate`、`endDate`
 - 遍历 `config.repos` 中每个仓库路径
 - 执行: `git -C {repo} log --author="{gitAuthor}" --after="{startDate}" --before="{endDate+1day}" --format="%H|%ad|%s" --date=format:"%Y-%m-%d"`
 - 按日期聚合提交，提取 commit message 摘要
 - `gitAuthor` 支持 `|` 分隔的多个别名
+- **返回**: 按日期分组的提交列表
 
-**Agent 2 — 飞书工作记录采集**
+**后台 Agent 2 — 飞书群聊消息采集**（`run_in_background: true`，最重任务独占一个 Agent）
 
-采集三类飞书数据（若某项 scope 不足则跳过，不阻断流程）:
+- prompt 中传入: `larkOpenId`、`startDate`、`endDate`
+- **第一步 — 获取全部群 ID**:
+  ```bash
+  lark-cli im chats list --page-all --format json
+  ```
+  从返回结果提取**所有** `chat_id`。用户通常在数十甚至上百个群中，**必须遍历全部群**，禁止只取前几个或仅检查部分群。
+- **第二步 — 按群批量拉取消息**:
+  对**每个**群调用:
+  ```bash
+  lark-cli im +chat-messages-list --chat-id {chat_id} \
+    --start "{startDate}T00:00:00+08:00" \
+    --end "{endDate}T23:59:59+08:00" \
+    --page-size 50 --format json
+  ```
+  **并行优化**: 将全部群列表按每批 5-10 个分组，使用多个并行 Bash tool calls 同时拉取，大幅缩短总耗时。每批在一个 Bash 中用 for 循环串行调用，多批之间并行。
+- **第三步 — 过滤自己的消息**:
+  用 `larkOpenId` 过滤每条消息的 `sender.id`（或 `sender` 字段），只保留自己发送的消息。汇总所有群的结果。
+- **消息结构**: `content` 在**顶层**，正确取法: `message.content`。**严禁**使用 `message.body.content`
+- **返回**: 扫描群数量 + 本人消息列表（含群名、发送时间、内容摘要）
 
-1. **群聊消息**（核心数据源）:
-   - **第一步 — 获取全部群 ID**:
-     ```bash
-     lark-cli im chats list --page-all --format json
-     ```
-     从返回结果提取**所有** `chat_id`。用户通常在数十甚至上百个群中，**必须遍历全部群**，禁止只取前几个或仅检查部分群。
-   - **第二步 — 按群批量拉取消息**:
-     对**每个**群调用:
-     ```bash
-     lark-cli im +chat-messages-list --chat-id {chat_id} \
-       --start "{startDate}T00:00:00+08:00" \
-       --end "{endDate}T23:59:59+08:00" \
-       --page-size 50 --format json
-     ```
-     **并行优化**: 将全部群列表按每批 5-10 个分组，使用多个并行 Bash tool calls 同时拉取，大幅缩短总耗时。每批在一个 Bash 中用 for 循环串行调用，多批之间并行。
-   - **第三步 — 过滤自己的消息**:
-     用 `config.larkOpenId` 过滤每条消息的 `sender.id`（或 `sender` 字段），只保留自己发送的消息。汇总所有群的结果。
-   - **消息结构**: `content` 在**顶层**，正确取法: `message.content`。**严禁**使用 `message.body.content`
+**后台 Agent 3 — 飞书日历日程采集**（`run_in_background: true`，补充数据源，scope 不足则跳过）
 
-2. **日历日程**（补充数据源，scope 不足则跳过）:
-   ```bash
-   lark-cli calendar +agenda --start {startDate} --end {endDate} --format json
-   ```
+- 执行:
+  ```bash
+  lark-cli calendar +agenda --start {startDate} --end {endDate} --format json
+  ```
+- **返回**: 日程列表（标题、时间、参与人）；scope 不足时返回"跳过"
 
-3. **文档活动**（补充数据源，scope 不足则跳过）:
-   ```bash
-   lark-cli docs +search --query "" --format json
-   ```
+**后台 Agent 4 — 飞书文档活动采集**（`run_in_background: true`，补充数据源，scope 不足则跳过）
 
-**Bash 并行调用 3 — 事项分类列表**
+- 执行:
+  ```bash
+  lark-cli docs +search --query "" --format json
+  ```
+- **返回**: 近期文档列表（标题、类型、更新时间）；scope 不足时返回"跳过"
+
+**Bash 并行调用 5 — 事项分类列表**
 
 - 调用: `GET {baseUrl}{apiPrefix}/pm/work-hour-matter/list?deptId={deptId}`
 - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
 - 返回当前部门下的事项列表 (id + name)，用于匹配 matterId
 
-**Bash 并行调用 4 — 部门列表**（辅助上下文）
+**Bash 并行调用 6 — 部门列表**（辅助上下文）
 
 - 调用: `GET {baseUrl}{apiPrefix}/system/dept/simple-list`
 - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
 
-**Bash 并行调用 5 — 医院/项目组别**（辅助上下文）
+**Bash 并行调用 7 — 医院/项目组别**（辅助上下文）
 
 - 调用: `POST {baseUrl}{apiPrefix}/pm/fcs/product-category/list-exclude-integrated`
 - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
 - Body: `{"pageSize":9999,"pageNo":1,"name":"","parentId":0}`
+
+**汇总**: 所有后台 Agent 完成通知到达后，主线程收集 4 个 Agent 的返回结果 + 3 个 Bash 的返回结果，合并为完整的采集数据集，进入阶段 2.5。
 
 ### 阶段 2.5: 数据自检
 
