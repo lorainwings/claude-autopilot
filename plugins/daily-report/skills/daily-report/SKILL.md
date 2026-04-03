@@ -294,22 +294,22 @@ AskUserQuestion 参数:
 采集三类飞书数据（若某项 scope 不足则跳过，不阻断流程）:
 
 1. **群聊消息**（核心数据源）:
-   - 获取群聊列表: `lark-cli im chats list --page-all --format json`
-   - 使用跨群搜索拉取自己发送的消息（高效，一次性获取所有群的消息）:
+   - **第一步 — 获取全部群 ID**:
      ```bash
-     lark-cli im +messages-search --query "" \
-       --sender {larkOpenId} \
-       --start "{startDate}T00:00:00+08:00" \
-       --end "{endDate}T23:59:59+08:00" \
-       --page-all --format json
+     lark-cli im chats list --page-all --format json
      ```
-   - 若 `+messages-search` 不可用，回退到按群逐个拉取:
+     从返回结果提取**所有** `chat_id`。用户通常在数十甚至上百个群中，**必须遍历全部群**，禁止只取前几个或仅检查部分群。
+   - **第二步 — 按群批量拉取消息**:
+     对**每个**群调用:
      ```bash
      lark-cli im +chat-messages-list --chat-id {chat_id} \
-       --start "{startDate}" --end "{endDate}" \
+       --start "{startDate}T00:00:00+08:00" \
+       --end "{endDate}T23:59:59+08:00" \
        --page-size 50 --format json
      ```
-     然后用 `config.larkOpenId` 过滤 `sender.id` 只保留自己的消息
+     **并行优化**: 将全部群列表按每批 5-10 个分组，使用多个并行 Bash tool calls 同时拉取，大幅缩短总耗时。每批在一个 Bash 中用 for 循环串行调用，多批之间并行。
+   - **第三步 — 过滤自己的消息**:
+     用 `config.larkOpenId` 过滤每条消息的 `sender.id`（或 `sender` 字段），只保留自己发送的消息。汇总所有群的结果。
    - **消息结构**: `content` 在**顶层**，正确取法: `message.content`。**严禁**使用 `message.body.content`
 
 2. **日历日程**（补充数据源，scope 不足则跳过）:
@@ -448,8 +448,7 @@ AskUserQuestion 参数:
 - 内控 API 调用使用 `curl` 命令执行
 - 飞书 API 调用通过 lark-cli skill 执行，正确命令参考:
   - 群列表: `lark-cli im chats list --page-all --format json`
-  - 消息搜索: `lark-cli im +messages-search --query "" --sender {openId} --start "..." --end "..." --page-all`
-  - 按群拉消息: `lark-cli im +chat-messages-list --chat-id {id} --start "..." --end "..."`
+  - 按群拉消息: `lark-cli im +chat-messages-list --chat-id {id} --start "..." --end "..." --page-size 50`
   - 用户信息: `lark-cli contact +get-user`
   - 日历日程: `lark-cli calendar +agenda --start ... --end ...`
   - 文档搜索: `lark-cli docs +search --query "..."`
