@@ -6,8 +6,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=emit-phase-event.sh
-source "$SCRIPT_DIR/emit-phase-event.sh" 2>/dev/null || true
 
 CHANGES_DIR="${1:?用法: emit-report-ready-event.sh <changes_dir> <change_name> <mode> <session_id>}"
 CHANGE_NAME="${2:?缺少 change_name}"
