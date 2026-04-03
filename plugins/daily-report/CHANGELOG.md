@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.8](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.7...daily-report-v1.2.8) (2026-04-03)
+
+
+### Fixed
+
+* **daily-report:** 修复 token 过期和接口 405 错误 ([e0662e1](https://github.com/lorainwings/claude-autopilot/commit/e0662e1b2246a6da070ed3051c7da3dc8c4ac004))
+
 ## [1.2.7](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.6...daily-report-v1.2.7) (2026-04-03)
 
 
