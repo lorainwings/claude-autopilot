@@ -406,14 +406,23 @@ AskUserQuestion 参数:
 
 用户**确认提交**后才执行:
 
-1. **检查已填日期**: 调用查询接口检查每个目标日期是否已有日报
-   - 接口: `GET {baseUrl}{apiPrefix}/pm/staff-work-time-record/page?userId={userId}&startDate={date}&endDate={date}`
+1. **Token 预验证**: 在批量检查前先验证 token 有效性
+   - 接口: `GET {baseUrl}{apiPrefix}/system/auth/get-permission-info`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`
+   - 若返回 401 或其他认证错误: 自动重新登录（流程同阶段 0-B 步骤 3-5），更新 config 中的 token，然后继续
+   - 若返回其他错误: 输出错误信息并终止流程
+
+2. **检查已填日期**: 调用查询接口检查每个目标日期是否已有日报
+   - 接口: `POST {baseUrl}{apiPrefix}/pm/staff-work-time-record/page`
+   - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
+   - Body: `{"userId":{userId},"startDate":"{date}","endDate":"{date}","pageNo":1,"pageSize":10}`
+   - **错误处理**: 若第一次请求返回 401，立即执行 token 预验证流程重新登录，然后从头重试所有日期的检查；若返回 405，说明接口方法错误，检查是否使用了 POST 方法
    - 已有记录的日期自动跳过，输出提示
 
-2. **按天提交**: 对每个未填日期，将该天所有条目打包为一次请求
+3. **按天提交**: 对每个未填日期，将该天所有条目打包为一次请求
    - 接口: `POST {baseUrl}{apiPrefix}/pm/staff-work-time-record/create`
    - Header: `Authorization: {token}`, `tenant-id: {tenantId}`, `Content-Type: application/json`
+   - **错误处理**: 若提交时返回 401，立即重新登录并重试当前日期的提交（最多重试 1 次）
    - Body（**一天一次请求，workList 包含该天所有条目**）:
 
      ```json
@@ -441,7 +450,7 @@ AskUserQuestion 参数:
      - `workHours`: 该条目工时
      - `remark`: 具体工作内容描述
 
-3. **结果汇总**: 输出提交结果
+4. **结果汇总**: 输出提交结果
 
    ```
    日报提交完成
