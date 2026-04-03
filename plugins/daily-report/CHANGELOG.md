@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.5](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.4...daily-report-v1.2.5) (2026-04-03)
+
+
+### Fixed
+
+* **daily-report:** 修复初始化流程重复执行和授权超时问题 ([b2ad66b](https://github.com/lorainwings/claude-autopilot/commit/b2ad66b7bb9858ca2524d5485d4bc74c01453697))
+
 ## [1.2.4](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.3...daily-report-v1.2.4) (2026-04-02)
 
 
