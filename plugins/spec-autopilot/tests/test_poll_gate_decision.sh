@@ -16,7 +16,7 @@ setup_poll_project() {
   mkdir -p "${change_dir}context" "$project_root/.claude" "$project_root/logs"
   cat > "$project_root/.claude/autopilot.config.yaml" <<'EOF'
 gui:
-  decision_poll_timeout: 5
+  decision_poll_timeout: 30
 EOF
 
   echo "$project_root"
