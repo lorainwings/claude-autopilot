@@ -2,7 +2,7 @@
 
 > 此文件为 daily-report 插件的工程法则。
 > 所有 AI Agent 在执行期间必须遵守。
-> 版本: 1.2.7 <!-- x-release-please-version -->
+> 版本: 1.2.8 <!-- x-release-please-version -->
 
 ## 插件定位
 
