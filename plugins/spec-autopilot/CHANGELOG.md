@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.1...spec-autopilot-v5.3.2) (2026-04-03)
+
+
+### Fixed
+
+* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/lorainwings/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
+
 ## [5.3.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.0...spec-autopilot-v5.3.1) (2026-04-03)
 
 
