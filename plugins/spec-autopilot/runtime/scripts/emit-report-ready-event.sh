@@ -30,22 +30,37 @@ suite_skipped=0
 suite_error=0
 anomaly_alerts="[]"
 
-# 扫描报告产物
-if [[ -f "$CONTEXT_DIR/test-report.json" ]]; then
-  report_format=$(jq -r '.format // "custom"' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "custom")
-  report_path=$(jq -r '.path // ""' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "")
-  report_url=$(jq -r '.url // ""' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "")
-  suite_total=$(jq -r '.suite_results.total // 0' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "0")
-  suite_passed=$(jq -r '.suite_results.passed // 0' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "0")
-  suite_failed=$(jq -r '.suite_results.failed // 0' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "0")
-  suite_skipped=$(jq -r '.suite_results.skipped // 0' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "0")
-  suite_error=$(jq -r '.suite_results.error // 0' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "0")
-  anomaly_alerts=$(jq -c '.anomaly_alerts // []' "$CONTEXT_DIR/test-report.json" 2>/dev/null || echo "[]")
+# 从 Phase 6 正式 checkpoint 读取报告数据（权威来源）
+PHASE6_CHECKPOINT="$CONTEXT_DIR/phase-results/phase-6-report.json"
+if [[ -f "$PHASE6_CHECKPOINT" ]]; then
+  report_format=$(jq -r '.report_format // "custom"' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "custom")
+  report_path=$(jq -r '.report_path // ""' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "")
+  report_url=$(jq -r '.report_url // ""' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "")
+  # suite_results 在 phase-6-report.json 中是套件数组 [{suite, total, passed, failed, skipped}]，需聚合为总计
+  suite_total=$(jq '[.suite_results[]?.total // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
+  suite_passed=$(jq '[.suite_results[]?.passed // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
+  suite_failed=$(jq '[.suite_results[]?.failed // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
+  suite_skipped=$(jq '[.suite_results[]?.skipped // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
+  suite_error=$(jq '[.suite_results[]?.error // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
+  anomaly_alerts=$(jq -c '.anomaly_alerts // []' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "[]")
+  # 从 checkpoint 读取 allure_results_dir
+  checkpoint_allure_dir=$(jq -r '.allure_results_dir // ""' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "")
+  if [[ -n "$checkpoint_allure_dir" ]]; then
+    allure_results_dir="$checkpoint_allure_dir"
+  fi
 fi
 
-# 检查 Allure 产物
-if [[ -d "$REPORT_DIR/allure-results" ]]; then
-  allure_results_dir="$REPORT_DIR/allure-results"
+# 检查 Allure 产物（多路径兼容：change 级 reports/ + 工作目录根 allure-results/）
+if [[ -z "$allure_results_dir" ]]; then
+  if [[ -d "$REPORT_DIR/allure-results" ]]; then
+    allure_results_dir="$REPORT_DIR/allure-results"
+    report_format="allure"
+  fi
+fi
+# Phase 6 模板默认输出到工作目录根 allure-results/
+PROJECT_ROOT=$(cd "$CHANGES_DIR/../.." 2>/dev/null && pwd || pwd)
+if [[ -z "$allure_results_dir" && -d "$PROJECT_ROOT/allure-results" ]]; then
+  allure_results_dir="$PROJECT_ROOT/allure-results"
   report_format="allure"
 fi
 

@@ -321,6 +321,20 @@ report_state = {
 # 从 Phase 6 结果中扫描报告信息
 if 6 in phase_results_full:
     p6_data = phase_results_full[6]
+    # 优先从顶层字段读取（Phase 6 checkpoint 权威来源）
+    if p6_data.get('report_path'):
+        report_state['report_path'] = p6_data['report_path']
+    if p6_data.get('report_format'):
+        report_state['report_format'] = p6_data['report_format']
+    if p6_data.get('report_url'):
+        report_state['report_url'] = p6_data['report_url']
+    if p6_data.get('allure_results_dir'):
+        report_state['allure_results_dir'] = p6_data['allure_results_dir']
+    if p6_data.get('suite_results'):
+        report_state['suite_results'] = p6_data['suite_results']
+    if p6_data.get('anomaly_alerts'):
+        report_state['anomaly_alerts'] = p6_data['anomaly_alerts']
+    # 从 artifacts 数组补充（向后兼容）
     p6_artifacts = p6_data.get('artifacts', [])
     for artifact in p6_artifacts:
         if isinstance(artifact, str):
@@ -343,16 +357,24 @@ if 6 in phase_results_full:
                 report_state['suite_results'] = artifact.get('data')
             elif artifact.get('type') == 'anomaly':
                 report_state['anomaly_alerts'].append(artifact)
-# 扫描 Phase 6 报告文件目录
-p6_report_dir = os.path.join(change_dir, 'context', 'reports')
-if os.path.isdir(p6_report_dir):
-    for rpt in sorted(glob.glob(os.path.join(p6_report_dir, '*'))):
-        rpt_name = os.path.basename(rpt)
-        if rpt_name.endswith('.html') and not report_state['report_path']:
-            report_state['report_path'] = rpt
-            report_state['report_format'] = 'html'
-        elif 'allure-results' in rpt_name and not report_state['allure_results_dir']:
-            report_state['allure_results_dir'] = rpt
+# 扫描 Phase 6 报告文件目录（多路径兼容）
+for p6_report_dir in [
+    os.path.join(change_dir, 'reports'),          # change 级 reports/
+    os.path.join(change_dir, 'context', 'reports'),  # 向后兼容 context/reports/
+]:
+    if os.path.isdir(p6_report_dir):
+        for rpt in sorted(glob.glob(os.path.join(p6_report_dir, '*'))):
+            rpt_name = os.path.basename(rpt)
+            if rpt_name.endswith('.html') and not report_state['report_path']:
+                report_state['report_path'] = rpt
+                report_state['report_format'] = 'html'
+            elif 'allure-results' in rpt_name and not report_state['allure_results_dir']:
+                report_state['allure_results_dir'] = rpt
+# 工作目录根 allure-results/（Phase 6 模板默认输出位置）
+_project_root = os.path.dirname(os.path.dirname(change_dir))  # change_dir = .../openspec/changes/<name>
+project_allure_dir = os.path.join(_project_root, 'allure-results')
+if os.path.isdir(project_allure_dir) and not report_state['allure_results_dir']:
+    report_state['allure_results_dir'] = project_allure_dir
 
 # --- v7.0 新增: active_agents（当前活跃的 agent 列表）---
 active_agents = []
