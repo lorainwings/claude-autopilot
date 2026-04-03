@@ -95,7 +95,7 @@ rm -f "$_T"
 
 ### 1.4 授权飞书权限 (scope)
 
-先检查: `lark-cli im chats list --page-size 1 --format json`，成功返回数据则跳过全部授权。
+先检查: `lark-cli im chats list --page-all --format json`，成功返回数据则跳过全部授权。
 
 lark-cli 通过逐个 scope 授权的方式获取飞书 API 权限。每条授权命令执行后，终端会输出设备验证链接和二维码。**处理规则**与 1.3 相同:
 
