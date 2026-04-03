@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.6](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.5...daily-report-v1.2.6) (2026-04-03)
+
+
+### Fixed
+
+* **daily-report:** 修复飞书群消息获取为0的问题 ([51945fb](https://github.com/lorainwings/claude-autopilot/commit/51945fba35b95dd6a20aa15a371b64d51cbed06c))
+
 ## [1.2.5](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.4...daily-report-v1.2.5) (2026-04-03)
 
 
