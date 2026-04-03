@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.2...spec-autopilot-v5.3.3) (2026-04-03)
+
+
+### Fixed
+
+* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/lorainwings/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
+* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/lorainwings/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
+
 ## [5.3.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.1...spec-autopilot-v5.3.2) (2026-04-03)
 
 
