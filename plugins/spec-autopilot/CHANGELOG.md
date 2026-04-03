@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.0...spec-autopilot-v5.3.1) (2026-04-03)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/lorainwings/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
+
 ## [5.3.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.2...spec-autopilot-v5.3.0) (2026-04-02)
 
 
