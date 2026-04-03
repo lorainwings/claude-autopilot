@@ -148,6 +148,142 @@ export interface GateInput {
 }
 
 // ============================================================
+// Verifier Batch Plan (P0-3) — 避免 task 级全仓命令风暴
+// ============================================================
+
+/** 验证批次计划 — 控制命令执行粒度 */
+export interface VerifierBatchPlan {
+  /** 执行范围 */
+  scope: "task" | "batch" | "run";
+  /** 待执行命令 */
+  commands: string[];
+  /** 影响的文件路径 */
+  impacted_paths: string[];
+  /** 共享证据引用（批次级结果可被多个 task 复用） */
+  shared_evidence_refs: string[];
+}
+
+/** 测试影响分析 — 判断是否需要全仓测试 */
+export interface TestImpactAnalysis {
+  /** 受影响的测试文件 */
+  affected_test_files: string[];
+  /** 是否需要全仓测试 */
+  requires_full_suite: boolean;
+  /** 分析原因 */
+  reason: string;
+}
+
+/** 类型检查范围分类器 */
+export interface TypecheckScopeClassifier {
+  /** 受影响的 TS 文件 */
+  affected_ts_files: string[];
+  /** 是否需要全仓类型检查 */
+  requires_full_typecheck: boolean;
+  /** 分析原因 */
+  reason: string;
+}
+
+/** 分析测试影响范围 */
+export function analyzeTestImpact(modifiedPaths: string[]): TestImpactAnalysis {
+  const affectedTestFiles = modifiedPaths.filter(
+    p => p.includes("test") || p.includes("spec")
+  );
+
+  // 如果修改了配置文件、package.json、tsconfig 等，需要全仓测试
+  const configPatterns = [
+    /package\.json$/,
+    /tsconfig.*\.json$/,
+    /\.config\.(ts|js|mjs)$/,
+    /bun\.lock$/,
+  ];
+  const modifiedConfig = modifiedPaths.some(p => configPatterns.some(pat => pat.test(p)));
+
+  // 如果修改了共享模块（index.ts、types/、schemas/），需要全仓测试
+  const sharedModulePatterns = [
+    /\/index\.(ts|js)$/,
+    /\/types\//,
+    /\/schemas\//,
+    /\/shared\//,
+  ];
+  const modifiedShared = modifiedPaths.some(p => sharedModulePatterns.some(pat => pat.test(p)));
+
+  const requiresFullSuite = modifiedConfig || modifiedShared;
+
+  return {
+    affected_test_files: affectedTestFiles,
+    requires_full_suite: requiresFullSuite,
+    reason: requiresFullSuite
+      ? modifiedConfig
+        ? "配置文件变更，需要全仓测试"
+        : "共享模块变更，需要全仓测试"
+      : `仅 ${affectedTestFiles.length} 个测试文件受影响`,
+  };
+}
+
+/** 分析类型检查范围 */
+export function analyzeTypecheckScope(modifiedPaths: string[]): TypecheckScopeClassifier {
+  const affectedTsFiles = modifiedPaths.filter(p => p.endsWith(".ts") || p.endsWith(".tsx"));
+
+  const configChanged = modifiedPaths.some(p => /tsconfig.*\.json$/.test(p));
+  const typeDefChanged = modifiedPaths.some(p => p.endsWith(".d.ts") || p.includes("/types/"));
+
+  const requiresFullTypecheck = configChanged || typeDefChanged;
+
+  return {
+    affected_ts_files: affectedTsFiles,
+    requires_full_typecheck: requiresFullTypecheck,
+    reason: requiresFullTypecheck
+      ? configChanged
+        ? "tsconfig 变更，需要全仓类型检查"
+        : "类型定义变更，需要全仓类型检查"
+      : `仅 ${affectedTsFiles.length} 个 TS 文件受影响`,
+  };
+}
+
+/** 为一批 task 生成验证批次计划 */
+export function createVerifierBatchPlan(
+  taskOutputs: Array<{ task_id: string; modified_paths: string[] }>,
+  level: GateLevel
+): VerifierBatchPlan {
+  const allModifiedPaths = taskOutputs.flatMap(t => t.modified_paths);
+  const uniquePaths = [...new Set(allModifiedPaths)];
+
+  if (level === "task") {
+    // task 级别：只跑 task-scoped 验证，不跑全仓命令
+    return {
+      scope: "task",
+      commands: [], // task 级别不直接执行全仓命令
+      impacted_paths: uniquePaths,
+      shared_evidence_refs: [],
+    };
+  }
+
+  const testImpact = analyzeTestImpact(uniquePaths);
+  const typecheckScope = analyzeTypecheckScope(uniquePaths);
+
+  const commands: string[] = [];
+  if (testImpact.requires_full_suite) {
+    commands.push("bun test");
+  } else if (testImpact.affected_test_files.length > 0) {
+    commands.push(`bun test ${testImpact.affected_test_files.join(" ")}`);
+  }
+
+  if (typecheckScope.requires_full_typecheck) {
+    commands.push("bunx tsc --noEmit");
+  }
+
+  // GateLevel "pr" 映射为 batch plan scope "run"
+  const batchScope: VerifierBatchPlan["scope"] = level === "pr" ? "run" : level;
+
+  return {
+    scope: batchScope,
+    commands,
+    impacted_paths: uniquePaths,
+    shared_evidence_refs: taskOutputs.map(t => `evidence:${t.task_id}`),
+  };
+}
+
+// ============================================================
 // Shell Execution Helper
 // ============================================================
 
@@ -180,44 +316,65 @@ export class TestGateEvaluator implements SingleGateEvaluator {
     const findings: GateFinding[] = [];
     const cwd = input.ctx.project?.root_path;
 
-    // 真实执行测试
-    if (input.workerOutput && input.workerOutput.modified_paths.length > 0) {
-      const testResult = await execShell("bun test 2>&1", cwd);
+    // P0-3: batch-aware 测试执行
+    const hasModifiedPaths = input.workerOutput && input.workerOutput.modified_paths.length > 0;
+    const isRunOrBatchLevel = input.level === "run" || input.level === "pr";
 
-      if (testResult.exitCode !== 0) {
-        // 解析失败的测试
-        const failMatch = testResult.stdout.match(/(\d+)\s+fail/);
-        const failCount = failMatch ? parseInt(failMatch[1]) : 1;
+    if (hasModifiedPaths || isRunOrBatchLevel) {
+      const modifiedPaths = input.workerOutput?.modified_paths || [];
+      const impact = analyzeTestImpact(modifiedPaths);
 
+      // task 级别：如果不需要全仓测试且无受影响测试文件，延迟到 run 级
+      if (input.level === "task" && !impact.requires_full_suite && impact.affected_test_files.length === 0) {
         findings.push({
-          severity: "error",
-          message: `测试失败: ${failCount} 个测试未通过`,
-          rule_id: "TEST-001",
-          suggestion: testResult.stderr || testResult.stdout.slice(0, 500),
+          severity: "info",
+          message: `Task 级跳过测试 (${impact.reason})，将在 run 级执行全仓测试`,
+          rule_id: "TEST-DEFERRED",
         });
+      } else {
+        // run/batch 级别无条件跑全仓；task 级别如果有具体测试文件则只跑受影响的
+        let testCmd = "bun test 2>&1";
+        if (input.level === "task" && !impact.requires_full_suite && impact.affected_test_files.length > 0) {
+          testCmd = `bun test ${impact.affected_test_files.join(" ")} 2>&1`;
+        }
 
-        // 提取失败文件
-        const fileMatches = testResult.stdout.matchAll(/FAIL\s+([\w\-./]+)/g);
-        for (const m of fileMatches) {
+        const testResult = await execShell(testCmd, cwd);
+
+        if (testResult.exitCode !== 0) {
+          // 解析失败的测试
+          const failMatch = testResult.stdout.match(/(\d+)\s+fail/);
+          const failCount = failMatch ? parseInt(failMatch[1]) : 1;
+
           findings.push({
             severity: "error",
-            message: `测试文件失败: ${m[1]}`,
-            file_path: m[1],
-            rule_id: "TEST-002",
+            message: `测试失败: ${failCount} 个测试未通过`,
+            rule_id: "TEST-001",
+            suggestion: testResult.stderr || testResult.stdout.slice(0, 500),
           });
+
+          // 提取失败文件
+          const fileMatches = testResult.stdout.matchAll(/FAIL\s+([\w\-./]+)/g);
+          for (const m of fileMatches) {
+            findings.push({
+              severity: "error",
+              message: `测试文件失败: ${m[1]}`,
+              file_path: m[1],
+              rule_id: "TEST-002",
+            });
+          }
+        } else {
+          // 提取通过数
+          const passMatch = testResult.stdout.match(/(\d+)\s+pass/);
+          if (passMatch) {
+            findings.push({
+              severity: "info",
+              message: `测试通过: ${passMatch[1]} 个`,
+              rule_id: "TEST-000",
+            });
+          }
         }
-      } else {
-        // 提取通过数
-        const passMatch = testResult.stdout.match(/(\d+)\s+pass/);
-        if (passMatch) {
-          findings.push({
-            severity: "info",
-            message: `测试通过: ${passMatch[1]} 个`,
-            rule_id: "TEST-000",
-          });
-        }
-      }
-    }
+      } // end else (actual test execution)
+    } // end if (hasModifiedPaths || isRunOrBatchLevel)
 
     // 检查是否有 required_tests 未覆盖
     if (input.task?.required_tests && input.task.required_tests.length > 0) {
@@ -272,42 +429,44 @@ export class LintTypeGateEvaluator implements SingleGateEvaluator {
     const findings: GateFinding[] = [];
     const cwd = input.ctx.project?.root_path;
 
-    if (input.workerOutput && input.workerOutput.modified_paths.length > 0) {
-      const tsFiles = input.workerOutput.modified_paths.filter(
+    // P0-3 修正: run/batch 级别即使无 workerOutput 也必须执行全仓类型检查
+    const hasModifiedPaths = input.workerOutput && input.workerOutput.modified_paths.length > 0;
+    const isRunOrBatchLevel = input.level === "run" || input.level === "pr";
+
+    if (hasModifiedPaths || isRunOrBatchLevel) {
+      const modifiedPaths = input.workerOutput?.modified_paths || [];
+      const tsFiles = modifiedPaths.filter(
         (p) => p.endsWith(".ts") || p.endsWith(".tsx")
       );
 
-      if (tsFiles.length > 0) {
-        // 真实执行 tsc 类型检查
-        const tscResult = await execShell("bunx tsc --noEmit 2>&1", cwd);
+      // run/batch 级别无条件执行全仓检查；task 级别仅在有 ts 文件时检查
+      const shouldTypecheck = isRunOrBatchLevel || tsFiles.length > 0;
 
-        if (tscResult.exitCode !== 0 && tscResult.stdout) {
-          // 解析 tsc 错误
-          const errorLines = tscResult.stdout.split("\n").filter((l) => l.includes("error TS"));
-          for (const line of errorLines.slice(0, 20)) {
-            const match = line.match(/^(.+?)\((\d+),\d+\):\s*error\s+TS\d+:\s*(.+)/);
-            if (match) {
-              findings.push({
-                severity: "error",
-                message: match[3],
-                file_path: match[1],
-                line: parseInt(match[2]),
-                rule_id: "TSC-001",
-              });
-            }
-          }
-          if (errorLines.length > 20) {
+      if (shouldTypecheck) {
+        const tscCmd = "bunx tsc --noEmit 2>&1";
+
+        // task 级别且不需要全仓检查时，延迟到 run 级执行
+        if (input.level === "task" && modifiedPaths.length > 0) {
+          const typecheckScope = analyzeTypecheckScope(modifiedPaths);
+          if (!typecheckScope.requires_full_typecheck) {
             findings.push({
-              severity: "warning",
-              message: `还有 ${errorLines.length - 20} 个类型错误未展示`,
-              rule_id: "TSC-002",
+              severity: "info",
+              message: `Task 级跳过全仓类型检查 (${typecheckScope.reason})，将在 batch/run 级执行`,
+              rule_id: "TSC-DEFERRED",
             });
+          } else {
+            const tscResult = await execShell(tscCmd, cwd);
+            this.parseTscErrors(tscResult, findings);
           }
+        } else {
+          // run/batch 级别: 无条件执行全仓类型检查
+          const tscResult = await execShell(tscCmd, cwd);
+          this.parseTscErrors(tscResult, findings);
         }
       }
 
       // Python lint（独立于 TypeScript 条件块）
-      const pyFiles = input.workerOutput.modified_paths.filter((p) => p.endsWith(".py"));
+      const pyFiles = modifiedPaths.filter((p) => p.endsWith(".py"));
       if (pyFiles.length > 0) {
         const lintResult = await execShell(`ruff check ${pyFiles.join(" ")} 2>&1`, cwd);
         if (lintResult.exitCode !== 0) {
@@ -341,6 +500,32 @@ export class LintTypeGateEvaluator implements SingleGateEvaluator {
       },
       evaluated_at: new Date().toISOString(),
     };
+  }
+
+  /** 解析 tsc 输出中的错误 */
+  private parseTscErrors(tscResult: { stdout: string; stderr: string; exitCode: number }, findings: GateFinding[]): void {
+    if (tscResult.exitCode !== 0 && tscResult.stdout) {
+      const errorLines = tscResult.stdout.split("\n").filter((l) => l.includes("error TS"));
+      for (const line of errorLines.slice(0, 20)) {
+        const match = line.match(/^(.+?)\((\d+),\d+\):\s*error\s+TS\d+:\s*(.+)/);
+        if (match) {
+          findings.push({
+            severity: "error",
+            message: match[3],
+            file_path: match[1],
+            line: parseInt(match[2]),
+            rule_id: "TSC-001",
+          });
+        }
+      }
+      if (errorLines.length > 20) {
+        findings.push({
+          severity: "warning",
+          message: `还有 ${errorLines.length - 20} 个类型错误未展示`,
+          rule_id: "TSC-002",
+        });
+      }
+    }
   }
 }
 

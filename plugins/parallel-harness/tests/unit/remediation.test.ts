@@ -748,16 +748,20 @@ describe("Trusted Execution Plane", () => {
     expect(attestation.tool_calls.length).toBe(2);
     expect(attestation.tool_calls[0].name).toBe("Edit");
     expect(attestation.tool_calls[0].args_hash).toBeTruthy();
-    // diff_ref 从 baseline_commit 赋值
-    expect(attestation.diff_ref).toBe("abc123def");
+    // P0-4: diff_ref 现在由 generateDiffRef 生成真实 diff 引用
+    expect(attestation.diff_ref).toBeTruthy();
+    expect(typeof attestation.diff_ref).toBe("string");
   });
 
-  it("sandbox_mode worktree 抛出明确错误", () => {
+  it("sandbox_mode worktree 优雅降级 (P0-4: 不再抛异常)", () => {
     const proxy = new ExecutionProxy();
-    expect(() => proxy.prepareExecution({
+    // P0-4: worktree 模式不再抛异常，而是在创建失败时优雅降级到 path_check
+    const result = proxy.prepareExecution({
       model_tier: "tier-2",
       project_root: "/tmp",
       sandbox_mode: "worktree",
-    })).toThrow("worktree");
+    });
+    expect(result.validated_model).toBe("claude-sonnet-4");
+    expect(result.validated_cwd).toBeTruthy();
   });
 });

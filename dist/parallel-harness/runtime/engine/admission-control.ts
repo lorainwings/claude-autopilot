@@ -5,7 +5,7 @@
  * 在调度批次执行前预估成本，余额不足时拒绝执行。
  */
 
-import type { CostLedger } from "../schemas/ga-schemas";
+import type { CostLedger, CostBudget } from "../schemas/ga-schemas";
 import type { TaskNode, ModelTier } from "../orchestrator/task-graph";
 
 /** 默认每 task 预估 token 消耗 */
@@ -84,4 +84,49 @@ export function admitTask(
   estimatedTokens: number = DEFAULT_ESTIMATED_TOKENS_PER_TASK
 ): AdmissionResult {
   return admitBatch(ledger, estimateBatchCost([task], estimatedTokens));
+}
+
+/**
+ * P0-2: 使用 CostBudget 进行准入检查（替代 CostLedger 的结构化方式）
+ */
+export function admitBatchWithCostBudget(
+  costBudget: CostBudget,
+  estimatedCost: number
+): AdmissionResult {
+  const remaining = costBudget.remaining_cost_units;
+
+  if (remaining <= 0) {
+    return {
+      admitted: false,
+      estimated_cost: estimatedCost,
+      remaining_budget: remaining,
+      reason: `成本预算已耗尽: 余额 ${remaining.toFixed(2)} 单位，无法执行任何批次`,
+    };
+  }
+
+  if (estimatedCost > remaining) {
+    return {
+      admitted: false,
+      estimated_cost: estimatedCost,
+      remaining_budget: remaining,
+      reason: `成本预算不足: 预估成本 ${estimatedCost.toFixed(2)} 单位，余额 ${remaining.toFixed(2)} 单位`,
+    };
+  }
+
+  return {
+    admitted: true,
+    estimated_cost: estimatedCost,
+    remaining_budget: remaining,
+  };
+}
+
+/**
+ * P0-2: 使用 CostBudget 检查单个任务是否可准入
+ */
+export function admitTaskWithCostBudget(
+  costBudget: CostBudget,
+  task: TaskNode,
+  estimatedTokens: number = DEFAULT_ESTIMATED_TOKENS_PER_TASK
+): AdmissionResult {
+  return admitBatchWithCostBudget(costBudget, estimateBatchCost([task], estimatedTokens));
 }

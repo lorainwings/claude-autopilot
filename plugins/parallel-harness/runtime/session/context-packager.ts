@@ -19,6 +19,7 @@ import type {
   CodeSnippet,
   TaskContract,
 } from "./context-pack";
+import { normalizePath } from "../schemas/ga-schemas";
 
 // ============================================================
 // 配置
@@ -62,7 +63,8 @@ export function packContext(
   availableFiles: FileInfo[],
   config: Partial<PackagerConfig> = {},
   externalBudget?: { max_input_tokens: number },
-  retryHint?: number
+  retryHint?: number,
+  repoRoot?: string
 ): ContextPack {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
@@ -79,7 +81,7 @@ export function packContext(
   const role = budget.role;
 
   // 1. 筛选相关文件 + 角色排序
-  let relevantFiles = selectRelevantFiles(task, availableFiles);
+  let relevantFiles = selectRelevantFiles(task, availableFiles, repoRoot);
   if (role) {
     relevantFiles = sortByRole(relevantFiles, role);
   }
@@ -219,18 +221,24 @@ function roleFileScore(path: string, role: "planner" | "author" | "verifier"): n
 
 function selectRelevantFiles(
   task: TaskNode,
-  files: FileInfo[]
+  files: FileInfo[],
+  repoRoot?: string
 ): FileInfo[] {
+  const root = repoRoot || process.cwd();
   return files.filter((f) => {
-    // 在允许路径内
-    const isAllowed = task.allowed_paths.some(
-      (p) => f.path.startsWith(p) || f.path === p
-    );
+    // 归一化比较：支持绝对/相对/root 路径
+    const isAllowed = task.allowed_paths.length === 0 || task.allowed_paths.some((p) => {
+      if (p === "." || p === "./") return true; // repo_root 匹配所有
+      const np = normalizePath(p, root);
+      const fp = normalizePath(f.path, root);
+      return fp.repo_relative.startsWith(np.repo_relative) || fp.repo_relative === np.repo_relative;
+    });
 
-    // 不在禁止路径内
-    const isForbidden = task.forbidden_paths.some(
-      (p) => f.path.startsWith(p) || f.path === p
-    );
+    const isForbidden = task.forbidden_paths.some((p) => {
+      const np = normalizePath(p, root);
+      const fp = normalizePath(f.path, root);
+      return fp.repo_relative.startsWith(np.repo_relative) || fp.repo_relative === np.repo_relative;
+    });
 
     return isAllowed && !isForbidden;
   });

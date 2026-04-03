@@ -387,3 +387,113 @@ export class ContextMemoryService {
     return result;
   }
 }
+
+// ============================================================
+// P2-3: ContextMemoryService 主链接线
+// ============================================================
+
+/** 失败记忆条目 */
+export interface FailureMemoryEntry {
+  task_id: string;
+  attempt_number: number;
+  failure_reason: string;
+  failure_class: string;
+  avoided_approaches: string[];
+  timestamp: string;
+}
+
+/** 阶段总结条目 */
+export interface PhaseSummaryEntry {
+  phase: string;
+  summary: string;
+  key_decisions: string[];
+  artifacts_produced: string[];
+  timestamp: string;
+}
+
+/** 依赖输出索引 */
+export interface DependencyOutputIndex {
+  producer_task_id: string;
+  consumer_task_ids: string[];
+  artifact_ref: string;
+  artifact_type: string;
+  indexed_at: string;
+}
+
+/** 将 ContextMemoryService 接入运行时主链 */
+export class MemoryIntegration {
+  constructor(private memoryService: ContextMemoryService) {}
+
+  /** 记录失败记忆 */
+  recordFailure(entry: FailureMemoryEntry): void {
+    this.memoryService.recordFailure({
+      task_id: entry.task_id,
+      failure_reason: entry.failure_reason,
+      failure_class: entry.failure_class,
+      resolved: false,
+      recorded_at: entry.timestamp,
+    });
+  }
+
+  /** 记录阶段总结 */
+  recordPhaseSummary(entry: PhaseSummaryEntry): void {
+    this.memoryService.recordPhaseSummary({
+      phase: entry.phase,
+      summary: entry.summary,
+      key_decisions: entry.key_decisions,
+      artifacts_produced: entry.artifacts_produced,
+      issues_encountered: [],
+      tokens_estimate: Math.ceil(entry.summary.length / 4),
+      created_at: entry.timestamp,
+    });
+  }
+
+  /** 索引依赖输出 */
+  indexDependencyOutput(index: DependencyOutputIndex): void {
+    this.memoryService.recordDependencyOutput({
+      task_id: index.producer_task_id,
+      output_summary: `${index.artifact_type}: ${index.artifact_ref}`,
+      modified_paths: [],
+      key_exports: [index.artifact_ref],
+      tokens_estimate: Math.ceil(index.artifact_ref.length / 4),
+    });
+  }
+
+  /** 获取任务的失败历史 */
+  getFailureHistory(taskId: string): FailureMemoryEntry[] {
+    const failures = this.memoryService.getFailures(false);
+    return failures
+      .filter(f => f.task_id === taskId)
+      .map((f, i) => ({
+        task_id: f.task_id,
+        attempt_number: i + 1,
+        failure_reason: f.failure_reason,
+        failure_class: f.failure_class,
+        avoided_approaches: f.attempted_fix ? [f.attempted_fix] : [],
+        timestamp: f.recorded_at,
+      }));
+  }
+
+  /** 获取可用的依赖输出 */
+  getDependencyOutputs(consumerTaskId: string): DependencyOutputIndex[] {
+    // Retrieve all dependency indices via search
+    const results = this.memoryService.search("dependency", 100);
+    const outputs: DependencyOutputIndex[] = [];
+    for (const mem of results) {
+      if (mem.key.startsWith("dep:")) {
+        const taskId = mem.key.slice(4);
+        const depIndex = this.memoryService.getDependencyOutput(taskId);
+        if (depIndex) {
+          outputs.push({
+            producer_task_id: depIndex.task_id,
+            consumer_task_ids: [consumerTaskId],
+            artifact_ref: depIndex.key_exports[0] || "",
+            artifact_type: "dependency",
+            indexed_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+    return outputs;
+  }
+}

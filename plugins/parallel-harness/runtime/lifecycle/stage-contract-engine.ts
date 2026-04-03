@@ -221,3 +221,63 @@ export class StageContractEngine {
     return this.store;
   }
 }
+
+// ============================================================
+// P1-1: Stage Graph — 真正的阶段图
+// ============================================================
+
+/** 阶段图节点 */
+export interface StageGraphNode {
+  phase: LifecyclePhase;
+  status: PhaseStatus;
+  dependencies: LifecyclePhase[];
+  gate_results: Array<{ gate_type: string; passed: boolean; blocking: boolean }>;
+  artifacts_complete: boolean;
+  evidence_refs: string[];
+}
+
+/** 阶段图 — RunPlan.stage_contracts 的升级形态 */
+export interface StageGraph {
+  nodes: StageGraphNode[];
+  current_phase: LifecyclePhase | null;
+  completed_phases: LifecyclePhase[];
+  blocked_phases: LifecyclePhase[];
+}
+
+/** 从 LifecycleSpecStore 构建阶段图 */
+export function buildStageGraph(store: LifecycleSpecStore): StageGraph {
+  const nodes: StageGraphNode[] = [];
+  const completedPhases: LifecyclePhase[] = [];
+  const blockedPhases: LifecyclePhase[] = [];
+  let currentPhase: LifecyclePhase | null = null;
+
+  const phases = store.listPhases();
+  for (let i = 0; i < phases.length; i++) {
+    const spec = phases[i];
+    const deps: LifecyclePhase[] = i > 0 ? [phases[i - 1].phase] : [];
+    const artifactCheck = store.checkArtifacts(spec.phase);
+
+    nodes.push({
+      phase: spec.phase,
+      status: spec.status,
+      dependencies: deps,
+      gate_results: spec.gates.map(g => ({
+        gate_type: g.gate_type,
+        passed: spec.status === "completed",
+        blocking: g.blocking,
+      })),
+      artifacts_complete: artifactCheck.complete,
+      evidence_refs: spec.evidence_refs,
+    });
+
+    if (spec.status === "completed" || spec.status === "skipped") {
+      completedPhases.push(spec.phase);
+    } else if (spec.status === "blocked") {
+      blockedPhases.push(spec.phase);
+    } else if (spec.status === "in_progress" && !currentPhase) {
+      currentPhase = spec.phase;
+    }
+  }
+
+  return { nodes, current_phase: currentPhase, completed_phases: completedPhases, blocked_phases: blockedPhases };
+}

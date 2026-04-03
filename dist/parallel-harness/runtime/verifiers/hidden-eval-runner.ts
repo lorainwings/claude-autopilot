@@ -169,3 +169,59 @@ export function createDefaultHiddenSuites(projectRoot: string): HiddenTestSuite[
     },
   ];
 }
+
+// ============================================================
+// P1-2: Hidden eval 接入 release 决策
+// ============================================================
+
+/** 执行隐藏评估并生成 gate 级别的结论 */
+export async function runHiddenEvalForRelease(
+  suites: HiddenTestSuite[],
+  reportedResults: { test_count: number; pass_count: number },
+  cwd?: string
+): Promise<{
+  all_passed: boolean;
+  has_discrepancy: boolean;
+  results: HiddenEvalResult[];
+  gate_recommendation: "pass" | "block" | "warn";
+}> {
+  const config: HiddenEvalConfig = {
+    project_root: cwd || process.cwd(),
+    suites,
+    timeout_ms: 120000,
+    discrepancy_threshold: 0.1,
+  };
+
+  const results = await runHiddenTests(config);
+  let hasDiscrepancy = false;
+
+  // 与报告结果对比
+  const reportedPassRate = reportedResults.test_count > 0
+    ? reportedResults.pass_count / reportedResults.test_count
+    : 0;
+
+  const discrepancies = compareWithReportedResults(
+    results,
+    reportedPassRate
+  );
+
+  if (discrepancies.some(d => d.suspicious)) {
+    hasDiscrepancy = true;
+  }
+
+  const allPassed = results.every(r => r.passed);
+
+  let gateRecommendation: "pass" | "block" | "warn" = "pass";
+  if (!allPassed) {
+    gateRecommendation = "block";
+  } else if (hasDiscrepancy) {
+    gateRecommendation = "warn";
+  }
+
+  return {
+    all_passed: allPassed,
+    has_discrepancy: hasDiscrepancy,
+    results,
+    gate_recommendation: gateRecommendation,
+  };
+}

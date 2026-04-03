@@ -313,3 +313,80 @@ export class ReportTemplateEngine {
     }));
   }
 }
+
+// ============================================================
+// P1-3: Report 主链化 — 接入 finalize 流程
+// ============================================================
+
+/** 在 finalize 阶段生成所有报告 */
+export function generateFinalReports(
+  engine: ReportTemplateEngine,
+  data: {
+    run_id: string;
+    run_result: import("../schemas/ga-schemas").RunResult;
+    evidence_refs: Array<{ ref_id: string; kind: string; description: string }>;
+    gate_results: import("../schemas/ga-schemas").GateResult[];
+    grounding_refs?: Array<{ category: string; criterion: string; met: boolean }>;
+    risk_items?: Array<{ severity: string; description: string; mitigation?: string }>;
+  }
+): Map<string, StructuredReport> {
+  const reports = new Map<string, StructuredReport>();
+  const templates = engine.listTemplates();
+
+  // 按 hard/signal 分类 gate 结果
+  const hardGates = data.gate_results.filter(g => g.blocking);
+  const signalGates = data.gate_results.filter(g => !g.blocking);
+
+  // 构建 RunReport — 保留原始 evidence 类型和强度
+  const runReport: RunReport = {
+    run_id: data.run_id,
+    summary: `完成 ${data.run_result.completed_tasks.length} 个任务，失败 ${data.run_result.failed_tasks.length} 个`,
+    evidence_refs: data.evidence_refs.map(ref => {
+      // 从 kind 映射到 EvidenceReference.type，保留原始语义
+      const typeMap: Record<string, EvidenceReference["type"]> = {
+        gate: "gate", attestation: "attestation", artifact: "artifact",
+        test: "gate", file: "artifact", doc: "artifact",
+      };
+      return {
+        type: typeMap[ref.kind] || "artifact",
+        ref_id: ref.ref_id,
+        description: ref.description,
+        // 不强行标记 strength — 由 gate_results 分类决定
+      };
+    }),
+    quality_summary: {
+      overall_grade: data.run_result.quality_report.overall_grade,
+      gate_summary: `${data.gate_results.filter(g => g.passed).length}/${data.gate_results.length} gates 通过`,
+      cost_summary: `总成本: ${data.run_result.cost_summary.total_cost}`,
+      hard_gate_summary: `${hardGates.filter(g => g.passed).length}/${hardGates.length} hard gates 通过`,
+      signal_gate_summary: `${signalGates.filter(g => g.passed).length}/${signalGates.length} signal gates 通过`,
+    },
+  };
+
+  // 构建 ReportContext — 使用 run 真实起止时间
+  const startTime = data.run_result.completed_at
+    ? new Date(new Date(data.run_result.completed_at).getTime() - data.run_result.total_duration_ms).toISOString()
+    : new Date().toISOString();
+
+  const context: ReportContext = {
+    run_id: data.run_id,
+    intent: "finalize",
+    affected_modules: [],
+    start_time: startTime,
+    end_time: data.run_result.completed_at,
+    task_count: data.run_result.completed_tasks.length + data.run_result.failed_tasks.length + data.run_result.skipped_tasks.length,
+    completed_count: data.run_result.completed_tasks.length,
+    failed_count: data.run_result.failed_tasks.length,
+  };
+
+  for (const tmpl of templates) {
+    try {
+      const report = engine.render(runReport, context, tmpl.type);
+      reports.set(tmpl.type, report);
+    } catch {
+      // 单个模板渲染失败不阻断其他模板
+    }
+  }
+
+  return reports;
+}

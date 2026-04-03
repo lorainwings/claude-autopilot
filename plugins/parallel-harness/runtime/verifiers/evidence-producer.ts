@@ -284,3 +284,34 @@ export function createDefaultProducers(): EvidenceProducer[] {
     new ReportEvidenceProducer(),
   ];
 }
+
+// ============================================================
+// P1-2: 默认 Producer 工厂 — 接入 verifier plane
+// ============================================================
+
+/** 运行所有 producers 并收集证据 */
+export async function collectAllEvidence(
+  producers: EvidenceProducer[],
+  config: EvidenceProducerConfig
+): Promise<Map<string, RawEvidence>> {
+  const evidenceMap = new Map<string, RawEvidence>();
+
+  for (const producer of producers) {
+    try {
+      const evidence = await producer.collect(config);
+      evidenceMap.set(producer.type, evidence);
+    } catch (err) {
+      evidenceMap.set(producer.type, {
+        producer_type: producer.type,
+        collected_at: new Date().toISOString(),
+        duration_ms: 0,
+        raw_output: `Error: ${err instanceof Error ? err.message : String(err)}`,
+        exit_code: -1,
+        structured_data: {},
+        artifacts: [],
+      });
+    }
+  }
+
+  return evidenceMap;
+}

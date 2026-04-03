@@ -154,3 +154,97 @@ export interface TaskContract {
   /** 来自 Requirement Grounding 的必要审批 */
   required_approvals?: string[];
 }
+
+// ============================================================
+// P2-2: ContextEnvelope V2
+// ============================================================
+
+/** 证据引用（V2） */
+export interface EvidenceRef {
+  ref_id: string;
+  kind: "file" | "snippet" | "symbol" | "artifact" | "test" | "policy";
+  rationale: string;
+  priority: number;
+}
+
+/** 依赖输出引用 */
+export interface DependencyOutput {
+  task_id: string;
+  artifact_ref: string;
+  summary?: string;
+}
+
+/** V2 压缩策略 */
+export type CompactionPolicyV2 = "none" | "retrieve_only" | "symbol_only" | "summary";
+
+/** 上下文信封 V2 — symbol-aware, dependency-aware, role-aware, retry-aware */
+export interface ContextEnvelopeV2 {
+  task_id: string;
+  /** 角色感知：不同角色看到不同上下文 */
+  role: "planner" | "author" | "verifier" | "reporter";
+  /** 证据引用（按优先级排序） */
+  evidence_refs: EvidenceRef[];
+  /** 依赖任务的输出 */
+  dependency_outputs: DependencyOutput[];
+  /** Token 预算 */
+  budget: {
+    max_input_tokens: number;
+    max_output_tokens: number;
+  };
+  /** 上下文占用率 */
+  occupancy_ratio: number;
+  /** 压缩策略 V2 */
+  compaction_policy: CompactionPolicyV2;
+  /** 符号索引 — symbol-aware */
+  symbol_index?: Array<{
+    symbol_name: string;
+    symbol_type: "function" | "class" | "interface" | "type" | "variable" | "module";
+    file_path: string;
+    line: number;
+  }>;
+  /** 重试上下文 — retry-aware */
+  retry_context?: {
+    attempt_number: number;
+    previous_failure_reason?: string;
+    excluded_approaches?: string[];
+  };
+}
+
+/** 从 ContextPack 升级到 ContextEnvelopeV2 */
+export function upgradeToEnvelopeV2(
+  pack: ContextPack,
+  taskId: string,
+  role: ContextEnvelopeV2["role"],
+  dependencyOutputs?: DependencyOutput[],
+  retryContext?: ContextEnvelopeV2["retry_context"]
+): ContextEnvelopeV2 {
+  return {
+    task_id: taskId,
+    role,
+    evidence_refs: pack.relevant_files.map((f, i) => ({
+      ref_id: `ev_${i}`,
+      kind: "file" as const,
+      rationale: `在任务 ${taskId} 的所有权范围内`,
+      priority: pack.relevant_files.length - i,
+    })),
+    dependency_outputs: dependencyOutputs || [],
+    budget: {
+      max_input_tokens: pack.budget.max_input_tokens,
+      max_output_tokens: pack.budget.max_output_tokens,
+    },
+    occupancy_ratio: pack.occupancy_ratio,
+    compaction_policy: mapCompactionPolicy(pack.compaction_policy),
+    retry_context: retryContext || (pack.retry_hint ? {
+      attempt_number: pack.retry_hint,
+    } : undefined),
+  };
+}
+
+function mapCompactionPolicy(policy: ContextPack["compaction_policy"]): CompactionPolicyV2 {
+  switch (policy) {
+    case "none": return "none";
+    case "summarize": return "summary";
+    case "truncate": return "retrieve_only";
+    default: return "none";
+  }
+}

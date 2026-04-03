@@ -142,6 +142,134 @@ export function buildStageContracts(
   return contracts;
 }
 
+// ============================================================
+// P2-1: GroundingBundle + ClarificationLoop
+// ============================================================
+
+/** 澄清问题 */
+export interface ClarificationQuestion {
+  question_id: string;
+  question: string;
+  category: "scope" | "acceptance" | "constraint" | "dependency" | "rollout";
+  priority: "blocking" | "important" | "nice_to_have";
+  suggested_answers?: string[];
+  answer?: string;
+  answered: boolean;
+}
+
+/** 需求 Grounding Bundle — 完整的需求理解包 */
+export interface GroundingBundle {
+  /** 原始意图 */
+  raw_intent: string;
+  /** 重述的目标 */
+  restated_goal: string;
+  /** repo-aware 证据引用 */
+  evidence_refs: Array<{
+    ref_id: string;
+    kind: "file" | "symbol" | "test" | "doc" | "config";
+    path: string;
+    relevance: string;
+  }>;
+  /** 澄清问题列表 */
+  clarification_questions: ClarificationQuestion[];
+  /** 阶段特定验收矩阵 */
+  stage_acceptance_matrix: Record<string, Array<{
+    criterion: string;
+    blocking: boolean;
+    verification_method: string;
+  }>>;
+  /** 受影响模块 */
+  affected_modules: string[];
+  /** 受影响接口 */
+  affected_interfaces: string[];
+  /** 上线约束 */
+  rollout_constraints: string[];
+  /** 是否已完成澄清 */
+  clarification_complete: boolean;
+}
+
+/** 澄清循环 — 管理澄清问题的迭代 */
+export class ClarificationLoop {
+  private questions: ClarificationQuestion[] = [];
+  private maxRounds = 3;
+  private currentRound = 0;
+
+  /** 添加澄清问题 */
+  addQuestion(question: Omit<ClarificationQuestion, "question_id" | "answered">): void {
+    this.questions.push({
+      ...question,
+      question_id: `cq_${Date.now()}_${this.questions.length}`,
+      answered: false,
+    });
+  }
+
+  /** 回答澄清问题 */
+  answerQuestion(questionId: string, answer: string): void {
+    const q = this.questions.find(q => q.question_id === questionId);
+    if (q) {
+      q.answer = answer;
+      q.answered = true;
+    }
+  }
+
+  /** 获取未回答的 blocking 问题 */
+  getPendingBlockingQuestions(): ClarificationQuestion[] {
+    return this.questions.filter(q => !q.answered && q.priority === "blocking");
+  }
+
+  /** 获取所有问题 */
+  getAllQuestions(): ClarificationQuestion[] {
+    return [...this.questions];
+  }
+
+  /** 推进到下一轮 */
+  advanceRound(): boolean {
+    if (this.currentRound >= this.maxRounds) return false;
+    this.currentRound++;
+    return true;
+  }
+
+  /** 澄清是否完成 */
+  isComplete(): boolean {
+    return this.getPendingBlockingQuestions().length === 0 || this.currentRound >= this.maxRounds;
+  }
+
+  /** 当前轮次 */
+  getCurrentRound(): number {
+    return this.currentRound;
+  }
+}
+
+/** 构建 GroundingBundle */
+export function buildGroundingBundle(
+  intent: string,
+  grounding: Omit<RequirementGrounding, "request_id">,
+  clarificationLoop: ClarificationLoop,
+  repoEvidence?: Array<{ path: string; kind: string; relevance: string }>
+): GroundingBundle {
+  return {
+    raw_intent: intent,
+    restated_goal: grounding.restated_goal,
+    evidence_refs: (repoEvidence || []).map((e, i) => ({
+      ref_id: `gnd_ref_${i}`,
+      kind: e.kind as GroundingBundle["evidence_refs"][0]["kind"],
+      path: e.path,
+      relevance: e.relevance,
+    })),
+    clarification_questions: clarificationLoop.getAllQuestions(),
+    stage_acceptance_matrix: Object.fromEntries(
+      grounding.acceptance_matrix.map(item => [
+        item.category,
+        [{ criterion: item.criterion, blocking: item.blocking, verification_method: "automated" }],
+      ])
+    ),
+    affected_modules: grounding.impacted_modules,
+    affected_interfaces: [],
+    rollout_constraints: [],
+    clarification_complete: clarificationLoop.isComplete(),
+  };
+}
+
 export function groundRequirement(request: RunRequest): RequirementGrounding {
   const intent = request.intent;
   const words = intent.toLowerCase().split(/\s+/);
