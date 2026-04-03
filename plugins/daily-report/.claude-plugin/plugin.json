@@ -1,6 +1,6 @@
 {
   "name": "daily-report",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Auto-generate and submit daily work reports from git commits and Lark chat history",
   "author": {
     "name": "lorainwings",
