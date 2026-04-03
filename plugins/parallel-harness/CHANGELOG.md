@@ -4,6 +4,21 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.2.0...parallel-harness-v1.3.0) (2026-04-03)
+
+
+### Added
+
+* **parallel-harness:** 8 workstream 全量修复 + codex 审查 13 项问题闭环 ([a926a12](https://github.com/lorainwings/claude-autopilot/commit/a926a1298fd19b3923858097876ea9294ba9c356))
+* **parallel-harness:** P0 增强蓝图 6 项实施 — 295 pass / 649 expect ([68a9d47](https://github.com/lorainwings/claude-autopilot/commit/68a9d472de30c9e2c6cdf87c58fec0393426537c))
+* **parallel-harness:** P0/P1/P2 增强蓝图全量实施 — 415 pass / 866 expect ([67348be](https://github.com/lorainwings/claude-autopilot/commit/67348be4a3af51d4665db81f3a5a9efeabf06deb))
+* **parallel-harness:** P2 增强全量实施 — 480 pass / 987 expect ([af8c18d](https://github.com/lorainwings/claude-autopilot/commit/af8c18d087f3e9eb2a2ddf06639d7a5cd65660dd))
+
+
+### Fixed
+
+* **parallel-harness:** approveAndResume 路径复用全集终态判定 ([f8b9798](https://github.com/lorainwings/claude-autopilot/commit/f8b9798702fd23fe9220aa496e30588b70618c5f))
+
 ## [1.2.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.1.3...parallel-harness-v1.2.0) (2026-03-30)
 
 
