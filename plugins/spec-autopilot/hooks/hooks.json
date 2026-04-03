@@ -147,6 +147,12 @@
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/scan-checkpoints-on-start.sh",
             "timeout": 15,
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/auto-install-statusline.sh",
+            "timeout": 10,
+            "async": true
           }
         ]
       },

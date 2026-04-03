@@ -64,6 +64,17 @@ else:
     phase_num = int(phase_match.group(1))
 output = _ep.normalize_tool_response(data)
 
+# --- Early exit: background agent launch (async_launched) ---
+# When Claude Code launches an Agent with run_in_background:true, PostToolUse fires
+# immediately with tool_response containing {"status": "async_launched"} — this is a
+# framework-level intermediate state, NOT a sub-agent envelope. Skip all validation.
+# The actual agent output will be validated when PostToolUse fires on completion.
+_FRAMEWORK_SKIP_STATUSES = {"async_launched", "pending", "running", "queued"}
+if output.strip():
+    _quick_env = _ep.extract_envelope(output)
+    if _quick_env and _quick_env.get("status") in _FRAMEWORK_SKIP_STATUSES:
+        sys.exit(0)
+
 if not output.strip():
     output_block("Autopilot sub-agent returned empty output. The orchestrator should re-dispatch this phase.")
 

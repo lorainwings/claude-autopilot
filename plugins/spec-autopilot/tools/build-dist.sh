@@ -24,11 +24,27 @@ rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
 # 3. 重新构建 GUI（确保 __PLUGIN_VERSION__ 与 plugin.json 同步）
+EXPECTED_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.claude-plugin/plugin.json'))['version'])" 2>/dev/null || echo "")
+
+# Check if existing gui-dist has matching version (skip rebuild if already synced)
+gui_version_matches() {
+  [ -d "$GUI_DIST_DIR" ] || return 1
+  [ -f "$GUI_DIST_DIR/assets/index.js" ] || return 1
+  [ -n "$EXPECTED_VERSION" ] || return 1
+  # Search for the version string in the built JS bundle
+  grep -q "\"$EXPECTED_VERSION\"" "$GUI_DIST_DIR/assets/index.js" 2>/dev/null
+}
+
 try_build_gui() {
-  if ! command -v bun >/dev/null 2>&1 || [ ! -d "$GUI_ROOT/node_modules" ]; then
+  if ! command -v bun >/dev/null 2>&1; then
+    echo "⚠️  bun not found — install via 'curl -fsSL https://bun.sh/install | bash' or CI setup-bun action" >&2
     return 1
   fi
-  echo "🔨 Building GUI (syncing version from plugin.json)..."
+  if [ ! -d "$GUI_ROOT/node_modules" ]; then
+    echo "📦 Installing GUI dependencies (frozen lockfile)..."
+    (cd "$GUI_ROOT" && bun install --frozen-lockfile 2>&1 | tail -1) || return 1
+  fi
+  echo "🔨 Building GUI (syncing version from plugin.json → v${EXPECTED_VERSION})..."
   local build_output
   if build_output=$(cd "$GUI_ROOT" && bun run build --mode production 2>&1); then
     echo "$build_output" | tail -1
@@ -43,9 +59,14 @@ try_build_gui() {
 }
 
 if [ -f "$GUI_ROOT/package.json" ]; then
-  if ! try_build_gui; then
+  if gui_version_matches; then
+    echo "✅ GUI version already matches plugin.json (v${EXPECTED_VERSION}), skipping rebuild"
+  elif ! try_build_gui; then
     if [ -d "$GUI_DIST_DIR" ]; then
       echo "ℹ️ GUI build unavailable; using checked-in gui-dist (fallback)"
+      if [ -n "$EXPECTED_VERSION" ] && ! gui_version_matches; then
+        echo "⚠️  WARNING: gui-dist version does NOT match plugin.json v${EXPECTED_VERSION}"
+      fi
     else
       echo "ERROR: gui-dist missing and GUI rebuild failed"
       exit 1

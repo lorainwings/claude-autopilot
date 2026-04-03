@@ -94,6 +94,17 @@ if [ -z "$SLUG" ]; then
 fi
 AGENT_ID="phase${PHASE}-${SLUG}"
 
+# --- Skip framework intermediate states (async_launched/pending/running/queued) ---
+# When Agent tool runs with run_in_background:true, PostToolUse fires immediately
+# with tool_response containing {"status":"async_launched"}. This is NOT the actual
+# agent completion — skip to avoid emitting a false agent_complete event.
+if echo "$STDIN_DATA" | grep -qE '"status"[[:space:]]*:[[:space:]]*"(async_launched|pending|running|queued)"'; then
+  # Check that no valid autopilot envelope status is present alongside
+  if ! echo "$STDIN_DATA" | grep -qE '"status"[[:space:]]*:[[:space:]]*"(ok|warning|blocked|failed)"'; then
+    exit 0
+  fi
+fi
+
 # --- Extract status/summary/artifacts from Task output JSON envelope ---
 # PostToolUse stdin nests the agent's response inside tool_response (string field).
 # The JSON envelope {status, summary, artifacts} is INSIDE that string.

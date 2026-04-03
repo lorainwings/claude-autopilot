@@ -15,6 +15,7 @@ _post_task_validator.py
 # ── Hook scripts (referenced in hooks/hooks.json) ──
 auto-emit-agent-complete.sh
 auto-emit-agent-dispatch.sh
+auto-install-statusline.sh
 capture-hook-event.sh
 check-predecessor-checkpoint.sh
 check-skill-size.sh
