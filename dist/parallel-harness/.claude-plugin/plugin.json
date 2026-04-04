@@ -19,5 +19,6 @@
     "control-plane",
     "rbac",
     "governance"
-  ]
+  ],
+  "skills": "./skills/"
 }
