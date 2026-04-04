@@ -12,7 +12,10 @@
     "auto_approve_rules": [],
     "timeout_ms": 600000,
     "pr_strategy": "single_pr",
-    "enable_autofix": false
+    "enable_autofix": false,
+    "execution_sandbox_mode": "path_check",
+    "worktree_retention_minutes": 240,
+    "preserve_failed_worktree": false
   },
   "gate_overrides": {},
   "connector_configs": [],

@@ -1,5 +1,5 @@
 import { join, dirname } from "path";
-import type { TaskContract } from "../session/context-pack";
+import { existsSync, mkdirSync, readFileSync, realpathSync, readdirSync, rmSync, statSync, writeFileSync } from "fs";
 import type { ModelTier } from "../orchestrator/task-graph";
 import type { WorkerOutput } from "../orchestrator/role-contracts";
 
@@ -13,10 +13,18 @@ export interface ExecutionProxyConfig {
   worker_id?: string;
   /** attempt ID */
   attempt_id?: string;
+  /** run ID */
+  run_id?: string;
+  /** task ID */
+  task_id?: string;
   /** baseline commit hash (用于 diff_ref) */
   baseline_commit?: string;
   /** 沙箱模式 */
   sandbox_mode?: "none" | "path_check" | "worktree";
+  /** 保留失败 worktree（默认 false） */
+  preserve_failed_worktree?: boolean;
+  /** janitor 清理 TTL（分钟） */
+  worktree_retention_minutes?: number;
 }
 
 export interface ExecutionAttestation {
@@ -66,6 +74,50 @@ export interface TrustedExecutionRecord {
   sandbox_enforced: boolean;
 }
 
+export interface MergeTargetInspection {
+  clean: boolean;
+  issues: string[];
+}
+
+interface WorktreeDescriptor {
+  workspace_id: string;
+  worktree_path: string;
+  branch_name: string;
+}
+
+interface WorktreeRegistryEntry {
+  workspace_id: string;
+  run_id: string;
+  task_id: string;
+  attempt_id?: string;
+  branch_name: string;
+  worktree_path: string;
+  status: "active" | "merged" | "recovery_exported" | "cleanup_pending" | "cleaned";
+  created_at: string;
+  updated_at: string;
+  recovery_patch_path?: string;
+  recovery_metadata_path?: string;
+}
+
+interface WorktreeRegistry {
+  version: 1;
+  entries: WorktreeRegistryEntry[];
+}
+
+export interface MergeWorktreeResult {
+  merged: boolean;
+  failure_reason?: string;
+  recovery_patch_path?: string;
+  recovery_metadata_path?: string;
+}
+
+export interface WorktreeJanitorResult {
+  scanned: number;
+  removed_worktrees: string[];
+  removed_branches: string[];
+  skipped_active: string[];
+}
+
 const MODEL_MAPPING: Record<ModelTier, string> = {
   "tier-1": "claude-haiku-4",
   "tier-2": "claude-sonnet-4",
@@ -99,6 +151,8 @@ export class ExecutionProxy {
     if (config.sandbox_mode === "worktree") {
       worktreeInfo = this.createWorktree(
         config.project_root,
+        config.run_id,
+        config.task_id,
         config.attempt_id || `att_${Date.now()}`
       );
       if (!worktreeInfo) {
@@ -234,31 +288,66 @@ export class ExecutionProxy {
   /**
    * P0-4: 创建 per-run worktree 用于执行隔离
    */
-  createWorktree(repoRoot: string, attemptId: string): { worktree_path: string; branch_name: string } | null {
+  createWorktree(
+    repoRoot: string,
+    runId?: string,
+    taskId?: string,
+    attemptId?: string,
+  ): { worktree_path: string; branch_name: string } | null {
     try {
-      const branchName = `ph-worktree-${attemptId}`;
-      const worktreePath = join(repoRoot, ".parallel-harness", "worktrees", attemptId);
+      const descriptor = this.buildWorktreeDescriptor(repoRoot, runId, taskId, attemptId);
+      const registry = this.readRegistry(repoRoot);
+      const knownEntry = registry.entries.find((entry) => entry.workspace_id === descriptor.workspace_id);
+      const activeMap = this.listManagedWorktrees(repoRoot);
 
-      // 创建 worktree 目录
-      const mkdirProc = Bun.spawnSync(["mkdir", "-p", dirname(worktreePath)], {
-        cwd: repoRoot,
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      if (mkdirProc.exitCode !== 0) return null;
+      mkdirSync(dirname(descriptor.worktree_path), { recursive: true });
 
-      // git worktree add
+      const activeWorktree = activeMap.get(descriptor.worktree_path);
+      if (activeWorktree && existsSync(descriptor.worktree_path)) {
+        this.resetWorktree(descriptor.worktree_path);
+        this.upsertRegistryEntry(repoRoot, {
+          workspace_id: descriptor.workspace_id,
+          run_id: runId || "unknown-run",
+          task_id: taskId || attemptId || "unknown-task",
+          attempt_id: attemptId,
+          branch_name: descriptor.branch_name,
+          worktree_path: descriptor.worktree_path,
+          status: "active",
+          created_at: knownEntry?.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          recovery_patch_path: knownEntry?.recovery_patch_path,
+          recovery_metadata_path: knownEntry?.recovery_metadata_path,
+        });
+        return { worktree_path: descriptor.worktree_path, branch_name: descriptor.branch_name };
+      }
+
+      if (existsSync(descriptor.worktree_path) && !activeWorktree) {
+        rmSync(descriptor.worktree_path, { recursive: true, force: true });
+      }
+
+      this.deleteBranchIfExists(repoRoot, descriptor.branch_name);
+
       const proc = Bun.spawnSync(
-        ["git", "worktree", "add", "-b", branchName, worktreePath, "HEAD"],
+        ["git", "worktree", "add", "-b", descriptor.branch_name, descriptor.worktree_path, "HEAD"],
         { cwd: repoRoot, stdout: "pipe", stderr: "pipe" }
       );
-
       if (proc.exitCode !== 0) {
-        // worktree 创建失败，回退到非隔离模式
         return null;
       }
 
-      return { worktree_path: worktreePath, branch_name: branchName };
+      this.upsertRegistryEntry(repoRoot, {
+        workspace_id: descriptor.workspace_id,
+        run_id: runId || "unknown-run",
+        task_id: taskId || attemptId || "unknown-task",
+        attempt_id: attemptId,
+        branch_name: descriptor.branch_name,
+        worktree_path: descriptor.worktree_path,
+        status: "active",
+        created_at: knownEntry?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      return { worktree_path: descriptor.worktree_path, branch_name: descriptor.branch_name };
     } catch {
       return null;
     }
@@ -289,27 +378,65 @@ export class ExecutionProxy {
         // 分支删除失败不阻断
       }
     }
+    this.markRegistryByPath(repoRoot, worktreePath, "cleaned");
+    try {
+      Bun.spawnSync(["git", "worktree", "prune"], {
+        cwd: repoRoot,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+    } catch {
+      // prune 失败不阻断
+    }
   }
 
   /**
    * P0-4 修正: 将 worktree 里的改动合并回主仓库
    * 在 worktree 内提交所有变更，然后 cherry-pick 回主仓
    */
-  mergeWorktreeChanges(repoRoot: string, worktreePath: string, worktreeBranch: string): boolean {
+  mergeWorktreeChanges(
+    repoRoot: string,
+    worktreePath: string,
+    worktreeBranch: string,
+    options: { preserve_failed_worktree?: boolean; attempt_id?: string; run_id?: string; task_id?: string } = {},
+  ): MergeWorktreeResult {
     try {
+      const targetState = inspectMergeTargetCleanliness(repoRoot);
+      if (!targetState.clean) {
+        const exported = this.exportRecoveryArtifact(repoRoot, worktreePath, {
+          run_id: options.run_id,
+          task_id: options.task_id,
+          attempt_id: options.attempt_id,
+          branch_name: worktreeBranch,
+          preserve_failed_worktree: options.preserve_failed_worktree ?? false,
+          failure_reason: targetState.issues.join("; "),
+        });
+        this.markRegistryByPath(repoRoot, worktreePath, "recovery_exported", exported);
+        return {
+          merged: false,
+          failure_reason: targetState.issues.join("; "),
+          recovery_patch_path: exported.recovery_patch_path,
+          recovery_metadata_path: exported.recovery_metadata_path,
+        };
+      }
+
       // 1. 在 worktree 中 add + commit 所有变更
       Bun.spawnSync(["git", "add", "-A"], { cwd: worktreePath, stdout: "pipe", stderr: "pipe" });
       const commitProc = Bun.spawnSync(
         ["git", "commit", "-m", `parallel-harness: worktree changes from ${worktreeBranch}`, "--allow-empty"],
         { cwd: worktreePath, stdout: "pipe", stderr: "pipe" }
       );
-      if (commitProc.exitCode !== 0) return false;
+      if (commitProc.exitCode !== 0) {
+        return { merged: false, failure_reason: "git commit failed in worktree" };
+      }
 
       // 2. 获取 worktree 分支的 HEAD commit
       const headProc = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
         cwd: worktreePath, stdout: "pipe", stderr: "pipe",
       });
-      if (headProc.exitCode !== 0) return false;
+      if (headProc.exitCode !== 0) {
+        return { merged: false, failure_reason: "git rev-parse failed in worktree" };
+      }
       const commitHash = new TextDecoder().decode(headProc.stdout).trim();
 
       // 3. 在主仓 cherry-pick
@@ -326,12 +453,89 @@ export class ExecutionProxy {
         Bun.spawnSync(["git", "reset", "--merge"], {
           cwd: repoRoot, stdout: "pipe", stderr: "pipe",
         });
-        return false;
+        const exported = this.exportRecoveryArtifact(repoRoot, worktreePath, {
+          run_id: options.run_id,
+          task_id: options.task_id,
+          attempt_id: options.attempt_id,
+          branch_name: worktreeBranch,
+          preserve_failed_worktree: options.preserve_failed_worktree ?? false,
+          failure_reason: "git cherry-pick failed",
+          commit_hash: commitHash,
+        });
+        this.markRegistryByPath(repoRoot, worktreePath, "recovery_exported", exported);
+        return {
+          merged: false,
+          failure_reason: "git cherry-pick failed",
+          recovery_patch_path: exported.recovery_patch_path,
+          recovery_metadata_path: exported.recovery_metadata_path,
+        };
       }
-      return true;
+      this.markRegistryByPath(repoRoot, worktreePath, "merged");
+      return { merged: true };
     } catch {
-      return false;
+      return { merged: false, failure_reason: "unexpected merge failure" };
     }
+  }
+
+  cleanupStaleWorktrees(repoRoot: string, ttlMinutes = 240): WorktreeJanitorResult {
+    const result: WorktreeJanitorResult = {
+      scanned: 0,
+      removed_worktrees: [],
+      removed_branches: [],
+      skipped_active: [],
+    };
+    const activeMap = this.listManagedWorktrees(repoRoot);
+    const activeBranches = new Set(activeMap.values());
+    const registry = this.readRegistry(repoRoot);
+    const now = Date.now();
+    const ttlMs = ttlMinutes * 60 * 1000;
+
+    for (const [worktreePath, branchName] of activeMap.entries()) {
+      result.scanned += 1;
+      const statMtime = existsSync(worktreePath) ? statSync(worktreePath).mtimeMs : 0;
+      const ageMs = statMtime > 0 ? Math.max(0, now - statMtime) : Number.MAX_SAFE_INTEGER;
+      const entry = registry.entries.find((item) => item.worktree_path === worktreePath || item.branch_name === branchName);
+      const isActive = entry?.status === "active";
+      if (isActive && ageMs <= ttlMs) {
+        result.skipped_active.push(worktreePath);
+        continue;
+      }
+      if (ageMs < ttlMs) continue;
+
+      try {
+        Bun.spawnSync(["git", "worktree", "unlock", worktreePath], {
+          cwd: repoRoot,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+      } catch {
+        // unlock 失败不阻断
+      }
+
+      this.cleanupWorktree(repoRoot, worktreePath, branchName);
+      result.removed_worktrees.push(worktreePath);
+      result.removed_branches.push(branchName);
+    }
+
+    for (const orphanPath of this.listOrphanedWorkspacePaths(repoRoot, activeMap)) {
+      result.scanned += 1;
+      try {
+        rmSync(orphanPath, { recursive: true, force: true });
+        result.removed_worktrees.push(orphanPath);
+      } catch {
+        // orphan path cleanup failure is non-blocking
+      }
+    }
+
+    const currentBranch = this.getCurrentBranch(repoRoot);
+    for (const branchName of this.listManagedBranches(repoRoot)) {
+      result.scanned += 1;
+      if (activeBranches.has(branchName) || branchName === currentBranch) continue;
+      this.deleteBranchIfExists(repoRoot, branchName);
+      result.removed_branches.push(branchName);
+    }
+
+    return result;
   }
 
   /**
@@ -398,6 +602,232 @@ export class ExecutionProxy {
       sandbox_enforced: attestation.tool_policy_enforced,
     };
   }
+
+  private buildWorktreeDescriptor(
+    repoRoot: string,
+    runId?: string,
+    taskId?: string,
+    attemptId?: string,
+  ): WorktreeDescriptor {
+    const canonicalRoot = canonicalizePath(repoRoot);
+    const workspaceSeed = [runId || "run", taskId || attemptId || "task"].join(":");
+    const workspaceId = `ws_${simpleHash(workspaceSeed).replace(/^h_/, "")}`;
+    return {
+      workspace_id: workspaceId,
+      worktree_path: join(canonicalRoot, ".parallel-harness", "worktrees", workspaceId),
+      branch_name: `ph-worktree-${workspaceId}`,
+    };
+  }
+
+  private exportRecoveryArtifact(
+    repoRoot: string,
+    worktreePath: string,
+    metadata: Record<string, unknown>,
+  ): { recovery_patch_path: string; recovery_metadata_path: string } {
+    const recoveryDir = join(repoRoot, ".parallel-harness", "recovery");
+    mkdirSync(recoveryDir, { recursive: true });
+    const stamp = `${Date.now()}_${simpleHash(worktreePath).replace(/^h_/, "")}`;
+    const patchPath = join(recoveryDir, `${stamp}.patch`);
+    const metadataPath = join(recoveryDir, `${stamp}.json`);
+
+    let patchContent = "";
+    const headProc = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+      cwd: worktreePath,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (headProc.exitCode === 0) {
+      const commitHash = new TextDecoder().decode(headProc.stdout).trim();
+      const patchProc = Bun.spawnSync(["git", "format-patch", "-1", commitHash, "--stdout"], {
+        cwd: worktreePath,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (patchProc.exitCode === 0) {
+        patchContent = new TextDecoder().decode(patchProc.stdout);
+      }
+    }
+
+    if (!patchContent) {
+      const diffProc = Bun.spawnSync(["git", "diff", "HEAD"], {
+        cwd: worktreePath,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (diffProc.exitCode === 0) {
+        patchContent = new TextDecoder().decode(diffProc.stdout);
+      }
+    }
+
+    writeFileSync(patchPath, patchContent, "utf8");
+    writeFileSync(metadataPath, JSON.stringify({
+      created_at: new Date().toISOString(),
+      worktree_path: worktreePath,
+      ...metadata,
+      recovery_patch_path: patchPath,
+    }, null, 2), "utf8");
+
+    return {
+      recovery_patch_path: patchPath,
+      recovery_metadata_path: metadataPath,
+    };
+  }
+
+  private listManagedWorktrees(repoRoot: string): Map<string, string> {
+    const map = new Map<string, string>();
+    try {
+      const proc = Bun.spawnSync(["git", "worktree", "list", "--porcelain"], {
+        cwd: repoRoot,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (proc.exitCode !== 0) return map;
+      const lines = new TextDecoder().decode(proc.stdout).split("\n");
+      let currentPath = "";
+      for (const line of lines) {
+        if (line.startsWith("worktree ")) {
+          currentPath = canonicalizePath(line.slice("worktree ".length).trim());
+        } else if (line.startsWith("branch ")) {
+          const branchRef = line.slice("branch ".length).trim();
+          const branchName = branchRef.replace(/^refs\/heads\//, "");
+          if (branchName.startsWith("ph-worktree-") && currentPath) {
+            map.set(currentPath, branchName);
+          }
+        }
+      }
+    } catch {
+      return map;
+    }
+    return map;
+  }
+
+  private listManagedBranches(repoRoot: string): string[] {
+    try {
+      const proc = Bun.spawnSync(["git", "branch", "--format=%(refname:short)", "--list", "ph-worktree-*"], {
+        cwd: repoRoot,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (proc.exitCode !== 0) return [];
+      return new TextDecoder().decode(proc.stdout).split("\n").map((line) => line.trim()).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  private listOrphanedWorkspacePaths(repoRoot: string, activeMap: Map<string, string>): string[] {
+    const worktreeRoot = join(canonicalizePath(repoRoot), ".parallel-harness", "worktrees");
+    if (!existsSync(worktreeRoot)) return [];
+    try {
+      return readdirSync(worktreeRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => canonicalizePath(join(worktreeRoot, entry.name)))
+        .filter((worktreePath) => !activeMap.has(worktreePath));
+    } catch {
+      return [];
+    }
+  }
+
+  private getCurrentBranch(repoRoot: string): string | undefined {
+    try {
+      const proc = Bun.spawnSync(["git", "branch", "--show-current"], {
+        cwd: repoRoot,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (proc.exitCode !== 0) return undefined;
+      const branchName = new TextDecoder().decode(proc.stdout).trim();
+      return branchName || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private deleteBranchIfExists(repoRoot: string, branchName: string): void {
+    try {
+      const verify = Bun.spawnSync(["git", "rev-parse", "--verify", `refs/heads/${branchName}`], {
+        cwd: repoRoot,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (verify.exitCode === 0) {
+        Bun.spawnSync(["git", "branch", "-D", branchName], {
+          cwd: repoRoot,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private resetWorktree(worktreePath: string): void {
+    try {
+      Bun.spawnSync(["git", "reset", "--hard", "HEAD"], {
+        cwd: worktreePath,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      Bun.spawnSync(["git", "clean", "-fd"], {
+        cwd: worktreePath,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  private readRegistry(repoRoot: string): WorktreeRegistry {
+    const registryPath = join(repoRoot, ".parallel-harness", "data", "worktree-registry.json");
+    mkdirSync(dirname(registryPath), { recursive: true });
+    if (!existsSync(registryPath)) {
+      return { version: 1, entries: [] };
+    }
+    try {
+      const parsed = JSON.parse(readFileSync(registryPath, "utf8")) as WorktreeRegistry;
+      if (parsed.version === 1 && Array.isArray(parsed.entries)) {
+        return parsed;
+      }
+    } catch {
+      // ignore broken registry, rewrite below
+    }
+    return { version: 1, entries: [] };
+  }
+
+  private writeRegistry(repoRoot: string, registry: WorktreeRegistry): void {
+    const registryPath = join(repoRoot, ".parallel-harness", "data", "worktree-registry.json");
+    mkdirSync(dirname(registryPath), { recursive: true });
+    writeFileSync(registryPath, JSON.stringify(registry, null, 2), "utf8");
+  }
+
+  private upsertRegistryEntry(repoRoot: string, entry: WorktreeRegistryEntry): void {
+    const registry = this.readRegistry(repoRoot);
+    const idx = registry.entries.findIndex((item) => item.workspace_id === entry.workspace_id);
+    if (idx >= 0) registry.entries[idx] = entry;
+    else registry.entries.push(entry);
+    this.writeRegistry(repoRoot, registry);
+  }
+
+  private markRegistryByPath(
+    repoRoot: string,
+    worktreePath: string,
+    status: WorktreeRegistryEntry["status"],
+    extra?: Partial<Pick<WorktreeRegistryEntry, "recovery_patch_path" | "recovery_metadata_path">>,
+  ): void {
+    const registry = this.readRegistry(repoRoot);
+    const canonicalPath = canonicalizePath(worktreePath);
+    const idx = registry.entries.findIndex((entry) => canonicalizePath(entry.worktree_path) === canonicalPath);
+    if (idx < 0) return;
+    registry.entries[idx] = {
+      ...registry.entries[idx],
+      status,
+      updated_at: new Date().toISOString(),
+      ...extra,
+    };
+    this.writeRegistry(repoRoot, registry);
+  }
 }
 
 /** 简单字符串哈希（非密码学，仅用于 attestation 标识） */
@@ -409,6 +839,57 @@ function simpleHash(input: string): string {
     hash |= 0;
   }
   return `h_${Math.abs(hash).toString(36)}`;
+}
+
+export function inspectMergeTargetCleanliness(repoRoot: string): MergeTargetInspection {
+  try {
+    const statusProc = Bun.spawnSync(["git", "status", "--porcelain"], {
+      cwd: repoRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const issues: string[] = [];
+    if (statusProc.exitCode !== 0) {
+      return { clean: false, issues: ["git status failed"] };
+    }
+
+    const statusLines = new TextDecoder().decode(statusProc.stdout).split("\n").map((line) => line.trim()).filter(Boolean);
+    if (statusLines.length > 0) {
+      issues.push(`merge target has ${statusLines.length} uncommitted change(s)`);
+    }
+
+    const statePaths = [
+      ".git/MERGE_HEAD",
+      ".git/CHERRY_PICK_HEAD",
+      ".git/REVERT_HEAD",
+      ".git/rebase-merge",
+      ".git/rebase-apply",
+    ];
+    for (const rel of statePaths) {
+      if (existsSync(join(repoRoot, rel))) {
+        issues.push(`merge target has in-progress git state: ${rel}`);
+      }
+    }
+
+    return { clean: issues.length === 0, issues };
+  } catch {
+    return { clean: false, issues: ["merge target inspection failed"] };
+  }
+}
+
+function canonicalizePath(path: string): string {
+  try {
+    if (existsSync(path)) {
+      return realpathSync.native(path);
+    }
+    const parent = dirname(path);
+    if (existsSync(parent)) {
+      return join(realpathSync.native(parent), path.slice(parent.length + 1));
+    }
+  } catch {
+    // fall through
+  }
+  return path;
 }
 
 /** 工具策略违规错误 */
