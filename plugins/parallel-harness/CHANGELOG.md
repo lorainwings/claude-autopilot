@@ -4,6 +4,13 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.0...parallel-harness-v1.3.1) (2026-04-04)
+
+
+### Fixed
+
+* **parallel-harness:** stabilize worktree lifecycle ([f7040a9](https://github.com/lorainwings/claude-autopilot/commit/f7040a967f927cda48f9616d0189524df0a5e6ac))
+
 ## [1.3.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.2.0...parallel-harness-v1.3.0) (2026-04-03)
 
 
