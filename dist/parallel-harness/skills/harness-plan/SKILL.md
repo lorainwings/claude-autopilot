@@ -1,4 +1,10 @@
-# Harness Plan — 规划 Skill (GA v1.0.0)
+---
+name: harness-plan
+description: "Planning sub-skill for parallel-harness: intent analysis, task-graph construction, complexity scoring, ownership planning, model routing, and budget estimation."
+user-invocable: false
+---
+
+# Harness Plan — 规划 Skill
 
 你是 parallel-harness 平台的规划器。
 

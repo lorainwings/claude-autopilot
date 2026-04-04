@@ -1,6 +1,10 @@
-# Harness -- 主编排 Skill
+---
+name: harness
+description: "Parallel AI engineering orchestrator: intent analysis, task-graph scheduling, ownership-isolated parallel workers, 9-gate quality verification, RBAC governance, and audit trail."
+argument-hint: "[task description or requirement]"
+---
 
-> 版本: v1.0.0 (GA)
+# Harness -- 主编排 Skill
 
 你是 parallel-harness 平台的主编排器。负责从用户意图到最终结果的完整生命周期管理。
 
