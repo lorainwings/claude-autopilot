@@ -20,6 +20,7 @@ import { GateSystem } from "../gates/gate-system";
 import { classifyGate } from "../gates/gate-classification";
 import { ApprovalWorkflow } from "../governance/governance";
 import { WorkerExecutionController, type WorkerExecutionConfig } from "../workers/worker-runtime";
+import { ExecutionProxy, inspectMergeTargetCleanliness } from "../workers/execution-proxy";
 import { SessionStore, RunStore, AuditTrail, FileStore } from "../persistence/session-persistence";
 import type { TaskGraph, TaskNode, ModelTier } from "../orchestrator/task-graph";
 import type { VerificationResult } from "../verifiers/verifier-result";
@@ -468,6 +469,13 @@ export class OrchestratorRuntime {
     emitAudit(ctx, "run_created", { intent: request.intent });
 
     try {
+      if ((ctx.config.execution_sandbox_mode || "path_check") === "worktree") {
+        new ExecutionProxy().cleanupStaleWorktrees(
+          ctx.project.root_path,
+          ctx.config.worktree_retention_minutes ?? DEFAULT_RUN_CONFIG.worktree_retention_minutes ?? 240,
+        );
+      }
+
       // Phase 1: Plan
       await this.executeHookPhase("pre_plan", ctx);
       transitionRunStatus(execution, "planned", "规划完成");
@@ -901,6 +909,13 @@ export class OrchestratorRuntime {
       // 完成 session
       await this.sessionStore.complete(session.session_id);
 
+      if ((ctx.config.execution_sandbox_mode || "path_check") === "worktree") {
+        new ExecutionProxy().cleanupStaleWorktrees(
+          ctx.project.root_path,
+          ctx.config.worktree_retention_minutes ?? DEFAULT_RUN_CONFIG.worktree_retention_minutes ?? 240,
+        );
+      }
+
       return result;
     } catch (error) {
       if (isValidRunTransition(execution.status, "failed")) {
@@ -913,6 +928,12 @@ export class OrchestratorRuntime {
       await this.auditTrail.forceFlush();
       await this.runStore.saveExecution(execution);
       await this.sessionStore.complete(session.session_id);
+      if ((ctx.config.execution_sandbox_mode || "path_check") === "worktree") {
+        new ExecutionProxy().cleanupStaleWorktrees(
+          ctx.project.root_path,
+          ctx.config.worktree_retention_minutes ?? DEFAULT_RUN_CONFIG.worktree_retention_minutes ?? 240,
+        );
+      }
       throw error;
     }
   }
@@ -1182,6 +1203,7 @@ export class OrchestratorRuntime {
           // 非 approval 类型的前置检查失败 — 原有逻辑
           transitionAttemptStatus(attempt, "failed", `前置检查失败: ${failedCheck?.message}`);
           attempt.failure_class = failedCheck?.check_type === "ownership"
+            || failedCheck?.check_type === "workspace"
             ? "ownership_conflict"
             : failedCheck?.check_type === "policy"
               ? "permanent_policy_failure"
@@ -1248,7 +1270,6 @@ export class OrchestratorRuntime {
         }
 
         // ExecutionProxy: 前置准备（proxy 成为真实执行入口，绑定 model/tool policy/cwd）
-        const { ExecutionProxy } = await import("../workers/execution-proxy");
         const proxy = new ExecutionProxy();
         const proxyPrep = proxy.prepareExecution({
           model_tier: currentTier,
@@ -1258,7 +1279,11 @@ export class OrchestratorRuntime {
           denied_tools: ["TaskStop", "EnterWorktree"],
           worker_id: `worker_${task.id}`,
           attempt_id: attempt.attempt_id,
+          run_id: ctx.run_id,
+          task_id: task.id,
           sandbox_mode: ctx.config.execution_sandbox_mode || "path_check",
+          preserve_failed_worktree: ctx.config.preserve_failed_worktree,
+          worktree_retention_minutes: ctx.config.worktree_retention_minutes,
         });
 
         // 记录到外层变量，确保 catch/ownership 路径可访问
@@ -1416,12 +1441,22 @@ export class OrchestratorRuntime {
         // 此时 attempt 仍在 post_check 态，迁移到 failed 合法
         ctx.project.root_path = originalRootPath;
         if (proxyPrep.worktree_path && proxyPrep.worktree_branch) {
-          const merged = proxy.mergeWorktreeChanges(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
-          if (!merged) {
+          const mergeResult = proxy.mergeWorktreeChanges(
+            originalRootPath,
+            proxyPrep.worktree_path,
+            proxyPrep.worktree_branch,
+            {
+              preserve_failed_worktree: ctx.config.preserve_failed_worktree,
+              attempt_id: attempt.attempt_id,
+              run_id: ctx.run_id,
+              task_id: task.id,
+            },
+          );
+          if (!mergeResult.merged) {
             // 合并失败 — attempt 从 post_check → failed（合法迁移）
             transitionAttemptStatus(attempt, "failed", "Worktree 合并失败：cherry-pick 冲突或脏仓状态");
             attempt.failure_class = "ownership_conflict";
-            attempt.failure_detail = `worktree merge failed: ${proxyPrep.worktree_path}`;
+            attempt.failure_detail = `worktree merge failed: ${mergeResult.failure_reason || proxyPrep.worktree_path}`;
             lastFailureClass = attempt.failure_class;
 
             emitAudit(ctx, "worker_failed", {
@@ -1429,13 +1464,17 @@ export class OrchestratorRuntime {
               reason: "worktree_merge_failed_post_gate",
               worktree_path: proxyPrep.worktree_path,
               worktree_branch: proxyPrep.worktree_branch,
-              action: "worktree_preserved_for_manual_recovery",
+              action: ctx.config.preserve_failed_worktree ? "worktree_preserved_for_manual_recovery" : "recovery_artifact_exported",
+              recovery_patch_path: mergeResult.recovery_patch_path,
+              recovery_metadata_path: mergeResult.recovery_metadata_path,
             }, task.id, attempt.attempt_id);
 
             execution.completed_attempts[task.id] = [
               ...(execution.completed_attempts[task.id] || []), attempt
             ];
-            // 不清理 worktree — 这是数据恢复的唯一面
+            if (!ctx.config.preserve_failed_worktree) {
+              proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
+            }
             continue; // 进入重试循环
           } else {
             // 合并成功才清理 worktree 和临时分支
@@ -1717,6 +1756,18 @@ export class OrchestratorRuntime {
         ? `预算剩余: ${ctx.costLedger.remaining_budget.toFixed(2)}`
         : "预算已耗尽",
     });
+
+    if ((ctx.config.execution_sandbox_mode || "path_check") === "worktree") {
+      const mergeTarget = inspectMergeTargetCleanliness(ctx.project.root_path);
+      results.push({
+        check_type: "workspace",
+        passed: mergeTarget.clean,
+        message: mergeTarget.clean
+          ? "worktree merge target is clean"
+          : `worktree merge target blocked: ${mergeTarget.issues.join("; ")}`,
+        details: { issues: mergeTarget.issues },
+      });
+    }
 
     // 4. Capability 检查 — 使用 CapabilityRegistry 进行真实匹配
     const capabilities = this.workerController.getCapabilityRegistry().findByTaskType(task.title);
@@ -2561,4 +2612,3 @@ export interface OrchestratorOptions {
   /** 持久化数据目录，设置后默认使用 FileStore */
   dataDir?: string;
 }
-

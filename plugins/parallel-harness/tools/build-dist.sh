@@ -10,6 +10,11 @@ DIST_DIR="$REPO_ROOT/dist/$PLUGIN_NAME"
 
 cd "$PLUGIN_DIR"
 
+# git hook 会注入仓库局部 GIT_* 环境；测试里会创建临时仓库，必须先清理这些变量。
+while IFS= read -r git_var; do
+  unset "$git_var"
+done < <(git rev-parse --local-env-vars)
+
 echo "=== parallel-harness 构建流程 ==="
 echo "插件目录: $PLUGIN_DIR"
 echo "dist 目标: $DIST_DIR"
@@ -29,7 +34,8 @@ echo "类型检查通过"
 # 3. 运行测试
 echo ""
 echo "--- 步骤 3/5: 运行测试 ---"
-TEST_OUTPUT=$(bun test 2>&1) || true
+# 集成测试稳定落在 5s 以上，构建路径需要显式放宽超时，避免 hook 与本地验证结果不一致。
+TEST_OUTPUT=$(bun test --timeout 15000 2>&1) || true
 echo "$TEST_OUTPUT" | tail -5
 
 # 提取测试计数

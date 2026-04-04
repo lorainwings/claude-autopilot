@@ -22,7 +22,10 @@
         "auto_approve_rules": { "type": "array", "items": { "type": "string" } },
         "timeout_ms": { "type": "integer", "minimum": 1000 },
         "pr_strategy": { "type": "string", "enum": ["none", "single_pr", "stacked_pr"] },
-        "enable_autofix": { "type": "boolean" }
+        "enable_autofix": { "type": "boolean" },
+        "execution_sandbox_mode": { "type": "string", "enum": ["none", "path_check", "worktree"] },
+        "worktree_retention_minutes": { "type": "integer", "minimum": 1 },
+        "preserve_failed_worktree": { "type": "boolean" }
       }
     },
     "gate_overrides": { "type": "object" },

@@ -416,7 +416,7 @@ export interface StatusTransition {
 // ============================================================
 
 export interface PreCheckResult {
-  check_type: "ownership" | "policy" | "budget" | "approval" | "capability";
+  check_type: "ownership" | "policy" | "budget" | "approval" | "capability" | "workspace";
   passed: boolean;
   message: string;
   details?: Record<string, unknown>;
@@ -826,6 +826,12 @@ export interface RunConfig {
 
   /** 执行沙箱模式 */
   execution_sandbox_mode?: "none" | "path_check" | "worktree";
+
+  /** worktree 残留清理 TTL（分钟） */
+  worktree_retention_minutes?: number;
+
+  /** merge 失败时是否保留实体 worktree */
+  preserve_failed_worktree?: boolean;
 }
 
 export const DEFAULT_RUN_CONFIG: RunConfig = {
@@ -839,6 +845,9 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   timeout_ms: 600000,
   pr_strategy: "single_pr",
   enable_autofix: false,
+  execution_sandbox_mode: "path_check",
+  worktree_retention_minutes: 240,
+  preserve_failed_worktree: false,
 };
 
 // ============================================================

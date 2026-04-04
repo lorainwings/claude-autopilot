@@ -1,5 +1,35 @@
-import { describe, test, expect } from "bun:test";
-import { ExecutionProxy, type TrustedExecutionRecord, type ExecutionAttestation } from "../../runtime/workers/execution-proxy";
+import { afterEach, describe, test, expect } from "bun:test";
+import { execFileSync } from "child_process";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import {
+  ExecutionProxy,
+  inspectMergeTargetCleanliness,
+  type TrustedExecutionRecord,
+  type ExecutionAttestation,
+} from "../../runtime/workers/execution-proxy";
+
+const tempDirs: string[] = [];
+
+function createTempGitRepo(): string {
+  const repoRoot = mkdtempSync(join(tmpdir(), "ph-worktree-test-"));
+  tempDirs.push(repoRoot);
+  execFileSync("git", ["init"], { cwd: repoRoot });
+  execFileSync("git", ["config", "user.name", "Test User"], { cwd: repoRoot });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: repoRoot });
+  writeFileSync(join(repoRoot, "README.md"), "base\n", "utf8");
+  execFileSync("git", ["add", "README.md"], { cwd: repoRoot });
+  execFileSync("git", ["commit", "-m", "init"], { cwd: repoRoot });
+  return repoRoot;
+}
+
+afterEach(() => {
+  while (tempDirs.length > 0) {
+    const dir = tempDirs.pop();
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 describe("TrustedExecutionRecord (P0-4)", () => {
   const proxy = new ExecutionProxy();
@@ -47,6 +77,94 @@ describe("TrustedExecutionRecord (P0-4)", () => {
         attempt_id: "test_att",
       });
     }).not.toThrow();
+  });
+
+  test("inspectMergeTargetCleanliness fails closed on dirty merge target", () => {
+    const repoRoot = createTempGitRepo();
+    writeFileSync(join(repoRoot, "README.md"), "dirty\n", "utf8");
+    const result = inspectMergeTargetCleanliness(repoRoot);
+    expect(result.clean).toBe(false);
+    expect(result.issues.some((issue) => issue.includes("uncommitted"))).toBe(true);
+  });
+
+  test("prepareExecution reuses stable worktree for same run/task", () => {
+    const repoRoot = createTempGitRepo();
+    const first = proxy.prepareExecution({
+      model_tier: "tier-2",
+      project_root: repoRoot,
+      sandbox_mode: "worktree",
+      run_id: "run_1",
+      task_id: "task_1",
+      attempt_id: "att_1",
+    });
+    const second = proxy.prepareExecution({
+      model_tier: "tier-2",
+      project_root: repoRoot,
+      sandbox_mode: "worktree",
+      run_id: "run_1",
+      task_id: "task_1",
+      attempt_id: "att_2",
+    });
+
+    expect(first.worktree_path).toBeTruthy();
+    expect(first.worktree_path).toBe(second.worktree_path);
+    expect(first.worktree_branch).toBe(second.worktree_branch);
+
+    proxy.cleanupWorktree(repoRoot, first.worktree_path!, first.worktree_branch);
+  });
+
+  test("mergeWorktreeChanges exports recovery artifact instead of preserving failed worktree", () => {
+    const repoRoot = createTempGitRepo();
+    const prep = proxy.prepareExecution({
+      model_tier: "tier-2",
+      project_root: repoRoot,
+      sandbox_mode: "worktree",
+      run_id: "run_2",
+      task_id: "task_2",
+      attempt_id: "att_1",
+    });
+    const worktreePath = prep.worktree_path!;
+    writeFileSync(join(worktreePath, "feature.txt"), "hello\n", "utf8");
+    writeFileSync(join(repoRoot, "README.md"), "dirty target\n", "utf8");
+
+    const mergeResult = proxy.mergeWorktreeChanges(repoRoot, worktreePath, prep.worktree_branch!, {
+      run_id: "run_2",
+      task_id: "task_2",
+      attempt_id: "att_1",
+    });
+
+    expect(mergeResult.merged).toBe(false);
+    expect(mergeResult.recovery_patch_path).toBeTruthy();
+    expect(mergeResult.recovery_metadata_path).toBeTruthy();
+
+    proxy.cleanupWorktree(repoRoot, worktreePath, prep.worktree_branch);
+  });
+
+  test("cleanupStaleWorktrees removes orphan managed branches without live worktree", () => {
+    const repoRoot = createTempGitRepo();
+    execFileSync("git", ["branch", "ph-worktree-orphan"], { cwd: repoRoot });
+
+    const result = proxy.cleanupStaleWorktrees(repoRoot, 240);
+    const branches = execFileSync("git", ["branch", "--format=%(refname:short)", "--list", "ph-worktree-*"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    }).trim();
+
+    expect(result.removed_branches).toContain("ph-worktree-orphan");
+    expect(branches).toBe("");
+  });
+
+  test("cleanupStaleWorktrees removes orphan workspace directories outside git worktree registry", () => {
+    const repoRoot = createTempGitRepo();
+    const orphanPath = join(repoRoot, ".parallel-harness", "worktrees", "ws_orphan");
+    mkdirSync(orphanPath, { recursive: true });
+    writeFileSync(join(orphanPath, "scratch.txt"), "orphan\n", "utf8");
+    const canonicalOrphanPath = realpathSync.native(orphanPath);
+
+    const result = proxy.cleanupStaleWorktrees(repoRoot, 240);
+
+    expect(result.removed_worktrees).toContain(canonicalOrphanPath);
+    expect(existsSync(orphanPath)).toBe(false);
   });
 
   test("prepareExecution returns validated config for path_check mode", () => {

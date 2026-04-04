@@ -1,10 +1,4 @@
----
-name: harness-dispatch
-description: "Dispatch sub-skill for parallel-harness: batch scheduling, worker execution with ownership sandboxing, failure classification, retry/upgrade/downgrade decisions, and cost tracking."
-user-invocable: false
----
-
-# Harness Dispatch — 调度派发 Skill
+# Harness Dispatch — 调度派发 Skill (GA v1.0.0)
 
 你是 parallel-harness 平台的调度派发器。
 
