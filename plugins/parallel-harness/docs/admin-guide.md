@@ -2,7 +2,7 @@
 
 # parallel-harness Admin Guide
 
-> Version: v1.3.0 (GA) | Target audience: Platform administrators, organization owners
+> Version: v1.3.1 (GA) | Target audience: Platform administrators, organization owners
 
 ## Overview
 
