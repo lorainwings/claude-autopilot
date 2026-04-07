@@ -226,12 +226,16 @@ dispatch 主线程在构造 prompt 时执行变量替换：
 
 ```markdown
 **前置校验（在执行任何操作之前）**：
-1. 读取 `openspec/changes/{change_name}/context/phase-results/phase-{N-1}-*.json`
-2. 如果文件不存在 → 立即返回：
-   `{"status": "blocked", "summary": "Phase {N-1} checkpoint 不存在"}`
-3. 如果 status 不是 "ok" 或 "warning" → 立即返回：
-   `{"status": "blocked", "summary": "Phase {N-1} 状态为 {status}"}`
-4. 校验通过后，继续执行本阶段任务。
+执行以下确定性脚本校验前置 checkpoint，**禁止自行编写 Python/Bash 读取代码**：
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.sh "openspec/changes/{change_name}/context/phase-results" "{N}" "{mode}"')
+脚本自动通过 mode-aware phase graph 计算正确的前驱阶段（支持 full/lite/minimal + TDD 覆盖）。
+解析返回的 JSON（格式: `{"exists": true/false, "status": "ok"/"warning"/..., "predecessor": N}`）：
+- 如果 `predecessor` 为 0 → 无前驱，直接继续
+- 如果 `exists` 为 false → 立即返回：
+  `{"status": "blocked", "summary": "Phase {predecessor} checkpoint 不存在"}`
+- 如果 `status` 不是 "ok" 或 "warning" → 立即返回：
+  `{"status": "blocked", "summary": "Phase {predecessor} 状态为 {status}"}`
+- 校验通过后，继续执行本阶段任务。
 ```
 
 ### 各阶段调度内容

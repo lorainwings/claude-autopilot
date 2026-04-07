@@ -142,6 +142,45 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# 19k2. find_checkpoint excludes -progress.json
+echo '{"status":"in_progress"}' > "$COMMON_TEST_DIR/phase-results/phase-3-progress.json"
+# 让 progress 文件比正式 checkpoint 更新
+sleep 0.1
+touch "$COMMON_TEST_DIR/phase-results/phase-3-progress.json"
+result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
+  green "  PASS: find_checkpoint excludes -progress.json"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_checkpoint excludes -progress.json (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19k3. find_checkpoint excludes -interim.json
+echo '{"status":"partial"}' > "$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
+result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
+  green "  PASS: find_checkpoint excludes -interim.json"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_checkpoint excludes -interim.json (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+
+# 19k4. find_checkpoint returns empty when only progress exists
+rm -f "$COMMON_TEST_DIR/phase-results/phase-3-ff.json" "$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
+result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
+if [ -z "$result" ]; then
+  green "  PASS: find_checkpoint returns empty when only progress exists"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: find_checkpoint returns empty when only progress exists (got '$result')"
+  FAIL=$((FAIL + 1))
+fi
+# 恢复 ff.json 供后续测试使用
+echo '{"status":"ok"}' > "$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
+rm -f "$COMMON_TEST_DIR/phase-results/phase-3-progress.json" "$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
+
 # 19l. scan_all_checkpoints returns JSON array with correct statuses
 mkdir -p "$COMMON_TEST_DIR/scan-results"
 echo '{"status":"ok"}' > "$COMMON_TEST_DIR/scan-results/phase-1-requirements.json"

@@ -172,13 +172,20 @@ except Exception:
 # --- Find latest checkpoint file for a phase ---
 # Usage: find_checkpoint <phase_results_dir> <phase_number>
 # Returns: path to checkpoint file on stdout, or empty string
+# Note: Excludes -progress.json / -interim.json / .tmp — these are NOT checkpoints.
+#       Mirrors the Python-side filter in _phase_graph.py::_find_best_checkpoint().
 find_checkpoint() {
   local dir="$1"
   local phase="$2"
-  local results
+  local results filtered
   results=$(find "$dir" -maxdepth 1 -name "phase-${phase}-*.json" -type f 2>/dev/null) || true
   if [ -n "$results" ]; then
-    echo "$results" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1
+    # 过滤 progress / interim / tmp 文件，与 Python 端 _find_best_checkpoint() 保持一致
+    # 使用多个 -e 而非 -E '(a|b)' 以兼容 macOS BSD grep
+    filtered=$(echo "$results" | grep -v -e '-progress\.json$' -e '-interim\.json$' -e '\.tmp$') || true
+    if [ -n "$filtered" ]; then
+      echo "$filtered" | tr '\n' '\0' | xargs -0 ls -t 2>/dev/null | head -1
+    fi
   fi
 }
 

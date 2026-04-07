@@ -84,6 +84,68 @@ assert_exit "2g. Phase 6 with task file → exit 0" 0 $exit_code
 assert_not_contains "2g. Phase 6 with task file → no deny" "$output" "deny"
 rm -rf "$TMPDIR_P6"
 
+# === check-predecessor-for-subagent.sh 子 Agent 前置校验脚本 ===
+echo "--- 2h. check-predecessor-for-subagent.sh ---"
+SUBAGENT_SCRIPT="$SCRIPT_DIR/check-predecessor-for-subagent.sh"
+
+# 2h1. 缺少参数 → 安全返回 JSON
+result=$(bash "$SUBAGENT_SCRIPT" 2>/dev/null)
+assert_contains "2h1. missing args → error JSON" "$result" '"error"'
+
+# 2h2. 不存在的目录 → exists=false
+result=$(bash "$SUBAGENT_SCRIPT" "/nonexistent/path" "2" "full" 2>/dev/null)
+assert_contains "2h2. nonexistent dir → exists false" "$result" '"exists":false'
+
+# 2h3. Phase 1 无前驱 → predecessor=0, exists=true
+result=$(bash "$SUBAGENT_SCRIPT" "/tmp" "1" "full" 2>/dev/null)
+assert_contains "2h3. Phase 1 → predecessor 0" "$result" '"predecessor":0'
+assert_contains "2h3. Phase 1 → exists true" "$result" '"exists":true'
+
+# 2h4. full mode Phase 5 → predecessor=4（非 TDD）
+TMPDIR_SA=$(mktemp -d)
+mkdir -p "$TMPDIR_SA/openspec/changes/feat/context/phase-results"
+echo '{"status":"ok"}' > "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-4-testing.json"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "5" "full" 2>/dev/null)
+assert_contains "2h4. full Phase 5 → predecessor 4" "$result" '"predecessor":4'
+assert_contains "2h4. full Phase 5 → exists true" "$result" '"exists":true'
+assert_contains "2h4. full Phase 5 → status ok" "$result" '"status":"ok"'
+
+# 2h5. lite mode Phase 5 → predecessor=1
+echo '{"status":"ok"}' > "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-1-requirements.json"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "5" "lite" 2>/dev/null)
+assert_contains "2h5. lite Phase 5 → predecessor 1" "$result" '"predecessor":1'
+assert_contains "2h5. lite Phase 5 → status ok" "$result" '"status":"ok"'
+
+# 2h6. minimal mode Phase 7 → predecessor=5
+echo '{"status":"ok","zero_skip_check":{"passed":true}}' > "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-5-impl.json"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "7" "minimal" 2>/dev/null)
+assert_contains "2h6. minimal Phase 7 → predecessor 5" "$result" '"predecessor":5'
+
+# 2h7. full+tdd Phase 5 → predecessor=3（TDD override）
+mkdir -p "$TMPDIR_SA/.claude"
+echo 'phases:
+  implementation:
+    tdd_mode: true' > "$TMPDIR_SA/.claude/autopilot.config.yaml"
+echo '{"status":"ok"}' > "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-3-ff.json"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "5" "full" 2>/dev/null)
+assert_contains "2h7. full+tdd Phase 5 → predecessor 3" "$result" '"predecessor":3'
+assert_contains "2h7. full+tdd Phase 5 → status ok" "$result" '"status":"ok"'
+
+# 2h8. 相对路径 + full+tdd Phase 5 → predecessor=3
+pushd "$TMPDIR_SA" >/dev/null
+result=$(bash "$SUBAGENT_SCRIPT" "openspec/changes/feat/context/phase-results" "5" "full" 2>/dev/null)
+assert_contains "2h8. relative path + full+tdd → predecessor 3" "$result" '"predecessor":3'
+popd >/dev/null
+
+# 2h9. 前驱 checkpoint 不存在 → exists=false
+rm -f "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-4-testing.json"
+rm -f "$TMPDIR_SA/.claude/autopilot.config.yaml"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "5" "full" 2>/dev/null)
+assert_contains "2h9. missing predecessor → exists false" "$result" '"exists":false'
+assert_contains "2h9. missing predecessor → predecessor 4" "$result" '"predecessor":4'
+
+rm -rf "$TMPDIR_SA"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

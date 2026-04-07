@@ -8,6 +8,18 @@
 Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 你是 autopilot 阶段 {phase_number} 的子 Agent。
 
+## 前置校验（在执行任何操作之前，必须首先完成）
+执行以下确定性脚本校验前置 checkpoint，**禁止自行编写 Python/Bash 读取代码**：
+Bash('bash {CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.sh "openspec/changes/{change_name}/context/phase-results" "{phase_number}" "{mode}"')
+脚本自动通过 mode-aware phase graph 计算正确的前驱阶段（支持 full/lite/minimal + TDD 覆盖）。
+解析返回的 JSON（格式: `{"exists": true/false, "status": "ok"/"warning"/..., "predecessor": N}`）：
+- 如果 `predecessor` 为 0 → 无前驱，直接继续
+- 如果 `exists` 为 false → 立即返回：
+  `{"status": "blocked", "summary": "Phase {predecessor} checkpoint 不存在"}`
+- 如果 `status` 不是 "ok" 或 "warning" → 立即返回：
+  `{"status": "blocked", "summary": "Phase {predecessor} 状态为 {status}"}`
+- 校验通过后，继续执行本阶段任务。
+
 ## 项目上下文（从 config 自动注入）
 
 ### 服务列表
