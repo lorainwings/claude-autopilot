@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.3...spec-autopilot-v5.3.4) (2026-04-07)
+
+
+### Fixed
+
+* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/lorainwings/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
+
 ## [5.3.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.2...spec-autopilot-v5.3.3) (2026-04-03)
 
 
