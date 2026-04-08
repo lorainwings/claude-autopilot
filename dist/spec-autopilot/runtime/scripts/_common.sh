@@ -350,7 +350,13 @@ try:
         else:
             print(default)
             sys.exit(0)
-    print(current if current is not None else default)
+    # Normalize Python bools to lowercase for shell compatibility
+    # PyYAML yaml.safe_load returns bool; print(True) -> capital-T True
+    # Shell callers compare against lowercase true/false
+    if isinstance(current, bool):
+        print(str(current).lower())
+    else:
+        print(current if current is not None else default)
     sys.exit(0)
 except ImportError:
     pass

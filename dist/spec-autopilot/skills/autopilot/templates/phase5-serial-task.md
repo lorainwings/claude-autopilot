@@ -12,7 +12,16 @@ curl -sf {service.health_url} || echo "WARN: {service.name} 不可达"
 
 ## 实施指令
 
-### 测试先行验证（仅 full 模式且 Phase 4 已执行时生效）
+### 测试驱动验证（full 模式标准流程）
+
+> 当 Phase 4 测试文件可用时，**主线程在 dispatch 前后执行 L2 RED/GREEN 验证**。
+> 子 Agent 内部也应遵循 RED→GREEN 流程，与主线程 L2 验证形成双重保障。
+
+**主线程 L2 验证**（由主线程执行，子 Agent 不可干预）：
+- dispatch 前: 主线程运行 Phase 4 测试，确认 RED（测试失败）
+- dispatch 后: 主线程运行 Phase 4 测试，确认 GREEN（测试通过）
+
+**子 Agent L1 验证**（由子 Agent 自行执行，作为 L2 的补充）：
 
 当 Phase 4 的测试用例文件已存在时（由控制器注入 `phase4_test_files`），每个 task 的实施必须遵循以下测试驱动流程：
 

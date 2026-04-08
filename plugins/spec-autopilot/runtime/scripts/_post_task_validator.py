@@ -44,6 +44,11 @@ def output_block(reason, fix_suggestion=None):
     sys.exit(0)
 
 
+def output_warn(reason):
+    """Output a warning to stderr. Does not block — informational with elevated severity."""
+    print(f"WARNING: {reason}", file=sys.stderr)
+
+
 # --- Parse input ---
 try:
     data = json.load(sys.stdin)
@@ -176,7 +181,11 @@ if phase_num == 5 and envelope.get("status") == "ok":
                 "At least one complete RED-GREEN-REFACTOR cycle must be recorded."
             )
 
-    # test_driven_evidence L2 check (non-TDD full mode — informational, not blocking)
+    # test_driven_evidence check (sub-agent L1 self-report — informational)
+    # NOTE: Main thread L2 RED/GREEN verification results are written AFTER this hook runs,
+    # into the task checkpoint file. L2 validation is handled by verify-test-driven-l2.sh,
+    # called by the main thread after checkpoint write. This hook only checks the sub-agent's
+    # own L1 evidence (if provided in the envelope).
     tde = envelope.get("test_driven_evidence")
     if tde is not None and isinstance(tde, dict):
         red_ok = tde.get("red_verified", False)
@@ -184,19 +193,17 @@ if phase_num == 5 and envelope.get("status") == "ok":
         skip_reason = tde.get("red_skipped_reason")
         if red_ok and green_ok:
             print(
-                "INFO: Phase 5 test-driven evidence: valid RED→GREEN transition verified",
+                "INFO: Phase 5 sub-agent test-driven evidence: valid RED→GREEN transition",
                 file=sys.stderr,
             )
         elif not red_ok and skip_reason:
             print(
-                f"WARNING: Phase 5 test-driven evidence: RED skipped ({skip_reason}) — "
-                "evidence does not prove RED→GREEN transition",
+                f"WARNING: Phase 5 sub-agent test-driven evidence: RED skipped ({skip_reason})",
                 file=sys.stderr,
             )
         elif not green_ok:
             print(
-                "WARNING: Phase 5 test-driven evidence: GREEN not verified — "
-                "implementation may not satisfy Phase 4 tests",
+                "WARNING: Phase 5 sub-agent test-driven evidence: GREEN not verified",
                 file=sys.stderr,
             )
 

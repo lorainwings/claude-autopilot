@@ -41,9 +41,9 @@ if [[ -f "$PHASE6_CHECKPOINT" ]]; then
   suite_skipped=$(jq '[.suite_results[]?.skipped // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
   suite_error=$(jq '[.suite_results[]?.error // 0] | add // 0' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "0")
   anomaly_alerts=$(jq -c '.anomaly_alerts // []' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "[]")
-  # 从 checkpoint 读取 allure_results_dir
+  # 从 checkpoint 读取 allure_results_dir（仅当目录实际存在时采用）
   checkpoint_allure_dir=$(jq -r '.allure_results_dir // ""' "$PHASE6_CHECKPOINT" 2>/dev/null || echo "")
-  if [[ -n "$checkpoint_allure_dir" ]]; then
+  if [[ -n "$checkpoint_allure_dir" && -d "$checkpoint_allure_dir" ]]; then
     allure_results_dir="$checkpoint_allure_dir"
   fi
 fi

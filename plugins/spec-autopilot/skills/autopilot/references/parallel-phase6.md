@@ -69,7 +69,26 @@ Task(subagent_type: "qa-expert", run_in_background: true,
 
 主线程汇合后:
 1. 合并所有套件的测试结果
-2. 运行 `npx allure generate allure-results/ -o allure-report/ --clean`
+2. **确定性执行** Allure 报告合并（当 `allure-results/` 存在时）：
+   ```
+   Bash('
+     if [ -d "allure-results" ]; then
+       npx allure generate allure-results/ -o allure-report/ --clean
+       if [ $? -eq 0 ]; then
+         echo "ALLURE_GENERATED"
+       else
+         echo "ALLURE_GENERATE_FAILED"
+       fi
+     else
+       echo "NO_ALLURE_RESULTS"
+     fi
+   ')
+   ```
+   - `ALLURE_GENERATED` → 设置 `report_url` 为 `file:///path/to/allure-report/index.html`
+   - `ALLURE_GENERATE_FAILED` → 降级为 custom 格式，输出 `[WARN]`
+   - `NO_ALLURE_RESULTS` → 使用 custom 格式
 3. 汇总 pass_rate、异常提醒、报告链接
-4. 设置 `report_url` 为本地文件路径（`file:///path/to/allure-report/index.html`）
+4. 设置 `report_url`：
+   - allure-report/ 存在: `file:///path/to/allure-report/index.html`
+   - 否则: `file:///path/to/testreport/test-report.html`
    — Phase 7 Step 2.5 启动 Allure 服务后，最终展示链接将更新为 `http://localhost:{port}`

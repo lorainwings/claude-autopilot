@@ -54,6 +54,7 @@ tdd-refactor-rollback.sh
 validate-config.sh
 validate-decision-format.sh
 validate-json-envelope.sh
+verify-test-driven-l2.sh
 write-phase-progress.sh
 validate-requirement-packet.sh
 validate-openspec-artifacts.sh
