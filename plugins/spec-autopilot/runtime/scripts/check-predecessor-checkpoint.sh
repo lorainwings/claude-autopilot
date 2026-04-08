@@ -343,6 +343,29 @@ if [ "$TARGET_PHASE" -eq 5 ]; then
   fi
 fi
 
+# L2 test_driven_evidence audit for Phase 5 serial task dispatch (non-TDD full mode)
+# When a new Phase 5 task is dispatched, verify the PREVIOUS task's checkpoint
+# has valid L2 test_driven_evidence. This converts L2 verification from
+# prompt-driven (SKILL.md protocol) to hook-driven deterministic enforcement.
+if [ "$TARGET_PHASE" -eq 5 ] && [ "$EXEC_MODE" = "full" ] && [ "$(_get_tdd_mode)" != "true" ]; then
+  task_checkpoints_dir="${change_dir}context/phase-results/phase5-tasks"
+  if [ -d "$task_checkpoints_dir" ]; then
+    # Find the highest-numbered task checkpoint (the most recently completed task)
+    last_task_file=$(ls "$task_checkpoints_dir"/task-*.json 2>/dev/null | sort -t- -k2 -n | tail -1)
+    if [ -n "$last_task_file" ] && [ -f "$last_task_file" ]; then
+      # Run verify-test-driven-l2.sh to check L2 evidence
+      verify_result=$(bash "$SCRIPT_DIR/verify-test-driven-l2.sh" "$last_task_file" 2>/dev/null || echo '{"status":"warn","message":"verify script failed"}')
+      verify_status=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','warn'))" 2>/dev/null || echo "warn")
+      if [ "$verify_status" = "warn" ]; then
+        verify_message=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
+        echo "[L2-AUDIT] Previous task checkpoint $(basename "$last_task_file"): $verify_message" >&2
+        # Warn only — does not deny. The audit trail ensures visibility even if
+        # the main thread prompt skipped the verify call.
+      fi
+    fi
+  fi
+fi
+
 # Special gate: Phase 6 requires Phase 5 zero_skip_check
 if [ "$TARGET_PHASE" -eq 6 ]; then
   # minimal mode skips Phase 6 entirely

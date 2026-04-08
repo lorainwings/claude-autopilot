@@ -27,11 +27,26 @@
 
 ## 生成报告
 
+{if config.phases.reporting.format === "allure"}
+### Allure 报告合并（确定性步骤）
+
+运行完整测试套件后，**必须**执行 Allure 报告合并：
+
+```
+npx allure generate allure-results -o allure-report --clean
+```
+
+> 此步骤不依赖 `report_commands` 配置，当 `format === "allure"` 时**始终执行**。
+> 如果 allure CLI 不可用（`npx allure` 失败），降级为 custom 格式并记录 `[WARN] Allure CLI 不可用，降级为 custom 格式`。
+
+{end if}
+
 {if config.phases.reporting.report_commands}
+### 自定义报告命令
 {for each cmd in report_commands}
 - `{cmd.value} {change_name}`
 {end for}
-{else}
+{else if config.phases.reporting.format !== "allure"}
 - 在 testreport/ 目录生成 test-report.md 和 test-report.html
 {end if}
 

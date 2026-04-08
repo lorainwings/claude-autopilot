@@ -622,6 +622,83 @@ Phase 5 启动时，扫描 `phase5-tasks/` 目录：
 
 ---
 
+## 非 TDD 模式测试驱动 L2 验证（full 模式）
+
+> 当 `tdd_mode: false` 且 `mode: full` 且 `phase4_test_files` 非空时，
+> 主线程在每个 task dispatch 前后执行确定性 Bash() 测试验证，
+> 弥补子 Agent L1 自律的不可靠性。
+
+### 与 TDD 模式的区别
+
+| 维度 | TDD 模式 (`tdd_mode: true`) | 非 TDD L2 验证 |
+|------|---------------------------|---------------|
+| Task 拆分 | 3 个独立 Task (RED/GREEN/REFACTOR) | 1 个 Task + 主线程前后验证 |
+| RED 执行者 | RED 子 Agent 写测试 | Phase 4 已有测试，主线程运行 |
+| GREEN 执行者 | GREEN 子 Agent 写实现 | 子 Agent 写实现，主线程验证 |
+| 文件类型拦截 | `.tdd-stage` + L2 Hook | 无（测试已由 Phase 4 完成） |
+| 阻断级别 | blocked | warn（不阻断但记录） |
+| 开销 | 高（3x Task 调用） | 低（2x Bash 调用） |
+
+### 流程
+
+```
+FOR each task IN tasks:
+  # 1. 映射当前 task 的相关测试文件
+  IF test_traceability 可用:
+    relevant_tests = test_traceability.filter(t => t.requirement matches task.description)
+  ELSE:
+    relevant_tests = phase4_test_files  # 全量
+
+  # 2. L2 RED 验证（dispatch 前）
+  RED_EXIT_CODE = Bash('{test_command} {relevant_tests}')
+  IF RED_EXIT_CODE == 0:
+    red_verified = false
+    red_skipped_reason = "test_already_passing"
+  ELSE:
+    red_verified = true
+
+  # 3. dispatch 子 Agent Task（正常实施）
+  # 4. L2 GREEN 验证（task 完成后）
+  GREEN_EXIT_CODE = Bash('{test_command} {relevant_tests}')
+  green_verified = (GREEN_EXIT_CODE == 0)
+
+  # 5. 写入 task checkpoint
+  task_checkpoint.test_driven_evidence = {
+    red_verified, green_verified, red_skipped_reason,
+    verification_layer: "L2_main_thread"
+  }
+
+  # 6. L2 验证闭环（确定性脚本校验 checkpoint 完整性）
+  VERIFY_RESULT = Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/verify-test-driven-l2.sh {task_checkpoint_path}')
+  # 输出 JSON: {"status":"ok|warn","message":"...","red_verified":bool,"green_verified":bool}
+  # status=ok → 继续下一个 task
+  # status=warn → 输出 message，继续但递增 warn_count
+  # warn_count >= 3 → AskUserQuestion 决策是否继续
+END FOR
+```
+
+### 测试文件与 Task 的映射
+
+主线程使用 Phase 4 checkpoint 中的 `test_traceability` 字段映射：
+- 有 traceability: 按 `requirement` 字段与当前 task 描述匹配，仅运行相关测试
+- 无 traceability（向后兼容）: 运行全部 `phase4_test_files`，由测试粒度自然过滤
+
+### 验证失败处理
+
+- RED 验证测试已通过: 设 `red_verified: false`，记录 `[WARN]`，不阻断（功能可能已存在）
+- GREEN 验证测试失败: 设 `green_verified: false`，记录 `[WARN]`，不阻断
+- 连续 3 个 task GREEN 失败: 触发 `AskUserQuestion` 决策是否继续
+
+### 并行模式
+
+并行模式下无法逐 task 做 L2 验证（域 Agent 在 worktree 中独立执行）。改为合并后全量验证：
+1. 合并所有域 worktree
+2. 主线程运行 Phase 4 全部测试
+3. 全部通过 = GREEN ok，写入聚合级 `test_driven_evidence`
+4. 未通过 = 记录 WARN，不阻断
+
+---
+
 ## TDD Mode（当 `tdd_mode: true` 且模式为 `full`）
 
 > 详细协议见 `references/tdd-cycle.md`。本节为 Phase 5 集成概述。
