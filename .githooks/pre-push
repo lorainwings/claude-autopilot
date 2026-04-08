@@ -16,7 +16,12 @@ fi
 echo "🔍 Pre-push: checking dist freshness..."
 if ! bash "$REPO_ROOT/scripts/check-dist-freshness.sh" all; then
   echo ""
-  echo "❌ dist is stale. Run the appropriate 'make *-build' and commit before pushing."
+  echo "❌ dist is stale. Please rebuild and commit:"
+  echo "   make build && git add dist/spec-autopilot/ && git commit --amend --no-edit"
+  echo "   make ph-build-only && git add dist/parallel-harness/ && git commit --amend --no-edit"
+  echo "   make dr-build && git add dist/daily-report/ && git commit --amend --no-edit"
+  echo ""
+  echo "   Or rebuild all: make build ph-build-only dr-build && git add dist/ && git commit --amend --no-edit"
   exit 1
 fi
 

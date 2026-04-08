@@ -64,7 +64,7 @@ jobs:
         if: needs.release-please.outputs.ph_release_created == 'true'
         run: cd plugins/parallel-harness && bun install --frozen-lockfile
 
-      - name: Build parallel-harness dist
+      - name: Build parallel-harness dist (pure build, no test)
         if: needs.release-please.outputs.ph_release_created == 'true'
         run: bash plugins/parallel-harness/tools/build-dist.sh
 

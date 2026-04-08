@@ -12,6 +12,7 @@
 #   --git-add:   重建后自动 git add dist/<plugin>/
 #   --ci-git-check: CI 模式 — 用 git diff 检查 build 后 dist/ 是否与提交一致
 #                   (在 make build 之后调用，检测 build 是否产生了任何 diff)
+#   --warn-only: 发现 stale 时输出警告但返回 0 (用于 pre-commit 非阻断提示)
 #
 # 退出码:
 #   0: dist 一致 (或已成功重建)
@@ -28,12 +29,14 @@ PLUGIN_NAME="${1:-}"
 REBUILD=false
 GIT_ADD=false
 CI_GIT_CHECK=false
+WARN_ONLY=false
 
 for arg in "$@"; do
   case "$arg" in
     --rebuild) REBUILD=true ;;
     --git-add) GIT_ADD=true ;;
     --ci-git-check) CI_GIT_CHECK=true ;;
+    --warn-only) WARN_ONLY=true ;;
   esac
 done
 
@@ -218,6 +221,11 @@ check_and_maybe_rebuild() {
   fi
 
   echo "❌ dist/$plugin is stale"
+
+  if [ "$WARN_ONLY" = "true" ]; then
+    echo "⚠️  dist/$plugin is stale (warn-only mode, not blocking)"
+    return 0
+  fi
 
   if [ "$REBUILD" = "true" ]; then
     echo "📦 Rebuilding dist/$plugin..."
