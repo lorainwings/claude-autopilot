@@ -185,8 +185,9 @@ fi
 
 # ============================================
 # Part 2.7: spec-autopilot dist staleness guard (不自动重建)
+# 仅当本次提交涉及 SA 源码时才检测，避免无关提交的伪告警
 # ============================================
-if [ -d "plugins/spec-autopilot" ] && [ -d "dist/spec-autopilot" ]; then
+if [ "$PLUGIN_CHANGED" = "yes" ] && [ -d "dist/spec-autopilot" ]; then
   if ! bash scripts/check-dist-freshness.sh spec-autopilot 2>/dev/null; then
     echo "⚠️  dist/spec-autopilot/ 与源码不一致"
     echo "   提交后请运行 'make build && git add dist/spec-autopilot/' 更新"
@@ -227,8 +228,9 @@ fi
 
 # ============================================
 # Part 3.5: parallel-harness dist staleness guard (不自动重建)
+# 仅当本次提交涉及 PH 源码时才检测
 # ============================================
-if [ -d "plugins/parallel-harness" ] && [ -d "dist/parallel-harness" ]; then
+if [ "$PH_CHANGED" = "yes" ] && [ -d "dist/parallel-harness" ]; then
   if ! bash scripts/check-dist-freshness.sh parallel-harness 2>/dev/null; then
     echo "⚠️  dist/parallel-harness/ 与源码不一致"
     echo "   提交后请运行 'make ph-build && git add dist/parallel-harness/' 更新"
@@ -255,8 +257,9 @@ fi
 
 # ============================================
 # Part 3.7: daily-report dist staleness guard (不自动重建)
+# 仅当本次提交涉及 DR 源码时才检测
 # ============================================
-if [ -d "plugins/daily-report" ] && [ -d "dist/daily-report" ]; then
+if [ "$DR_CHANGED" = "yes" ] && [ -d "dist/daily-report" ]; then
   if ! bash scripts/check-dist-freshness.sh daily-report 2>/dev/null; then
     echo "⚠️  dist/daily-report/ 与源码不一致"
     echo "   提交后请运行 'make dr-build && git add dist/daily-report/' 更新"

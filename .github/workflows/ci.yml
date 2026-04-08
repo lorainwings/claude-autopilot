@@ -437,7 +437,7 @@ jobs:
   sa-summary:
     name: spec-autopilot / Summary
     needs: [detect, release-discipline, sa-test, sa-lint, sa-typecheck, sa-build]
-    if: always() && needs.detect.outputs.run_sa == 'true'
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_sa == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -471,7 +471,7 @@ jobs:
   ph-summary:
     name: parallel-harness / Summary
     needs: [detect, release-discipline, ph-typecheck, ph-test, ph-lint, ph-build]
-    if: always() && needs.detect.outputs.run_ph == 'true'
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_ph == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -505,7 +505,7 @@ jobs:
   dr-summary:
     name: daily-report / Summary
     needs: [detect, release-discipline, dr-lint, dr-build]
-    if: always() && needs.detect.outputs.run_dr == 'true'
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_dr == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
