@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.5](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.4...spec-autopilot-v5.3.5) (2026-04-08)
+
+
+### Fixed
+
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/lorainwings/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
+* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/lorainwings/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
+
 ## [5.3.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.3...spec-autopilot-v5.3.4) (2026-04-07)
 
 
