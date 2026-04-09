@@ -48,7 +48,7 @@
 
 | 场景 | 处理方式 |
 |------|----------|
-| 配置文件缺失 | 调用 autopilot-init 自动生成 |
+| 配置文件缺失 | 调用 autopilot-setup 自动生成 |
 | 工具未安装 | 主动安装，失败则联网搜索 |
 | Phase 5 子 Agent 异常退出 | 保存进度到 phase-results checkpoint，从上次完成的 task 恢复 |
 | 测试全部失败 | 分析根因，不盲目修改 |

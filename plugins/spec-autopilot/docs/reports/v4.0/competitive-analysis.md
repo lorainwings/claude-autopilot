@@ -330,8 +330,8 @@ spec-autopilot 的竞争力不在于单点功能，而在于**多维度能力的
 
 | 任务 | 产出 | 预期效果 |
 |------|------|---------|
-| minimal 模式极简化 — 3 步快速通道 | 修改 autopilot-init + SKILL.md | 新用户 5min 内完成首次运行 |
-| 智能默认配置 — 项目类型自动检测生成最小 YAML | autopilot-init 增强 | YAML 从 237 行降到 < 30 行 |
+| minimal 模式极简化 — 3 步快速通道 | 修改 autopilot-setup + SKILL.md | 新用户 5min 内完成首次运行 |
+| 智能默认配置 — 项目类型自动检测生成最小 YAML | autopilot-setup 增强 | YAML 从 237 行降到 < 30 行 |
 | 交互式引导 — 首次运行 wizard 模式 | 新增 autopilot-quickstart skill | 零配置体验接近 Superpowers |
 
 ### Week 2: TDD 模式加固（对标 Superpowers RED-GREEN-REFACTOR）

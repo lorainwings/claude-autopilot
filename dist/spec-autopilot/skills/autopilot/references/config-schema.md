@@ -1,6 +1,6 @@
 # Config Schema 与模板
 
-> 本文件由 autopilot-init SKILL.md 引用。包含配置文件模板和 schema 验证规则。
+> 本文件由 autopilot-setup SKILL.md 引用。包含配置文件模板和 schema 验证规则。
 
 ## 配置模板
 

@@ -576,7 +576,7 @@ rm -f openspec/changes/*/context/.tdd-stage 2>/dev/null
 - `skills/autopilot-dispatch/SKILL.md` (323 行)
 - `skills/autopilot-phase7/SKILL.md` (182 行)
 - `skills/autopilot-recovery/SKILL.md` (158 行)
-- `skills/autopilot-init/SKILL.md` (368 行)
+- `skills/autopilot-setup/SKILL.md` (368 行)
 
 ### 参考文档
 - `skills/autopilot/references/tdd-cycle.md` (253 行)

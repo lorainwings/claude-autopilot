@@ -131,7 +131,7 @@ phases:
 
 **Fix**: Add the missing fields in `.claude/autopilot.config.yaml`. Refer to `references/config-schema.md` for the complete template.
 
-Or re-run `/autopilot-init` to regenerate the configuration.
+Or re-run `/autopilot-setup` to regenerate the configuration.
 
 ### 10. Lock File Conflict: Another autopilot is running
 

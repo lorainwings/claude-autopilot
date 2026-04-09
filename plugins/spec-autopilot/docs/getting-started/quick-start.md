@@ -20,7 +20,7 @@ claude plugins install https://github.com/lorainwings/claude-autopilot
 Run in your project root:
 
 ```
-/autopilot-init
+/autopilot-setup
 ```
 
 The wizard will automatically detect your project structure (language, framework, test tools), then offer 3 preset templates:

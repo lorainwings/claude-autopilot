@@ -286,8 +286,8 @@ CRITICAL_TYPES = {phase_start, phase_end, gate_block, gate_pass, agent_dispatch,
 
 **亮点:**
 - 三步快速启动路径 (安装 → 初始化 → 启动)，预期 5 分钟
-- `autopilot-init` 向导式配置生成，Strict/Moderate/Relaxed 三预设
-- 配置缺失时自动降级调用 `autopilot-init`
+- `autopilot-setup` 向导式配置生成，Strict/Moderate/Relaxed 三预设
+- 配置缺失时自动降级调用 `autopilot-setup`
 - `python3` 依赖提供友好失败提示 + 具体安装命令
 
 **盲点:**

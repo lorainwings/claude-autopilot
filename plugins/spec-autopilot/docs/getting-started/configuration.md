@@ -229,7 +229,7 @@ model_routing:
 
 ## `project_context`
 
-Project-specific context auto-detected by `autopilot-init`. Dispatch dynamically injects these values into sub-agent prompts, **eliminating the need for separate instruction files in most cases**.
+Project-specific context auto-detected by `autopilot-setup`. Dispatch dynamically injects these values into sub-agent prompts, **eliminating the need for separate instruction files in most cases**.
 
 ### `project_context.project_structure`
 

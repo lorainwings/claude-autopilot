@@ -12,8 +12,8 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- Auto-continue: requirement packet 确认后自动推进 ---"
 setup_autopilot_fixture
 
-# --- 1. autopilot-init 预设: 所有预设 after_phase_1 = false ---
-INIT_SKILL="$SKILL_DIR/autopilot-init/SKILL.md"
+# --- 1. autopilot-setup 预设: 所有预设 after_phase_1 = false ---
+INIT_SKILL="$SKILL_DIR/autopilot-setup/SKILL.md"
 init_content=$(cat "$INIT_SKILL")
 
 # 1a. Strict 预设: after_phase_1 = false
@@ -70,7 +70,7 @@ poll_content=$(cat "$POLL_SCRIPT")
 assert_contains "3a: poll 脚本接受 auto_continue" "$poll_content" 'auto_continue'
 
 # --- 4. autopilot-phase7: 自动归档（不再强制 AskUser）---
-PHASE7_SKILL="$SKILL_DIR/autopilot-phase7/SKILL.md"
+PHASE7_SKILL="$SKILL_DIR/autopilot-phase7-archive/SKILL.md"
 
 # 4a. archive-readiness ready → 自动归档
 assert_file_contains "4a: readiness ready → 无需 AskUserQuestion" "$PHASE7_SKILL" '无需 AskUserQuestion'

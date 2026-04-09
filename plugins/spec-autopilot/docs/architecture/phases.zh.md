@@ -23,7 +23,7 @@
 
 ### 步骤
 
-1. 检查 `autopilot.config.yaml` 是否存在 → 不存在则调用 `autopilot-init`
+1. 检查 `autopilot.config.yaml` 是否存在 → 不存在则调用 `autopilot-setup`
 2. 通过 `validate-config.sh` 验证配置 schema
 3. 检查 settings.json 中已启用的插件
 4. 调用 `autopilot-recovery` Skill 扫描检查点

@@ -229,7 +229,7 @@ model_routing:
 
 ## `project_context`
 
-由 `autopilot-init` 自动检测的项目特定上下文。Dispatch 动态将这些值注入子 Agent 提示词，**大多数情况下无需单独的指令文件**。
+由 `autopilot-setup` 自动检测的项目特定上下文。Dispatch 动态将这些值注入子 Agent 提示词，**大多数情况下无需单独的指令文件**。
 
 ### `project_context.project_structure`
 

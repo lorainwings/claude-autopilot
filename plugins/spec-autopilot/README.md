@@ -212,7 +212,7 @@ claude plugin list
 
 ## Configuration
 
-Create `.claude/autopilot.config.yaml` in your project root (or run `autopilot-init` to auto-generate):
+Create `.claude/autopilot.config.yaml` in your project root (or run `autopilot-setup` to auto-generate):
 
 ```yaml
 version: "1.0"
@@ -268,7 +268,7 @@ test_suites:
 | Skill | Invocable | Purpose |
 |-------|-----------|---------|
 | `autopilot` | Yes | Main 8-phase orchestrator (runs in main thread) |
-| `autopilot-init` | Yes | Auto-detect tech stack, generate config |
+| `autopilot-setup` | Yes | Auto-detect tech stack, generate config |
 | `autopilot-dispatch` | No | Sub-Agent dispatch with JSON envelope contract |
 | `autopilot-gate` | No | 8-step checklist + special gates + checkpoint R/W + semantic/brownfield validation |
 | `autopilot-phase0` | No | Environment check + config loading + crash recovery + lock file |
@@ -324,7 +324,7 @@ test_suites:
 
 ```bash
 # In Claude Code, invoke:
-Skill("spec-autopilot:autopilot-init")
+Skill("spec-autopilot:autopilot-setup")
 ```
 
 ### 2. Create project-side skill wrapper

@@ -23,7 +23,7 @@
 
 ### Steps
 
-1. Check `autopilot.config.yaml` exists → if not, call `autopilot-init`
+1. Check `autopilot.config.yaml` exists → if not, call `autopilot-setup`
 2. Validate config schema via `validate-config.sh`
 3. Check settings.json for enabled plugins
 4. Call `autopilot-recovery` Skill to scan checkpoints

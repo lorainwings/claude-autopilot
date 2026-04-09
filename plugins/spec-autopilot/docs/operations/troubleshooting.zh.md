@@ -131,7 +131,7 @@ phases:
 
 **修复**: 在 `.claude/autopilot.config.yaml` 中补全缺失的字段。参考 `references/config-schema.md` 获取完整模板。
 
-或重新运行 `/autopilot-init` 重新生成配置。
+或重新运行 `/autopilot-setup` 重新生成配置。
 
 ### 10. 锁文件冲突：另一个 autopilot 正在运行
 

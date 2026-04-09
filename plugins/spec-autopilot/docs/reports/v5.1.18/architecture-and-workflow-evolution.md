@@ -130,7 +130,7 @@
 
 | 文件 | 修改内容 |
 |------|---------|
-| `skills/autopilot-init/SKILL.md` | 生成的默认 `autopilot.config.yaml` 中 `code_constraints.forbidden_patterns` 预置常见安全反模式: `eval(` / `exec(` / `Function(` / `dangerouslySetInnerHTML` / `os.system(` / `subprocess.call(.*shell=True` |
+| `skills/autopilot-setup/SKILL.md` | 生成的默认 `autopilot.config.yaml` 中 `code_constraints.forbidden_patterns` 预置常见安全反模式: `eval(` / `exec(` / `Function(` / `dangerouslySetInnerHTML` / `os.system(` / `subprocess.call(.*shell=True` |
 | `references/config-schema.md` | 文档说明默认安全基线及覆盖方式 |
 
 ### 4.2 针对 TDD 穿透：防止 TDD 流程被绕过
@@ -395,7 +395,7 @@ Layer 1: Agent Runtime (Claude Code / Cursor / Cline / Aider / 自定义)
 | W1 | T-4 | 并行 TDD RED 验证回溯 | G-P0-4 | `parallel-phase5.md` + `_post_task_validator.py` | 1 天 |
 | W2 | T-5 | flags=2 模糊需求定向澄清 | G-P1-1 | `phase1-requirements.md` + `phase1-requirements-detail.md` | 1 天 |
 | W2 | T-6 | REFACTOR 阶段测试文件保护 | G-P1-2 | `unified-write-edit-check.sh` + `test_tdd_isolation.sh` | 0.5 天 |
-| W2 | T-7 | 默认安全 forbidden_patterns 基线 | G-P1-3 | `autopilot-init/SKILL.md` + `config-schema.md` | 0.5 天 |
+| W2 | T-7 | 默认安全 forbidden_patterns 基线 | G-P1-3 | `autopilot-setup/SKILL.md` + `config-schema.md` | 0.5 天 |
 | W2 | T-8 | anti-rationalization score 3-4 升级为 block | G-P1-4 | `_post_task_validator.py` + 测试 | 0.5 天 |
 | W2 | T-9 | 移除 parallel-merge-guard 后台 Agent 跳过 | G-P1-6 | `parallel-merge-guard.sh` + 测试 | 0.5 天 |
 | W2 | T-10 | 复合需求路由测试补全 | G-P1-7 | `test_routing_overrides.sh` | 0.5 天 |

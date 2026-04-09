@@ -43,7 +43,7 @@
 | **autopilot-dispatch** | 子 Agent Task 构造，prompt 模板注入 | 低 | 关键热点，与 config 耦合度高（设计预期） |
 | **autopilot-gate** | 8 步切换清单，特殊门禁，checkpoint 管理 | 中 | 涉及 L3 验证+持久化，职责较重 |
 | **autopilot-recovery** | 崩溃恢复，checkpoint 扫描，阶段判定 | 低 | 边界明确，仅处理恢复逻辑 |
-| **autopilot-init** | 项目检测，配置初始化，LSP 推荐 | 低 | 职责专属，与主流程独立 |
+| **autopilot-setup** | 项目检测，配置初始化，LSP 推荐 | 低 | 职责专属，与主流程独立 |
 
 **跨 Skill 调用链**（控制反演，非嵌套调用）：
 
@@ -55,7 +55,7 @@ autopilot (主线程)
   ├─> autopilot-dispatch [Task 构造]
   ├─> Task(子 Agent) [执行业务逻辑]
   ├─> autopilot-phase7 [汇总 + 归档]
-  └─> autopilot-init [配置生成，仅初期]
+  └─> autopilot-setup [配置生成，仅初期]
 ```
 
 **发现的问题**：
@@ -586,7 +586,7 @@ Phase 7 (归档):       ~5K tokens
 |------|------|---------|------|
 | 9 | Session ID 校验 | Hook 中验证 session_id | 4h |
 | 10 | python3 fork 缓存 | export 环境变量 | 4h |
-| 11 | 配置模板 | autopilot-init 生成示例 | 6h |
+| 11 | 配置模板 | autopilot-setup 生成示例 | 6h |
 | 12 | Banned Patterns 增强 | 扩展正则覆盖变体 | 2h |
 
 ---

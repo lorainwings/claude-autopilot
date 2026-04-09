@@ -68,7 +68,7 @@ claude
 Run the following in Claude Code:
 
 ```
-/spec-autopilot:autopilot-init
+/spec-autopilot:autopilot-setup
 ```
 
 Or trigger autopilot directly (init is called automatically when config does not exist):
@@ -429,7 +429,7 @@ Event types: `phase_start`, `phase_end`, `gate_pass`, `gate_block`, `task_progre
 - [ ] Claude Code CLI installed
 - [ ] spec-autopilot plugin installed
 - [ ] openspec plugin installed
-- [ ] `.claude/autopilot.config.yaml` generated (`/spec-autopilot:autopilot-init`)
+- [ ] `.claude/autopilot.config.yaml` generated (`/spec-autopilot:autopilot-setup`)
 - [ ] Config validation passed (`valid: true`)
 - [ ] `project_context.test_credentials` filled in (or auto-discovered by Phase 1)
 - [ ] `openspec/` directory structure exists
@@ -563,7 +563,7 @@ bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/script
 
 | Problem | Cause | Solution |
 |---------|-------|----------|
-| "Config file not found" | Config not generated | Run `autopilot-init` or create manually |
+| "Config file not found" | Config not generated | Run `autopilot-setup` or create manually |
 | "python3 not found" | Hook scripts require python3 | `brew install python3` or `apt install python3` |
 | "Phase N checkpoint not found" | Phase was skipped or crashed | Trigger autopilot to re-run; crash recovery handles it automatically |
 | "Phase 5 task consecutive failures" | Implementation hit a blocker | Check error logs, adjust `serial_task.max_retries_per_task` |

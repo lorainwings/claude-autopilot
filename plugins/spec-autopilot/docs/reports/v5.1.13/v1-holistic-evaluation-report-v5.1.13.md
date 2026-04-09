@@ -241,7 +241,7 @@ Minimal:  0 → 1 → [skip 2/3/4] → 5 → [skip 6] → 7
 
 | 项目 | 评分 | 说明 |
 |-----|------|------|
-| autopilot-init 交互式向导 | 95 | 3 档预设(Strict/Moderate/Relaxed)，60+ 配置项压缩到 3 步 |
+| autopilot-setup 交互式向导 | 95 | 3 档预设(Strict/Moderate/Relaxed)，60+ 配置项压缩到 3 步 |
 | 配置默认值合理性 | 88 | default_mode: "full"、background_agent_timeout_minutes: 30 符合预期 |
 | Python3 依赖检测 | 94 | Phase 0 明确检查 + _common.sh 降级方案 |
 | Bun/GUI 降级策略 | 90 | GUI 启动失败不阻断主流程 |

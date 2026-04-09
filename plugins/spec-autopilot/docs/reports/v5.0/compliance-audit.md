@@ -427,7 +427,7 @@ CLAUDE.md 声称"10 种 excuse 模式"。实际实现 `_post_task_validator.py` 
 - `skills/autopilot/SKILL.md` (330 行)
 - `skills/autopilot-gate/SKILL.md` (311 行)
 - `skills/autopilot-dispatch/SKILL.md` (323 行)
-- `skills/autopilot-init/SKILL.md` (368 行)
+- `skills/autopilot-setup/SKILL.md` (368 行)
 - `skills/autopilot-phase0/SKILL.md` (226 行)
 - `skills/autopilot-phase7/SKILL.md` (182 行)
 - `skills/autopilot-recovery/SKILL.md` (135 行)

@@ -1,5 +1,5 @@
 ---
-name: autopilot-phase7
+name: autopilot-phase7-archive
 description: "[ONLY for autopilot orchestrator] Phase 7: Summary display, tri-path result collection, knowledge extraction, Allure preview, archive readiness auto, git autosquash, and lockfile cleanup."
 user-invocable: false
 ---

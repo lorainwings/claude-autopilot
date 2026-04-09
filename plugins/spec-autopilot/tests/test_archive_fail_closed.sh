@@ -12,7 +12,7 @@ echo "--- Archive fail-closed: fixup/anchor/autosquash hard block ---"
 setup_autopilot_fixture
 
 # --- 1. Phase 7 SKILL.md: fixup 完整性检查是硬阻断而非 warning ---
-PHASE7_SKILL="$SKILL_DIR/autopilot-phase7/SKILL.md"
+PHASE7_SKILL="$SKILL_DIR/autopilot-phase7-archive/SKILL.md"
 
 # 1a. fixup 完整性检查失败描述为"硬阻断归档"
 phase7_content=$(cat "$PHASE7_SKILL")

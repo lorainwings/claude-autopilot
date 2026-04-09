@@ -3,7 +3,7 @@
 # TEST_LAYER: behavior
 # Production targets:
 #   - emit-report-ready-event.sh (multi-path allure discovery)
-#   - autopilot-phase7/SKILL.md Step 2.5.0 (allure generate fallback)
+#   - autopilot-phase7-archive/SKILL.md Step 2.5.0 (allure generate fallback)
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"

@@ -119,7 +119,7 @@ Phase 7 [##                            ]  5%  (2min)
 | `autopilot/SKILL.md` (主编排器) | 22,935 | 345 | 每次 autopilot 启动 |
 | `autopilot-dispatch/SKILL.md` | 17,440 | — | Phase 2-6 每次 dispatch |
 | `autopilot-gate/SKILL.md` | 14,781 | — | Phase 2-6 每次 gate |
-| `autopilot-init/SKILL.md` | 13,167 | — | 首次初始化 |
+| `autopilot-setup/SKILL.md` | 13,167 | — | 首次初始化 |
 | `autopilot-phase0/SKILL.md` | 12,811 | — | Phase 0 |
 | `autopilot-recovery/SKILL.md` | 8,904 | — | 崩溃恢复时 |
 | `autopilot-phase7/SKILL.md` | 8,658 | — | Phase 7 |
