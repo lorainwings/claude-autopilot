@@ -48,7 +48,7 @@
 | `autopilot/SKILL.md` | 22,770 | ~5,700 | Phase 0 启动时加载，全程常驻 |
 | `autopilot-dispatch/SKILL.md` | 17,255 | ~4,300 | Phase 2-6 每次 dispatch |
 | `autopilot-gate/SKILL.md` | 13,928 | ~3,500 | Phase 2-6 每次 gate check |
-| `autopilot-init/SKILL.md` | 13,167 | ~3,300 | 仅首次无配置时 |
+| `autopilot-setup/SKILL.md` | 13,167 | ~3,300 | 仅首次无配置时 |
 | `autopilot-phase0/SKILL.md` | 8,985 | ~2,250 | Phase 0 |
 | `autopilot-phase7/SKILL.md` | 7,848 | ~1,960 | Phase 7 |
 | `autopilot-recovery/SKILL.md` | 5,781 | ~1,450 | Phase 0 恢复时 |

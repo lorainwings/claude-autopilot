@@ -1,5 +1,5 @@
 ---
-name: autopilot-phase0
+name: autopilot-phase0-init
 description: "[ONLY for autopilot orchestrator] Phase 0: Environment check, config loading, crash recovery, banner rendering, task creation, lockfile management, and anchor commit."
 user-invocable: false
 ---
@@ -30,7 +30,7 @@ user-invocable: false
 ### Step 2: 检查配置文件
 
 检查 `.claude/autopilot.config.yaml` 是否存在：
-- **不存在** → 调用 Skill(`spec-autopilot:autopilot-init`) 自动扫描项目并生成配置
+- **不存在** → 调用 Skill(`spec-autopilot:autopilot-setup`) 自动扫描项目并生成配置
 - **存在** → 直接读取并解析所有配置节，然后调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
 - **python3 可用性检查**: 执行 `Bash("command -v python3")`
   - 如果退出码 != 0 → 输出 `[FATAL] python3 is required for autopilot Hook constraint checking. Install: brew install python3 / apt install python3`，设置 `status: "blocked"`，终止流程

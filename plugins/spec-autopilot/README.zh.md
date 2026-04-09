@@ -212,7 +212,7 @@ claude plugin list
 
 ## 配置
 
-在项目根目录创建 `.claude/autopilot.config.yaml`（或运行 `autopilot-init` 自动生成）：
+在项目根目录创建 `.claude/autopilot.config.yaml`（或运行 `autopilot-setup` 自动生成）：
 
 ```yaml
 version: "1.0"
@@ -268,7 +268,7 @@ test_suites:
 | Skill | 可调用 | 用途 |
 |-------|--------|------|
 | `autopilot` | 是 | 主 8 阶段编排器（在主线程运行） |
-| `autopilot-init` | 是 | 自动检测技术栈，生成配置 |
+| `autopilot-setup` | 是 | 自动检测技术栈，生成配置 |
 | `autopilot-dispatch` | 否 | 子 Agent 分发，含 JSON 信封契约 |
 | `autopilot-gate` | 否 | 8 步清单 + 特殊门禁 + 检查点读写 + 语义/棕地验证 |
 | `autopilot-phase0` | 否 | 环境检查 + 配置加载 + 崩溃恢复 + 锁文件 |
@@ -324,7 +324,7 @@ test_suites:
 
 ```bash
 # In Claude Code, invoke:
-Skill("spec-autopilot:autopilot-init")
+Skill("spec-autopilot:autopilot-setup")
 ```
 
 ### 2. 创建项目侧 Skill 包装

@@ -68,7 +68,7 @@ claude
 在 Claude Code 中执行：
 
 ```
-/spec-autopilot:autopilot-init
+/spec-autopilot:autopilot-setup
 ```
 
 或直接触发 autopilot（配置不存在时自动调用 init）：
@@ -429,7 +429,7 @@ curl http://localhost:9527/api/events
 - [ ] Claude Code CLI 已安装
 - [ ] spec-autopilot 插件已安装
 - [ ] openspec 插件已安装
-- [ ] `.claude/autopilot.config.yaml` 已生成（`/spec-autopilot:autopilot-init`）
+- [ ] `.claude/autopilot.config.yaml` 已生成（`/spec-autopilot:autopilot-setup`）
 - [ ] 配置验证通过（`valid: true`）
 - [ ] `project_context.test_credentials` 已填写（或由 Phase 1 自动发现）
 - [ ] `openspec/` 目录结构已存在
@@ -563,7 +563,7 @@ bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/script
 
 | 问题 | 原因 | 解决方案 |
 |------|------|----------|
-| "Config file not found" | 配置未生成 | 运行 `autopilot-init` 或手动创建 |
+| "Config file not found" | 配置未生成 | 运行 `autopilot-setup` 或手动创建 |
 | "python3 not found" | Hook 脚本需要 python3 | `brew install python3` 或 `apt install python3` |
 | "Phase N checkpoint not found" | 阶段被跳过或崩溃 | 触发 autopilot 重新运行，崩溃恢复会自动处理 |
 | "Phase 5 task 连续失败" | 实施遇到阻塞 | 检查错误日志，调整 `serial_task.max_retries_per_task` |

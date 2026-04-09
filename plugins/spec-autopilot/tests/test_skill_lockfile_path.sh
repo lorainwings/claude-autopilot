@@ -10,7 +10,7 @@ echo "--- 50. SKILL.md lockfile path uses absolute path (v3.3.4 regression) ---"
 setup_autopilot_fixture
 
 SKILL_FILE="$SCRIPT_DIR/../../skills/autopilot/SKILL.md"
-LOCKFILE_FILE="$SCRIPT_DIR/../../skills/autopilot-phase0/SKILL.md"
+LOCKFILE_FILE="$SCRIPT_DIR/../../skills/autopilot-phase0-init/SKILL.md"
 RECOVERY_FILE="$SCRIPT_DIR/../../skills/autopilot-recovery/SKILL.md"
 GATE_FILE="$SCRIPT_DIR/../../skills/autopilot-gate/SKILL.md"
 

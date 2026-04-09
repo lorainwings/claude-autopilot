@@ -37,7 +37,7 @@
 | `autopilot-recovery` | 崩溃恢复 + 断点续传 | 高 | 低（只读扫描 + 用户交互） |
 | `autopilot-phase0` | 初始化 + 环境检测 + 锁文件 | 高 | 低 |
 | `autopilot-phase7` | 归档 + 摘要 + Git 操作 | 中 | 中（同时处理 3 路并行结果收集 + 归档确认） |
-| `autopilot-init` | 配置向导 + 技术栈自动检测 | 高 | 低 |
+| `autopilot-setup` | 配置向导 + 技术栈自动检测 | 高 | 低 |
 
 **评估结论**: 7 个 Skill 职责划分整体合理。`autopilot` 作为主编排器的职责密度最高，但通过 Unified Dispatch Template 将 Phase 2-6 统一为 8 步模板调度，有效降低了认知复杂度。`autopilot-phase7` 需同时协调三路并行结果（测试/代码审查/质量扫描），职责略显密集。
 
@@ -377,13 +377,13 @@ reconnect() {
 
 | 检查项 | 状态 | 说明 |
 |--------|------|------|
-| `autopilot-init` 配置向导 | PASS | 3 种预设（Strict/Moderate/Relaxed）+ 自动技术栈检测 |
+| `autopilot-setup` 配置向导 | PASS | 3 种预设（Strict/Moderate/Relaxed）+ 自动技术栈检测 |
 | Python3 依赖检测 | PASS | Phase 0 环境检测，友好提示 |
 | Bun 依赖检测 | PARTIAL | GUI Server 需要 Bun，但 Phase 0 检测脚本未明确列出 |
 | 默认配置可用性 | PASS | Moderate 预设覆盖大部分场景 |
-| 首次运行引导 | PASS | `/autopilot-init` 交互式向导 |
+| 首次运行引导 | PASS | `/autopilot-setup` 交互式向导 |
 
-> **盲点 #14**: 配置向导 (`autopilot-init`) 的自动技术栈检测依赖文件系统扫描（package.json, requirements.txt 等），但对 monorepo 结构（如 Turborepo/Nx）的嵌套检测深度有限（`max_depth: 2`）。深层嵌套的子包可能被遗漏。
+> **盲点 #14**: 配置向导 (`autopilot-setup`) 的自动技术栈检测依赖文件系统扫描（package.json, requirements.txt 等），但对 monorepo 结构（如 Turborepo/Nx）的嵌套检测深度有限（`max_depth: 2`）。深层嵌套的子包可能被遗漏。
 
 ### 5.2 配置与文档完整性
 

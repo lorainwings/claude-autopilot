@@ -199,7 +199,7 @@ PreCompact — 非阻塞
 | `autopilot/SKILL.md` | 22,770 | ~5,700 | 无变化 |
 | `autopilot-dispatch/SKILL.md` | 17,255 | ~4,300 | 无变化 |
 | `autopilot-gate/SKILL.md` | 13,928 | ~3,500 | 无变化 |
-| `autopilot-init/SKILL.md` | 13,167 | ~3,300 | 无变化 |
+| `autopilot-setup/SKILL.md` | 13,167 | ~3,300 | 无变化 |
 | `autopilot-phase0/SKILL.md` | 8,985 | ~2,250 | 无变化 |
 | `autopilot-phase7/SKILL.md` | 7,848 | ~1,960 | 无变化 |
 | `autopilot-recovery/SKILL.md` | 5,781 | ~1,450 | 无变化 |

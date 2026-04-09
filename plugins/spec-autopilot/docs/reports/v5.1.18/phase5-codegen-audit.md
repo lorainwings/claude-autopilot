@@ -407,7 +407,7 @@ v4.2 默认启用，对串行模式中无依赖 task 自动后台并行:
 ### 优先级 P1 (建议下个版本)
 
 3. **添加默认安全 `forbidden_patterns` 基线**
-   - 在 `autopilot-init` 生成的默认配置中包含常见安全反模式:
+   - 在 `autopilot-setup` 生成的默认配置中包含常见安全反模式:
      - `eval(` / `exec(` / `Function(` (JS)
      - `dangerouslySetInnerHTML` (React)
      - `os.system(` / `subprocess.call(.*shell=True` (Python)

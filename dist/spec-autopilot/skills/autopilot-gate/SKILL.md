@@ -65,6 +65,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 ```
 
 如果修改时间不同：
+
 1. 重新执行 `rules-scanner.sh` 扫描 CLAUDE.md + `.claude/rules/`
 2. 更新缓存时间戳
 3. 将新规则注入后续子 Agent prompt
@@ -103,154 +104,28 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 ### 双向反控：Gate 阻断后决策轮询（v5.1 新增）
 
-当门禁阻断时，在输出 `[GATE] BLOCKED` 日志 **之后**，必须启动 GUI 决策轮询循环，使 GUI 用户可通过 `decision.json` 发送 Override/Retry/Fix 指令。
+当门禁阻断时启动 GUI 决策轮询（override/retry/fix/auto_continue 自动推进/timeout）。
 
-**v6.0 自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。用户确认点（`config.gates.user_confirmation.after_phase_{N}`）仅在配置为 `true` 时才中断——所有预设默认为 `false`，确保 requirement packet 确认后全链路自动推进。
+**v6.0 自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
 
-**流程：**
+**执行前读取**: `autopilot/references/gate-decision-polling.md`（完整流程 + decision.json 格式 + 安全约束）
 
-1. 发射 `gate_block` 事件（已有逻辑）
-2. 调用决策轮询脚本：
-   ```bash
-   DECISION=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/poll-gate-decision.sh "${change_dir}/" "${PHASE}" "${MODE}" '{"blocked_step":M,"error_message":"..."}')
-   POLL_EXIT=$?
-   ```
-3. 根据轮询结果分支处理：
+### 特殊门禁
 
-| `POLL_EXIT` | `action` | 处理 |
-|-------------|----------|------|
-| 0 | `override` | 记录日志 `[GATE] Override accepted: {reason}` → 视为通过，继续下一阶段 |
-| 0 | `retry` | 记录日志 `[GATE] Retry requested: {reason}` → 重新执行完整 8 步检查清单 |
-| 0 | `fix` | 记录日志 `[GATE] Fix requested` → 将 `fix_instructions` 展示给用户，等待修复后重新执行 8 步检查清单 |
-| 0 | `auto_continue` | 记录日志 `[GATE] Auto-continue: gate passed` → 自动推进到下一阶段（用于 gate pass 后的自动推进场景） |
-| 1 | `timeout` | 轮询超时（默认 300 秒），回退到原有行为：向用户展示阻断信息，通过 AskUserQuestion 请求决策 |
+除通用 8 步校验外，以下切换点有额外验证：
 
-**decision.json 格式**（由 GUI 写入 `openspec/changes/<name>/context/decision.json`）：
+- **Phase 4→5**: 非 TDD 模式验证 test_counts/artifacts/dry_run；TDD 模式验证 tdd-override.json
+- **Phase 5→6**: 验证 test-results.json + zero_skip_check + tasks 完成度；TDD 模式额外验证 tdd_metrics
+- **TDD 完整性审计 (L3)**: 扫描 `phase5-tasks/task-N.json` 验证 tdd_cycle 完整性
+- **Phase 6.5 代码审查 (Advisory Gate)**: 可选门禁，不阻断 Phase 7 predecessor，结果在 Phase 7 汇合
 
-```json
-{
-  "action": "override | retry | fix",
-  "phase": 4,
-  "timestamp": "ISO-8601",
-  "reason": "用户/GUI 提供的说明",
-  "fix_instructions": "仅 fix 动作时填写 — 具体修复指导"
-}
-```
+**执行前读取**: `autopilot/references/gate-special-gates.md`
 
-**安全约束**：
-- `override` 不可在 Phase 4→5 和 Phase 5→6 特殊门禁中使用（这些门禁的失败条件涉及测试质量底线，不允许绕过）
-- 决策文件在读取后立即删除，防止重复消费
-- 轮询超时可通过 `config.gui.decision_poll_timeout` 配置（单位：秒，默认 300）
+### 可选验证
 
-## 特殊门禁：Phase 4 → Phase 5
+语义验证（soft check）和 Brownfield 三向一致性检查。
 
-除通用 8 步校验外，额外验证（从 `autopilot.config.yaml` 读取阈值）：
-
-**非 TDD 模式**（`tdd_mode: false` 或未设置）：
-```
-- [ ] phase-4-testing.json 中 test_counts 的每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
-- [ ] artifacts 列表中包含 config.phases.testing.gate.required_test_types 对应的文件
-- [ ] dry_run_results 的所有字段全部为 0（exit code）
-```
-
-**TDD 模式**（`tdd_mode: true` 且模式为 `full`）：
-```
-- [ ] phase-4-tdd-override.json 存在且 tdd_mode_override === true
-- [ ] 跳过 test_counts / dry_run 验证（测试在 Phase 5 per-task 创建）
-```
-
-任何条件不满足 → 阻断 Phase 5，要求重新执行 Phase 4。
-
-## 特殊门禁：Phase 5 → Phase 6
-
-除通用 8 步校验外，额外验证：
-
-```
-- [ ] test-results.json 存在
-- [ ] zero_skip_check.passed === true
-- [ ] tasks.md 中所有任务标记为 [x]
-```
-
-**TDD 模式额外验证**（当 `tdd_mode: true`）：
-```
-- [ ] tdd_metrics 存在
-- [ ] tdd_metrics.red_violations === 0（零 RED 违规）
-- [ ] 每个 task 的 tdd_cycle 完整（red + green 都 verified）
-```
-
-任何条件不满足 → **full 模式**阻断 Phase 6；**lite/minimal 模式**降级为 warning（记录但不阻断）。
-
-## TDD 完整性审计（L3 层保障）
-
-当 `tdd_mode: true` 时，Phase 5→6 门禁执行额外的 TDD 审计：
-
-1. 扫描所有 `phase5-tasks/task-N.json` 文件
-2. 验证每个 task 包含 `tdd_cycle` 字段
-3. 验证 `tdd_cycle.red.verified === true` 和 `tdd_cycle.green.verified === true`
-4. 记录 `refactor_reverts` 总数（允许 > 0，仅审计记录）
-5. 汇总为 `tdd_audit` 输出：
-   ```json
-   {
-     "total_tasks": 10,
-     "tdd_complete": 10,
-     "red_violations": 0,
-     "refactor_reverts": 1,
-     "audit_passed": true
-   }
-   ```
-6. `audit_passed === false` → 阻断 Phase 6（full 模式硬门禁）
-
-> **模式降级说明 (v5.1.51)**: lite/minimal 模式下，若 `audit_passed === false`，降级为 warning（不阻断 Phase 6），
-> 因为这两种模式跳过了 Phase 2-4，TDD 覆盖不完整属于预期行为。full 模式下始终硬阻断。
-
-## Phase 6.5 代码审查门禁（可选，v3.2.2 三路并行）[Advisory Gate — 不阻断 Phase 7]
-
-当 `config.phases.code_review.enabled = true` 时，Phase 7 步骤 2.a 收集代码审查结果后检查：
-
-```
-- [ ] phase-6.5-code-review.json 存在（由 Phase 7 步骤 2.a 写入——ok/warning/blocked 三种状态均写入 checkpoint）
-- [ ] 当 block_on_critical = true 且 findings 中 critical 数量 > 0 时：标记需用户确认（Phase 7 Step 3 展示并要求用户显式选择忽略/修复/暂停，不自动阻断）
-- [ ] status 为 "ok" 或 "warning"（blocked 状态下用户选择"忽略继续归档"时，Phase 7 Step 2.a 已将 status 降级为 warning 并标记 user_override: true）
-```
-
-当 `code_review.enabled = false` 时，**跳过此门禁**，不要求 checkpoint 存在。
-
-Phase 6.5 是可选步骤，不影响 Layer 1（TaskCreate blockedBy）和 Layer 2（Hook predecessor check）。
-Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 Phase 7 汇合点收集。
-
-> **Advisory Gate 语义 (v5.1.51, v5.8 澄清)**: Phase 6.5 是建议性旁路门禁（Advisory Gate），其 blocked 状态
-> 不阻止 Phase 7 的 predecessor 条件（L2 Hook 不检查 6.5 checkpoint）。Phase 7 收集 6.5 结果后展示 findings。
-> **block_on_critical 行为**: 当 `config.phases.code_review.block_on_critical = true` 时，Phase 7 Step 3
-> 会在归档前检查是否存在 critical findings——如有，archive readiness 判定为 blocked 并向用户展示，
-> 要求显式确认是忽略还是修复（用户有最终决策权）。
-
-## 可选 Layer 3 补充：语义验证
-
-> 详见：`autopilot/references/semantic-validation.md`
-
-在 8 步检查清单的 Step 6 之后，可选执行语义验证：
-
-1. 读取 `references/semantic-validation.md` 中对应阶段的检查清单
-2. 逐项验证（读取相关文件确认）
-3. 不通过项记录为 `warning`（不硬阻断，除非发现严重不一致）
-4. 输出语义验证摘要
-
-**注意**: 语义验证为 AI 执行的软检查，不替代 Layer 2 Hook 的确定性验证。
-
-## 可选 Layer 3 补充：Brownfield 验证
-
-> 详见：`autopilot/references/brownfield-validation.md`
-> 通过 `config.brownfield_validation.enabled` 控制（v4.0 起默认开启，greenfield 项目 Phase 0 自动关闭）。
-
-当启用时，在特定阶段切换时执行额外的三向一致性检查：
-
-| 切换点 | 检查内容 |
-|--------|---------|
-| Phase 4 → Phase 5 | 设计-测试对齐 |
-| Phase 5 启动 | 测试-实现就绪 |
-| Phase 5 → Phase 6 | 实现-设计一致性 |
-
-`strict_mode: true` 时不一致直接阻断；`false` 时仅 warning。
+**执行前读取**: `autopilot/references/gate-optional-validation.md`
 
 ## 执行模式感知
 
@@ -270,6 +145,7 @@ Phase 6.5 与 Phase 6 **并行执行**（v3.2.2 三路并行），其结果在 P
 ### lite/minimal 的 Phase 1 → Phase 5 门禁
 
 当 mode 为 lite 或 minimal 时，Phase 5 的前置检查为：
+
 - Phase 1 checkpoint（`phase-1-requirements.json`）存在且 status 为 ok 或 warning
 - Phase 2/3/4 checkpoint **不需要存在**（已被跳过）
 
@@ -298,58 +174,6 @@ phase-results/
 └── phase-7-summary.json
 ```
 
-### 写入 Checkpoint
-
-阶段完成后，将子 Agent 返回的 JSON 信封写入对应文件：
-
-1. 确保 `context/phase-results/` 目录存在（不存在则创建）
-2. **v5.1 原子性写入**: 将完整 JSON 信封写入临时文件 `phase-{N}-{slug}.json.tmp`
-3. 验证临时文件 JSON 格式合法（读回并解析）
-4. 执行原子重命名：`mv phase-{N}-{slug}.json.tmp phase-{N}-{slug}.json`
-5. 验证最终文件存在且可解析
-
-**写入流程**（所有 checkpoint 写入必须遵循此原子模式）：
-```bash
-# Step 1: Write to temp file
-Write JSON → phase-{N}-{slug}.json.tmp
-
-# Step 2: Validate temp file
-python3 -c "import json; json.load(open('phase-{N}-{slug}.json.tmp'))"
-# If validation fails → delete .tmp, report error, do NOT overwrite existing checkpoint
-
-# Step 3: Atomic rename
-mv phase-{N}-{slug}.json.tmp phase-{N}-{slug}.json
-
-# Step 4: Final verification
-Read phase-{N}-{slug}.json → parse JSON → confirm status field exists
-```
-
-**断电/崩溃安全**：
-- 写入 `.tmp` 时崩溃 → 正式文件不受影响，恢复时忽略 `.tmp` 文件
-- `mv` 是文件系统原子操作 → 不会产生半写的 checkpoint
-- 恢复时：扫描并删除所有 `.tmp` 残留文件
-
-#### JSON 格式
-
-> 完整的 JSON 信封格式定义详见 `autopilot/references/protocol.md`。
-
-核心字段：`status`（ok/warning/blocked/failed）、`summary`、`artifacts`、`risks`、`next_ready`。
-`_metrics` 和 `timestamp` 由主线程写入时附加。
-
-#### 写入确认输出
-
-Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `autopilot/references/log-format.md`）：
-
-```
-[CP] phase-{N}-{slug}.json | commit: {short_sha}
-```
-
-写入失败时输出：
-
-```
-[ERROR] Checkpoint write failed: phase-{N}-{slug}.json — {reason}
-```
-
 ### 读取 Checkpoint
 
 验证前置阶段状态：
@@ -363,20 +187,6 @@ Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `aut
 
 ### Task 级 Checkpoint（Phase 5 专用）
 
-Phase 5 长时间实施中，每个 task 完成后写入独立 checkpoint，支持细粒度恢复。
+Phase 5 的每个 task 完成后写入独立 checkpoint（`phase5-tasks/task-N.json`），支持细粒度恢复。
 
-```
-phase-results/phase5-tasks/
-├── task-1.json
-├── task-2.json
-└── ...
-```
-
-- 确保 `context/phase-results/phase5-tasks/` 目录存在
-- 写入 `task-{N}.json`（格式同主 checkpoint，额外含 `task_number` 和 `task_title`）
-- 恢复 Phase 5 时：扫描 `phase5-tasks/task-*.json`，找到第一个非 `"ok"` 的 task 重新开始
-- **非连续恢复约束**：不跳过失败的 task
-
-### 扫描所有 Checkpoint
-
-用于崩溃恢复，调用 `scan_all_checkpoints(phase_results_dir, mode)` 按阶段顺序扫描 phase-1 → phase-7。调用 `get_last_valid_phase(phase_results_dir, mode)` 返回最后一个 `status: "ok"` 或 `"warning"` 的阶段编号。
+**执行前读取**: `autopilot/references/gate-checkpoint-ops.md`（完整的原子写入流程 + 断电安全 + Phase 5 task 级）

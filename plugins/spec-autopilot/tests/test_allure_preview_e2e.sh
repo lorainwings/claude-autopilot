@@ -2,7 +2,7 @@
 # test_allure_preview_e2e.sh — Phase 7 Step 2.5 end-to-end allure generate/open simulation
 # TEST_LAYER: behavior
 # Production targets:
-#   - autopilot-phase7/SKILL.md Step 2.5.0 (multi-path search + allure generate fallback)
+#   - autopilot-phase7-archive/SKILL.md Step 2.5.0 (multi-path search + allure generate fallback)
 #   - verify-test-driven-l2.sh (L2 hook-driven audit in check-predecessor-checkpoint.sh)
 #
 # Strategy: Extracts the Step 2.5.0 shell logic into a standalone script, runs it against

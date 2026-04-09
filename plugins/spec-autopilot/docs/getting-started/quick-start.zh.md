@@ -20,7 +20,7 @@ claude plugins install https://github.com/lorainwings/claude-autopilot
 在项目根目录运行：
 
 ```
-/autopilot-init
+/autopilot-setup
 ```
 
 向导会自动检测你的项目结构（语言、框架、测试工具），然后提供 3 个预设模板：

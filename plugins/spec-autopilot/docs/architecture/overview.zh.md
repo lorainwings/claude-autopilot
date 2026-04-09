@@ -50,7 +50,7 @@ graph TD
         SG[autopilot-gate<br/>门禁+Checkpoint]
         SD[autopilot-dispatch<br/>子Agent调度]
         SR[autopilot-recovery<br/>崩溃恢复]
-        SI[autopilot-init<br/>配置初始化]
+        SI[autopilot-setup<br/>配置初始化]
     end
 ```
 
@@ -285,7 +285,7 @@ spec-autopilot/
 │   ├── autopilot-gate/     (门禁验证 + Checkpoint 管理)
 │   ├── autopilot-dispatch/ (子 Agent 调度)
 │   ├── autopilot-recovery/ (崩溃恢复)
-│   └── autopilot-init/     (配置初始化向导)
+│   └── autopilot-setup/     (配置初始化向导)
 ├── scripts/          (Hook 脚本 + 事件发射 + 共享模块)
 │   ├── _hook_preamble.sh        (公共 Hook 前言)
 │   ├── _common.sh               (共享 Bash 工具)

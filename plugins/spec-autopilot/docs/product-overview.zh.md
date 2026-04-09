@@ -123,7 +123,7 @@ graph TB
         S4[autopilot-phase0<br/>环境初始化]
         S5[autopilot-phase7<br/>汇总归档]
         S6[autopilot-recovery<br/>崩溃恢复]
-        S7[autopilot-init<br/>配置向导]
+        S7[autopilot-setup<br/>配置向导]
     end
 
     subgraph "Layer 2: 确定性脚本层 (Hook 系统)"

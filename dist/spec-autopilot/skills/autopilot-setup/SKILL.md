@@ -1,10 +1,10 @@
 ---
-name: autopilot-init
+name: autopilot-setup
 description: "Initialize autopilot config by scanning project structure. Auto-detects tech stack, services, and test suites to generate .claude/autopilot.config.yaml."
 argument-hint: "[可选: 项目根目录路径]"
 ---
 
-# Autopilot Init — 项目配置初始化
+# Autopilot Setup — 项目配置初始化
 
 扫描项目结构，自动检测技术栈和服务，生成 `.claude/autopilot.config.yaml`。
 
