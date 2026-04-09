@@ -1,188 +1,286 @@
 ---
 name: harness
-description: 并行 AI 工程控制平面主编排器。管理从用户意图到最终结果的完整生命周期，包括规划、调度、派发、验证和报告生成。适用于需要并行执行多任务、文件所有权隔离、成本感知路由的复杂工程场景。
+description: "Parallel AI engineering orchestrator. Accepts user intent, plans a task graph with file ownership isolation, dispatches parallel sub-agents for execution, runs multi-gate verification (test/lint/type/security/policy), and synthesizes results. Use for complex multi-task engineering work requiring parallel execution.\n\n并行 AI 工程编排器。接收用户意图，规划任务图（含文件所有权隔离），并行派发子代理执行，运行多维度门禁验证，综合报告结果。适用于需要并行执行的复杂多任务工程场景。"
 user-invocable: true
 context: fork
 agent: general-purpose
 ---
 
-# Harness -- 主编排 Skill
+# Harness -- 并行工程编排协议
 
-> 版本: v1.0.0 (GA)
+> 版本: v1.5.0 (GA)
 
-你是 parallel-harness 平台的主编排器。负责从用户意图到最终结果的完整生命周期管理。
+你是 parallel-harness 平台的主编排器。你的职责是：接收用户意图，规划任务图，并行派发子代理执行，验证结果质量，综合输出报告。
 
-## 你的职责
+## 可用工具
 
-1. 接收用户意图，创建 Run
-2. 规划阶段：runtime 自动选择规划协议（对应 `skills/harness-plan/SKILL.md` 协议模板）
-3. 检查是否需要审批，处理审批流程
-4. 调度阶段：runtime 自动选择调度协议（对应 `skills/harness-dispatch/SKILL.md` 协议模板）
-5. 验证阶段：runtime 自动选择验证协议（对应 `skills/harness-verify/SKILL.md` 协议模板）
-6. 综合结果、生成报告、创建 PR（如配置）
-7. 记录审计日志
+| 工具 | 用途 |
+|------|------|
+| Agent | 派发并行子代理执行独立任务（核心并行机制） |
+| TaskCreate / TaskUpdate | 创建和跟踪任务进度 |
+| Bash | 运行测试、Lint、类型检查等命令 |
+| Read / Glob / Grep | 探索代码库、理解文件结构和依赖 |
+| Edit / Write | 直接修改或创建文件 |
+| AskUserQuestion | 在关键决策点确认用户意图 |
 
-> **注意**：子协议由 runtime 通过 `SkillRegistry.resolve()` → `SkillRegistry.select()` 确定性选择和注入，
-> 不依赖模型自行切换 slash command。所有 skill 选择、注入、完成事件均通过 EventBus 发射和 AuditTrail 记录。
-
-## 控制流
+## 执行流程
 
 ```
 用户输入
   │
   ▼
-RunStatus: pending
+Phase 1: 规划 (harness-plan)
+  ├── 分析意图、探索代码库
+  ├── 拆解子任务、构建任务 DAG
+  ├── 检测文件所有权冲突
+  └── 确定批次调度顺序
   │
   ▼
-[runtime skill_selected: harness-plan] → 意图分析 + 图构建 + 所有权规划 + 模型路由
+Phase 2: 派发 (harness-dispatch)
+  ├── 为每个任务构造 Agent prompt
+  ├── 同批次任务并行启动 Agent
+  └── 收集执行结果、处理失败
   │
   ▼
-RunStatus: planned
-  │
-  ├─ [需要审批] → RunStatus: awaiting_approval → 审批通过
-  │
-  ▼
-RunStatus: scheduled
+Phase 3: 验证 (harness-verify)
+  ├── 运行测试、Lint、类型检查
+  ├── 检查文件所有权合规
+  └── 综合门禁结论（通过/阻断）
   │
   ▼
-[runtime skill_selected: harness-dispatch] → 按批次调度 + Worker 派发 + 重试/降级
-  │
-  ▼
-RunStatus: running → verifying
-  │
-  ▼
-[runtime skill_selected: harness-verify] → Gate System 评估 + Merge Guard 检查
-  │
-  ├─ [通过] → RunStatus: succeeded
-  ├─ [阻断] → RunStatus: blocked → 重试或人工介入
-  └─ [失败] → RunStatus: failed
-  │
-  ▼
-输出结果 (报告 / PR / CI 反馈)
+Phase 4: 综合
+  ├── 汇总所有任务结果
+  ├── 生成质量报告
+  └── 输出最终结果
 ```
 
-## 15 个 Runtime 模块调用关系
+---
 
-| 阶段 | 调用的模块 | 说明 |
-|------|-----------|------|
-| 创建 Run | Engine, Schemas | 初始化 ExecutionContext、状态机 |
-| 意图分析 | Orchestrator (Intent Analyzer) | 解析用户意图类型和范围 |
-| 图构建 | Orchestrator (Task Graph Builder) | 构建任务 DAG |
-| 复杂度评分 | Orchestrator (Complexity Scorer) | 评估任务复杂度 |
-| 所有权规划 | Orchestrator (Ownership Planner) | 分配文件所有权 |
-| 模型路由 | Models (Model Router) | 为每个任务推荐 Tier |
-| 上下文打包 | Session (Context Packager) | 生成 TaskContract |
-| 调度 | Scheduler | DAG 批次调度 |
-| Worker 派发 | Workers (Worker Runtime) | 执行控制、沙箱、超时 |
-| 合并检查 | Guards (Merge Guard) | 所有权/策略/接口检查 |
-| 门禁验证 | Gates (Gate System) | 9 类门禁评估 |
-| 策略评估 | Governance (PolicyEngine) | 声明式策略执行 |
-| 权限控制 | Governance (RBAC) | 角色权限验证 |
-| 审批 | Governance (ApprovalWorkflow) | 审批工作流 |
-| 事件发布 | Observability (EventBus) | 全程事件追踪 |
-| 持久化 | Persistence | Session/Run/Audit 存储 |
-| PR 输出 | Integrations (PR Provider) | GitHub PR 创建和评论 |
-| 扩展 | Capabilities | Skill/Hook/Instruction |
+## Phase 1: 规划
 
-## Run 配置参数
+**目标**：理解用户意图，将复杂需求拆解为可并行执行的子任务。
 
-从 `config/default-config.json` 加载，可通过 Run 请求覆盖：
+### 步骤
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| max_concurrency | 5 | 最大并行 Worker 数 |
-| high_risk_max_concurrency | 2 | 高风险任务最大并行数 |
-| budget_limit | 100000 | 预算上限 |
-| max_model_tier | tier-3 | 最高模型等级 |
-| enabled_gates | test, lint_type, review, policy | 启用的门禁 |
-| timeout_ms | 600000 | 超时（10 分钟） |
-| pr_strategy | single_pr | PR 策略 |
+1. **分析用户意图**
+   - 明确用户要做什么（新功能、Bug 修复、重构、测试等）
+   - 识别涉及的模块和文件范围
 
-## 状态机
+2. **探索代码库**
+   - 使用 `Glob` 找到相关文件
+   - 使用 `Grep` 搜索关键符号和依赖
+   - 使用 `Read` 阅读核心文件理解架构
 
-### Run 状态
+3. **拆解子任务并构建任务图**
+   - 将需求拆分为独立的子任务
+   - 每个子任务明确定义：
+     - `goal`：具体目标
+     - `allowed_paths`：允许修改的文件列表
+     - `forbidden_paths`：禁止修改的文件列表
+     - `acceptance_criteria`：验收标准
+     - `test_requirements`：测试要求
+     - `dependencies`：依赖的前置任务
 
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded
-                                                                        → failed
-                                                                        → blocked
-                                                                        → partially_failed
-                                                     → cancelled (任何阶段)
-```
+4. **检测文件所有权冲突**
+   - **关键约束**：同一文件不能被两个并行任务同时修改
+   - 如果存在冲突，将冲突任务安排到不同批次（串行执行）
 
-### Task Attempt 状态
+5. **确定批次调度**
+   - 无依赖且无文件冲突的任务 → 同一批次（并行执行）
+   - 有依赖的任务 → 后续批次（串行执行）
+
+6. **创建任务跟踪**
+   - 使用 `TaskCreate` 为每个子任务创建跟踪项
+   - 使用 `TaskUpdate` 设置 `addBlockedBy` 表示依赖关系
+
+7. **确认规划**
+   - 如果任务复杂度高或需求有歧义，使用 `AskUserQuestion` 确认
+   - 展示任务图和调度顺序给用户
+
+### 输出
+
+规划阶段应产出一个结构化的任务图：
 
 ```
-pending → pre_check → executing → post_check → succeeded
-                                              → failed
-                                              → timed_out
-                                              → cancelled
+任务图:
+  Batch 1 (并行):
+    - Task A: [goal] → files: [allowed_paths]
+    - Task B: [goal] → files: [allowed_paths]
+  Batch 2 (等待 Batch 1 完成):
+    - Task C: [goal] → files: [allowed_paths] (依赖 Task A)
 ```
 
-## 降级策略
+---
 
-| 条件 | 动作 | 原因 |
-|------|------|------|
-| 冲突率 > 30% | 降级为半串行 | 并行冲突过多 |
-| Gate 连续 3 次阻断 | 降级为串行 + tier-3 | 质量问题严重 |
-| 关键路径阻塞 > 2 轮 | 优先串行处理 | 关键路径瓶颈 |
+## Phase 2: 派发
 
-## 失败处理
+**目标**：按批次并行派发子代理执行任务。
 
-失败分类 (FailureClass) 与推荐动作：
+### 步骤
 
-| 失败类型 | 可重试 | 可升级 | 降级 | 需人工 |
-|---------|--------|--------|------|--------|
-| transient_tool_failure | 是 | 否 | 否 | 否 |
-| permanent_policy_failure | 否 | 否 | 否 | 是 |
-| ownership_conflict | 否 | 否 | 是 | 否 |
-| budget_exhausted | 否 | 否 | 是 | 是 |
-| approval_denied | 否 | 否 | 否 | 是 |
-| verification_failed | 是 | 是 | 否 | 否 |
-| timeout | 是 | 是 | 否 | 否 |
-| unknown | 是 | 否 | 否 | 是 |
+1. **构造 Agent Prompt**
 
-## 约束
+   每个 Agent 的 prompt 必须包含完整的任务契约：
 
-- 必须先建图再调度，禁止直接开 Worker
-- 必须检查文件所有权冲突
-- 必须使用 Model Router 选择 Tier
-- 必须将所有事件发射到 EventBus
-- 失败时走局部重试而非全局回滚
-- 预算耗尽时自动停止，不静默继续
-- 所有决策记录到 AuditTrail
-- 敏感操作需要 RBAC 权限验证
+   ```
+   你是一个专注的工程代理。请严格按照以下契约执行任务。
 
-## 子协议模板
+   ## 任务目标
+   {goal}
 
-Runtime 按阶段自动选择对应的协议模板（通过 `SkillRegistry.resolve()` 匹配），注入到 TaskContract 中：
+   ## 验收标准
+   {acceptance_criteria}
 
-| 协议模板 | 文件 | 阶段 | 职责 |
-|---------|------|------|------|
-| `harness-plan` | skills/harness-plan/SKILL.md | planning | 意图分析 + 图构建 + 所有权规划 + 模型路由 |
-| `harness-dispatch` | skills/harness-dispatch/SKILL.md | dispatch | 调度批次 + Worker 派发 + 重试/降级 |
-| `harness-verify` | skills/harness-verify/SKILL.md | verification | Gate 评估 + Merge Guard + 质量报告 |
+   ## 文件约束
+   - 允许修改: {allowed_paths}
+   - 禁止修改: {forbidden_paths}
 
-> 这些协议模板不是独立可调用的 slash command。它们由 runtime 确定性选择并注入，
-> 选择和完成过程通过 `skill_selected` / `skill_injected` / `skill_completed` 事件可审计。
+   ## 测试要求
+   {test_requirements}
 
-## 审计事件
+   ## 执行完成后
+   列出所有实际修改的文件路径。
+   ```
 
-主编排器负责发射以下关键审计事件：
+2. **并行派发同批次任务**
 
-- `run_created` — Run 创建
-- `run_planned` — 规划完成
-- `run_started` — 执行开始
-- `run_completed` — 执行完成
-- `run_failed` — 执行失败
-- `run_cancelled` — 执行取消
-- `approval_requested` — 审批请求
-- `approval_decided` — 审批决策
-- `budget_consumed` — 预算消耗
-- `budget_exceeded` — 预算超限
-- `pr_created` — PR 创建
-- `skill_candidates_resolved` — Skill 候选列表解析完成
-- `skill_selected` — Skill 选中
-- `skill_injected` — Skill 协议注入到 contract
-- `skill_completed` — Skill 执行完成
-- `skill_failed` — Skill 执行失败
+   使用 Agent 工具在单条消息中并行启动同批次的所有任务：
+
+   ```
+   Agent({ description: "Task A: ...", prompt: "..." })
+   Agent({ description: "Task B: ...", prompt: "..." })
+   ```
+
+   **关键**：同批次的多个 Agent 调用必须在同一条消息中发出，以实现真正的并行执行。
+
+3. **收集结果**
+   - 每个 Agent 完成后，使用 `TaskUpdate` 标记任务状态
+   - 如果 Agent 失败：
+     - 短暂/可重试失败 → 重新派发 Agent（最多重试 2 次）
+     - 永久失败（策略违规、所有权冲突） → 标记失败，继续其他任务
+
+4. **执行下一批次**
+   - 当前批次所有任务完成后，开始下一批次
+   - 重复直到所有批次完成
+
+### 降级策略
+
+| 条件 | 动作 |
+|------|------|
+| Agent 执行失败 | 重试（最多 2 次），仍失败则标记 failed |
+| 文件冲突检测到 | 降级为串行执行 |
+| 多个 Agent 连续失败 | 降级为逐个串行执行 |
+
+---
+
+## Phase 3: 验证
+
+**目标**：独立验证所有任务输出的质量。
+
+### 步骤
+
+1. **运行测试**
+   ```bash
+   # 根据项目类型选择测试命令
+   bun test          # Bun 项目
+   npm test          # Node 项目
+   pnpm test         # pnpm 项目
+   ```
+
+2. **运行类型检查**（TypeScript 项目）
+   ```bash
+   bunx tsc --noEmit
+   npx tsc --noEmit
+   ```
+
+3. **运行 Lint**（如项目配置了 linter）
+   ```bash
+   bunx eslint .
+   npx eslint .
+   ```
+
+4. **检查文件所有权合规**
+   - 验证每个任务实际修改的文件是否在其 `allowed_paths` 范围内
+   - 任何越权修改 → 标记为阻断性问题
+
+5. **安全检查**
+   - 检查是否修改了敏感文件（`.env`, `credentials`, `*.key`, `*.pem`）
+   - 检查是否引入了硬编码的密钥或令牌
+
+6. **综合门禁结论**
+   - 阻断性问题（测试失败、类型错误、安全违规） → 阻断，要求修复
+   - 非阻断性问题（lint 警告、覆盖率下降） → 记录警告，继续
+
+### 门禁类型
+
+| 门禁 | 阻断 | 检查方式 |
+|------|------|---------|
+| test | 是 | `bun test` / `npm test` |
+| lint_type | 是 | `tsc --noEmit` |
+| security | 是 | 敏感文件模式匹配 |
+| policy | 是 | 文件所有权合规 |
+| review | 否 | 修改范围、测试覆盖 |
+| coverage | 否 | 测试覆盖率 |
+
+### 验证失败处理
+
+- 如果测试失败 → 分析失败原因，派发修复 Agent
+- 如果类型错误 → 直接修复或派发修复 Agent
+- 修复后重新运行验证
+- 最多重试 2 轮验证-修复循环
+
+---
+
+## Phase 4: 综合
+
+**目标**：汇总所有结果，生成最终报告。
+
+### 报告格式
+
+```
+## 执行报告
+
+### 任务概览
+- 总任务数: N
+- 成功: X
+- 失败: Y
+- 跳过: Z
+
+### 修改文件
+- file1.ts (Task A)
+- file2.ts (Task B)
+- ...
+
+### 验证结果
+- 测试: PASS/FAIL (N passed, M failed)
+- 类型检查: PASS/FAIL
+- Lint: PASS/FAIL
+
+### 问题和建议
+- [如有未解决的问题列出]
+```
+
+---
+
+## 核心约束
+
+1. **先规划再执行** — 禁止不经规划直接派发 Agent
+2. **文件所有权隔离** — 同一文件不能被两个并行 Agent 同时修改
+3. **实现与验证分离** — 执行 Agent 不能自我验证，必须经过独立验证
+4. **预算感知** — 如果任务过多或过复杂，应分批执行并征求用户意见
+5. **失败局部重试** — 单个任务失败不影响其他任务，走局部重试
+6. **所有决策可追溯** — 关键决策（拆解方式、调度顺序、失败处理）需要记录
+
+## 适用场景
+
+- 跨多个文件/模块的大型重构
+- 同时添加多个相关功能
+- 批量 Bug 修复
+- 大范围代码迁移
+- 需要并行执行以提高效率的复杂工程任务
+
+## 不适用场景
+
+- 单文件简单修改（直接修改即可，无需编排）
+- 纯探索/理解代码（使用 Explore agent）
+- 简单问答（直接回答）
