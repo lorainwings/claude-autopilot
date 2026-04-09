@@ -1,6 +1,6 @@
 > [English](README.md) | 中文
 
-# parallel-harness v1.3.1 <!-- x-release-please-version -->
+# parallel-harness v1.4.0 <!-- x-release-please-version -->
 
 > Claude Code 并行 AI 工程控制面插件 — 商业化 GA 版本
 
@@ -19,7 +19,7 @@
 
 ## 版本信息
 
-- **版本**: v1.3.1 (GA) <!-- x-release-please-version -->
+- **版本**: v1.4.0 (GA) <!-- x-release-please-version -->
 - **Schema 版本**: 1.0.0
 - **运行时**: Bun
 - **语言**: TypeScript

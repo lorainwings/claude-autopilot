@@ -12,7 +12,7 @@
 | Plugin | Version | Description |
 |--------|---------|-------------|
 | [spec-autopilot](plugins/spec-autopilot/) | 5.3.5 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
-| [parallel-harness](plugins/parallel-harness/) | 1.3.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
+| [parallel-harness](plugins/parallel-harness/) | 1.4.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.2.8 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 
 ## Quick Install

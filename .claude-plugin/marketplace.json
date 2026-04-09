@@ -21,7 +21,7 @@
       "source": "./dist/parallel-harness",
       "description": "Parallel AI engineering control-plane plugin with task-graph scheduling, file ownership isolation, cost-aware model routing, 9-gate system, RBAC governance, and audit trail",
       "category": "development",
-      "version": "1.3.1"
+      "version": "1.4.0"
     },
     {
       "name": "daily-report",
