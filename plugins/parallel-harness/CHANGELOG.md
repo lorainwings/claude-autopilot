@@ -4,6 +4,13 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.2](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.1...parallel-harness-v1.3.2) (2026-04-09)
+
+
+### Fixed
+
+* **ci:** CI pipeline overhaul — 分离构建与测试，消除 pre-commit 副作用 ([3759d03](https://github.com/lorainwings/claude-autopilot/commit/3759d03f2aa819b02fd68dc7428706e33135ccd8))
+
 ## [1.3.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.0...parallel-harness-v1.3.1) (2026-04-04)
 
 
