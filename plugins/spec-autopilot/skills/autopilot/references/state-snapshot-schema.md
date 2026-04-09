@@ -1,4 +1,4 @@
-# State Snapshot Schema (v6.0)
+# State Snapshot Schema (v7.1)
 
 > 本文件由 autopilot-recovery SKILL.md 引用。定义 state-snapshot.json 的完整结构和消费方契约。
 
@@ -6,12 +6,15 @@
 
 ```json
 {
-  "schema_version": "6.0",
+  "schema_version": "7.1",
   "saved_at": "ISO-8601",
   "change_name": "string",
   "execution_mode": "full|lite|minimal",
   "anchor_sha": "string|null",
   "requirement_packet_hash": "string|null (sha256[:16] of phase-1 checkpoint)",
+  "clarity_score": "number|null (v7.1: Phase 1 最终清晰度评分)",
+  "discussion_rounds": "number|null (v7.1: Phase 1 实际讨论轮数)",
+  "challenge_agents_activated": ["string (v7.1: 激活的挑战代理列表)"],
   "gate_frontier": "number (highest passed gate phase)",
   "last_completed_phase": "number",
   "next_action": {
@@ -43,6 +46,9 @@
 3. `recovery_confidence` — GUI 恢复面板显示置信度标识
 4. `requirement_packet_hash` — GUI 可验证需求一致性
 5. `snapshot_hash` — GUI/server 可校验 snapshot 完整性
+6. `clarity_score` — GUI 可展示需求清晰度指标
+7. `discussion_rounds` — GUI 可展示讨论轮数
+8. `challenge_agents_activated` — GUI 可展示激活的挑战代理
 
 ## 与 Workstream B 的对接要求
 

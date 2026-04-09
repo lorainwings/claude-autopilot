@@ -772,7 +772,9 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
                 file=sys.stderr,
             )
 
-    # min_qa_rounds L2 hard block: ensure sufficient QA decision rounds
+    # min_qa_rounds L2 hard block: ensure sufficient QA discussion rounds
+    # v7.1: Use discussion_rounds field (actual round count) instead of len(decisions)
+    # which conflates "number of decisions" with "number of discussion rounds"
     root = _ep.find_project_root(data)
     min_qa_rounds = _ep.read_config_value(root, "phases.requirements.min_qa_rounds", None)
     if min_qa_rounds is not None:
@@ -780,11 +782,31 @@ if phase_num == 1 and envelope and envelope.get("status") in ("ok", "warning"):
             min_qa_rounds = int(min_qa_rounds)
         except (ValueError, TypeError):
             min_qa_rounds = None
-    if min_qa_rounds is not None and isinstance(decisions, list) and len(decisions) < min_qa_rounds:
-        output_block(
-            f"Phase 1 decisions count ({len(decisions)}) is less than min_qa_rounds ({min_qa_rounds}). "
-            f"At least {min_qa_rounds} decision rounds are required by configuration."
+    if min_qa_rounds is not None:
+        # Prefer discussion_rounds (v7.1, required) over len(decisions) (legacy fallback)
+        discussion_rounds = envelope.get("discussion_rounds") if isinstance(envelope, dict) else None
+        if discussion_rounds is not None:
+            try:
+                discussion_rounds = int(discussion_rounds)
+            except (ValueError, TypeError):
+                discussion_rounds = None
+        if discussion_rounds is None:
+            # v7.1: discussion_rounds is required; warn on fallback to len(decisions)
+            print(
+                "WARN: Phase 1 envelope missing discussion_rounds field (v7.1 required), "
+                "falling back to len(decisions) for min_qa_rounds check",
+                file=sys.stderr,
+            )
+        actual_rounds = (
+            discussion_rounds
+            if discussion_rounds is not None
+            else (len(decisions) if isinstance(decisions, list) else 0)
         )
+        if actual_rounds < min_qa_rounds:
+            output_block(
+                f"Phase 1 discussion rounds ({actual_rounds}) is less than min_qa_rounds ({min_qa_rounds}). "
+                f"At least {min_qa_rounds} discussion rounds are required by configuration."
+            )
 
 
 # ============================================================

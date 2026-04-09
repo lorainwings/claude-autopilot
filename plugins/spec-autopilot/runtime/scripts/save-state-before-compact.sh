@@ -265,6 +265,20 @@ if os.path.isfile(req_file):
     except Exception:
         pass
 
+# v7.1: Extract clarity_score and discussion_rounds from Phase 1 checkpoint
+clarity_score = None
+discussion_rounds = None
+challenge_agents_activated = []
+if os.path.isfile(req_file):
+    try:
+        with open(req_file, 'r') as fh:
+            phase1_data = json.load(fh)
+        clarity_score = phase1_data.get('clarity_score')
+        discussion_rounds = phase1_data.get('discussion_rounds')
+        challenge_agents_activated = phase1_data.get('challenge_agents_activated', [])
+    except Exception:
+        pass
+
 # v7.0: 构建统一控制面工件 state-snapshot.json
 now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -433,6 +447,9 @@ snapshot_data = {
     'execution_mode': exec_mode,
     'anchor_sha': anchor_sha or None,
     'requirement_packet_hash': requirement_packet_hash or None,
+    'clarity_score': clarity_score,
+    'discussion_rounds': discussion_rounds,
+    'challenge_agents_activated': challenge_agents_activated,
     'gate_frontier': gate_frontier,
     'last_completed_phase': last_completed,
     'next_action': {

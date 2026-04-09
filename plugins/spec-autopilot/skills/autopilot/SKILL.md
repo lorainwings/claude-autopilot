@@ -140,6 +140,9 @@ Phase 1 完成后获得：requirement_packet、change_name、complexity、decisi
 
 Phase 1 关键约束摘要（详见 autopilot-phase1 Skill）：
 
+- **弹性收敛**（v7.1）：讨论轮数不设硬性上限，以混合清晰度评分（规则×0.6 + AI×0.4）≥ 阈值作为退出条件。安全阀: 8 轮软提醒 + 15 轮硬上限。
+- **一次一问**（v7.1）：Medium/Large 每轮只问 1 个决策点，按最弱清晰度维度优先选择。Small 保持合并确认。
+- **挑战代理**（v7.1）：第 4/6/8 轮自动激活反面论证/简化/本体论视角转换。停滞检测在连续 2 轮波动 ≤5% 时干预。
 - **联网搜索决策**（v3.3.7）：默认执行搜索（`search_policy.default: search`），仅当同时满足所有跳过条件时才跳过。判定由规则引擎执行（非 AI 自评）。
 - **并行调研**：强制在同一消息中同时发起所有调研 Task（`run_in_background: true`）
 

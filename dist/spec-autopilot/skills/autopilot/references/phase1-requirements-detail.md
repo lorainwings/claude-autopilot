@@ -479,13 +479,16 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 | 非功能约束 (`non_functional_constraint`) | 需求含延迟/吞吐/并发/兼容/一致性关键词 | 参与组合升级 |
 | 多决策点 (`multi_decision`) | decision_points 数量 >= 3 | 参与组合升级 |
 
-### 分路策略
+### 分路策略（v7.1 弹性收敛重构）
 
-| 复杂度 | 讨论深度 | 苏格拉底模式 | 预计 QA 轮数 |
-|--------|----------|-------------|-------------|
-| small | 快速确认 — 展示调研结论，用户确认即可 | 禁用（即使 config 启用） | 1 轮 |
-| medium | 标准讨论 — 完整决策循环 | 遵循 config 设置 | 2-3 轮 |
-| large | 深度讨论 — 强制苏格拉底模式 | 强制启用（覆盖 config） | 3+ 轮 |
+| 复杂度 | 清晰度阈值 | 提问策略 | 苏格拉底/挑战代理 |
+|--------|-----------|---------|-----------------|
+| small | 0.70（宽松） | 合并决策点一次确认 | 禁用苏格拉底；挑战代理按配置 |
+| medium | 0.80（标准） | 一次一问（每轮 1 个决策点） | 遵循 config；挑战代理按配置 |
+| large | 0.85（严格） | 一次一问 + scope creep 检查 | 强制苏格拉底；挑战代理按配置 |
+
+> **轮数不再硬性限制**。讨论轮数由清晰度评分自然收敛决定（详见 `phase1-clarity-scoring.md`）。
+> 安全阀: `soft_warning_rounds`（默认 8）软提醒 + `max_rounds`（默认 15）硬上限。
 
 ### 降级处理
 
@@ -672,14 +675,15 @@ FOR q IN ba_envelope.open_questions:
 当 complexity == "small" 时：
 1. 将所有决策点合并为一次 AskUserQuestion（多选模式或逐一快速确认）
 2. 展示调研结论 + 推荐方案，让用户一次性确认
-3. 最多 1 轮循环，用户确认即退出
+3. 清晰度阈值 0.70（宽松），通常 1-2 轮即可达标退出
 
 ### Large 复杂度强化路径
 
 当 complexity == "large" 时，强制附加以下检查：
 1. 每轮循环后检查是否有需求蔓延（scope creep）迹象
-2. 如果功能点持续增加，主动提出 MVP 范围收敛建议
-3. 必须至少完成 3 轮 QA 才能退出循环
+2. 如果功能点持续增加，主动提出 MVP 范围收敛建议（或由简化者挑战代理自动触发）
+3. 清晰度阈值 0.85（严格），强制苏格拉底模式 + 挑战代理
+4. 一次一问原则：每轮只提 1 个决策点，按最弱清晰度维度优先选择
 
 ## 1.9 requirement-packet.json 完整 Schema（v6.0 新增）
 
@@ -735,6 +739,23 @@ requirement-packet.json 是 Phase 1 的唯一结构化产出，后续所有 Phas
     "skip_reasons": {}
   },
   "open_questions_closed": "boolean — 必须为 true 才能推进",
+  "clarity_score": "number|null — 最终清晰度评分（0.0-1.0），v7.1 新增",
+  "clarity_breakdown": {
+    "goal_clarity": {"rule": "number", "ai": "number", "mixed": "number", "weight": "number"},
+    "constraint_clarity": {"rule": "number", "ai": "number", "mixed": "number", "weight": "number"},
+    "criteria_clarity": {"rule": "number", "ai": "number", "mixed": "number", "weight": "number"},
+    "context_clarity": {"rule": "number", "ai": "number", "mixed": "number", "weight": "number"}
+  },
+  "discussion_rounds": "number — 实际讨论轮数（v7.1 新增，用于 L2 校验）",
+  "challenge_agents_activated": ["string — 已激活的挑战代理模式名，v7.1 新增"],
+  "challenge_insights": [
+    {
+      "agent": "string",
+      "round": "number",
+      "outcome": "string"
+    }
+  ],
+  "stagnation_detected": "boolean — 是否触发过停滞检测，v7.1 新增",
   "hash": "string — sha256(canonical JSON excluding hash field)",
   "timestamp": "string — ISO-8601"
 }
@@ -755,6 +776,7 @@ requirement-packet.json 是 Phase 1 的唯一结构化产出，后续所有 Phas
 | `acceptance_criteria` | 是 | 至少 1 条，含可观测结果 |
 | `decisions` | 是 | 数组（可为空数组，表示无需决策） |
 | `open_questions_closed` | 是 | 必须为 true |
+| `discussion_rounds` | 是 | 正整数（v7.1 新增，L2 校验轮数用） |
 | `hash` | 是 | 非空 sha256 |
 | `timestamp` | 是 | ISO-8601 |
 

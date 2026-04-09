@@ -32,6 +32,12 @@ export type SnapshotMeta = {
     block_reasons: string[];
   } | null;
   requirementPacketHash?: string | null;
+  /** v7.1: Phase 1 清晰度评分 */
+  clarityScore?: number | null;
+  /** v7.1: Phase 1 实际讨论轮数 */
+  discussionRounds?: number | null;
+  /** v7.1: 激活的挑战代理 */
+  challengeAgentsActivated?: string[];
   gateFrontier?: number | null;
   /** v7.0: 恢复状态 */
   recoverySource?: string | null;

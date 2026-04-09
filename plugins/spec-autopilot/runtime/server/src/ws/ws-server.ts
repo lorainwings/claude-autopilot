@@ -38,6 +38,9 @@ export function createWsServer() {
           archiveReadiness: snapshotState.archiveReadiness ?? null,
           requirementPacketHash: snapshotState.stateSnapshot?.requirement_packet_hash ?? null,
           gateFrontier: snapshotState.stateSnapshot?.gate_frontier ?? null,
+          clarityScore: snapshotState.stateSnapshot?.clarity_score ?? null,
+          discussionRounds: snapshotState.stateSnapshot?.discussion_rounds ?? null,
+          challengeAgentsActivated: snapshotState.stateSnapshot?.challenge_agents_activated ?? [],
         };
         ws.send(JSON.stringify({ type: "snapshot", data: sanitized, meta }));
       },

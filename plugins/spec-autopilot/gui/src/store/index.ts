@@ -143,6 +143,12 @@ export interface OrchestrationOverview {
   gateFrontierReason: string | null;
   /** requirement packet hash (从 phase_end Phase 1 提取) */
   requirementPacketHash: string | null;
+  /** v7.1: Phase 1 清晰度评分 */
+  clarityScore: number | null;
+  /** v7.1: Phase 1 讨论轮数 */
+  discussionRounds: number | null;
+  /** v7.1: 激活的挑战代理 */
+  challengeAgentsActivated: string[];
   /** compact 风险等级 */
   contextBudget: { percent: number; risk: "low" | "medium" | "high" } | null;
   /** archive readiness */
@@ -212,6 +218,12 @@ interface AppState {
     gateFrontier?: number | null;
     recoverySource?: string | null;
     recoveryReason?: string | null;
+    /** v7.1: Phase 1 清晰度评分 */
+    clarityScore?: number | null;
+    /** v7.1: Phase 1 讨论轮数 */
+    discussionRounds?: number | null;
+    /** v7.1: 激活的挑战代理 */
+    challengeAgentsActivated?: string[];
     reportState?: {
       report_format: string | null;
       report_path: string | null;
@@ -431,6 +443,9 @@ const DEFAULT_ORCHESTRATION: OrchestrationOverview = {
   currentSubStep: null,
   gateFrontierReason: null,
   requirementPacketHash: null,
+  clarityScore: null,
+  discussionRounds: null,
+  challengeAgentsActivated: [],
   contextBudget: null,
   archiveReadiness: null,
   recoverySource: null,
@@ -850,6 +865,11 @@ export const useStore = create<AppState>((set) => ({
       if (meta.requirementPacketHash && !orchestration.requirementPacketHash) {
         orchestration.requirementPacketHash = meta.requirementPacketHash;
       }
+
+      // v7.1: Phase 1 清晰度评分 & 讨论轮数 & 挑战代理
+      orchestration.clarityScore = meta?.clarityScore ?? null;
+      orchestration.discussionRounds = meta?.discussionRounds ?? null;
+      orchestration.challengeAgentsActivated = meta?.challengeAgentsActivated ?? [];
 
       // v7.0: 恢复状态 (工作包 G) — recoverySource 不再永远是 null
       if (meta.recoverySource && !orchestration.recoverySource) {
