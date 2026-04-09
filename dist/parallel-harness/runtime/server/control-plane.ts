@@ -55,6 +55,8 @@ export interface RunDetail {
   cost: CostSummaryView;
   gate_results: GateResultView[];
   timeline: TimelineEvent[];
+  /** Skill 生命周期事件 — 从 AuditTrail 中提取 */
+  skill_events?: SkillEventView[];
   started_at: string;
   completed_at?: string;
   duration_ms: number;
@@ -69,6 +71,8 @@ export interface TaskSummary {
   tokens_used: number;
   duration_ms: number;
   risk_level: string;
+  /** 运行时选中的 Skill ID */
+  selected_skill_id?: string;
 }
 
 export interface BatchSummary {
@@ -97,6 +101,16 @@ export interface GateResultView {
 export interface TimelineEvent {
   timestamp: string;
   type: string;
+  task_id?: string;
+  message: string;
+}
+
+/** Skill 事件视图 — 用于 RunDetail 展示 */
+export interface SkillEventView {
+  timestamp: string;
+  type: string;
+  skill_id: string;
+  phase?: string;
   task_id?: string;
   message: string;
 }
@@ -566,8 +580,14 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     <div class="grid">
       <div class="panel">
         <div class="panel-header">任务列表</div>
-        <div class="panel-body"><table><thead><tr><th>ID</th><th>标题</th><th>状态</th><th>模型</th><th>Token</th><th>耗时</th></tr></thead><tbody id="d-tasks-table"></tbody></table></div>
+        <div class="panel-body"><table><thead><tr><th>ID</th><th>标题</th><th>状态</th><th>Skill</th><th>模型</th><th>Token</th><th>耗时</th></tr></thead><tbody id="d-tasks-table"></tbody></table></div>
       </div>
+      <div class="panel">
+        <div class="panel-header">Skill 生命周期</div>
+        <div class="panel-body"><ul class="timeline" id="d-skills"></ul></div>
+      </div>
+    </div>
+    <div class="grid">
       <div class="panel">
         <div class="panel-header">时间线</div>
         <div class="panel-body"><ul class="timeline" id="d-timeline"></ul></div>
@@ -649,6 +669,7 @@ async function showDetail(runId) {
       '<tr><td style="font-family:monospace;font-size:11px">' + t.id.slice(0,12) + '</td>' +
       '<td>' + t.title + '</td>' +
       '<td><span class="status status-' + mapStatus(t.status) + '">' + t.status + '</span></td>' +
+      '<td style="font-family:monospace;font-size:11px;color:#d2a8ff">' + (t.selected_skill_id || '-') + '</td>' +
       '<td>' + t.model_tier + '</td>' +
       '<td>' + fmtNum(t.tokens_used) + '</td>' +
       '<td>' + fmtDur(t.duration_ms) + '</td></tr>'
@@ -658,8 +679,31 @@ async function showDetail(runId) {
     const tlEl = document.getElementById('d-timeline');
     const events = (run.timeline||audit||[]).slice(0,50);
     tlEl.innerHTML = events.map(e =>
-      '<li><span class="time">' + fmtTime(e.timestamp) + '</span>' + (e.type||e.message||'') + (e.task_id?' ['+e.task_id.slice(0,8)+']':'') + '</li>'
+      '<li><span class="time">' + fmtTime(e.timestamp) + '</span>' +
+      '<strong style="color:' + (e.type?.startsWith('skill_') ? '#d2a8ff' : '#c9d1d9') + '">' + (e.type||'') + '</strong>' +
+      (e.message ? ' — ' + e.message : '') +
+      (e.task_id?' ['+e.task_id.slice(0,8)+']':'') + '</li>'
     ).join('') || '<li style="color:#8b949e">无时间线数据</li>';
+
+    // Skill Events Panel
+    const skillEl = document.getElementById('d-skills');
+    const skillTypeColor = {
+      skill_candidates_resolved: '#8b949e',
+      skill_selected: '#d2a8ff',
+      skill_injected: '#79c0ff',
+      skill_completed: '#3fb950',
+      skill_failed: '#f85149',
+    };
+    const skillEvts = (run.skill_events || []);
+    skillEl.innerHTML = skillEvts.length > 0
+      ? skillEvts.map(se =>
+        '<li><span class="time">' + fmtTime(se.timestamp) + '</span>' +
+        '<span style="color:' + (skillTypeColor[se.type] || '#c9d1d9') + ';font-weight:600">' + se.type.replace('skill_', '') + '</span>' +
+        ' <span style="color:#d2a8ff">' + se.skill_id + '</span>' +
+        (se.phase ? ' <span style="color:#8b949e">(' + se.phase + ')</span>' : '') +
+        (se.task_id ? ' [' + se.task_id.slice(0, 12) + ']' : '') + '</li>'
+      ).join('')
+      : '<li style="color:#8b949e">无 Skill 事件</li>';
 
     // Lifecycle Phases
     try {

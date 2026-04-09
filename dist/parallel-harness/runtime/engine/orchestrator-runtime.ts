@@ -356,6 +356,12 @@ function mapAuditToEventType(auditType: AuditEventType): import("../observabilit
     model_downgraded: "downgrade_triggered",
     run_started: "session_started",
     run_completed: "session_completed",
+    // Skill lifecycle
+    skill_candidates_resolved: "skill_candidates_resolved",
+    skill_selected: "skill_selected",
+    skill_injected: "skill_injected",
+    skill_completed: "skill_completed",
+    skill_failed: "skill_failed",
   };
   return mapping[auditType] || "session_started";
 }
@@ -407,6 +413,28 @@ export function isBudgetExhausted(ledger: CostLedger): boolean {
 }
 
 // ============================================================
+// Skill Phase Inference — 推断 task 所属阶段
+// ============================================================
+
+/**
+ * 从 task 元数据推断其所属的 skill 阶段。
+ * 不依赖 task title 的字符串猜测，而是使用 task 的结构化属性。
+ */
+export function inferTaskPhase(task: TaskNode): string {
+  // 优先使用 task metadata 中的 phase 标注
+  if ((task as any).phase) return (task as any).phase;
+
+  // 基于 verifier_set 推断：有 review/security/coverage gate 的倾向于验证阶段
+  const verifierSet = task.verifier_set || [];
+  if (verifierSet.includes("review" as any) || verifierSet.includes("security" as any)) {
+    return "verification";
+  }
+
+  // 默认：implementation（dispatch 阶段覆盖的具体执行）
+  return "dispatch";
+}
+
+// ============================================================
 // Orchestrator Runtime — 统一主入口
 // ============================================================
 
@@ -426,6 +454,7 @@ export class OrchestratorRuntime {
   private rbacEngine?: import("../governance/governance").RBACEngine;
   private hookRegistry?: import("../capabilities/capability-registry").HookRegistry;
   private instructionRegistry?: import("../capabilities/capability-registry").InstructionRegistry;
+  private skillRegistry?: import("../capabilities/capability-registry").SkillRegistry;
 
   constructor(options: OrchestratorOptions = {}) {
     this.eventBus = options.eventBus || new EventBus();
@@ -443,6 +472,87 @@ export class OrchestratorRuntime {
     this.rbacEngine = options.rbacEngine;
     this.hookRegistry = options.hookRegistry;
     this.instructionRegistry = options.instructionRegistry;
+    this.skillRegistry = options.skillRegistry || this.createDefaultSkillRegistry();
+  }
+
+  /**
+   * 创建默认 SkillRegistry — 注册三个阶段协议模板
+   *
+   * 所有 OrchestratorRuntime 实例默认自带三个阶段协议，
+   * 确保 skill 选择/注入/完成事件在每次 run 中都会触发。
+   */
+  private createDefaultSkillRegistry(): import("../capabilities/capability-registry").SkillRegistry {
+    const { SkillRegistry } = require("../capabilities/capability-registry");
+    const { resolve, dirname } = require("path");
+    const { existsSync, readFileSync } = require("fs");
+    const registry = new SkillRegistry();
+
+    // 定位 skills 目录：从当前模块向上查找
+    const moduleDir = dirname(__filename);
+    const pluginRoot = resolve(moduleDir, "../..");
+    const skillsDir = resolve(pluginRoot, "skills");
+
+    /** 从 SKILL.md 中提取协议摘要（去除 frontmatter，截断到合理长度） */
+    const loadProtocol = (skillId: string): string | undefined => {
+      const filePath = resolve(skillsDir, skillId, "SKILL.md");
+      if (!existsSync(filePath)) return undefined;
+      try {
+        let content = readFileSync(filePath, "utf-8");
+        // 去除 YAML frontmatter
+        if (content.startsWith("---")) {
+          const endIdx = content.indexOf("---", 3);
+          if (endIdx > 0) content = content.slice(endIdx + 3).trim();
+        }
+        // 截断到合理长度避免 prompt 膨胀（保留前 800 字符作为协议摘要）
+        return content.length > 800 ? content.slice(0, 800) + "\n..." : content;
+      } catch {
+        return undefined;
+      }
+    };
+
+    registry.register({
+      id: "harness-plan",
+      name: "Harness Plan",
+      version: "1.0.0",
+      description: "并行工程规划阶段协议模板。负责意图分析、任务图构建、复杂度评估、文件所有权规划、模型路由和预算评估。",
+      input_schema: {},
+      output_schema: {},
+      permissions: [],
+      required_tools: [],
+      recommended_tier: "tier-2" as const,
+      applicable_phases: ["planning"],
+      protocol_content: loadProtocol("harness-plan"),
+    });
+
+    registry.register({
+      id: "harness-dispatch",
+      name: "Harness Dispatch",
+      version: "1.0.0",
+      description: "并行工程调度阶段协议模板。负责执行前检查、按批次派发 Worker、监控执行状态、处理失败重试和降级策略。",
+      input_schema: {},
+      output_schema: {},
+      permissions: [],
+      required_tools: [],
+      recommended_tier: "tier-2" as const,
+      applicable_phases: ["dispatch"],
+      protocol_content: loadProtocol("harness-dispatch"),
+    });
+
+    registry.register({
+      id: "harness-verify",
+      name: "Harness Verify",
+      version: "1.0.0",
+      description: "并行工程验证阶段协议模板。负责调度 9 类 Gate System 进行多维度质量验证，综合门禁结论并输出阻断或放行决策。",
+      input_schema: {},
+      output_schema: {},
+      permissions: [],
+      required_tools: [],
+      recommended_tier: "tier-2" as const,
+      applicable_phases: ["verification"],
+      protocol_content: loadProtocol("harness-verify"),
+    });
+
+    return registry;
   }
 
   /**
@@ -479,7 +589,18 @@ export class OrchestratorRuntime {
       // Phase 1: Plan
       await this.executeHookPhase("pre_plan", ctx);
       transitionRunStatus(execution, "planned", "规划完成");
-      const plan = await this.planPhase(ctx, request);
+
+      // Skill lifecycle: run 级 planning 阶段 skill 选择
+      const planSkillInvocation = this.emitRunPhaseSkillEvent(ctx, "planning", execution);
+
+      let plan: RunPlan;
+      try {
+        plan = await this.planPhase(ctx, request);
+        this.completeRunPhaseSkill(ctx, planSkillInvocation, true);
+      } catch (planError) {
+        this.completeRunPhaseSkill(ctx, planSkillInvocation, false, planError instanceof Error ? planError.message : String(planError));
+        throw planError;
+      }
       await this.runStore.savePlan(plan);
       await this.executeHookPhase("post_plan", ctx);
       emitAudit(ctx, "run_planned", {
@@ -604,15 +725,34 @@ export class OrchestratorRuntime {
       transitionRunStatus(execution, "running", "开始执行");
       emitAudit(ctx, "run_started", {});
 
+      // Skill lifecycle: run 级 dispatch 阶段 skill 选择
+      const dispatchSkillInvocation = this.emitRunPhaseSkillEvent(ctx, "dispatch", execution);
+
       ctx.ownershipPlan = plan.ownership_plan;
-      await this.executePhase(ctx, execution, plan);
+      try {
+        await this.executePhase(ctx, execution, plan);
+        this.completeRunPhaseSkill(ctx, dispatchSkillInvocation, true);
+      } catch (dispatchError) {
+        this.completeRunPhaseSkill(ctx, dispatchSkillInvocation, false, dispatchError instanceof Error ? dispatchError.message : String(dispatchError));
+        throw dispatchError;
+      }
       await this.executeHookPhase("post_dispatch", ctx);
 
       // Phase 4: Verify (Run-level gates)
       if (execution.status === "running") {
         await this.executeHookPhase("pre_verify", ctx);
         transitionRunStatus(execution, "verifying", "运行级验证");
-        await this.runLevelGates(ctx, execution, plan);
+
+        // Skill lifecycle: run 级 verification 阶段 skill 选择
+        const verifySkillInvocation = this.emitRunPhaseSkillEvent(ctx, "verification", execution);
+
+        try {
+          await this.runLevelGates(ctx, execution, plan);
+          this.completeRunPhaseSkill(ctx, verifySkillInvocation, true);
+        } catch (verifyError) {
+          this.completeRunPhaseSkill(ctx, verifySkillInvocation, false, verifyError instanceof Error ? verifyError.message : String(verifyError));
+          throw verifyError;
+        }
         await this.executeHookPhase("post_verify", ctx);
       }
 
@@ -1236,6 +1376,21 @@ export class OrchestratorRuntime {
       let worktreeBranchForCleanup: string | undefined;
       let proxyForCleanup: any;
 
+      // Skill invocation 提升到 try 之外，确保 catch 可以调用 markSkillFailed
+      let skillInvocation: import("../capabilities/capability-registry").SkillInvocationRecord | undefined;
+
+      /** 标记 task 级 skill 失败 — 所有失败分支统一调用此辅助函数 */
+      const markSkillFailed = (reason: string) => {
+        if (!skillInvocation) return;
+        skillInvocation.status = "failed";
+        skillInvocation.completed_at = new Date().toISOString();
+        skillInvocation.evidence = { failure_reason: reason };
+        emitAudit(ctx, "skill_failed", {
+          selected_skill_id: skillInvocation.selected_skill_id,
+          failure_reason: reason,
+        }, task.id, attempt.attempt_id);
+      };
+
       try {
         // 打包上下文 - 传递当前任务到 context，传入 routing 的 context_budget（Workstream D 闭环）
         const prevTask = (ctx as any).currentTask;
@@ -1266,6 +1421,66 @@ export class OrchestratorRuntime {
           });
           if (instructions.length > 0) {
             contract.context.constraints.coding_standards = instructions.map(i => i.content);
+          }
+        }
+
+        // Skill Resolution: 运行时确定性 skill 选择与注入（Skill Observability 闭环）
+        if (this.skillRegistry) {
+          const taskPhase = inferTaskPhase(task);
+          const skillMatches = this.skillRegistry.resolve({
+            phase: taskPhase,
+            language: undefined,
+            file_path: task.allowed_paths?.[0],
+            task_title: task.title,
+          });
+
+          // 发射 skill_candidates_resolved 事件
+          if (skillMatches.length > 0) {
+            emitAudit(ctx, "skill_candidates_resolved", {
+              candidate_count: skillMatches.length,
+              candidate_skill_ids: skillMatches.map(m => m.skill_id),
+            }, task.id, attempt.attempt_id);
+          }
+
+          const selectedSkill = this.skillRegistry.select(skillMatches);
+          if (selectedSkill) {
+            // 发射 skill_selected 事件
+            emitAudit(ctx, "skill_selected", {
+              selected_skill_id: selectedSkill.skill_id,
+              selection_reason: selectedSkill.selection_reason,
+              source: selectedSkill.source,
+              version: selectedSkill.version,
+            }, task.id, attempt.attempt_id);
+
+            // 注入到 contract
+            contract.selected_skill_id = selectedSkill.skill_id;
+            const skillManifest = this.skillRegistry.get(selectedSkill.skill_id);
+            if (skillManifest) {
+              // 优先使用从 SKILL.md 读取的真实协议内容，回退到 description
+              contract.skill_protocol_summary = skillManifest.protocol_content
+                || `[Skill: ${skillManifest.name} v${skillManifest.version}] ${skillManifest.description}`;
+            }
+
+            // 记录到 attempt
+            attempt.selected_skill_id = selectedSkill.skill_id;
+
+            // 创建调用记录
+            skillInvocation = {
+              run_id: ctx.run_id,
+              task_id: task.id,
+              attempt_id: attempt.attempt_id,
+              phase: taskPhase,
+              selected_skill_id: selectedSkill.skill_id,
+              injected_at: new Date().toISOString(),
+              status: "injected",
+            };
+            attempt.skill_invocation = skillInvocation;
+
+            // 发射 skill_injected 事件
+            emitAudit(ctx, "skill_injected", {
+              selected_skill_id: selectedSkill.skill_id,
+              protocol_digest: contract.skill_protocol_summary?.slice(0, 100),
+            }, task.id, attempt.attempt_id);
           }
         }
 
@@ -1353,6 +1568,7 @@ export class OrchestratorRuntime {
           lastFailureClass = attempt.failure_class;
           execution.completed_attempts[task.id] = [...(execution.completed_attempts[task.id] || []), attempt];
           emitAudit(ctx, "worker_failed", { failure_class: attempt.failure_class, status: workerOutput.status }, task.id, attempt.attempt_id);
+          markSkillFailed(`Worker 返回 ${workerOutput.status}: ${workerOutput.summary}`);
           continue;
         }
         if (workerOutput.status === "warning" && workerOutput.modified_paths.length === 0) {
@@ -1364,6 +1580,7 @@ export class OrchestratorRuntime {
           lastFailureClass = attempt.failure_class;
           execution.completed_attempts[task.id] = [...(execution.completed_attempts[task.id] || []), attempt];
           emitAudit(ctx, "worker_failed", { failure_class: attempt.failure_class, status: "warning_no_output" }, task.id, attempt.attempt_id);
+          markSkillFailed(`Worker 降级无产出: ${workerOutput.summary}`);
           continue;
         }
 
@@ -1394,6 +1611,7 @@ export class OrchestratorRuntime {
             execution.completed_attempts[task.id] = [
               ...(execution.completed_attempts[task.id] || []), attempt
             ];
+            markSkillFailed(`所有权违规: ${violations.map((v: any) => v.message).join("; ")}`);
             continue;
           }
         }
@@ -1433,6 +1651,7 @@ export class OrchestratorRuntime {
           if (proxyPrep.worktree_path) {
             proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);          }
 
+          markSkillFailed("Gate 验证阻断");
           // 模型升级由下一次循环顶部的动态路由自动处理（retry_count 增加 → tier 提升）
           continue;
         }
@@ -1475,6 +1694,7 @@ export class OrchestratorRuntime {
             if (!ctx.config.preserve_failed_worktree) {
               proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
             }
+            markSkillFailed(`Worktree 合并失败: ${mergeResult.failure_reason || "cherry-pick conflict"}`);
             continue; // 进入重试循环
           } else {
             // 合并成功才清理 worktree 和临时分支
@@ -1488,6 +1708,16 @@ export class OrchestratorRuntime {
           tokens_used: workerOutput.tokens_used,
           modified_files: workerOutput.modified_paths.length,
         }, task.id, attempt.attempt_id);
+
+        // Skill lifecycle: 标记 skill_completed
+        if (skillInvocation) {
+          skillInvocation.status = "completed";
+          skillInvocation.completed_at = new Date().toISOString();
+          emitAudit(ctx, "skill_completed", {
+            selected_skill_id: skillInvocation.selected_skill_id,
+            phase: skillInvocation.phase,
+          }, task.id, attempt.attempt_id);
+        }
 
         task.status = "verified";
         task.result = {
@@ -1532,6 +1762,7 @@ export class OrchestratorRuntime {
         execution.completed_attempts[task.id] = [
           ...(execution.completed_attempts[task.id] || []), attempt
         ];
+        markSkillFailed(`执行异常: ${attempt.failure_detail}`);
         // 模型升级由下一次循环顶部的动态路由自动处理
       }
     }
@@ -2197,6 +2428,7 @@ export class OrchestratorRuntime {
         tokens_used: totalTokens,
         duration_ms: latest.duration_ms ?? 0,
         risk_level: taskNode?.risk_level || "medium",
+        selected_skill_id: latest.selected_skill_id,
       });
     }
     // gate_results from RunResult
@@ -2208,11 +2440,44 @@ export class OrchestratorRuntime {
       findings_count: g.conclusion.findings.length,
       summary: g.conclusion.summary,
     }));
-    // timeline from status_history
+    // timeline from status_history + skill events from audit
     const timeline: import("../server/control-plane").TimelineEvent[] = execution.status_history.map((h) => ({
       timestamp: h.timestamp,
       type: h.to,
       message: h.reason || "",
+    }));
+
+    // 合并 audit 中的 skill_* 事件到 timeline
+    const skillAuditTypes = ["skill_candidates_resolved", "skill_selected", "skill_injected", "skill_completed", "skill_failed"];
+    const skillAuditEvents = auditEvents.filter(e => skillAuditTypes.includes(e.type));
+    for (const se of skillAuditEvents) {
+      timeline.push({
+        timestamp: se.timestamp,
+        type: se.type,
+        task_id: se.task_id,
+        message: se.type === "skill_selected"
+          ? `Skill ${(se.payload as any).selected_skill_id} 选中 (${(se.payload as any).selection_reason || (se.payload as any).run_phase || ""})`
+          : se.type === "skill_injected"
+          ? `Skill ${(se.payload as any).selected_skill_id} 协议注入`
+          : se.type === "skill_completed"
+          ? `Skill ${(se.payload as any).selected_skill_id} 完成`
+          : se.type === "skill_failed"
+          ? `Skill ${(se.payload as any).selected_skill_id} 失败`
+          : `Skill 候选: ${(se.payload as any).candidate_count} 个`,
+      });
+    }
+
+    // 按时间戳排序
+    timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // skill_events 聚合
+    const skillEvents: import("../server/control-plane").SkillEventView[] = skillAuditEvents.map(se => ({
+      timestamp: se.timestamp,
+      type: se.type,
+      skill_id: (se.payload as any).selected_skill_id || (se.payload as any).candidate_skill_ids?.[0] || "",
+      phase: (se.payload as any).run_phase || (se.payload as any).phase,
+      task_id: se.task_id,
+      message: JSON.stringify(se.payload),
     }));
     const startedAt = execution.started_at;
     const completedAt = result?.completed_at;
@@ -2244,6 +2509,7 @@ export class OrchestratorRuntime {
       },
       gate_results: gateResultViews,
       timeline,
+      skill_events: skillEvents.length > 0 ? skillEvents : undefined,
       started_at: startedAt,
       completed_at: completedAt,
       duration_ms: durationMs,
@@ -2338,6 +2604,98 @@ export class OrchestratorRuntime {
   }
 
   /**
+   * 在 run 的宏观阶段入口发射 skill 选择和注入事件。
+   * 返回 SkillInvocationRecord 供阶段结束后调用 completeRunPhaseSkill。
+   */
+  private emitRunPhaseSkillEvent(
+    ctx: ExecutionContext,
+    phase: string,
+    execution: RunExecution
+  ): import("../capabilities/capability-registry").SkillInvocationRecord | undefined {
+    if (!this.skillRegistry) return undefined;
+
+    const matches = this.skillRegistry.resolve({ phase });
+    if (matches.length === 0) return undefined;
+
+    emitAudit(ctx, "skill_candidates_resolved", {
+      run_phase: phase,
+      candidate_count: matches.length,
+      candidate_skill_ids: matches.map(m => m.skill_id),
+    });
+
+    const selected = this.skillRegistry.select(matches);
+    if (!selected) return undefined;
+
+    emitAudit(ctx, "skill_selected", {
+      run_phase: phase,
+      selected_skill_id: selected.skill_id,
+      selection_reason: selected.selection_reason,
+      source: selected.source,
+      version: selected.version,
+    });
+
+    // 构造 invocation record
+    const invocation: import("../capabilities/capability-registry").SkillInvocationRecord = {
+      run_id: ctx.run_id,
+      task_id: `run_phase_${phase}`,
+      attempt_id: "",
+      phase,
+      selected_skill_id: selected.skill_id,
+      injected_at: new Date().toISOString(),
+      status: "injected",
+    };
+
+    // 发射 skill_injected 事件
+    const manifest = this.skillRegistry.get(selected.skill_id);
+    const protocolDigest = manifest?.protocol_content
+      ? manifest.protocol_content.slice(0, 100)
+      : manifest?.description?.slice(0, 100);
+    emitAudit(ctx, "skill_injected", {
+      run_phase: phase,
+      selected_skill_id: selected.skill_id,
+      protocol_digest: protocolDigest,
+      has_protocol_content: !!manifest?.protocol_content,
+    });
+
+    // 记录到 execution
+    if (!execution.skill_invocations) {
+      execution.skill_invocations = [];
+    }
+    execution.skill_invocations.push(invocation);
+
+    return invocation;
+  }
+
+  /**
+   * 标记 run 级阶段 skill 完成或失败
+   */
+  private completeRunPhaseSkill(
+    ctx: ExecutionContext,
+    invocation: import("../capabilities/capability-registry").SkillInvocationRecord | undefined,
+    success: boolean,
+    failureReason?: string
+  ): void {
+    if (!invocation) return;
+
+    invocation.completed_at = new Date().toISOString();
+    if (success) {
+      invocation.status = "completed";
+      emitAudit(ctx, "skill_completed", {
+        run_phase: invocation.phase,
+        selected_skill_id: invocation.selected_skill_id,
+      });
+    } else {
+      invocation.status = "failed";
+      invocation.evidence = { failure_reason: failureReason };
+      emitAudit(ctx, "skill_failed", {
+        run_phase: invocation.phase,
+        selected_skill_id: invocation.selected_skill_id,
+        failure_reason: failureReason,
+      });
+    }
+  }
+
+  /**
    * 执行 Hook 阶段：调用 HookRegistry 中注册的 hooks。
    * Hook 返回的 effects 会被收集并影响主链行为（Workstream G effect 化）。
    */
@@ -2409,6 +2767,11 @@ export class LocalWorkerAdapter implements WorkerAdapter {
         : "",
     ];
 
+    // 注入 Skill 协议约束（skill_protocol_summary 是 runtime 确定性注入的）
+    if (contract.skill_protocol_summary) {
+      promptParts.push(`\n## 协议约束\n${contract.skill_protocol_summary}`);
+    }
+
     // 注入 ContextPack：相关文件和代码片段
     if (contract.context?.relevant_files && contract.context.relevant_files.length > 0) {
       promptParts.push(`\n相关文件:\n${contract.context.relevant_files.map((f) => `- ${f}`).join("\n")}`);
@@ -2434,6 +2797,7 @@ export class LocalWorkerAdapter implements WorkerAdapter {
             PARALLEL_HARNESS_TASK_ID: contract.task_id,
             PARALLEL_HARNESS_MODEL_TIER: input.model_tier,
             ...(input.tool_policy ? { PARALLEL_HARNESS_TOOL_POLICY: input.tool_policy } : {}),
+            ...(contract.selected_skill_id ? { PARALLEL_HARNESS_SKILL_ID: contract.selected_skill_id } : {}),
           },
         }
       );
@@ -2609,6 +2973,7 @@ export interface OrchestratorOptions {
   rbacEngine?: import("../governance/governance").RBACEngine;
   hookRegistry?: import("../capabilities/capability-registry").HookRegistry;
   instructionRegistry?: import("../capabilities/capability-registry").InstructionRegistry;
+  skillRegistry?: import("../capabilities/capability-registry").SkillRegistry;
   /** 持久化数据目录，设置后默认使用 FileStore */
   dataDir?: string;
 }

@@ -236,9 +236,10 @@ export interface RunExecution extends Versioned {
 
   /** 最后更新时间 */
   updated_at: string;
-}
 
-/** Run 结果 */
+  /** Skill 调用记录列表 */
+  skill_invocations?: import("../capabilities/capability-registry").SkillInvocationRecord[];
+}
 export interface RunResult extends Versioned {
   /** Run ID */
   run_id: string;
@@ -357,11 +358,13 @@ export interface TaskAttempt extends Versioned {
 
   /** 耗时 (ms) */
   duration_ms?: number;
-}
 
-// ============================================================
-// 失败分类体系
-// ============================================================
+  /** 选中的 Skill ID — 由 runtime skill resolution 决定 */
+  selected_skill_id?: string;
+
+  /** Skill 调用记录 */
+  skill_invocation?: import("../capabilities/capability-registry").SkillInvocationRecord;
+}
 
 /** 失败分类枚举 */
 export type FailureClass =
@@ -608,7 +611,13 @@ export type AuditEventType =
   | "pr_reviewed"
   | "pr_merged"
   | "human_feedback"
-  | "config_changed";
+  | "config_changed"
+  // Skill lifecycle
+  | "skill_candidates_resolved"
+  | "skill_selected"
+  | "skill_injected"
+  | "skill_completed"
+  | "skill_failed";
 
 export interface AuditEvent extends Versioned {
   /** 事件 ID */

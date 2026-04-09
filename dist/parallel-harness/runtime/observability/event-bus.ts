@@ -63,7 +63,14 @@ export type EventType =
   | "pr_merged"
   | "ci_failure_detected"
   // Human
-  | "human_feedback_received";
+  | "human_feedback_received"
+  // Skill lifecycle
+  | "skill_candidates_resolved"
+  | "skill_selected"
+  | "skill_injected"
+  | "skill_completed"
+  | "skill_failed"
+  | "skill_observed";
 
 /** 平台事件 */
 export interface PlatformEvent {
