@@ -186,7 +186,7 @@ fi
 # ============================================
 # Part 2.7 / 3 / 3.5 / 3.6 / 3.7: 插件 staleness 检测 + PH lint
 # ============================================
-# 先计算各插件实质性源码变更 (用 git diff --cached, 不受后续 stash 影响)
+# 先计算各插件实质性源码变更 (用 git diff --cached, 仅检查 index 内容)
 
 PH_CHANGED="no"
 if grep -q "plugins/parallel-harness/" <<< "$_CACHED_NAMES"; then
@@ -210,7 +210,7 @@ if [ "$DR_CHANGED" = "yes" ]; then
   DR_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/daily-report/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
 fi
 
-# ── PH lint (在 stash 前执行，需要工作树文件) ──
+# ── PH lint (需要工作树文件) ──
 if [ -n "$PH_SUBSTANTIVE" ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     echo "🔍 shellcheck parallel-harness build script..."
@@ -232,39 +232,17 @@ if [ -n "$DR_SUBSTANTIVE" ]; then
   echo ""
 fi
 
-# ── Stale guards: 隔离未暂存 WIP (--keep-index 让工作树 = index) ──
-# check-dist-freshness.sh 比较工作树文件，stash 后工作树只含 index 内容
-_ANY_STALE_GUARD=false
-if { [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; } \
-   || { [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; } \
-   || { [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; }; then
-  _ANY_STALE_GUARD=true
-fi
-
-_pc_needs_stash=false
-if [ "$_ANY_STALE_GUARD" = "true" ]; then
-  if ! git diff --quiet 2>/dev/null \
-     || [ -n "$(git ls-files --others --exclude-standard -- plugins/ dist/ 2>/dev/null)" ]; then
-    _pc_needs_stash=true
-    git stash push -q --keep-index --include-untracked -m "pre-commit-freshness-check" 2>/dev/null
-  fi
-fi
-
+# ── Stale guards: 使用 --staged 模式比较 index 内容，不受工作树 WIP 干扰 ──
 if [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; then
-  bash scripts/check-dist-freshness.sh spec-autopilot --warn-only
+  bash scripts/check-dist-freshness.sh spec-autopilot --staged --warn-only
 fi
 
 if [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; then
-  bash scripts/check-dist-freshness.sh parallel-harness --warn-only
+  bash scripts/check-dist-freshness.sh parallel-harness --staged --warn-only
 fi
 
 if [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; then
-  bash scripts/check-dist-freshness.sh daily-report --warn-only
-fi
-
-# ── 恢复 WIP ──
-if [ "$_pc_needs_stash" = "true" ]; then
-  git stash pop -q 2>/dev/null || true
+  bash scripts/check-dist-freshness.sh daily-report --staged --warn-only
 fi
 
 # ============================================

@@ -13,6 +13,7 @@
 #   --ci-git-check: CI 模式 — 用 git diff 检查 build 后 dist/ 是否与提交一致
 #                   (在 make build 之后调用，检测 build 是否产生了任何 diff)
 #   --warn-only: 发现 stale 时输出警告但返回 0 (用于 pre-commit 非阻断提示)
+#   --staged:    比较 index (暂存区) 内容而非工作树 (用于 pre-commit 避免 WIP 干扰)
 #
 # 退出码:
 #   0: dist 一致 (或已成功重建)
@@ -30,6 +31,7 @@ REBUILD=false
 GIT_ADD=false
 CI_GIT_CHECK=false
 WARN_ONLY=false
+STAGED_MODE=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -37,12 +39,36 @@ for arg in "$@"; do
     --git-add) GIT_ADD=true ;;
     --ci-git-check) CI_GIT_CHECK=true ;;
     --warn-only) WARN_ONLY=true ;;
+    --staged) STAGED_MODE=true ;;
   esac
 done
 
 if [ -z "$PLUGIN_NAME" ]; then
   echo "❌ Usage: $0 <plugin-name|all> [--rebuild] [--git-add]" >&2
   exit 1
+fi
+
+# ── --staged 模式: 将 index 内容导出到临时目录，在其上执行比较 ──
+# 避免工作树中未暂存的 WIP 干扰比较结果
+_STAGED_TMPDIR=""
+if [ "$STAGED_MODE" = "true" ]; then
+  _STAGED_TMPDIR=$(mktemp -d)
+  trap 'rm -rf "$_STAGED_TMPDIR"' EXIT
+
+  # 只导出需要比较的插件路径 (plugins/ + dist/)
+  _staged_plugins=()
+  if [ "$PLUGIN_NAME" = "all" ]; then
+    _staged_plugins=(spec-autopilot parallel-harness daily-report)
+  else
+    _staged_plugins=("$PLUGIN_NAME")
+  fi
+  for _sp in "${_staged_plugins[@]}"; do
+    git ls-files -- "plugins/$_sp/" "dist/$_sp/" 2>/dev/null | \
+      git checkout-index --prefix="$_STAGED_TMPDIR/" --stdin 2>/dev/null || true
+  done
+
+  # 切换到临时目录，后续所有相对路径 (plugins/X, dist/X) 指向 index 快照
+  cd "$_STAGED_TMPDIR"
 fi
 
 # ── 核心: 检查单个插件的 dist 一致性 ──
