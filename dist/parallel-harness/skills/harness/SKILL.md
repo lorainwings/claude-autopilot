@@ -1,3 +1,11 @@
+---
+name: harness
+description: 并行 AI 工程控制平面主编排器。管理从用户意图到最终结果的完整生命周期，包括规划、调度、派发、验证和报告生成。适用于需要并行执行多任务、文件所有权隔离、成本感知路由的复杂工程场景。
+user-invocable: true
+context: fork
+agent: general-purpose
+---
+
 # Harness -- 主编排 Skill
 
 > 版本: v1.0.0 (GA)

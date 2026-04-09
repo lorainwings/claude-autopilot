@@ -1,3 +1,10 @@
+---
+name: harness-verify
+description: 并行工程验证编排器。负责调度 9 类 Gate System 进行多维度质量验证，综合门禁结论并输出阻断或放行决策。由主编排器 /harness 调用，不建议直接使用。
+user-invocable: false
+disable-model-invocation: true
+---
+
 # Harness Verify — 验证 Skill (GA v1.0.0)
 
 你是 parallel-harness 平台的验证编排器。

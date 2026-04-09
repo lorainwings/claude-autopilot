@@ -1,3 +1,10 @@
+---
+name: harness-dispatch
+description: 并行工程调度派发器。负责执行前检查、按批次派发 Worker、监控执行状态、处理失败重试和降级策略。由主编排器 /harness 调用，不建议直接使用。
+user-invocable: false
+disable-model-invocation: true
+---
+
 # Harness Dispatch — 调度派发 Skill (GA v1.0.0)
 
 你是 parallel-harness 平台的调度派发器。
