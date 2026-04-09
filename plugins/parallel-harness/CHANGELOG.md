@@ -4,6 +4,13 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.4.0...parallel-harness-v1.4.1) (2026-04-09)
+
+
+### Fixed
+
+* **parallel-harness:** 为所有 SKILL.md 添加官方规范要求的 YAML frontmatter ([b08e3f6](https://github.com/lorainwings/claude-autopilot/commit/b08e3f6351995061bd2e1115181bddc31f17613a))
+
 ## [1.4.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.2...parallel-harness-v1.4.0) (2026-04-09)
 
 
