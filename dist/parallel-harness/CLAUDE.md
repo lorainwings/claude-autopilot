@@ -47,8 +47,24 @@ runtime/
 
 ## 状态机
 
-Run: pending → planned → awaiting_approval → scheduled → running → verifying → succeeded/failed/blocked
-Task Attempt: pending → pre_check → executing → post_check → succeeded/failed
+```mermaid
+graph TB
+    subgraph Run
+        RP[pending] --> RPL[planned] --> RAA[awaiting_approval] --> RSC[scheduled] --> RRN[running] --> RVR[verifying]
+        RVR --> ROK[succeeded]
+        RVR --> RFL[failed]
+        RVR --> RBK[blocked]
+    end
+```
+
+```mermaid
+graph TB
+    subgraph TaskAttempt["Task Attempt"]
+        TP[pending] --> TPC[pre_check] --> TEX[executing] --> TPO[post_check]
+        TPO --> TOK[succeeded]
+        TPO --> TFL[failed]
+    end
+```
 
 ## 降级策略
 

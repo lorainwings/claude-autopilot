@@ -1,15 +1,15 @@
 ---
 name: harness-verify
 description: 并行工程验证阶段协议模板。定义 9 类 Gate System 多维度质量验证、综合门禁结论并输出阻断或放行决策的协议约束。由 runtime SkillRegistry 按阶段自动选择和注入，不建议直接使用。
-user-invocable: false
+user-invocable: true
 disable-model-invocation: true
 ---
 
 # Harness Verify — 验证阶段协议模板 (GA v1.0.0)
 
-> **定位**：此文件是验证阶段的协议模板，由 runtime `SkillRegistry.resolve()` 按 `phase: verification` 自动匹配。
-> 注入方式：runtime 提取协议摘要写入 `TaskContract.skill_protocol_summary`，并通过 `skill_injected` 事件记录。
-> 不依赖模型自行调用 `/harness-verify` slash command。
+> **定位**：此文件是验证阶段的协议模板，由 runtime `SkillRegistry.resolve()` 按 `phase: verification` 选中。
+> 执行方式：runtime 派发嵌套 Claude worker 时，显式调用 `/parallel-harness:harness-verify`。
+> 它不是给普通交互流程直接使用的日常命令。
 
 你是 parallel-harness 平台的验证编排器。
 
