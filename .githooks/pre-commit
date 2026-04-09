@@ -184,22 +184,15 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
 fi
 
 # ============================================
-# Part 2.7: spec-autopilot dist staleness guard (不自动重建)
-# 仅当本次提交涉及 SA 实质性源码 (非 docs/README) 时才检测
+# Part 2.7 / 3 / 3.5 / 3.6 / 3.7: 插件 staleness 检测 + PH lint
 # ============================================
-if [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; then
-  bash scripts/check-dist-freshness.sh spec-autopilot --warn-only
-fi
+# 先计算各插件实质性源码变更 (用 git diff --cached, 不受后续 stash 影响)
 
-# ============================================
-# Part 3: parallel-harness — lint + staleness
-# ============================================
 PH_CHANGED="no"
 if grep -q "plugins/parallel-harness/" <<< "$_CACHED_NAMES"; then
   PH_CHANGED="yes"
 fi
 
-# 计算实质性源码变更 (排除 docs/README/metadata)，lint 和 staleness guard 共用
 PH_SUBSTANTIVE=""
 if [ "$PH_CHANGED" = "yes" ]; then
   PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM \
@@ -207,56 +200,71 @@ if [ "$PH_CHANGED" = "yes" ]; then
     | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
 fi
 
-if [ -n "$PH_SUBSTANTIVE" ]; then
-    # lint build script (与 CI make ph-lint 对齐)
-    if command -v shellcheck >/dev/null 2>&1; then
-      echo "🔍 shellcheck parallel-harness build script..."
-      if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
-        echo "❌ parallel-harness shellcheck failed."
-        exit 1
-      fi
-    else
-      echo "❌ shellcheck not found. Install: brew install shellcheck"
-      exit 1
-    fi
-
-    echo "ℹ️  parallel-harness 源码已修改，提交后请运行 'make ph-build' 重建 dist/"
-    echo ""
-fi
-
-# ============================================
-# Part 3.5: parallel-harness dist staleness guard (不自动重建)
-# 仅当本次提交涉及 PH 实质性源码时才检测
-# ============================================
-if [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; then
-  bash scripts/check-dist-freshness.sh parallel-harness --warn-only
-fi
-
-# ============================================
-# Part 3.6: daily-report — 变更提示 (不自动重建)
-# ============================================
 DR_CHANGED="no"
 if grep -q "plugins/daily-report/" <<< "$_CACHED_NAMES"; then
   DR_CHANGED="yes"
 fi
 
-# 计算实质性源码变更
 DR_SUBSTANTIVE=""
 if [ "$DR_CHANGED" = "yes" ]; then
   DR_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/daily-report/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
 fi
 
-if [ -n "$DR_SUBSTANTIVE" ]; then
-    echo "ℹ️  daily-report 源码已修改，提交后请运行 'make dr-build' 重建 dist/"
-    echo ""
+# ── PH lint (在 stash 前执行，需要工作树文件) ──
+if [ -n "$PH_SUBSTANTIVE" ]; then
+  if command -v shellcheck >/dev/null 2>&1; then
+    echo "🔍 shellcheck parallel-harness build script..."
+    if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
+      echo "❌ parallel-harness shellcheck failed."
+      exit 1
+    fi
+  else
+    echo "❌ shellcheck not found. Install: brew install shellcheck"
+    exit 1
+  fi
+
+  echo "ℹ️  parallel-harness 源码已修改，提交后请运行 'make ph-build' 重建 dist/"
+  echo ""
 fi
 
-# ============================================
-# Part 3.7: daily-report dist staleness guard (不自动重建)
-# 仅当本次提交涉及 DR 实质性源码时才检测
-# ============================================
+if [ -n "$DR_SUBSTANTIVE" ]; then
+  echo "ℹ️  daily-report 源码已修改，提交后请运行 'make dr-build' 重建 dist/"
+  echo ""
+fi
+
+# ── Stale guards: 隔离未暂存 WIP (--keep-index 让工作树 = index) ──
+# check-dist-freshness.sh 比较工作树文件，stash 后工作树只含 index 内容
+_ANY_STALE_GUARD=false
+if { [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; } \
+   || { [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; } \
+   || { [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; }; then
+  _ANY_STALE_GUARD=true
+fi
+
+_pc_needs_stash=false
+if [ "$_ANY_STALE_GUARD" = "true" ]; then
+  if ! git diff --quiet 2>/dev/null \
+     || [ -n "$(git ls-files --others --exclude-standard -- plugins/ dist/ 2>/dev/null)" ]; then
+    _pc_needs_stash=true
+    git stash push -q --keep-index --include-untracked -m "pre-commit-freshness-check" 2>/dev/null
+  fi
+fi
+
+if [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; then
+  bash scripts/check-dist-freshness.sh spec-autopilot --warn-only
+fi
+
+if [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; then
+  bash scripts/check-dist-freshness.sh parallel-harness --warn-only
+fi
+
 if [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; then
   bash scripts/check-dist-freshness.sh daily-report --warn-only
+fi
+
+# ── 恢复 WIP ──
+if [ "$_pc_needs_stash" = "true" ]; then
+  git stash pop -q 2>/dev/null || true
 fi
 
 # ============================================
