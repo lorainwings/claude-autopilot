@@ -1,77 +1,142 @@
 ---
 name: harness-dispatch
-description: 并行工程调度阶段协议模板。定义执行前检查、按批次派发 Worker、监控执行状态、处理失败重试和降级策略的协议约束。由 runtime SkillRegistry 按阶段自动选择和注入，不建议直接使用。
-user-invocable: true
-disable-model-invocation: true
+description: "Dispatch phase protocol for parallel engineering orchestrator. Spawns parallel sub-agents per batch schedule, constructs task contracts as agent prompts, handles failures with retry/downgrade, and tracks progress.\n\n并行工程调度阶段协议。按批次调度并行派发子代理，构造任务契约作为代理 prompt，处理失败重试和降级，跟踪执行进度。"
+user-invocable: false
 ---
 
-# Harness Dispatch — 调度阶段协议模板 (GA v1.0.0)
+# Harness Dispatch -- 调度阶段协议
 
-> **定位**：此文件是调度阶段的协议模板，由 runtime `SkillRegistry.resolve()` 按 `phase: dispatch` 选中。
-> 执行方式：runtime 派发嵌套 Claude worker 时，显式调用 `/parallel-harness:harness-dispatch`。
-> 它不是给普通交互流程直接使用的日常命令。
+> 版本: v1.5.0 (GA)
+> 本协议由主编排器 (`/harness`) 在调度阶段调用。
 
-你是 parallel-harness 平台的调度派发器。
+你是 parallel-harness 平台的调度派发器。你的职责是按批次调度计划，使用 Agent 工具并行派发子代理执行任务。
 
-## 你的职责
+## 输入
 
-1. 接收调度计划和任务契约
-2. 执行前检查（ownership、policy、budget、capability）
-3. 按批次派发 Worker
-4. 监控 Worker 执行状态
-5. 执行后检查（ownership 验证、输出路径沙箱检查）
-6. 处理失败分类和重试决策
-7. 处理降级策略
-8. 记录成本和审计事件
+你会收到规划阶段产出的：
+- 任务列表（含 goal, allowed_paths, acceptance_criteria 等）
+- 批次调度计划（哪些任务并行，哪些串行）
+- 文件所有权分配
 
-## 调用的 Runtime 模块
+## 执行步骤
 
-| 步骤 | 模块 | 说明 |
-|------|------|------|
-| 1 | `runtime/workers/worker-runtime.ts` | Worker 执行控制器 |
-| 2 | `runtime/engine/orchestrator-runtime.ts` | Pre-check、Post-check |
-| 3 | `runtime/guards/merge-guard.ts` | 合并前所有权复检 |
-| 4 | `runtime/schemas/ga-schemas.ts` | TaskAttempt、FailureClass |
+### Step 1: 执行前检查
 
-## 执行前检查清单
+对每个任务执行前检查：
 
-| 检查项 | 阻断 | 说明 |
-|--------|------|------|
-| Ownership | 是 | 任务必须有对应的所有权分配 |
-| Policy | 是 | 策略引擎评估不能返回 block |
-| Budget | 是 | 剩余预算必须 > 0 |
-| Capability | 否 | 能力检查（当前总是通过） |
-| Approval | 是 | 需要审批的动作必须已获批 |
+| 检查项 | 阻断 | 检查方式 |
+|--------|------|---------|
+| 文件所有权 | 是 | 验证 allowed_paths 中的文件存在且不冲突 |
+| 依赖完成 | 是 | 确认 blockedBy 的任务已完成 |
+| 文件可写 | 否 | 检查文件权限 |
 
-## 失败分类与推荐动作
+如果阻断性检查失败，跳过该任务并标记失败原因。
 
-| 失败类型 | 可重试 | 可升级 | 可降级 | 需人工 |
-|----------|--------|--------|--------|--------|
-| transient_tool_failure | 是 | 否 | 否 | 否 |
-| permanent_policy_failure | 否 | 否 | 否 | 是 |
-| ownership_conflict | 否 | 否 | 是 | 否 |
-| budget_exhausted | 否 | 否 | 是 | 是 |
-| verification_failed | 是 | 是 | 否 | 否 |
-| timeout | 是 | 是 | 否 | 否 |
+### Step 2: 构造 Agent Prompt
+
+为每个任务构造结构化的 Agent prompt：
+
+```markdown
+你是一个专注的工程代理，负责执行以下任务。请严格遵守文件约束。
+
+## 任务目标
+{goal}
+
+## 验收标准
+{acceptance_criteria - 逐条列出}
+
+## 文件约束
+**允许修改的文件**（只能修改这些文件）:
+{allowed_paths - 逐行列出}
+
+**禁止修改的文件**（绝对不能修改）:
+{forbidden_paths - 逐行列出}
+
+## 测试要求
+{test_requirements - 逐条列出}
+
+## 项目上下文
+- 项目根目录: {project_root}
+- 测试框架: {test_framework}
+- 相关文件: {relevant_files}
+
+## 完成后
+请确认：
+1. 所有验收标准已满足
+2. 只修改了允许的文件
+3. 测试要求已完成
+```
+
+### Step 3: 批次派发
+
+按批次顺序执行：
+
+**Batch N 派发流程**:
+
+1. 使用 `TaskUpdate` 将本批次任务标记为 `in_progress`
+2. **在单条消息中并行启动所有 Agent**（关键！多个 Agent 调用必须在同一条消息中）：
+
+```
+Agent({
+  description: "Task A: [简短描述]",
+  prompt: "[完整任务契约]"
+})
+Agent({
+  description: "Task B: [简短描述]",
+  prompt: "[完整任务契约]"
+})
+```
+
+3. 等待所有 Agent 完成
+4. 收集结果，使用 `TaskUpdate` 更新状态
+5. 如果有失败任务，执行失败处理
+6. 确认所有任务完成后，进入下一批次
+
+### Step 4: 失败处理
+
+| 失败类型 | 可重试 | 处理方式 |
+|----------|--------|---------|
+| Agent 执行超时 | 是 | 重新派发（最多 2 次） |
+| 代码编译失败 | 是 | 分析错误，派发修复 Agent |
+| 文件越权修改 | 否 | 标记失败，记录原因 |
+| 依赖未满足 | 否 | 跳过，等待依赖完成 |
+
+**重试逻辑**:
+- 第 1 次重试：使用相同 prompt
+- 第 2 次重试：在 prompt 中附加上次失败信息
+- 超过重试次数：标记为 failed，继续其他任务
+
+### Step 5: 降级策略
+
+| 条件 | 动作 |
+|------|------|
+| 当前批次 > 50% 任务失败 | 降级为逐个串行执行 |
+| 连续 3 个任务失败 | 暂停，使用 `AskUserQuestion` 确认是否继续 |
+| Agent 响应异常 | 降级为直接在主会话中执行 |
 
 ## 输出格式
 
-```json
-{
-  "status": "ok | warning | blocked | failed",
-  "worker_outputs": { "task_id": { "status": "ok", "summary": "...", "modified_paths": [...] } },
-  "retry_tasks": ["task_id_1"],
-  "downgraded_tasks": ["task_id_2"],
-  "cost_entries": [...],
-  "summary": "派发摘要"
-}
+每个批次完成后报告：
+
+```
+## Batch N 执行结果
+
+| 任务 | 状态 | 修改文件 | 耗时 |
+|------|------|---------|------|
+| Task A | succeeded | file1.ts, file2.ts | - |
+| Task B | failed (retry 1/2) | - | - |
+
+失败详情:
+- Task B: [失败原因]
+
+下一步: 重试 Task B / 进入 Batch N+1
 ```
 
 ## 约束
 
-- Worker 只能在 allowed_paths 内工作（PathSandbox 强制执行）
-- 必须使用 Model Router 推荐的 tier
-- 失败时按 FAILURE_ACTION_MAP 决定重试/升级/降级/人工
-- 每次 attempt 必须记录输入摘要、输出摘要、成本、状态迁移
-- 超过最大重试次数则标记为 failed
-- 执行超时由 WorkerExecutionController 管理（默认 5 分钟）
+- Agent 只能在 allowed_paths 内修改文件（通过 prompt 约束）
+- 同批次的 Agent 必须在单条消息中并行启动
+- 每个 Agent 的 prompt 必须包含完整的任务契约
+- 失败时走局部重试，不全局回滚
+- 超过最大重试次数后标记失败，继续其他任务
+- 所有执行结果通过 TaskUpdate 记录
