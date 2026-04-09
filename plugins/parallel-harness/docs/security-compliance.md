@@ -8,8 +8,9 @@
 
 parallel-harness was designed with security as a core consideration from the ground up, implementing multi-layer security controls:
 
-```
-RBAC Layer → Policy Engine → Path Sandbox → Tool Governance → Audit Trail
+```mermaid
+graph TB
+    A[RBAC Layer] --> B[Policy Engine] --> C[Path Sandbox] --> D[Tool Governance] --> E[Audit Trail]
 ```
 
 ## Access Control

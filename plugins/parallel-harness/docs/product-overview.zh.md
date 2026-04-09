@@ -25,9 +25,14 @@
 
 2025-2026 年，AI 编程领域正在经历两次范式转移：
 
-```
-第一次: 补全 → Agent (Copilot → Cursor Agent/Claude Code)     ← 已发生
-第二次: 单 Agent → 多 Agent 协作 (串行 → 并行工程化)           ← 正在发生
+```mermaid
+graph TB
+    subgraph shift1["第一次范式转移 (已发生)"]
+        A1["补全 Copilot"] --> A2["Agent Cursor/Claude Code"]
+    end
+    subgraph shift2["第二次范式转移 (正在发生)"]
+        B1["单 Agent 串行"] --> B2["多 Agent 并行工程化"]
+    end
 ```
 
 Cursor Background Agent、GitHub Copilot Workspace、Devin 等产品都在探索多 Agent 并行开发。但它们面临一个共同的核心挑战：

@@ -117,11 +117,13 @@ Split all helper functions in utils.ts into separate modules and add unit tests 
 
 ### DAG Visualization
 
-```
-task_1 (analyze)
-  ├── task_2 (split string) ──── task_4 (test string)
-  ├── task_3 (split array) ───── task_5 (test array)
-  └── task_6 (update imports, depends on task_2 + task_3)
+```mermaid
+graph TB
+    T1[task_1: analyze] --> T2[task_2: split string]
+    T1 --> T3[task_3: split array]
+    T2 --> T4[task_4: test string]
+    T3 --> T5[task_5: test array]
+    T2 & T3 --> T6[task_6: update imports]
 ```
 
 ---
@@ -207,14 +209,21 @@ task_1 (analyze)
 
 ### Execution Timeline
 
-```
-Time ─────────────────────────────────────────▶
-
-Batch 0:  [task_1: analyze utils.ts]
-               │
-Batch 1:  [task_2: split string] [task_3: split array]  ← parallel
-               │                        │
-Batch 2:  [task_4: test]  [task_5: test]  [task_6: update imports]  ← parallel
+```mermaid
+graph TB
+    subgraph B0["Batch 0"]
+        T1["task_1: analyze utils.ts"]
+    end
+    subgraph B1["Batch 1 (parallel)"]
+        T2["task_2: split string"]
+        T3["task_3: split array"]
+    end
+    subgraph B2["Batch 2 (parallel)"]
+        T4["task_4: test"]
+        T5["task_5: test"]
+        T6["task_6: update imports"]
+    end
+    B0 --> B1 --> B2
 ```
 
 ### Model Routing Decisions
@@ -421,39 +430,21 @@ The worker resumes execution after the user submits feedback.
 
 ## Complete Run Lifecycle Example
 
-```
-1. User provides intent
-   └── RunStatus: pending
-
-2. Intent Analyzer processes intent
-   └── Task Graph Builder constructs DAG
-   └── Complexity Scorer assigns scores
-   └── Ownership Planner assigns file ownership
-   └── Model Router selects models
-   └── RunStatus: planned
-
-3. Policy check finds approval required
-   └── RunStatus: awaiting_approval
-   └── Admin approves
-   └── RunStatus: scheduled
-
-4. Scheduler generates batches
-   └── Batch 0 starts
-   └── RunStatus: running
-
-5. Workers execute
-   └── Batch 0 completes → Batch 1 starts → Batch 2 starts
-   └── Merge Guard checks each worker output
-
-6. Gate System evaluates
-   └── RunStatus: verifying
-   └── All blocking gates pass
-
-7. PR creation
-   └── PR summary generated
-   └── Review comments added
-
-8. Completion
-   └── RunStatus: succeeded
-   └── Audit log exported
+```mermaid
+graph TB
+    S1["1. User provides intent"] --> S1s["RunStatus: pending"]
+    S1s --> S2["2. Intent Analyzer → Task Graph Builder\n→ Complexity Scorer → Ownership Planner\n→ Model Router"]
+    S2 --> S2s["RunStatus: planned"]
+    S2s --> S3["3. Policy check: approval required"]
+    S3 --> S3a["RunStatus: awaiting_approval"]
+    S3a --> S3b["Admin approves"]
+    S3b --> S3s["RunStatus: scheduled"]
+    S3s --> S4["4. Scheduler generates batches"]
+    S4 --> S4s["RunStatus: running"]
+    S4s --> S5["5. Workers execute batches\nMerge Guard checks outputs"]
+    S5 --> S6["6. Gate System evaluates"]
+    S6 --> S6s["RunStatus: verifying"]
+    S6s --> S7["7. PR creation\nSummary + review comments"]
+    S7 --> S8["8. Completion"]
+    S8 --> S8s["RunStatus: succeeded\nAudit log exported"]
 ```

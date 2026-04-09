@@ -80,11 +80,17 @@ Error: 任务图存在循环依赖
 
 **合法的 Run 状态迁移路径**：
 
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded
-                                                                        → failed
-                                                                        → blocked
-                                                      → cancelled（任何阶段可触发）
+```mermaid
+graph TB
+    P[pending] --> PL[planned]
+    PL --> AA[awaiting_approval]
+    AA --> SC[scheduled]
+    SC --> RN[running]
+    RN --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
+    SC -->|任何阶段可触发| CN[cancelled]
 ```
 
 **常见问题**：
@@ -116,12 +122,17 @@ pending → planned → awaiting_approval → scheduled → running → verifyin
 
 **合法的 Attempt 迁移路径**：
 
+```mermaid
+graph TB
+    P[pending] --> PC[pre_check]
+    PC --> EX[executing]
+    PC -->|pre_check 失败| FL1[failed]
+    EX --> PO[post_check]
+    PO --> OK[succeeded]
+    PO --> FL2[failed]
+    PO --> TO[timed_out]
+    PO --> CN[cancelled]
 ```
-pending → pre_check → executing → post_check → succeeded
-                                              → failed
-                    → failed (pre_check 失败)
-                                              → timed_out
-                                              → cancelled
 ```
 
 **Pre-Check 检查项**（5 类）：

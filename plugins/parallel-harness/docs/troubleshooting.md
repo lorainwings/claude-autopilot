@@ -80,11 +80,17 @@ Error: 任务图存在循环依赖
 
 **Valid Run state transition paths**:
 
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded
-                                                                        → failed
-                                                                        → blocked
-                                                      → cancelled (can be triggered at any stage)
+```mermaid
+graph TB
+    P[pending] --> PL[planned]
+    PL --> AA[awaiting_approval]
+    AA --> SC[scheduled]
+    SC --> RN[running]
+    RN --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
+    SC -->|any stage| CN[cancelled]
 ```
 
 **Common issues**:
@@ -116,12 +122,17 @@ Every RunExecution and TaskAttempt records a complete `status_history`:
 
 **Valid Attempt transition paths**:
 
+```mermaid
+graph TB
+    P[pending] --> PC[pre_check]
+    PC --> EX[executing]
+    PC -->|pre_check failure| FL1[failed]
+    EX --> PO[post_check]
+    PO --> OK[succeeded]
+    PO --> FL2[failed]
+    PO --> TO[timed_out]
+    PO --> CN[cancelled]
 ```
-pending → pre_check → executing → post_check → succeeded
-                                              → failed
-                    → failed (pre_check failure)
-                                              → timed_out
-                                              → cancelled
 ```
 
 **Pre-Check items** (5 categories):

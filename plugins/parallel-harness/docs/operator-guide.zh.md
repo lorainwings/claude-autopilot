@@ -113,8 +113,12 @@ Run 的完整生命周期通过 `RunStore` 管理。在 Claude Code 会话中，
 
 **Run 状态机**：
 
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded/failed/blocked
+```mermaid
+graph TB
+    P[pending] --> PL[planned] --> AA[awaiting_approval] --> SC[scheduled] --> RN[running] --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
 ```
 
 每次状态迁移都会记录到 `StatusTransition` 列表，包含：
