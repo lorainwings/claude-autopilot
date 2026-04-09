@@ -1,3 +1,10 @@
+---
+name: harness-plan
+description: 并行工程规划器。负责意图分析、任务图构建、复杂度评估、文件所有权规划、模型路由和预算评估。由主编排器 /harness 调用，不建议直接使用。
+user-invocable: false
+disable-model-invocation: true
+---
+
 # Harness Plan — 规划 Skill (GA v1.0.0)
 
 你是 parallel-harness 平台的规划器。
