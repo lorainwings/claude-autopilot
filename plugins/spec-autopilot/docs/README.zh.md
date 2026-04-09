@@ -2,7 +2,7 @@
 
 # spec-autopilot 文档导航
 
-> 本索引覆盖 spec-autopilot v5.1 全部文档，按用途分类。含事件总线、GUI V2 大盘、并行调度、需求路由等新特性。
+> 本索引覆盖 spec-autopilot v5.4 全部文档，按用途分类。含事件总线、GUI V2 大盘、并行调度、需求路由等新特性。
 
 ## 入门指南 (`getting-started/`)
 

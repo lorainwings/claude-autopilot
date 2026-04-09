@@ -2,7 +2,7 @@
 
 # Architecture Overview
 
-> A panoramic view of the spec-autopilot system architecture, covering the 8-phase pipeline, 3-layer gate system, and 7 Skill collaboration relationships.
+> A panoramic view of the spec-autopilot system architecture, covering the 8-phase pipeline, 3-layer gate system, and 12 Skill collaboration relationships.
 
 ## System Architecture
 
@@ -322,7 +322,7 @@ When a requirement spans multiple categories:
 
 ```
 spec-autopilot/
-├── skills/           (7 个 Skill)
+├── skills/           (12 个 Skill)
 │   ├── autopilot/    (主编排器 + references/ + templates/)
 │   ├── autopilot-phase0/   (环境初始化 + 锁文件管理)
 │   ├── autopilot-phase7/   (归档汇总)
@@ -354,15 +354,15 @@ spec-autopilot/
 │       ├── lib/                 (工具函数)
 │       └── fonts/               (本地 woff2 字体)
 ├── hooks/hooks.json  (Hook 注册)
-├── tests/            (102 个测试文件, 1245+ 断言)
+├── tests/            (104 个测试文件, 1245+ 断言)
 └── docs/             (文档)
 ```
 
 | Directory | Contents |
 |-----------|----------|
-| `skills/` | 7 Skills: main orchestrator, phase0, phase7, gate, dispatch, recovery, init |
+| `skills/` | 12 Skills: main orchestrator, phase0-init, phase1-requirements, phase2-3-openspec, phase4-testcase, phase5-implement, phase6-report, phase7-archive, gate, dispatch, recovery, setup |
 | `scripts/` | Hook scripts + event emitters + shared modules |
 | `gui/` | GUI V2 dashboard (v5.0.8): React + TypeScript + Tailwind v4 |
 | `hooks/` | Hook registration (`hooks.json`) |
-| `tests/` | 102 test files, 1245+ assertions |
+| `tests/` | 104 test files, 1245+ assertions |
 | `docs/` | Documentation |

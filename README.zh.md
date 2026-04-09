@@ -48,7 +48,7 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 - **事件总线** — 通过 `events.jsonl` + WebSocket 实时事件流
 - **GUI V2 大盘** — 三栏实时仪表盘，含 decision_ack 决策反馈闭环
 - **并行执行** — 域级并行 Agent，文件所有权强制
-- **模块化测试** — 102 个测试文件，1245+ 个断言
+- **模块化测试** — 104 个测试文件，1245+ 个断言
 
 ### 架构
 
@@ -209,18 +209,18 @@ claude-autopilot/
 │   └── daily-report/
 ├── plugins/                 # 插件源码
 │   ├── spec-autopilot/
-│   │   ├── skills/          # 7 个 Skill 定义
+│   │   ├── skills/          # 12 个 Skill 定义
 │   │   ├── scripts/         # Hook 脚本 + 工具
 │   │   ├── hooks/           # Hook 注册
 │   │   ├── gui/             # GUI V2 大盘 (React + Tailwind)
-│   │   ├── tests/           # 102 个测试文件，1245+ 个断言
+│   │   ├── tests/           # 104 个测试文件，1245+ 个断言
 │   │   └── docs/            # 完整文档 (中英双语)
 │   └── parallel-harness/
-│       ├── runtime/         # 15 个核心模块 (engine, orchestrator, scheduler 等)
+│       ├── runtime/         # 17 个核心模块 (engine, orchestrator, scheduler 等)
 │       ├── skills/          # Skill 定义 (harness, plan, dispatch, verify)
 │       ├── config/          # 默认配置 + 策略文件
 │       ├── tools/           # CLI 工具和辅助脚本
-│       ├── tests/           # 219 个测试，499 个断言
+│       ├── tests/           # 295 个测试，649 个断言
 │       └── docs/            # 完整文档
 │   └── daily-report/
 │       └── skills/          # Skill 定义 + 初始化引导

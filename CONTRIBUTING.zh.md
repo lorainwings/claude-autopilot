@@ -109,7 +109,7 @@ git push origin feature/my-feature
 - 所有 TypeScript 必须通过 `bunx tsc --noEmit`
 - 使用 strict 模式，ESNext 目标
 - 测试使用 `bun test`
-- 必须维持最低 219 个测试基线
+- 必须维持最低 295 个测试基线
 
 ### 测试纪律
 

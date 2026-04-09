@@ -2,11 +2,13 @@
 
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| 5.x     | Yes       |
-| 4.x     | No        |
-| < 4.0   | No        |
+| Plugin | Version | Supported |
+|--------|---------|-----------|
+| spec-autopilot | 5.x | Yes |
+| spec-autopilot | 4.x | No |
+| spec-autopilot | < 4.0 | No |
+| parallel-harness | 1.x | Yes |
+| daily-report | 1.x | Yes |
 
 ## Reporting a Vulnerability
 

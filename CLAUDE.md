@@ -160,8 +160,8 @@ scope 使用插件名: `feat(spec-autopilot):` 或 `fix(parallel-harness):`
 
 | 插件 | 命令 | 框架 | 基线 |
 |------|------|------|------|
-| spec-autopilot | `make test` | Bash 测试套件 | 102 文件, 1245+ 断言 |
-| parallel-harness | `make ph-test` | `bun test` | 219 tests, 499 assertions |
+| spec-autopilot | `make test` | Bash 测试套件 | 104 文件, 1245+ 断言 |
+| parallel-harness | `make ph-test` | `bun test` | 295 tests, 649 assertions |
 
 ### 推送前检查清单
 
