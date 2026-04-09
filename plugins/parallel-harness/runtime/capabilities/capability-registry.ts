@@ -47,6 +47,9 @@ export interface SkillManifest {
 
   /** 路径匹配 */
   path_patterns?: string[];
+
+  /** 协议内容 — 从 SKILL.md 文件读取的完整协议文本 */
+  protocol_content?: string;
 }
 
 // ============================================================
@@ -155,6 +158,78 @@ export class InstructionRegistry {
 }
 
 // ============================================================
+// Skill Lifecycle Types — 运行时一等对象
+// ============================================================
+
+/** Skill 匹配结果 — resolve 阶段产出 */
+export interface SkillMatch {
+  /** 匹配到的 Skill ID */
+  skill_id: string;
+  /** 匹配原因 */
+  match_reason: string;
+  /** 阶段匹配 */
+  phase_match: boolean;
+  /** 语言匹配 */
+  language_match: boolean;
+  /** 路径匹配 */
+  path_match: boolean;
+  /** 匹配置信度 (0-1) */
+  confidence: number;
+}
+
+/** Skill 选择来源 */
+export type SkillSelectionSource = "explicit" | "phase_default" | "language_default" | "fallback";
+
+/** 选中的 Skill — select 阶段产出 */
+export interface SelectedSkill {
+  /** Skill ID */
+  skill_id: string;
+  /** 选择原因 */
+  selection_reason: string;
+  /** 选择来源 */
+  source: SkillSelectionSource;
+  /** Skill 版本 */
+  version: string;
+}
+
+/** Skill 调用状态 */
+export type SkillInvocationStatus = "selected" | "injected" | "completed" | "failed" | "observed";
+
+/** Skill 调用记录 — 审计与追踪 */
+export interface SkillInvocationRecord {
+  /** Run ID */
+  run_id: string;
+  /** Task ID */
+  task_id: string;
+  /** Attempt ID */
+  attempt_id: string;
+  /** 阶段 */
+  phase: string;
+  /** 选中的 Skill ID */
+  selected_skill_id: string;
+  /** 注入时间 */
+  injected_at?: string;
+  /** 完成时间 */
+  completed_at?: string;
+  /** 调用状态 */
+  status: SkillInvocationStatus;
+  /** 证据 */
+  evidence?: Record<string, unknown>;
+}
+
+/** Skill 解析上下文 */
+export interface SkillResolutionContext {
+  /** 阶段 */
+  phase?: string;
+  /** 语言 */
+  language?: string;
+  /** 文件路径 */
+  file_path?: string;
+  /** 任务标题 */
+  task_title?: string;
+}
+
+// ============================================================
 // Skill Registry
 // ============================================================
 
@@ -183,6 +258,88 @@ export class SkillRegistry {
 
   listAll(): SkillManifest[] {
     return [...this.skills.values()];
+  }
+
+  /**
+   * 按 phase/language/path 三维匹配，返回候选 SkillMatch 列表
+   */
+  resolve(context: SkillResolutionContext): SkillMatch[] {
+    const matches: SkillMatch[] = [];
+
+    for (const skill of this.skills.values()) {
+      const phaseMatch = context.phase
+        ? skill.applicable_phases.includes(context.phase)
+        : false;
+      const languageMatch = context.language
+        ? (!skill.languages || skill.languages.includes(context.language))
+        : true;
+      const pathMatch = context.file_path && skill.path_patterns
+        ? skill.path_patterns.some((p) => this.pathMatches(context.file_path!, p))
+        : false;
+
+      // 至少有一维匹配才纳入候选
+      if (phaseMatch || (context.language && languageMatch && skill.languages) || pathMatch) {
+        const reasons: string[] = [];
+        if (phaseMatch) reasons.push(`phase:${context.phase}`);
+        if (context.language && languageMatch && skill.languages) reasons.push(`language:${context.language}`);
+        if (pathMatch) reasons.push(`path:${context.file_path}`);
+
+        const confidence = (
+          (phaseMatch ? 0.4 : 0) +
+          (languageMatch && skill.languages ? 0.3 : 0) +
+          (pathMatch ? 0.3 : 0)
+        );
+
+        matches.push({
+          skill_id: skill.id,
+          match_reason: reasons.join(", "),
+          phase_match: phaseMatch,
+          language_match: languageMatch,
+          path_match: pathMatch,
+          confidence,
+        });
+      }
+    }
+
+    // 按置信度降序排列
+    return matches.sort((a, b) => b.confidence - a.confidence);
+  }
+
+  /**
+   * 从候选列表中选出最佳 Skill
+   */
+  select(matches: SkillMatch[]): SelectedSkill | undefined {
+    if (matches.length === 0) return undefined;
+
+    const best = matches[0];
+    const skill = this.skills.get(best.skill_id);
+    if (!skill) return undefined;
+
+    let source: SkillSelectionSource = "fallback";
+    if (best.phase_match && best.language_match && best.path_match) {
+      source = "explicit";
+    } else if (best.phase_match) {
+      source = "phase_default";
+    } else if (best.language_match) {
+      source = "language_default";
+    }
+
+    return {
+      skill_id: best.skill_id,
+      selection_reason: best.match_reason,
+      source,
+      version: skill.version,
+    };
+  }
+
+  private pathMatches(path: string, pattern: string): boolean {
+    if (pattern.includes("*")) {
+      const regex = new RegExp(
+        "^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$"
+      );
+      return regex.test(path);
+    }
+    return path.startsWith(pattern);
   }
 }
 

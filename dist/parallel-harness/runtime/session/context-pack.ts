@@ -153,6 +153,12 @@ export interface TaskContract {
 
   /** 来自 Requirement Grounding 的必要审批 */
   required_approvals?: string[];
+
+  /** 选中的 Skill ID — 由 runtime skill resolution 决定 */
+  selected_skill_id?: string;
+
+  /** Skill 协议摘要 — 裁剪版，避免 prompt 膨胀 */
+  skill_protocol_summary?: string;
 }
 
 // ============================================================

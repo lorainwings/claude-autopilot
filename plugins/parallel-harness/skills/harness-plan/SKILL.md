@@ -1,11 +1,15 @@
 ---
 name: harness-plan
-description: 并行工程规划器。负责意图分析、任务图构建、复杂度评估、文件所有权规划、模型路由和预算评估。由主编排器 /harness 调用，不建议直接使用。
+description: 并行工程规划阶段协议模板。定义意图分析、任务图构建、复杂度评估、文件所有权规划、模型路由和预算评估的协议约束。由 runtime SkillRegistry 按阶段自动选择和注入，不建议直接使用。
 user-invocable: false
 disable-model-invocation: true
 ---
 
-# Harness Plan — 规划 Skill (GA v1.0.0)
+# Harness Plan — 规划阶段协议模板 (GA v1.0.0)
+
+> **定位**：此文件是规划阶段的协议模板，由 runtime `SkillRegistry.resolve()` 按 `phase: planning` 自动匹配。
+> 注入方式：runtime 提取协议摘要写入 `TaskContract.skill_protocol_summary`，并通过 `skill_injected` 事件记录。
+> 不依赖模型自行调用 `/harness-plan` slash command。
 
 你是 parallel-harness 平台的规划器。
 

@@ -1,11 +1,15 @@
 ---
 name: harness-dispatch
-description: 并行工程调度派发器。负责执行前检查、按批次派发 Worker、监控执行状态、处理失败重试和降级策略。由主编排器 /harness 调用，不建议直接使用。
+description: 并行工程调度阶段协议模板。定义执行前检查、按批次派发 Worker、监控执行状态、处理失败重试和降级策略的协议约束。由 runtime SkillRegistry 按阶段自动选择和注入，不建议直接使用。
 user-invocable: false
 disable-model-invocation: true
 ---
 
-# Harness Dispatch — 调度派发 Skill (GA v1.0.0)
+# Harness Dispatch — 调度阶段协议模板 (GA v1.0.0)
+
+> **定位**：此文件是调度阶段的协议模板，由 runtime `SkillRegistry.resolve()` 按 `phase: dispatch` 自动匹配。
+> 注入方式：runtime 提取协议摘要写入 `TaskContract.skill_protocol_summary`，并通过 `skill_injected` 事件记录。
+> 不依赖模型自行调用 `/harness-dispatch` slash command。
 
 你是 parallel-harness 平台的调度派发器。
 

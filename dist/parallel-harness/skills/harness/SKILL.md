@@ -15,12 +15,15 @@ agent: general-purpose
 ## 你的职责
 
 1. 接收用户意图，创建 Run
-2. 调用 `/harness-plan` 进行规划
+2. 规划阶段：runtime 自动选择规划协议（对应 `skills/harness-plan/SKILL.md` 协议模板）
 3. 检查是否需要审批，处理审批流程
-4. 调用 `/harness-dispatch` 进行调度和派发
-5. 调用 `/harness-verify` 进行门禁验证
+4. 调度阶段：runtime 自动选择调度协议（对应 `skills/harness-dispatch/SKILL.md` 协议模板）
+5. 验证阶段：runtime 自动选择验证协议（对应 `skills/harness-verify/SKILL.md` 协议模板）
 6. 综合结果、生成报告、创建 PR（如配置）
 7. 记录审计日志
+
+> **注意**：子协议由 runtime 通过 `SkillRegistry.resolve()` → `SkillRegistry.select()` 确定性选择和注入，
+> 不依赖模型自行切换 slash command。所有 skill 选择、注入、完成事件均通过 EventBus 发射和 AuditTrail 记录。
 
 ## 控制流
 
@@ -31,7 +34,7 @@ agent: general-purpose
 RunStatus: pending
   │
   ▼
-/harness-plan (意图分析 + 图构建 + 所有权规划 + 模型路由)
+[runtime skill_selected: harness-plan] → 意图分析 + 图构建 + 所有权规划 + 模型路由
   │
   ▼
 RunStatus: planned
@@ -42,13 +45,13 @@ RunStatus: planned
 RunStatus: scheduled
   │
   ▼
-/harness-dispatch (按批次调度 + Worker 派发 + 重试/降级)
+[runtime skill_selected: harness-dispatch] → 按批次调度 + Worker 派发 + 重试/降级
   │
   ▼
 RunStatus: running → verifying
   │
   ▼
-/harness-verify (Gate System 评估 + Merge Guard 检查)
+[runtime skill_selected: harness-verify] → Gate System 评估 + Merge Guard 检查
   │
   ├─ [通过] → RunStatus: succeeded
   ├─ [阻断] → RunStatus: blocked → 重试或人工介入
@@ -150,13 +153,18 @@ pending → pre_check → executing → post_check → succeeded
 - 所有决策记录到 AuditTrail
 - 敏感操作需要 RBAC 权限验证
 
-## 子 Skill 协作
+## 子协议模板
 
-| 子 Skill | 文件 | 职责 |
-|---------|------|------|
-| `/harness-plan` | skills/harness-plan/SKILL.md | 意图分析 + 图构建 + 所有权规划 + 模型路由 |
-| `/harness-dispatch` | skills/harness-dispatch/SKILL.md | 调度批次 + Worker 派发 + 重试/降级 |
-| `/harness-verify` | skills/harness-verify/SKILL.md | Gate 评估 + Merge Guard + 质量报告 |
+Runtime 按阶段自动选择对应的协议模板（通过 `SkillRegistry.resolve()` 匹配），注入到 TaskContract 中：
+
+| 协议模板 | 文件 | 阶段 | 职责 |
+|---------|------|------|------|
+| `harness-plan` | skills/harness-plan/SKILL.md | planning | 意图分析 + 图构建 + 所有权规划 + 模型路由 |
+| `harness-dispatch` | skills/harness-dispatch/SKILL.md | dispatch | 调度批次 + Worker 派发 + 重试/降级 |
+| `harness-verify` | skills/harness-verify/SKILL.md | verification | Gate 评估 + Merge Guard + 质量报告 |
+
+> 这些协议模板不是独立可调用的 slash command。它们由 runtime 确定性选择并注入，
+> 选择和完成过程通过 `skill_selected` / `skill_injected` / `skill_completed` 事件可审计。
 
 ## 审计事件
 
@@ -173,3 +181,8 @@ pending → pre_check → executing → post_check → succeeded
 - `budget_consumed` — 预算消耗
 - `budget_exceeded` — 预算超限
 - `pr_created` — PR 创建
+- `skill_candidates_resolved` — Skill 候选列表解析完成
+- `skill_selected` — Skill 选中
+- `skill_injected` — Skill 协议注入到 contract
+- `skill_completed` — Skill 执行完成
+- `skill_failed` — Skill 执行失败
