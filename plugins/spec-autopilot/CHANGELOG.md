@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.6](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.5...spec-autopilot-v5.3.6) (2026-04-09)
+
+
+### Changed
+
+* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/lorainwings/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
+* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/lorainwings/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+
 ## [5.3.5](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.4...spec-autopilot-v5.3.5) (2026-04-08)
 
 
