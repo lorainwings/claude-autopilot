@@ -4,6 +4,14 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.5.0...parallel-harness-v1.5.1) (2026-04-09)
+
+
+### Fixed
+
+* **parallel-harness:** 重写 SKILL.md 为可执行协议，修复 skill 无法触发的问题 ([6bc0274](https://github.com/lorainwings/claude-autopilot/commit/6bc02740a3d3d9029799c16cf774c7e43eb05db0))
+* **parallel-harness:** 重写 SKILL.md 为可执行协议，修复 skill 无法触发的问题 ([0c8bcc0](https://github.com/lorainwings/claude-autopilot/commit/0c8bcc016ebf224b5b28d1566766bb7d5ffb29ab))
+
 ## [1.5.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.4.1...parallel-harness-v1.5.0) (2026-04-09)
 
 
