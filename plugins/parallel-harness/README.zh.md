@@ -27,7 +27,7 @@
 
 ## 模块列表
 
-runtime 包含 15 个核心模块：
+runtime 包含 17 个核心模块：
 
 | 序号 | 模块 | 路径 | 职责 | 成熟度 |
 |------|------|------|------|--------|
@@ -44,8 +44,10 @@ runtime 包含 15 个核心模块：
 | 11 | Persistence | `runtime/persistence/` | Session/Run/Audit 持久化，回放引擎 | GA |
 | 12 | Integrations | `runtime/integrations/` | GitHub PR/CI 集成（仅 GitHub） | Beta |
 | 13 | Governance | `runtime/governance/` | RBAC、审批工作流、人工介入 | GA |
-| 14 | Capabilities | `runtime/capabilities/` | Skill/Hook/Instruction 扩展层 | Beta |
-| 15 | Schemas | `runtime/schemas/` | GA 级数据契约（统一 ID、版本、类型） | GA |
+| 14 | Lifecycle | `runtime/lifecycle/` | Skill 生命周期运行时、注册表、阶段推断 | GA |
+| 15 | Capabilities | `runtime/capabilities/` | Skill/Hook/Instruction 扩展层 | Beta |
+| 16 | Schemas | `runtime/schemas/` | GA 级数据契约（统一 ID、版本、类型） | GA |
+| 17 | Server | `runtime/server/` | HTTP/WebSocket 服务端 | GA |
 
 > **成熟度说明**: GA = 生产就绪，已测试覆盖；Beta = 功能可用但接口可能调整
 
@@ -98,58 +100,38 @@ bun install
 
 ## 架构概览
 
-```
-用户意图
-  │
-  ▼
-┌─────────────────────────────────────────┐
-│           Engine (统一运行时)              │
-│  状态机: pending → planned → scheduled   │
-│         → running → verifying → done     │
-├─────────────────────────────────────────┤
-│                                         │
-│  ┌──────────┐   ┌──────────────────┐   │
-│  │ Intent   │──▶│ Task Graph       │   │
-│  │ Analyzer │   │ Builder          │   │
-│  └──────────┘   └───────┬──────────┘   │
-│                         │              │
-│  ┌──────────┐   ┌───────▼──────────┐   │
-│  │Complexity│──▶│ Ownership        │   │
-│  │ Scorer   │   │ Planner          │   │
-│  └──────────┘   └───────┬──────────┘   │
-│                         │              │
-│  ┌──────────┐   ┌───────▼──────────┐   │
-│  │ Model    │──▶│ Scheduler        │   │
-│  │ Router   │   │ (DAG批次)         │   │
-│  └──────────┘   └───────┬──────────┘   │
-│                         │              │
-│           ┌─────────────┼──────────┐   │
-│           ▼             ▼          ▼   │
-│     ┌──────────┐ ┌──────────┐ ┌─────┐ │
-│     │ Worker 1 │ │ Worker 2 │ │ ... │ │
-│     │(上下文包) │ │(上下文包) │ │     │ │
-│     └────┬─────┘ └────┬─────┘ └──┬──┘ │
-│          │             │          │    │
-│          ▼             ▼          ▼    │
-│     ┌──────────────────────────────┐   │
-│     │      Merge Guard             │   │
-│     │ (所有权/策略/接口三层检查)     │   │
-│     └──────────────┬───────────────┘   │
-│                    ▼                   │
-│     ┌──────────────────────────────┐   │
-│     │    Gate System (9类门禁)      │   │
-│     │ test│lint│review│security│...│   │
-│     └──────────────┬───────────────┘   │
-│                    ▼                   │
-│     ┌──────────────────────────────┐   │
-│     │    PR/CI Integration         │   │
-│     │ (GitHub PR + Review + Check) │   │
-│     └──────────────────────────────┘   │
-├─────────────────────────────────────────┤
-│  横切关注点:                             │
-│  EventBus │ AuditTrail │ PolicyEngine  │
-│  RBAC │ ApprovalWorkflow │ Persistence │
-└─────────────────────────────────────────┘
+```mermaid
+graph TB
+    UI[用户意图]
+
+    subgraph Engine["Engine (统一运行时)"]
+        direction TB
+        IA[Intent Analyzer] --> TGB[Task Graph Builder]
+        CS[Complexity Scorer] --> OP[Ownership Planner]
+        TGB --> OP
+        MR[Model Router] --> SCH["Scheduler (DAG批次)"]
+        OP --> SCH
+
+        SCH --> W1["Worker 1 (上下文包)"]
+        SCH --> W2["Worker 2 (上下文包)"]
+        SCH --> WN["Worker N ..."]
+
+        W1 & W2 & WN --> MG["Merge Guard\n(所有权/策略/接口三层检查)"]
+        MG --> GS["Gate System (9类门禁)\ntest | lint | review | security | ..."]
+        GS --> PRCI["PR/CI Integration\n(GitHub PR + Review + Check)"]
+    end
+
+    subgraph Cross["横切关注点"]
+        EB[EventBus]
+        AT[AuditTrail]
+        PE[PolicyEngine]
+        RBAC[RBAC]
+        AW[ApprovalWorkflow]
+        PS[Persistence]
+    end
+
+    UI --> Engine
+    Engine --> Cross
 ```
 
 ## 四类角色边界

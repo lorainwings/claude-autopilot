@@ -66,6 +66,7 @@ runtime/
 ├── persistence/     — Session/Run/Audit Persistence                    [GA]
 ├── integrations/    — PR/CI Integration (GitHub only)                  [Beta]
 ├── governance/      — RBAC, Approval, Human-in-the-loop                [GA]
+├── lifecycle/       — Skill Lifecycle Runtime, Registry, Phase Inference [GA]
 ├── capabilities/    — Skill/Hook/Instruction Extension Layer           [Beta]
 └── schemas/         — GA-Level Data Contracts                          [GA]
 ```
@@ -74,19 +75,22 @@ runtime/
 
 ### Data Flow
 
-```
-User Intent
-  → Intent Analyzer → IntentAnalysis
-  → Task Graph Builder → TaskGraph (DAG)
-  → Ownership Planner → OwnershipPlan
-  → Scheduler → SchedulePlan (batches)
-  → Context Packager → ContextPack
-  → Model Router → RoutingResult
-  → Worker Runtime → WorkerOutput
-  → Gate System → GateResults
-  → Merge Guard → MergeCheckResult
-  → PR Provider → PR URL
-  → Result Synthesizer → QualityReport
+```mermaid
+graph LR
+    A[User Intent] --> B[Intent Analyzer]
+    B --> C[Task Graph Builder]
+    C --> D["TaskGraph (DAG)"]
+    D --> E[Ownership Planner]
+    E --> F[Scheduler]
+    F --> G["SchedulePlan (batches)"]
+    G --> H[Context Packager]
+    H --> I[Model Router]
+    I --> J[Worker Runtime]
+    J --> K[Gate System]
+    K --> L[Merge Guard]
+    L --> M[PR Provider]
+    M --> N[Result Synthesizer]
+    N --> O[QualityReport]
 ```
 
 ## Four Role Boundaries

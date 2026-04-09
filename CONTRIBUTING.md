@@ -106,7 +106,7 @@ Open a PR against `main` with a clear description of your changes.
 - All TypeScript must pass `bunx tsc --noEmit`
 - Use strict mode, ESNext target
 - Tests use `bun test`
-- Minimum 219 test baseline must be maintained
+- Minimum 295 test baseline must be maintained
 
 ### Test Discipline
 

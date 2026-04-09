@@ -15,90 +15,77 @@
 
 ## 2. 架构层次
 
-```
-┌─────────────────────────────────────────────┐
-│             用户意图 (User Intent)           │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  编排层 (Orchestrator)                       │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Intent Analyzer│  │Task Graph Builder  │   │
-│  └──────┬───────┘  └────────┬───────────┘   │
-│         ▼                   ▼               │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Complexity    │  │Ownership Planner   │   │
-│  │Scorer        │  │                    │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  调度层 (Scheduler)                          │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Scheduler MVP │  │Worker Dispatch     │   │
-│  └──────┬───────┘  └────────┬───────────┘   │
-│         ▼                   ▼               │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Retry Manager │  │Downgrade Manager   │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  模型路由层 (Model Router)                   │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Model Router  │  │Escalation Policy   │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  上下文层 (Context)                          │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Context       │  │Task Contract       │   │
-│  │Packager      │  │Builder             │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  Worker 执行层                               │
-│  ┌────────┐  ┌────────┐  ┌────────┐        │
-│  │Worker 1│  │Worker 2│  │Worker N│        │
-│  └────┬───┘  └────┬───┘  └────┬───┘        │
-└───────┼───────────┼───────────┼─────────────┘
-        ▼           ▼           ▼
-┌─────────────────────────────────────────────┐
-│  验证层 (Verifier Swarm)                     │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │Test     │ │Review   │ │Security │       │
-│  │Verifier │ │Verifier │ │Verifier │       │
-│  └────┬────┘ └────┬────┘ └────┬────┘       │
-│       └──────┬────┘───────────┘             │
-│              ▼                              │
-│  ┌──────────────────────┐                   │
-│  │Result Synthesizer    │                   │
-│  └──────────────────────┘                   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  可观测性层 (Observability)                   │
-│  ┌──────────┐  ┌────────────┐               │
-│  │Event Bus │  │Metrics     │               │
-│  └──────────┘  └────────────┘               │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TB
+    UI["User Intent"]
+
+    subgraph Orchestrator["Orchestrator Layer"]
+        IA[Intent Analyzer] --> CS[Complexity Scorer]
+        TGB[Task Graph Builder] --> OP[Ownership Planner]
+    end
+
+    subgraph Scheduler["Scheduler Layer"]
+        SMVP[Scheduler MVP] --> RM[Retry Manager]
+        WD[Worker Dispatch] --> DM[Downgrade Manager]
+    end
+
+    subgraph ModelRouter["Model Router Layer"]
+        MR[Model Router]
+        EP[Escalation Policy]
+    end
+
+    subgraph Context["Context Layer"]
+        CP[Context Packager]
+        TCB[Task Contract Builder]
+    end
+
+    subgraph Workers["Worker Execution Layer"]
+        W1[Worker 1]
+        W2[Worker 2]
+        WN[Worker N]
+    end
+
+    subgraph Verifier["Verifier Swarm"]
+        TV[Test Verifier] & RV[Review Verifier] & SV[Security Verifier] --> RS[Result Synthesizer]
+    end
+
+    subgraph Observability["Observability Layer"]
+        EB[Event Bus]
+        MT[Metrics]
+    end
+
+    UI --> Orchestrator
+    Orchestrator --> Scheduler
+    Scheduler --> ModelRouter
+    ModelRouter --> Context
+    Context --> Workers
+    Workers --> Verifier
+    Verifier --> Observability
 ```
 
 ## 3. 核心数据流
 
-```
-用户输入 -> Intent Analyzer -> IntentAnalysis
-IntentAnalysis -> Task Graph Builder -> TaskGraph (DAG)
-TaskGraph -> Ownership Planner -> OwnershipPlan
-TaskGraph -> Scheduler -> SchedulePlan (批次)
-TaskNode + OwnershipAssignment -> Context Packager -> ContextPack
-TaskNode + Complexity -> Model Router -> RoutingResult
-ContextPack + RoutingResult -> TaskContract
-TaskContract -> Worker -> WorkerOutput
-WorkerOutput -> Verifier Swarm -> VerificationResult
-VerificationResult -> Result Synthesizer -> SynthesizerOutput
+```mermaid
+graph LR
+    A[用户输入] --> B[Intent Analyzer]
+    B --> C[IntentAnalysis]
+    C --> D[Task Graph Builder]
+    D --> E["TaskGraph (DAG)"]
+    E --> F[Ownership Planner]
+    F --> G[OwnershipPlan]
+    E --> H[Scheduler]
+    H --> I["SchedulePlan (批次)"]
+    J[TaskNode + OwnershipAssignment] --> K[Context Packager]
+    K --> L[ContextPack]
+    M[TaskNode + Complexity] --> N[Model Router]
+    N --> O[RoutingResult]
+    L & O --> P[TaskContract]
+    P --> Q[Worker]
+    Q --> R[WorkerOutput]
+    R --> S[Verifier Swarm]
+    S --> T[VerificationResult]
+    T --> U[Result Synthesizer]
+    U --> V[SynthesizerOutput]
 ```
 
 ## 4. 四类一等角色 (来自 BMAD-METHOD 增强)
@@ -139,7 +126,9 @@ VerificationResult -> Result Synthesizer -> SynthesizerOutput
 - Gates — 9 类门禁系统（可阻断/可扩展）
 - Persistence — Session/Run/Audit 持久化，回放引擎
 - Governance — RBAC、审批工作流、人工介入
+- Lifecycle — Skill 生命周期运行时、注册表、可观测性、阶段推断
 - Schemas — GA 级数据契约（统一 ID、版本、类型）
+- Server — HTTP/WebSocket 服务端
 
 **Beta（功能可用，接口可能调整）**：
 - Integrations — GitHub PR/CI 集成（仅 GitHub）

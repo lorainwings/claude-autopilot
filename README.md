@@ -48,7 +48,7 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 - **Event Bus** — Real-time event streaming via `events.jsonl` + WebSocket
 - **GUI V2 Dashboard** — Three-column real-time dashboard with decision_ack feedback loop
 - **Parallel Execution** — Domain-level parallel agents with file ownership enforcement
-- **Modular Test Suite** — 102 test files with 1245+ assertions
+- **Modular Test Suite** — 104 test files with 1245+ assertions
 
 ### Architecture
 
@@ -209,18 +209,18 @@ claude-autopilot/
 │   └── daily-report/
 ├── plugins/                 # Plugin source code
 │   ├── spec-autopilot/
-│   │   ├── skills/          # 7 Skill definitions
+│   │   ├── skills/          # 12 Skill definitions
 │   │   ├── scripts/         # Hook scripts + utilities
 │   │   ├── hooks/           # Hook registration
 │   │   ├── gui/             # GUI V2 dashboard (React + Tailwind)
-│   │   ├── tests/           # 102 test files, 1245+ assertions
+│   │   ├── tests/           # 104 test files, 1245+ assertions
 │   │   └── docs/            # Full documentation (EN + ZH)
 │   └── parallel-harness/
-│       ├── runtime/         # 15 core modules (engine, orchestrator, scheduler, etc.)
+│       ├── runtime/         # 17 core modules (engine, orchestrator, scheduler, etc.)
 │       ├── skills/          # Skill definitions (harness, plan, dispatch, verify)
 │       ├── config/          # Default config + policy files
 │       ├── tools/           # CLI tools and utilities
-│       ├── tests/           # 219 tests, 499 assertions
+│       ├── tests/           # 295 tests, 649 assertions
 │       └── docs/            # Full documentation
 │   └── daily-report/
 │       └── skills/          # Skill definition + setup guide

@@ -15,90 +15,77 @@ Core design principles:
 
 ## 2. Architecture Layers
 
-```
-┌─────────────────────────────────────────────┐
-│             用户意图 (User Intent)           │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  编排层 (Orchestrator)                       │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Intent Analyzer│  │Task Graph Builder  │   │
-│  └──────┬───────┘  └────────┬───────────┘   │
-│         ▼                   ▼               │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Complexity    │  │Ownership Planner   │   │
-│  │Scorer        │  │                    │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  调度层 (Scheduler)                          │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Scheduler MVP │  │Worker Dispatch     │   │
-│  └──────┬───────┘  └────────┬───────────┘   │
-│         ▼                   ▼               │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Retry Manager │  │Downgrade Manager   │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  模型路由层 (Model Router)                   │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Model Router  │  │Escalation Policy   │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  上下文层 (Context)                          │
-│  ┌──────────────┐  ┌────────────────────┐   │
-│  │Context       │  │Task Contract       │   │
-│  │Packager      │  │Builder             │   │
-│  └──────────────┘  └────────────────────┘   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  Worker 执行层                               │
-│  ┌────────┐  ┌────────┐  ┌────────┐        │
-│  │Worker 1│  │Worker 2│  │Worker N│        │
-│  └────┬───┘  └────┬───┘  └────┬───┘        │
-└───────┼───────────┼───────────┼─────────────┘
-        ▼           ▼           ▼
-┌─────────────────────────────────────────────┐
-│  验证层 (Verifier Swarm)                     │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │Test     │ │Review   │ │Security │       │
-│  │Verifier │ │Verifier │ │Verifier │       │
-│  └────┬────┘ └────┬────┘ └────┬────┘       │
-│       └──────┬────┘───────────┘             │
-│              ▼                              │
-│  ┌──────────────────────┐                   │
-│  │Result Synthesizer    │                   │
-│  └──────────────────────┘                   │
-└───────────────┬─────────────────────────────┘
-                ▼
-┌─────────────────────────────────────────────┐
-│  可观测性层 (Observability)                   │
-│  ┌──────────┐  ┌────────────┐               │
-│  │Event Bus │  │Metrics     │               │
-│  └──────────┘  └────────────┘               │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TB
+    UI["User Intent"]
+
+    subgraph Orchestrator["Orchestrator Layer"]
+        IA[Intent Analyzer] --> CS[Complexity Scorer]
+        TGB[Task Graph Builder] --> OP[Ownership Planner]
+    end
+
+    subgraph Scheduler["Scheduler Layer"]
+        SMVP[Scheduler MVP] --> RM[Retry Manager]
+        WD[Worker Dispatch] --> DM[Downgrade Manager]
+    end
+
+    subgraph ModelRouter["Model Router Layer"]
+        MR[Model Router]
+        EP[Escalation Policy]
+    end
+
+    subgraph Context["Context Layer"]
+        CP[Context Packager]
+        TCB[Task Contract Builder]
+    end
+
+    subgraph Workers["Worker Execution Layer"]
+        W1[Worker 1]
+        W2[Worker 2]
+        WN[Worker N]
+    end
+
+    subgraph Verifier["Verifier Swarm"]
+        TV[Test Verifier] & RV[Review Verifier] & SV[Security Verifier] --> RS[Result Synthesizer]
+    end
+
+    subgraph Observability["Observability Layer"]
+        EB[Event Bus]
+        MT[Metrics]
+    end
+
+    UI --> Orchestrator
+    Orchestrator --> Scheduler
+    Scheduler --> ModelRouter
+    ModelRouter --> Context
+    Context --> Workers
+    Workers --> Verifier
+    Verifier --> Observability
 ```
 
 ## 3. Core Data Flow
 
-```
-User Input -> Intent Analyzer -> IntentAnalysis
-IntentAnalysis -> Task Graph Builder -> TaskGraph (DAG)
-TaskGraph -> Ownership Planner -> OwnershipPlan
-TaskGraph -> Scheduler -> SchedulePlan (batches)
-TaskNode + OwnershipAssignment -> Context Packager -> ContextPack
-TaskNode + Complexity -> Model Router -> RoutingResult
-ContextPack + RoutingResult -> TaskContract
-TaskContract -> Worker -> WorkerOutput
-WorkerOutput -> Verifier Swarm -> VerificationResult
-VerificationResult -> Result Synthesizer -> SynthesizerOutput
+```mermaid
+graph LR
+    A[User Input] --> B[Intent Analyzer]
+    B --> C[IntentAnalysis]
+    C --> D[Task Graph Builder]
+    D --> E["TaskGraph (DAG)"]
+    E --> F[Ownership Planner]
+    F --> G[OwnershipPlan]
+    E --> H[Scheduler]
+    H --> I["SchedulePlan (batches)"]
+    J[TaskNode + OwnershipAssignment] --> K[Context Packager]
+    K --> L[ContextPack]
+    M[TaskNode + Complexity] --> N[Model Router]
+    N --> O[RoutingResult]
+    L & O --> P[TaskContract]
+    P --> Q[Worker]
+    Q --> R[WorkerOutput]
+    R --> S[Verifier Swarm]
+    S --> T[VerificationResult]
+    T --> U[Result Synthesizer]
+    U --> V[SynthesizerOutput]
 ```
 
 ## 4. Four First-Class Roles (Enhanced from BMAD-METHOD)
@@ -139,7 +126,9 @@ Automatic routing rules:
 - Gates — 9-type gate system (blocking/extensible)
 - Persistence — Session/Run/Audit persistence, replay engine
 - Governance — RBAC, approval workflows, human-in-the-loop
+- Lifecycle — Skill lifecycle runtime, registry, observability, phase inference
 - Schemas — GA-level data contracts (unified ID, version, types)
+- Server — HTTP/WebSocket server
 
 **Beta (Functional, interfaces may change)**:
 - Integrations — GitHub PR/CI integration (GitHub only)

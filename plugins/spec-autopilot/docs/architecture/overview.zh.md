@@ -2,7 +2,7 @@
 
 # 架构总览
 
-> spec-autopilot 系统架构全景图，包含 8 阶段流水线、三层门禁、7 个 Skill 协作关系。
+> spec-autopilot 系统架构全景图，包含 8 阶段流水线、三层门禁、12 个 Skill 协作关系。
 
 ## 系统架构
 
@@ -278,7 +278,7 @@ tasks.md → dependency_analysis → 域分组
 
 ```
 spec-autopilot/
-├── skills/           (7 个 Skill)
+├── skills/           (12 个 Skill)
 │   ├── autopilot/    (主编排器 + references/ + templates/)
 │   ├── autopilot-phase0/   (环境初始化 + 锁文件管理)
 │   ├── autopilot-phase7/   (归档汇总)
@@ -310,6 +310,6 @@ spec-autopilot/
 │       ├── lib/                 (工具函数)
 │       └── fonts/               (本地 woff2 字体)
 ├── hooks/hooks.json  (Hook 注册)
-├── tests/            (102 个测试文件, 1245+ 断言)
+├── tests/            (104 个测试文件, 1245+ 断言)
 └── docs/             (文档)
 ```
