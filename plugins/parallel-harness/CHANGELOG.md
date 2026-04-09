@@ -4,6 +4,31 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.2...parallel-harness-v1.4.0) (2026-04-09)
+
+
+### Added
+
+* **parallel-harness:** 8 workstream 全量修复 + codex 审查 13 项问题闭环 ([a926a12](https://github.com/lorainwings/claude-autopilot/commit/a926a1298fd19b3923858097876ea9294ba9c356))
+* **parallel-harness:** P0 增强蓝图 6 项实施 — 295 pass / 649 expect ([68a9d47](https://github.com/lorainwings/claude-autopilot/commit/68a9d472de30c9e2c6cdf87c58fec0393426537c))
+* **parallel-harness:** P0/P1/P2 增强蓝图全量实施 — 415 pass / 866 expect ([67348be](https://github.com/lorainwings/claude-autopilot/commit/67348be4a3af51d4665db81f3a5a9efeabf06deb))
+* **parallel-harness:** P2 增强全量实施 — 480 pass / 987 expect ([af8c18d](https://github.com/lorainwings/claude-autopilot/commit/af8c18d087f3e9eb2a2ddf06639d7a5cd65660dd))
+* **parallel-harness:** 全量修复 10 个能力域 — 运行时正确性/所有权隔离/上下文/Gate/报告 ([31b1ad3](https://github.com/lorainwings/claude-autopilot/commit/31b1ad330dee6616e0186ef6bd2e3ac78c88bd2f))
+
+
+### Fixed
+
+* **ci:** CI pipeline overhaul — 分离构建与测试，消除 pre-commit 副作用 ([3759d03](https://github.com/lorainwings/claude-autopilot/commit/3759d03f2aa819b02fd68dc7428706e33135ccd8))
+* **ci:** 抽取共享 lint 脚本消除本地/CI lint 漂移 ([ab03dac](https://github.com/lorainwings/claude-autopilot/commit/ab03dacbd7c3846c6747103716b8095f4e265615))
+* **ci:** 统一 CI/release/lint 全流程一致性 ([9495d5e](https://github.com/lorainwings/claude-autopilot/commit/9495d5e1bff5563d39fc1c37c85fa3d545cb1ba8))
+* codex 3 项缺陷修复 — dashboard 凭证泄露 + PR 精确暂存 + git diff untracked 盲区 ([ca858f4](https://github.com/lorainwings/claude-autopilot/commit/ca858f4a2f2226ab790c9e82893250d24423bca2))
+* codex 5 项缺陷修复 — git-diff 精确差分 + PR fail-fast + dashboard 鉴权 + action 映射 + retryTask 桥接 ([29a3bfb](https://github.com/lorainwings/claude-autopilot/commit/29a3bfb3b5c999fc45e9d4513fbea55231b5899c))
+* **hook:** pre-commit 测试仅对 spec-autopilot 变更触发，避免 parallel-harness 文档提交误跑测试套件 ([ee1fc3a](https://github.com/lorainwings/claude-autopilot/commit/ee1fc3a3e914d008ef938b1a3bd6848debf900a9))
+* **parallel-harness:** approveAndResume 路径复用全集终态判定 ([f8b9798](https://github.com/lorainwings/claude-autopilot/commit/f8b9798702fd23fe9220aa496e30588b70618c5f))
+* **parallel-harness:** plugin.json schema 合规性修复 ([1084796](https://github.com/lorainwings/claude-autopilot/commit/108479669a59616ecdd170b73e4cd5386696f946))
+* **parallel-harness:** stabilize worktree lifecycle ([f7040a9](https://github.com/lorainwings/claude-autopilot/commit/f7040a967f927cda48f9616d0189524df0a5e6ac))
+* **parallel-harness:** 主链闭环返修 — 10 项 review 问题全部修复 ([39710b0](https://github.com/lorainwings/claude-autopilot/commit/39710b0cc65d4eabff6a16831941924cb2539eb1))
+
 ## [1.3.2](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.3.1...parallel-harness-v1.3.2) (2026-04-09)
 
 

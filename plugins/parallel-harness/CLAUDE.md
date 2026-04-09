@@ -2,7 +2,7 @@
 
 > 此文件为 parallel-harness 插件的工程法则。
 > 所有 AI Agent 在执行期间必须遵守。
-> 版本: 1.3.2 (GA) <!-- x-release-please-version -->
+> 版本: 1.4.0 (GA) <!-- x-release-please-version -->
 
 ## 核心约束
 
