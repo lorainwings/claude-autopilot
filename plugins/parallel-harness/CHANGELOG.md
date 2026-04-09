@@ -4,6 +4,13 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.4.1...parallel-harness-v1.5.0) (2026-04-09)
+
+
+### Added
+
+* **parallel-harness:** add skill lifecycle runtime with registry, observability and phase inference ([8a39f01](https://github.com/lorainwings/claude-autopilot/commit/8a39f01c235ed70bc7cb1aa7eb8eb46301531716))
+
 ## [1.4.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.4.0...parallel-harness-v1.4.1) (2026-04-09)
 
 
