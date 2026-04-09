@@ -12,6 +12,10 @@ function buildSnapshotMeta(): Record<string, unknown> {
   return {
     archiveReadiness: snapshotState.archiveReadiness ?? null,
     requirementPacketHash: ss?.requirement_packet_hash ?? null,
+    // v7.1: Phase 1 清晰度系统
+    clarityScore: ss?.clarity_score ?? null,
+    discussionRounds: ss?.discussion_rounds ?? null,
+    challengeAgentsActivated: ss?.challenge_agents_activated ?? [],
     gateFrontier: ss?.gate_frontier ?? null,
     // v7.0: 恢复状态 (工作包 G)
     recoverySource: ss?.recovery_source ?? null,

@@ -564,6 +564,34 @@ export const OrchestrationPanel = memo(function OrchestrationPanel() {
           </div>
         </div>
       )}
+
+      {/* v7.1: 需求清晰度 */}
+      {orchestration.clarityScore != null && (
+        <div className="px-3 py-2 border-b border-border">
+          <SectionHeader title="需求清晰度" dotColor="bg-emerald" />
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex-1 h-1.5 bg-surface-hover rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald rounded-full transition-all"
+                style={{ width: `${Math.round(orchestration.clarityScore * 100)}%` }}
+              />
+            </div>
+            <span className="text-[9px] font-mono text-text-muted">
+              {Math.round(orchestration.clarityScore * 100)}%
+            </span>
+          </div>
+          {orchestration.discussionRounds != null && (
+            <div className="text-[9px] text-text-muted mt-0.5">
+              {orchestration.discussionRounds} 轮讨论
+              {orchestration.challengeAgentsActivated && orchestration.challengeAgentsActivated.length > 0 && (
+                <span className="ml-1">
+                  · 挑战: {orchestration.challengeAgentsActivated.join(', ')}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });

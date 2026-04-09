@@ -37,16 +37,32 @@
 ```
 IF config.phases.requirements.mode == "socratic" OR complexity == "large":
     FOR EACH undecided_point:
-        1. 标准处理：AskUserQuestion 展示选项
+        1. 标准处理：AskUserQuestion 展示选项（Medium/Large 遵循一次一问原则）
         2. 苏格拉底追问：从 7 步中选择最相关的 1-2 步提问（Step 7 在关键词匹配时强制包含）
         3. 引用 research-findings.md 中的事实数据支撑提问
         4. 根据用户回答，可能产生新的决策点（回到循环开头）
 ```
 
+### 与挑战代理的协同（v7.1）
+
+> 详见: `autopilot/references/phase1-challenge-agents.md`（完整的 3 种代理模式 + 停滞检测协议）
+
+苏格拉底模式和挑战代理**可以共存**：
+
+| 场景 | 行为 |
+|------|------|
+| 苏格拉底 ON + 挑战代理 ON | 挑战代理在激活轮**替代**苏格拉底步骤，未激活轮仍执行苏格拉底 7 步 |
+| 苏格拉底 ON + 挑战代理 OFF | 每轮执行苏格拉底 7 步（原有行为） |
+| 苏格拉底 OFF + 挑战代理 ON | 挑战代理在特定轮次激活，其余轮正常决策提问 |
+
+挑战代理是苏格拉底模式的**超集增强**：苏格拉底的"挑战假设"（步骤 1）被反面论证代理覆盖，"最小可行范围"（步骤 6）被简化者代理覆盖，但苏格拉底的其他步骤（探索替代、识别隐含需求、强制排优、魔鬼代言人、非功能需求）仍然在非激活轮执行。
+
 ### 退出条件
 
-- 所有决策点已澄清 **且** 苏格拉底提问未产生新决策点
-- 用户明确表示"需求已经足够清晰，不需要更多提问"
+- **清晰度评分退出**（v7.1 主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
+- 安全阀：`soft_warning_rounds`（默认 8 轮）软提醒 + `max_rounds`（默认 15 轮）硬上限
+- 用户在软提醒时选择"以当前清晰度推进"
+- 详见: `autopilot/references/phase1-clarity-scoring.md`
 
 ---
 

@@ -263,6 +263,12 @@ export interface StateSnapshot {
   replay_required_tasks: string[];
   /** 需求包哈希 */
   requirement_packet_hash: string | null;
+  /** v7.1: Phase 1 最终清晰度评分 */
+  clarity_score: number | null;
+  /** v7.1: Phase 1 实际讨论轮数 */
+  discussion_rounds: number | null;
+  /** v7.1: 激活的挑战代理列表 */
+  challenge_agents_activated: string[];
   /** 各 phase 结果 */
   phase_results: Record<string, { status: string; timestamp: string }>;
   /** review 状态 */

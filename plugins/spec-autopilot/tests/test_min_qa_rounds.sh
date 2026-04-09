@@ -43,9 +43,9 @@ OUTPUT=$(python3 "$SCRIPT_DIR/_config_validator.py" "$TEMP_CONFIG" 2>/dev/null)
 assert_contains "2b. out-of-range min_qa_rounds=99 detected" "$OUTPUT" "out of range"
 rm -f "$TEMP_CONFIG"
 
-# 2c. _post_task_validator.py contains min_qa_rounds check logic
+# 2c. _post_task_validator.py contains min_qa_rounds check logic (v7.1: uses discussion_rounds)
 if grep -q 'min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py" && \
-   grep -q 'decisions count.*less than min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py"; then
+   grep -q 'discussion rounds.*less than min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py"; then
   green "  PASS: 2c. _post_task_validator.py has min_qa_rounds block logic"
   PASS=$((PASS + 1))
 else

@@ -83,6 +83,10 @@ export function createHttpServer() {
           archiveReadiness: snapshotState.archiveReadiness ?? null,
           // H-1/H-3: 暴露 stateSnapshot 关键字段
           requirementPacketHash: ss?.requirement_packet_hash ?? null,
+          // v7.1: Phase 1 清晰度系统
+          clarityScore: ss?.clarity_score ?? null,
+          discussionRounds: ss?.discussion_rounds ?? null,
+          challengeAgentsActivated: ss?.challenge_agents_activated ?? [],
           gateFrontier: ss?.gate_frontier ?? null,
           // v7.0: 暴露恢复状态 (工作包 G)
           recoverySource: ss?.recovery_source ?? null,

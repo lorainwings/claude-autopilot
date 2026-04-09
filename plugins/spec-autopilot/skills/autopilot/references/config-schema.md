@@ -21,6 +21,20 @@ phases:
   requirements:
     agent: "business-analyst"
     min_qa_rounds: 1
+    max_rounds: 15             # 硬性安全阀：讨论最大轮数（强制结束）
+    soft_warning_rounds: 8     # 软性提醒轮次：提示用户当前清晰度
+    clarity_threshold: 0.80    # 清晰度退出阈值（0.0-1.0）
+    clarity_threshold_overrides:
+      small: 0.70              # small 复杂度清晰度阈值（宽松）
+      medium: 0.80             # medium 复杂度清晰度阈值（标准）
+      large: 0.85              # large 复杂度清晰度阈值（严格）
+    challenge_agents:
+      enabled: true            # 是否启用挑战代理机制
+      contrarian_after_round: 4    # 反面论证代理激活轮次
+      simplifier_after_round: 6    # 简化者代理激活轮次
+      simplifier_scope_threshold: 5  # scope 条目超过此数才激活简化者
+      ontologist_after_round: 8    # 本体论代理激活轮次
+    one_question_per_round: true   # Medium/Large 一次一问（默认开启）
     mode: "structured"         # structured | socratic (苏格拉底模式深化需求)
     auto_scan:
       enabled: true

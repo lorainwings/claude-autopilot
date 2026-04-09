@@ -232,36 +232,93 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 → 详见 `phase1-requirements-detail.md`（决策卡片完整格式、应用场景、决策记录持久化）
 
-## 1.6 多轮决策循环（LOOP）
+## 1.6 多轮决策循环（LOOP）— v7.1 弹性收敛重构
 
-**循环条件**: 存在任何未澄清的决策点。
+**循环退出条件**: 清晰度评分达标 + 所有决策点已澄清 + 满足最低轮数。
 
-**v5.2: `min_qa_rounds` 强制最低轮数**:
-从 `config.phases.requirements.min_qa_rounds`（默认 1）读取强制最低 QA 轮数下限。即使所有决策点已澄清，
-如果当前轮数 < `min_qa_rounds`，仍必须继续循环（主动寻找遗漏决策点或触发苏格拉底追问）。
+**执行前读取**: `autopilot/references/phase1-clarity-scoring.md`（混合评分系统）+ `autopilot/references/phase1-challenge-agents.md`（挑战代理协议）
+
+### 退出条件（三条件 AND）
+
+```
+EXIT LOOP WHEN:
+  1. clarity_score >= clarity_threshold    # 清晰度达标（见 phase1-clarity-scoring.md）
+  2. 所有决策点已澄清                      # 无未闭合 decision_point
+  3. current_round >= min_qa_rounds         # 满足最低轮数下限
+```
+
+### 安全阀
+
+| 参数 | 默认值 | 行为 |
+|------|--------|------|
+| `min_qa_rounds` | 1 | 最低轮数下限（保留原有语义） |
+| `soft_warning_rounds` | 8 | 软提醒：展示当前清晰度，AskUserQuestion 询问是否继续 |
+| `max_rounds` | 15 | 硬上限：强制结束，以当前最佳状态输出 |
+
+### 核心循环
 
 ```
 current_round = 0
 min_rounds = config.phases.requirements.min_qa_rounds || 1
+threshold = config...clarity_threshold_overrides[complexity] || config...clarity_threshold || 0.80
+challenge_state = {challenge_agents_used: Set(), prev_clarity: null, stagnant_rounds: 0}
 
 LOOP:
   current_round += 1
-  梳理未决策点 → 构造决策卡片 → AskUserQuestion → 收集结果 → 检查新决策点
 
-  IF 所有决策点已澄清 AND current_round >= min_rounds:
-    EXIT LOOP
-  ELIF 所有决策点已澄清 AND current_round < min_rounds:
-    # 强制继续: 主动寻找遗漏的边界条件、错误处理、非功能需求
-    执行苏格拉底步骤（即使非 socratic 模式）
-    IF 未发现新决策点:
-      EXIT LOOP  # 安全阀：确实无遗漏时允许提前退出
+  # === Step A: 选择提问目标 ===
+  IF 挑战代理激活条件满足（见 phase1-challenge-agents.md）:
+      执行挑战代理提问（替代本轮常规提问）
+  ELIF 存在未决策点:
+      # 一次一问原则（v7.1）
+      IF complexity == "small":
+          合并全部未决策点为一次 AskUserQuestion（保持快速路径）
+      ELSE:  # medium / large
+          选择与最弱清晰度维度最相关的 1 个未决策点
+          构造决策卡片 → AskUserQuestion → 收集结果
+  ELSE:
+      # 所有决策点已澄清但清晰度未达标
+      执行苏格拉底步骤主动寻找遗漏（即使非 socratic 模式）
+      IF 未发现新决策点 AND current_round >= min_rounds:
+          # 清晰度未达标但无法发现新问题 → 需要用户明确同意才能退出
+          AskUserQuestion:
+            question: "所有决策点已澄清，但清晰度评分 {clarity_pct}% 低于目标 {threshold_pct}%。无法发现更多遗漏问题。"
+            options:
+              - "以当前清晰度推进（接受风险）"
+              - "补充更多需求细节（回到讨论）"
+          IF 用户选择"以当前清晰度推进": EXIT LOOP
+          ELSE: CONTINUE  # 用户选择补充 → 继续循环
+
+  # === Step B: 清晰度评分（每轮末尾） ===
+  计算 clarity_score（见 phase1-clarity-scoring.md 混合评分公式）
+  输出进度展示: Round {n} | Clarity: {pct}% | Target: {threshold_pct}%
+
+  # === Step C: 停滞检测 ===
+  stagnation_action = check_stagnation(clarity_score, challenge_state)
+  IF stagnation_action == "activate_ontologist": 下一轮激活本体论代理
+  IF stagnation_action == "prompt_user_exit": AskUserQuestion 询问是否以当前清晰度推进
+
+  # === Step D: 安全阀检查 ===
+  IF current_round == soft_warning_rounds:
+      AskUserQuestion: "已讨论 {n} 轮，当前清晰度 {pct}%，是否继续？"
+      IF 用户选择"以当前清晰度推进": EXIT LOOP
+
+  IF current_round >= max_rounds:
+      输出 [WARN] 达到硬上限，强制推进
+      EXIT LOOP
+
+  # === Step E: 退出判定 ===
+  IF clarity_score >= threshold AND 所有决策点已澄清 AND current_round >= min_rounds:
+      EXIT LOOP
 ```
 
-每轮循环: 梳理未决策点 → 构造决策卡片 → AskUserQuestion → 收集结果 → 检查新决策点 → 重复直到全部澄清。
+### 复杂度对讨论的影响（v7.1 改为影响阈值而非轮数）
 
-- **Small**: 合并全部决策点为一次 AskUserQuestion（包含所有未决项），最多 **1 轮**
-- **Medium**: 按技术/业务分组，每组一次 AskUserQuestion，最多 **2 轮**
-- **Large**: 按域分组，每域一次 AskUserQuestion，最多 **3 轮**，含 scope creep 检查
+| 复杂度 | 清晰度阈值 | 提问策略 | 苏格拉底/挑战代理 |
+|--------|-----------|---------|-----------------|
+| small | 0.70（宽松） | 合并决策点一次确认 | 禁用苏格拉底；挑战代理按配置 |
+| medium | 0.80（标准） | 一次一问 | 遵循 config |
+| large | 0.85（严格） | 一次一问 + scope creep 检查 | 强制苏格拉底；挑战代理按配置 |
 
 → 详见 `phase1-requirements-detail.md`（主动讨论协议、各复杂度路径详细流程）
 

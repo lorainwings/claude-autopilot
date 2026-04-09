@@ -99,16 +99,27 @@ REQUIRED_FIELDS = [
     'requirement_type',
     'decisions',
     'acceptance_criteria',
-    'closed_questions',
-    'maturity',
     'change_name',
+    'discussion_rounds',
 ]
+
+# v7.1 兼容：新旧字段名映射（检查时任一存在即可）
+ALIASED_FIELDS = {
+    'open_questions_closed': 'closed_questions',    # 新名 → 旧名
+    'requirement_maturity': 'maturity',             # 新名 → 旧名
+}
 
 for field in REQUIRED_FIELDS:
     if field not in packet:
         errors.append(f'缺少必填字段: {field}')
     elif packet[field] is None:
         errors.append(f'字段为 null: {field}')
+
+for new_name, old_name in ALIASED_FIELDS.items():
+    if new_name not in packet and old_name not in packet:
+        errors.append(f'缺少必填字段: {new_name}（或 {old_name}）')
+    elif (new_name in packet and packet[new_name] is None) and (old_name in packet and packet[old_name] is None):
+        errors.append(f'字段为 null: {new_name}')
 
 # ── 3. requirement_type 校验 ──
 VALID_TYPES = ['feature', 'bugfix', 'refactor', 'chore']
@@ -158,7 +169,8 @@ else:
             errors.append(f'acceptance_criteria[{idx}]: 类型无效，需为字符串或对象')
 
 # ── 6. closed_questions 校验 ──
-closed_q = packet.get('closed_questions')
+# v7.1 兼容：优先使用新字段名
+closed_q = packet.get('open_questions_closed', packet.get('closed_questions'))
 if isinstance(closed_q, bool):
     if not closed_q:
         errors.append('closed_questions 为 false: 仍有未闭合的开放问题，Phase 1 不可推进')
@@ -178,7 +190,7 @@ else:
 
 # ── 7. maturity 校验与调研方案推荐 ──
 VALID_MATURITY = ['clear', 'partial', 'ambiguous']
-maturity = packet.get('maturity', '')
+maturity = packet.get('requirement_maturity', packet.get('maturity', ''))
 research_plan = None
 
 if isinstance(maturity, str) and maturity in VALID_MATURITY:
@@ -210,10 +222,11 @@ else:
     pass
 
 # ── 8. packet hash 校验 ──
-declared_hash = packet.get('packet_hash', '')
+# v7.1 兼容：优先使用新字段名
+declared_hash = packet.get('hash', packet.get('packet_hash', ''))
 if declared_hash:
     # 计算实际内容 hash（排除 packet_hash 字段本身）
-    packet_for_hash = {k: v for k, v in packet.items() if k != 'packet_hash'}
+    packet_for_hash = {k: v for k, v in packet.items() if k not in ('hash', 'packet_hash')}
     canonical = json.dumps(packet_for_hash, sort_keys=True, ensure_ascii=False)
     computed_hash = hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]
     if declared_hash != computed_hash:
@@ -222,7 +235,7 @@ if declared_hash:
             '可能 packet 内容已被修改但 hash 未更新'
         )
 else:
-    warnings.append('缺少 packet_hash 字段（建议添加以支持完整性校验）')
+    warnings.append('缺少 hash 字段（建议添加以支持完整性校验）')
 
 # ── 9. change_name 绑定校验 ──
 change_name = packet.get('change_name', '')
@@ -235,7 +248,8 @@ if isinstance(change_name, str) and change_name:
         )
 
 # ── 10. 可选字段检查 ──
-RECOMMENDED_FIELDS = ['summary', 'tech_constraints', 'scope', 'raw_requirement']
+RECOMMENDED_FIELDS = ['summary', 'tech_constraints', 'scope', 'raw_requirement',
+                      'clarity_score', 'clarity_breakdown', 'challenge_agents_activated']
 for field in RECOMMENDED_FIELDS:
     if field not in packet:
         warnings.append(f'建议添加字段: {field}')
@@ -253,7 +267,7 @@ result = {
     'research_plan': research_plan,
     'packet_file': packet_file,
     'requirement_type': packet.get('requirement_type', ''),
-    'maturity': packet.get('maturity', ''),
+    'maturity': packet.get('requirement_maturity', packet.get('maturity', '')),
     'change_name': packet.get('change_name', ''),
     'decisions_count': len(decisions) if isinstance(decisions, list) else 0,
     'acceptance_criteria_count': len(criteria) if isinstance(criteria, list) else 0,

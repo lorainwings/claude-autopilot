@@ -123,6 +123,18 @@ RECOMMENDED = ["test_pyramid", "gates", "context_management", "project_context",
 TYPE_RULES = {
     "version": str,
     "phases.requirements.min_qa_rounds": (int, float),
+    "phases.requirements.max_rounds": (int, float),
+    "phases.requirements.soft_warning_rounds": (int, float),
+    "phases.requirements.clarity_threshold": (int, float),
+    "phases.requirements.clarity_threshold_overrides.small": (int, float),
+    "phases.requirements.clarity_threshold_overrides.medium": (int, float),
+    "phases.requirements.clarity_threshold_overrides.large": (int, float),
+    "phases.requirements.challenge_agents.enabled": bool,
+    "phases.requirements.challenge_agents.contrarian_after_round": (int, float),
+    "phases.requirements.challenge_agents.simplifier_after_round": (int, float),
+    "phases.requirements.challenge_agents.simplifier_scope_threshold": (int, float),
+    "phases.requirements.challenge_agents.ontologist_after_round": (int, float),
+    "phases.requirements.one_question_per_round": bool,
     "phases.requirements.auto_scan.enabled": bool,
     "phases.requirements.auto_scan.max_depth": (int, float),
     "phases.requirements.research.enabled": bool,
@@ -184,6 +196,16 @@ RANGE_RULES = {
     "phases.requirements.complexity_routing.thresholds.small": (1, 20),
     "phases.requirements.complexity_routing.thresholds.medium": (2, 50),
     "phases.requirements.min_qa_rounds": (1, 10),
+    "phases.requirements.max_rounds": (3, 30),
+    "phases.requirements.soft_warning_rounds": (2, 20),
+    "phases.requirements.clarity_threshold": (0.5, 1.0),
+    "phases.requirements.clarity_threshold_overrides.small": (0.5, 1.0),
+    "phases.requirements.clarity_threshold_overrides.medium": (0.5, 1.0),
+    "phases.requirements.clarity_threshold_overrides.large": (0.5, 1.0),
+    "phases.requirements.challenge_agents.contrarian_after_round": (2, 20),
+    "phases.requirements.challenge_agents.simplifier_after_round": (3, 20),
+    "phases.requirements.challenge_agents.simplifier_scope_threshold": (2, 20),
+    "phases.requirements.challenge_agents.ontologist_after_round": (4, 20),
 }
 
 
@@ -369,6 +391,54 @@ def validate(config_path):
         cross_ref_warnings.append(
             "domain_agents configured but parallel.enabled=false, domain_agents will be ignored in serial mode"
         )
+
+    # Cross-ref: Phase 1 v7.1 clarity system constraints
+    soft_warn = get_value(yaml_data, "phases.requirements.soft_warning_rounds")
+    max_rounds = get_value(yaml_data, "phases.requirements.max_rounds")
+    if (
+        soft_warn is not None
+        and max_rounds is not None
+        and isinstance(soft_warn, (int, float))
+        and isinstance(max_rounds, (int, float))
+    ):
+        if soft_warn >= max_rounds:
+            cross_ref_warnings.append(
+                f"soft_warning_rounds ({soft_warn}) >= max_rounds ({max_rounds}), "
+                "soft warning will never trigger before hard limit"
+            )
+
+    min_qa = get_value(yaml_data, "phases.requirements.min_qa_rounds")
+    if (
+        min_qa is not None
+        and max_rounds is not None
+        and isinstance(min_qa, (int, float))
+        and isinstance(max_rounds, (int, float))
+    ):
+        if min_qa > max_rounds:
+            cross_ref_warnings.append(
+                f"min_qa_rounds ({min_qa}) > max_rounds ({max_rounds}), min_qa_rounds can never be satisfied"
+            )
+
+    # Cross-ref: challenge agent activation order must be contrarian < simplifier < ontologist
+    ca_contrarian = get_value(yaml_data, "phases.requirements.challenge_agents.contrarian_after_round")
+    ca_simplifier = get_value(yaml_data, "phases.requirements.challenge_agents.simplifier_after_round")
+    ca_ontologist = get_value(yaml_data, "phases.requirements.challenge_agents.ontologist_after_round")
+    ca_rounds = [
+        ("contrarian", ca_contrarian),
+        ("simplifier", ca_simplifier),
+        ("ontologist", ca_ontologist),
+    ]
+    ca_valid = [(name, r) for name, r in ca_rounds if r is not None and isinstance(r, (int, float))]
+    if len(ca_valid) >= 2:
+        for i in range(len(ca_valid) - 1):
+            name_a, round_a = ca_valid[i]
+            name_b, round_b = ca_valid[i + 1]
+            if round_a >= round_b:
+                cross_ref_warnings.append(
+                    f"challenge_agents.{name_a}_after_round ({round_a}) >= "
+                    f"{name_b}_after_round ({round_b}), "
+                    "agents should activate in increasing round order"
+                )
 
     # Cross-ref: instruction_files path format validation
     for phase_key in ("requirements", "testing", "implementation", "reporting"):

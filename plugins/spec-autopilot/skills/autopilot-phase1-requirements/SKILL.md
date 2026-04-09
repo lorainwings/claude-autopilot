@@ -82,7 +82,9 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    - 从 JSON 信封提取：`decision_points`、`requirements_summary`、`open_questions`
    - 主线程**不读取** `requirements-analysis.md` 全文
 5.5. **主动讨论协议** — 基于信封中的 `decision_points` + business-analyst 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
-7. **多轮决策 LOOP** — AskUserQuestion 逐个澄清决策点，直到全部确认（复杂度分路影响循环深度）。**v5.2: `config.phases.requirements.min_qa_rounds` 作为强制最低轮数下限。**
+7. **多轮决策 LOOP**（v7.1 弹性收敛重构） — 以混合清晰度评分（规则×0.6 + AI×0.4）作为退出条件，而非硬性轮数上限。Medium/Large 遵循一次一问原则。挑战代理在第 4/6/8 轮自动激活视角转换（反面论证/简化/本体论）。停滞检测在连续 2 轮波动 ≤5% 时干预。安全阀: soft=8轮提醒, hard=15轮上限。`min_qa_rounds` 保留为下限。
+   **执行前读取**: `autopilot/references/phase1-clarity-scoring.md` + `autopilot/references/phase1-challenge-agents.md`
+
    **v5.1 中间 Checkpoint — 每轮决策后**: 每轮决策 LOOP 完成后，覆盖写入中间态 checkpoint，防止崩溃丢失用户决策：
 
    ```
@@ -104,8 +106,8 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 - 允许输出一句状态提示，例如：`Phase 1 ✓ checkpoint persisted, continuing to Phase 2`
 
 1. **发射 Phase 1 结束事件（v5.2 Event Bus 补全, v6.0 H-1 补全 requirement_packet_hash）**:
-    `Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 1 {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":["phase-1-requirements.json"],"requirement_packet_hash":"{requirement_packet.hash}"}\'')`
-    **注意**: `{requirement_packet.hash}` 必须从步骤 8 写入的 `requirement-packet.json` 的 `hash` 字段获取。若未生成 requirement-packet.json，使用 `null`。
+    `Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 1 {mode} \'{"status":"{envelope.status}","duration_ms":{elapsed},"artifacts":["phase-1-requirements.json"],"requirement_packet_hash":"{requirement_packet.hash}","clarity_score":{clarity_score},"discussion_rounds":{discussion_rounds},"challenge_agents_activated":{challenge_agents_json}}\'')`
+    **注意**: `{requirement_packet.hash}` 必须从步骤 8 写入的 `requirement-packet.json` 的 `hash` 字段获取。若未生成 requirement-packet.json，使用 `null`。`{clarity_score}` 为浮点数（如 0.85），`{discussion_rounds}` 为整数，`{challenge_agents_json}` 为 JSON 数组字符串（如 `["contrarian","simplifier"]`）。若未使用清晰度系统，使用 `null`。
 
 ---
 
