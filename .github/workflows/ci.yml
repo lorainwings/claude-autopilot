@@ -365,8 +365,8 @@ jobs:
       - name: Install dependencies
         run: cd plugins/parallel-harness && bun install --frozen-lockfile
 
-      - name: Build dist
-        run: make ph-build
+      - name: Build dist (no test — already passed in ph-test)
+        run: make ph-build-only
 
       - name: Verify dist structure
         run: |
@@ -432,11 +432,114 @@ jobs:
         run: bash scripts/check-dist-freshness.sh daily-report --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
-  # Stage 3: 统一 summary (branch protection 的唯一 required check)
+  # Stage 3: Per-plugin Summary (允许其他插件独立通过)
+  # ════════════════════════════════════════════════════════════════════
+  sa-summary:
+    name: spec-autopilot / Summary
+    needs: [detect, release-discipline, sa-test, sa-lint, sa-typecheck, sa-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_sa == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate SA results
+        run: |
+          echo "=== spec-autopilot Summary ==="
+          FAILED=0
+
+          RD="${{ needs.release-discipline.result }}"
+          if [ "$RD" != "success" ] && [ "$RD" != "skipped" ]; then
+            echo "❌ release-discipline: $RD"
+            FAILED=1
+          fi
+
+          for job in sa-test sa-lint sa-typecheck sa-build; do
+            case "$job" in
+              sa-test)      RESULT="${{ needs.sa-test.result }}" ;;
+              sa-lint)      RESULT="${{ needs.sa-lint.result }}" ;;
+              sa-typecheck) RESULT="${{ needs.sa-typecheck.result }}" ;;
+              sa-build)     RESULT="${{ needs.sa-build.result }}" ;;
+            esac
+            if [ "$RESULT" != "success" ]; then
+              echo "❌ $job: $RESULT"
+              FAILED=1
+            else
+              echo "✅ $job: $RESULT"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
+  ph-summary:
+    name: parallel-harness / Summary
+    needs: [detect, release-discipline, ph-typecheck, ph-test, ph-lint, ph-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_ph == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate PH results
+        run: |
+          echo "=== parallel-harness Summary ==="
+          FAILED=0
+
+          RD="${{ needs.release-discipline.result }}"
+          if [ "$RD" != "success" ] && [ "$RD" != "skipped" ]; then
+            echo "❌ release-discipline: $RD"
+            FAILED=1
+          fi
+
+          for job in ph-typecheck ph-test ph-lint ph-build; do
+            case "$job" in
+              ph-typecheck) RESULT="${{ needs.ph-typecheck.result }}" ;;
+              ph-test)      RESULT="${{ needs.ph-test.result }}" ;;
+              ph-lint)      RESULT="${{ needs.ph-lint.result }}" ;;
+              ph-build)     RESULT="${{ needs.ph-build.result }}" ;;
+            esac
+            if [ "$RESULT" != "success" ]; then
+              echo "❌ $job: $RESULT"
+              FAILED=1
+            else
+              echo "✅ $job: $RESULT"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
+  dr-summary:
+    name: daily-report / Summary
+    needs: [detect, release-discipline, dr-lint, dr-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_dr == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate DR results
+        run: |
+          echo "=== daily-report Summary ==="
+          FAILED=0
+
+          RD="${{ needs.release-discipline.result }}"
+          if [ "$RD" != "success" ] && [ "$RD" != "skipped" ]; then
+            echo "❌ release-discipline: $RD"
+            FAILED=1
+          fi
+
+          for job in dr-lint dr-build; do
+            case "$job" in
+              dr-lint)  RESULT="${{ needs.dr-lint.result }}" ;;
+              dr-build) RESULT="${{ needs.dr-build.result }}" ;;
+            esac
+            if [ "$RESULT" != "success" ]; then
+              echo "❌ $job: $RESULT"
+              FAILED=1
+            else
+              echo "✅ $job: $RESULT"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
+  # ════════════════════════════════════════════════════════════════════
+  # Stage 4: 统一 summary (branch protection 的唯一 required check)
   # ════════════════════════════════════════════════════════════════════
   summary:
     name: CI Summary
-    needs: [detect, release-discipline, sa-test, sa-lint, sa-typecheck, sa-build, ph-typecheck, ph-test, ph-lint, ph-build, dr-lint, dr-build]
+    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -473,63 +576,42 @@ jobs:
             echo "✅ release-discipline: $RD_RESULT"
           fi
 
-          # 检查 spec-autopilot jobs
+          # 检查 per-plugin summary
           SA="${{ needs.detect.outputs.run_sa }}"
           if [ "$SA" = "true" ]; then
-            for job in sa-test sa-lint sa-typecheck sa-build; do
-              case "$job" in
-                sa-test)      RESULT="${{ needs.sa-test.result }}" ;;
-                sa-lint)      RESULT="${{ needs.sa-lint.result }}" ;;
-                sa-typecheck) RESULT="${{ needs.sa-typecheck.result }}" ;;
-                sa-build)     RESULT="${{ needs.sa-build.result }}" ;;
-              esac
-              if [ "$RESULT" != "success" ]; then
-                echo "❌ $job: $RESULT"
-                FAILED=1
-              else
-                echo "✅ $job: $RESULT"
-              fi
-            done
+            SA_RESULT="${{ needs.sa-summary.result }}"
+            if [ "$SA_RESULT" != "success" ]; then
+              echo "❌ sa-summary: $SA_RESULT"
+              FAILED=1
+            else
+              echo "✅ sa-summary: $SA_RESULT"
+            fi
           else
             echo "⏭️  spec-autopilot: skipped (not affected)"
           fi
 
-          # 检查 parallel-harness jobs
           PH="${{ needs.detect.outputs.run_ph }}"
           if [ "$PH" = "true" ]; then
-            for job_label in ph-typecheck ph-test ph-lint ph-build; do
-              case "$job_label" in
-                ph-typecheck) RESULT="${{ needs.ph-typecheck.result }}" ;;
-                ph-test)      RESULT="${{ needs.ph-test.result }}" ;;
-                ph-lint)      RESULT="${{ needs.ph-lint.result }}" ;;
-                ph-build)     RESULT="${{ needs.ph-build.result }}" ;;
-              esac
-              if [ "$RESULT" != "success" ]; then
-                echo "❌ $job_label: $RESULT"
-                FAILED=1
-              else
-                echo "✅ $job_label: $RESULT"
-              fi
-            done
+            PH_RESULT="${{ needs.ph-summary.result }}"
+            if [ "$PH_RESULT" != "success" ]; then
+              echo "❌ ph-summary: $PH_RESULT"
+              FAILED=1
+            else
+              echo "✅ ph-summary: $PH_RESULT"
+            fi
           else
             echo "⏭️  parallel-harness: skipped (not affected)"
           fi
 
-          # 检查 daily-report jobs
           DR="${{ needs.detect.outputs.run_dr }}"
           if [ "$DR" = "true" ]; then
-            for job_label in dr-lint dr-build; do
-              case "$job_label" in
-                dr-lint)  RESULT="${{ needs.dr-lint.result }}" ;;
-                dr-build) RESULT="${{ needs.dr-build.result }}" ;;
-              esac
-              if [ "$RESULT" != "success" ]; then
-                echo "❌ $job_label: $RESULT"
-                FAILED=1
-              else
-                echo "✅ $job_label: $RESULT"
-              fi
-            done
+            DR_RESULT="${{ needs.dr-summary.result }}"
+            if [ "$DR_RESULT" != "success" ]; then
+              echo "❌ dr-summary: $DR_RESULT"
+              FAILED=1
+            else
+              echo "✅ dr-summary: $DR_RESULT"
+            fi
           else
             echo "⏭️  daily-report: skipped (not affected)"
           fi

@@ -11,7 +11,7 @@ RUFF_VERSION  := 0.15.7
 MYPY_VERSION  := 1.15.0
 
 .PHONY: hooks setup test build lint format typecheck smoke ci \
-        ph-test ph-typecheck ph-build ph-lint ph-setup \
+        ph-test ph-typecheck ph-build ph-build-only ph-lint ph-setup \
         dr-build dr-lint dr-ci \
         release release-dry \
         help
@@ -117,8 +117,11 @@ ph-test: ## Run parallel-harness test suite (unit + integration)
 	fi
 	@cd $(PH) && bun test
 
-ph-build: ## Build parallel-harness dist/ (typecheck → test → dist)
+ph-build-only: ## Build parallel-harness dist/ (dist only, no test/typecheck)
 	@bash $(PH)/tools/build-dist.sh
+
+ph-build: ## Build parallel-harness dist/ (full: typecheck → test → dist)
+	@bash $(PH)/tools/build-dist.sh --full
 
 ph-lint: ## Lint parallel-harness build script (shellcheck)
 	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \

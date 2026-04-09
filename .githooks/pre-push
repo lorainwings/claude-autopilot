@@ -12,11 +12,37 @@ if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
   exit 0
 fi
 
-# ── 1. dist 内容一致性 (源码 vs dist 工作树) ──
+# ── 1. dist 内容一致性 (对比已提交状态，排除工作树 WIP 干扰) ──
 echo "🔍 Pre-push: checking dist freshness..."
+
+# Stash 所有非 HEAD 改动 (unstaged + staged + untracked)，确保 freshness check 只看 HEAD
+_needs_stash=false
+if ! git diff --quiet 2>/dev/null \
+   || ! git diff --cached --quiet 2>/dev/null \
+   || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
+  _needs_stash=true
+  git stash push -q --include-untracked -m "pre-push-freshness-check" 2>/dev/null
+fi
+
+_freshness_ok=true
 if ! bash "$REPO_ROOT/scripts/check-dist-freshness.sh" all; then
+  _freshness_ok=false
+fi
+
+# 恢复 WIP
+if [ "$_needs_stash" = "true" ]; then
+  git stash pop -q 2>/dev/null || true
+fi
+
+if [ "$_freshness_ok" = "false" ]; then
   echo ""
-  echo "❌ dist is stale. Run the appropriate 'make *-build' and commit before pushing."
+  echo "❌ dist is stale. Please rebuild and commit:"
+  echo "   make build && git add dist/spec-autopilot/"
+  echo "   make ph-build-only && git add dist/parallel-harness/"
+  echo "   make dr-build && git add dist/daily-report/"
+  echo "   git commit -m 'chore: rebuild dist'"
+  echo ""
+  echo "   Or rebuild all: make build ph-build-only dr-build && git add dist/ && git commit -m 'chore: rebuild dist'"
   exit 1
 fi
 

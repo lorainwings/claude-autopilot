@@ -174,139 +174,75 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   fi
 
   # ============================================
-  # Part 2.5: Rebuild spec-autopilot dist
+  # Part 2.5: spec-autopilot dist freshness 提示 (不自动重建)
   # ============================================
-  SA_DIST_REBUILT="yes"
-  echo "📦 Rebuilding dist/spec-autopilot/..."
-  if bash plugins/spec-autopilot/tools/build-dist.sh; then
-    git add dist/spec-autopilot/
-  else
-    echo "❌ dist build failed. Fix the build before committing."
-    exit 1
-  fi
+  echo "ℹ️  spec-autopilot 源码已修改，提交后请运行 'make build' 重建 dist/"
+  echo ""
 
   echo "✅ Documentation sync check passed"
   echo ""
 fi
 
 # ============================================
-# Part 2.7: spec-autopilot dist staleness guard
+# Part 2.7 / 3 / 3.5 / 3.6 / 3.7: 插件 staleness 检测 + PH lint
 # ============================================
-# 仅当 Part 2.5 未执行过 rebuild 时才检测（避免同一次 hook 重复 rebuild）
-# 使用统一脚本 scripts/check-dist-freshness.sh
-if [ "${SA_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/spec-autopilot" ] && [ -d "dist/spec-autopilot" ]; then
-  if ! bash scripts/check-dist-freshness.sh spec-autopilot 2>/dev/null; then
-    echo "📦 dist/spec-autopilot/ 与源码不一致（可能由 rebase 引起），自动重建..."
-    if bash plugins/spec-autopilot/tools/build-dist.sh; then
-      git add dist/spec-autopilot/
-      echo "✅ spec-autopilot dist 已同步"
-      echo ""
-    else
-      echo "❌ spec-autopilot dist build failed. Fix the build before committing."
-      exit 1
-    fi
-  fi
-fi
+# 先计算各插件实质性源码变更 (用 git diff --cached, 仅检查 index 内容)
 
-# ============================================
-# Part 3: parallel-harness dist rebuild
-# ============================================
 PH_CHANGED="no"
 if grep -q "plugins/parallel-harness/" <<< "$_CACHED_NAMES"; then
   PH_CHANGED="yes"
 fi
 
+PH_SUBSTANTIVE=""
 if [ "$PH_CHANGED" = "yes" ]; then
-  # Skip metadata-only changes (CHANGELOG, README, package.json version bump, etc.)
-  PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/parallel-harness/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
-
-  if [ -n "$PH_SUBSTANTIVE" ]; then
-    # lint build script (与 CI make ph-lint 对齐)
-    if command -v shellcheck >/dev/null 2>&1; then
-      echo "🔍 shellcheck parallel-harness build script..."
-      if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
-        echo "❌ parallel-harness shellcheck failed."
-        exit 1
-      fi
-    else
-      echo "❌ shellcheck not found. Install: brew install shellcheck"
-      exit 1
-    fi
-
-    echo "📦 Rebuilding dist/parallel-harness/..."
-    PH_DIST_REBUILT="yes"
-    if bash plugins/parallel-harness/tools/build-dist.sh; then
-      git add dist/parallel-harness/
-    else
-      echo "❌ parallel-harness dist build failed. Fix the build before committing."
-      exit 1
-    fi
-    echo "✅ parallel-harness dist rebuilt"
-    echo ""
-  fi
+  PH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^plugins/parallel-harness/' \
+    | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
 fi
 
-# ============================================
-# Part 3.5: parallel-harness dist staleness guard
-# ============================================
-# 仅当 Part 3 未执行过 rebuild 时才检测
-# 使用统一脚本 scripts/check-dist-freshness.sh
-if [ "${PH_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/parallel-harness" ] && [ -d "dist/parallel-harness" ]; then
-  if ! bash scripts/check-dist-freshness.sh parallel-harness 2>/dev/null; then
-    echo "📦 dist/parallel-harness/ 与源码不一致（可能由 rebase 引起），自动重建..."
-    if bash plugins/parallel-harness/tools/build-dist.sh; then
-      git add dist/parallel-harness/
-      echo "✅ parallel-harness dist 已同步"
-      echo ""
-    else
-      echo "❌ parallel-harness dist build failed. Fix the build before committing."
-      exit 1
-    fi
-  fi
-fi
-
-# ============================================
-# Part 3.6: daily-report dist rebuild
-# ============================================
 DR_CHANGED="no"
 if grep -q "plugins/daily-report/" <<< "$_CACHED_NAMES"; then
   DR_CHANGED="yes"
 fi
 
+DR_SUBSTANTIVE=""
 if [ "$DR_CHANGED" = "yes" ]; then
-  # Skip metadata-only changes
   DR_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/daily-report/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
-
-  if [ -n "$DR_SUBSTANTIVE" ]; then
-    echo "📦 Rebuilding dist/daily-report/..."
-    DR_DIST_REBUILT="yes"
-    if bash plugins/daily-report/tools/build-dist.sh; then
-      git add dist/daily-report/
-    else
-      echo "❌ daily-report dist build failed. Fix the build before committing."
-      exit 1
-    fi
-    echo "✅ daily-report dist rebuilt"
-    echo ""
-  fi
 fi
 
-# ============================================
-# Part 3.7: daily-report dist staleness guard
-# ============================================
-# 使用统一脚本 scripts/check-dist-freshness.sh
-if [ "${DR_DIST_REBUILT:-}" != "yes" ] && [ -d "plugins/daily-report" ] && [ -d "dist/daily-report" ]; then
-  if ! bash scripts/check-dist-freshness.sh daily-report 2>/dev/null; then
-    echo "📦 dist/daily-report/ 与源码不一致（可能由 rebase 引起），自动重建..."
-    if bash plugins/daily-report/tools/build-dist.sh; then
-      git add dist/daily-report/
-      echo "✅ daily-report dist 已同步"
-      echo ""
-    else
-      echo "❌ daily-report dist build failed. Fix the build before committing."
+# ── PH lint (需要工作树文件) ──
+if [ -n "$PH_SUBSTANTIVE" ]; then
+  if command -v shellcheck >/dev/null 2>&1; then
+    echo "🔍 shellcheck parallel-harness build script..."
+    if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
+      echo "❌ parallel-harness shellcheck failed."
       exit 1
     fi
+  else
+    echo "❌ shellcheck not found. Install: brew install shellcheck"
+    exit 1
   fi
+
+  echo "ℹ️  parallel-harness 源码已修改，提交后请运行 'make ph-build' 重建 dist/"
+  echo ""
+fi
+
+if [ -n "$DR_SUBSTANTIVE" ]; then
+  echo "ℹ️  daily-report 源码已修改，提交后请运行 'make dr-build' 重建 dist/"
+  echo ""
+fi
+
+# ── Stale guards: 使用 --staged 模式比较 index 内容，不受工作树 WIP 干扰 ──
+if [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; then
+  bash scripts/check-dist-freshness.sh spec-autopilot --staged --warn-only
+fi
+
+if [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; then
+  bash scripts/check-dist-freshness.sh parallel-harness --staged --warn-only
+fi
+
+if [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; then
+  bash scripts/check-dist-freshness.sh daily-report --staged --warn-only
 fi
 
 # ============================================

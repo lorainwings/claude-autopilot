@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # parallel-harness 构建脚本
-# 用途：类型检查 → 运行测试 → 生成 dist 产物 → 更新 BUILD_MANIFEST
+# 用途：生成 dist 产物。测试和类型检查由 CI / Makefile 独立保证。
+# 选项：--full  在构建前执行 typecheck + test（开发者本地验证用）
 set -euo pipefail
 
 PLUGIN_NAME="parallel-harness"
@@ -15,43 +16,38 @@ while IFS= read -r git_var; do
   unset "$git_var"
 done < <(git rev-parse --local-env-vars)
 
+FULL_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    --full) FULL_MODE=true ;;
+  esac
+done
+
 echo "=== parallel-harness 构建流程 ==="
 echo "插件目录: $PLUGIN_DIR"
 echo "dist 目标: $DIST_DIR"
 echo ""
 
 # 1. 安装依赖
-echo "--- 步骤 1/5: 安装依赖 ---"
+echo "--- 步骤 1/3: 安装依赖 ---"
 bun install --frozen-lockfile 2>/dev/null || bun install
 echo "依赖安装完成"
 
-# 2. 类型检查
-echo ""
-echo "--- 步骤 2/5: TypeScript 类型检查 ---"
-bunx tsc --noEmit
-echo "类型检查通过"
+if [ "$FULL_MODE" = "true" ]; then
+  echo ""
+  echo "--- [full] TypeScript 类型检查 ---"
+  bunx tsc --noEmit
+  echo "类型检查通过"
 
-# 3. 运行测试
-echo ""
-echo "--- 步骤 3/5: 运行测试 ---"
-# 集成测试稳定落在 5s 以上，构建路径需要显式放宽超时，避免 hook 与本地验证结果不一致。
-TEST_OUTPUT=$(bun test --timeout 15000 2>&1) || true
-echo "$TEST_OUTPUT" | tail -5
-
-# 提取测试计数
-PASS_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ pass' | grep -oE '[0-9]+' | head -1 || echo "0")
-FAIL_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ fail' | grep -oE '[0-9]+' | head -1 || echo "0")
-EXPECT_COUNT=$(echo "$TEST_OUTPUT" | grep -oE '[0-9]+ expect' | grep -oE '[0-9]+' | head -1 || echo "0")
-
-if [ "${FAIL_COUNT:-0}" != "0" ]; then
-  echo "ERROR: ${FAIL_COUNT} 个测试失败，终止构建"
-  exit 1
+  echo ""
+  echo "--- [full] 运行测试 ---"
+  bun test --timeout 15000
+  echo "测试通过"
 fi
-echo "测试全部通过: ${PASS_COUNT} pass / ${EXPECT_COUNT} expect()"
 
-# 4. 构建 dist（输出到仓库级 dist/parallel-harness/，与 dist/spec-autopilot/ 结构对齐）
+# 2. 构建 dist（输出到仓库级 dist/parallel-harness/，与 dist/spec-autopilot/ 结构对齐）
 echo ""
-echo "--- 步骤 4/5: 构建 dist 产物 → $DIST_DIR ---"
+echo "--- 步骤 2/3: 构建 dist 产物 → $DIST_DIR ---"
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 
@@ -76,13 +72,12 @@ for forbidden in node_modules tests tools bun.lock "*.tsbuildinfo"; do
   fi
 done
 
-SRC_SIZE=$(du -sh "$PLUGIN_DIR" 2>/dev/null | cut -f1)
 DIST_SIZE=$(du -sh "$DIST_DIR" 2>/dev/null | cut -f1)
-echo "dist built: $DIST_SIZE (source: $SRC_SIZE)"
+echo "dist built: $DIST_SIZE"
 
-# 5. 更新 BUILD_MANIFEST（写到插件目录，被 .gitignore 忽略）
+# 3. 更新 BUILD_MANIFEST（写到插件目录，被 .gitignore 忽略）
 echo ""
-echo "--- 步骤 5/5: 更新 BUILD_MANIFEST ---"
+echo "--- 步骤 3/3: 更新 BUILD_MANIFEST ---"
 VERSION=$(grep '"version"' package.json | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 SCHEMA_VERSION=$(grep 'SCHEMA_VERSION' runtime/schemas/ga-schemas.ts | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' 2>/dev/null | head -1 || echo "1.0.0")
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -99,9 +94,6 @@ cat > BUILD_MANIFEST.json << EOFMANIFEST
   "built_at": "${BUILT_AT}",
   "git_branch": "${GIT_BRANCH}",
   "git_commit": "${GIT_COMMIT}",
-  "test_count": ${PASS_COUNT},
-  "test_failures": ${FAIL_COUNT},
-  "expect_count": ${EXPECT_COUNT},
   "modules": [
 ${MODULES}
   ]
@@ -112,6 +104,5 @@ echo "BUILD_MANIFEST.json 已更新（本地，不跟踪）"
 echo ""
 echo "=== 构建完成 ==="
 echo "  版本: ${VERSION}"
-echo "  测试: ${PASS_COUNT} pass / ${FAIL_COUNT} fail / ${EXPECT_COUNT} expect()"
 echo "  Git:  ${GIT_BRANCH}@${GIT_COMMIT}"
 echo "  dist: $DIST_DIR"
