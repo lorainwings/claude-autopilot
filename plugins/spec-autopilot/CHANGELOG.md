@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.6...spec-autopilot-v5.4.0) (2026-04-09)
+
+
+### Added
+
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/lorainwings/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/lorainwings/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
+
 ## [5.3.6](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.5...spec-autopilot-v5.3.6) (2026-04-09)
 
 
