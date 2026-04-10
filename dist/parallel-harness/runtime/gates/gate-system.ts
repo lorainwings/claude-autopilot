@@ -93,7 +93,7 @@ export const DEFAULT_GATE_CONTRACTS: GateContract[] = [
   {
     type: "security",
     blocking: true,
-    levels: ["run", "pr"],
+    levels: ["task", "run", "pr"],
     thresholds: { max_errors: 0, max_criticals: 0, min_pass_rate: 1.0, custom: {} },
   },
   {
@@ -1005,11 +1005,16 @@ export class GateSystem {
    * 检查是否有任何阻断性 gate 失败。
    * 结合 gate classification: signal gate 即使标记为 blocking 也不阻断，只有 hard gate 失败才阻断。
    */
-  hasBlockingFailure(results: GateResult[]): boolean {
+  hasBlockingFailure(
+    results: GateResult[],
+    protocolOverrides?: Array<{ gate: string; blocking: boolean }>
+  ): boolean {
     return results.some((r) => {
-      if (!r.blocking || r.passed) return false;
-      const classification = classifyGate(r.gate_type);
-      // 只有 hard gate 失败才真正阻断
+      if (r.passed) return false;
+      const classification = classifyGate(r.gate_type, protocolOverrides);
+      // 协议覆盖时，用协议的 blocking 定义替代 GateResult.blocking
+      const effectiveBlocking = protocolOverrides?.find(o => o.gate === r.gate_type)?.blocking ?? r.blocking;
+      if (!effectiveBlocking) return false;
       return classification.is_hard_gate;
     });
   }
@@ -1017,7 +1022,10 @@ export class GateSystem {
   /**
    * 将 gate 结果按 hard/signal 分类，并提取阻断性失败。
    */
-  classifyResults(results: GateResult[]): {
+  classifyResults(
+    results: GateResult[],
+    protocolOverrides?: Array<{ gate: string; blocking: boolean }>
+  ): {
     hard_results: GateResult[];
     signal_results: GateResult[];
     blocking_failures: GateResult[];
@@ -1027,10 +1035,12 @@ export class GateSystem {
     const blocking_failures: GateResult[] = [];
 
     for (const r of results) {
-      const classification = classifyGate(r.gate_type);
+      const classification = classifyGate(r.gate_type, protocolOverrides);
       if (classification.is_hard_gate) {
         hard_results.push(r);
-        if (r.blocking && !r.passed) {
+        // 协议覆盖时，用协议的 blocking 定义替代 GateResult.blocking
+        const effectiveBlocking = protocolOverrides?.find(o => o.gate === r.gate_type)?.blocking ?? r.blocking;
+        if (effectiveBlocking && !r.passed) {
           blocking_failures.push(r);
         }
       } else {

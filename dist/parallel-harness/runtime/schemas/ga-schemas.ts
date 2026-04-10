@@ -849,7 +849,7 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
   prioritize_critical_path: true,
   budget_limit: 100000,
   max_model_tier: "tier-3",
-  enabled_gates: ["test", "lint_type", "review", "policy"],
+  enabled_gates: ["test", "lint_type", "review", "policy", "security"],
   auto_approve_rules: [],
   timeout_ms: 600000,
   pr_strategy: "single_pr",
