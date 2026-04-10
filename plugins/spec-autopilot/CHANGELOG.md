@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.0...spec-autopilot-v5.4.1) (2026-04-10)
+
+
+### Fixed
+
+* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/lorainwings/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/lorainwings/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
+
 ## [5.4.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.6...spec-autopilot-v5.4.0) (2026-04-09)
 
 
