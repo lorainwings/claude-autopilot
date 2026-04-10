@@ -17,8 +17,14 @@ export interface GateClassification {
  *
  * Hard gates: 拥有真实工程检测能力（运行 bun test、tsc --noEmit 等），失败会阻断。
  * Signal gates: 基于启发式或代理检测，失败只产生风险信号，不阻断。
+ *
+ * 当提供 protocolOverrides 时，协议定义的 blocking 属性会覆盖硬编码分类，
+ * 使 SKILL.md 成为 gate 阻断判定的权威来源。
  */
-export function classifyGate(gateType: string): GateClassification {
+export function classifyGate(
+  gateType: string,
+  protocolOverrides?: Array<{ gate: string; blocking: boolean }>
+): GateClassification {
   const hardGates: Record<string, string> = {
     test: "基于真实 bun test 执行",
     lint_type: "基于真实 tsc --noEmit / ruff check 执行",
@@ -33,6 +39,20 @@ export function classifyGate(gateType: string): GateClassification {
     perf: "基于 token 用量和执行时间阈值",
     release_readiness: "基于任务完成状态统计",
   };
+
+  // 协议覆盖：如果协议定义了该 gate 的 blocking 属性，以协议为准
+  const protocolSpec = protocolOverrides?.find(s => s.gate === gateType);
+  if (protocolSpec) {
+    const isHard = protocolSpec.blocking;
+    return {
+      gate_type: gateType,
+      strength: isHard ? "hard" : "signal",
+      is_hard_gate: isHard,
+      is_signal_gate: !isHard,
+      requires_evidence: true,
+      confidence_note: hardGates[gateType] || signalGates[gateType] || "协议定义",
+    };
+  }
 
   const isHard = gateType in hardGates;
   const isSignal = gateType in signalGates;
@@ -50,9 +70,14 @@ export function classifyGate(gateType: string): GateClassification {
 /**
  * 判断 gate 结果是否应该真正阻断（hard gate 失败才阻断）
  */
-export function shouldBlock(gateResult: GateResult): boolean {
-  const classification = classifyGate(gateResult.gate_type);
-  return classification.is_hard_gate && gateResult.blocking && !gateResult.passed;
+export function shouldBlock(
+  gateResult: GateResult,
+  protocolOverrides?: Array<{ gate: string; blocking: boolean }>
+): boolean {
+  const classification = classifyGate(gateResult.gate_type, protocolOverrides);
+  // 协议覆盖时，用协议的 blocking 定义替代 GateResult.blocking
+  const effectiveBlocking = protocolOverrides?.find(o => o.gate === gateResult.gate_type)?.blocking ?? gateResult.blocking;
+  return classification.is_hard_gate && effectiveBlocking && !gateResult.passed;
 }
 
 export interface EvidenceBundle {

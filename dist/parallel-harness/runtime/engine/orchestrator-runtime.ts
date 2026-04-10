@@ -436,6 +436,150 @@ export function inferTaskPhase(task: TaskNode): string {
 }
 
 // ============================================================
+// Protocol Extraction — 从 SKILL.md 协议中提取结构化约束
+// ============================================================
+
+/**
+ * 从协议文本中提取指定 section 的内容（## 标题匹配）
+ */
+export function extractProtocolSection(protocol: string, sectionName: string): string | undefined {
+  const lines = protocol.split("\n");
+  let startIdx = -1;
+  let endIdx = lines.length;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (startIdx === -1) {
+      if (line.startsWith("## ") && line.includes(sectionName)) {
+        startIdx = i + 1;
+      }
+    } else if (line.startsWith("## ")) {
+      endIdx = i;
+      break;
+    }
+  }
+  if (startIdx === -1) return undefined;
+  return lines.slice(startIdx, endIdx).join("\n").trim();
+}
+
+/**
+ * 从 harness-plan 协议中提取约束清单，用于 plan post-validation
+ */
+export function extractPlanConstraints(protocol: string): string[] {
+  const section = extractProtocolSection(protocol, "约束");
+  if (!section) return [];
+  return section
+    .split("\n")
+    .map(line => line.replace(/^-\s*/, "").trim())
+    .filter(Boolean);
+}
+
+/**
+ * 从 harness-verify 协议中提取门禁分级信息
+ */
+export function extractVerifyGateSpec(protocol: string): Array<{ gate: string; blocking: boolean }> {
+  const section = extractProtocolSection(protocol, "执行步骤");
+  if (!section) return [];
+  const specs: Array<{ gate: string; blocking: boolean }> = [];
+  // 匹配 "#### Gate N: gate_name [/ alias] (阻断/非阻断)"
+  // gate 名可含空格和斜杠（如 "policy / ownership"），取第一个单词作为 gate 标识
+  const gatePattern = /####\s+Gate\s+\d+:\s+(.+?)\s+\(([^)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = gatePattern.exec(section)) !== null) {
+    const gateName = m[1].split(/[\s/]/)[0].trim();
+    specs.push({ gate: gateName, blocking: m[2] === "阻断" });
+  }
+  return specs;
+}
+
+/**
+ * 为协议要求但未执行的 blocking gate 生成合成 FAIL GateResult。
+ * 保证 collectedGateResults / 报告 / 控制面能展示缺失 gate 的失败状态。
+ */
+export function createSyntheticGateResults(
+  missingGates: string[],
+  runId: string,
+  level: "task" | "run",
+  taskId?: string
+): import("../schemas/ga-schemas").GateResult[] {
+  return missingGates.map(gate => ({
+    schema_version: SCHEMA_VERSION,
+    gate_id: generateId("gate"),
+    gate_type: gate as any,
+    gate_level: level,
+    run_id: runId,
+    task_id: taskId,
+    passed: false,
+    blocking: true,
+    conclusion: {
+      summary: `协议必跑 blocking gate「${gate}」未在 enabled_gates 中启用`,
+      findings: [{
+        rule_id: "PROTOCOL-GATE-MISSING",
+        severity: "error" as const,
+        message: `协议 harness-verify 要求 gate「${gate}」为阻断性必跑项，但未在 enabled_gates 中配置`,
+        file_path: "skills/harness-verify/SKILL.md",
+      }],
+      risk: "high" as const,
+      required_actions: [`将「${gate}」添加到 RunConfig.enabled_gates`],
+      suggested_patches: [],
+    },
+    evaluated_at: new Date().toISOString(),
+  }));
+}
+
+/**
+ * plan post-validation: 对照协议约束清单校验 plan 产出
+ */
+export function validatePlanAgainstProtocol(
+  plan: RunPlan,
+  constraints: string[]
+): { passed: boolean; violations: string[]; checked: string[] } {
+  const violations: string[] = [];
+  const checked: string[] = [];
+
+  for (const constraint of constraints) {
+    if (constraint.includes("DAG 无环") || constraint.includes("DAG无环")) {
+      checked.push("dag_acyclic");
+      const scheduledIds = new Set(plan.schedule_plan.batches.flatMap(b => b.task_ids));
+      const allTaskIds = plan.task_graph.tasks.map(t => t.id);
+      const missing = allTaskIds.filter(id => !scheduledIds.has(id));
+      if (missing.length > 0) {
+        violations.push(`DAG 调度不完整，以下任务未被调度: ${missing.join(", ")}`);
+      }
+    }
+
+    if (constraint.includes("文件所有权冲突") && constraint.includes("解决")) {
+      checked.push("ownership_conflicts_resolved");
+      // 检查所有权冲突是否已解决：如果存在不可解决的冲突且没有审批请求
+      if (plan.ownership_plan.has_unresolvable_conflicts &&
+          !plan.pending_approvals.some(a => a.action === "execute_with_conflicts")) {
+        violations.push("存在不可解决的文件所有权冲突，但未生成审批请求");
+      }
+    }
+
+    if (constraint.includes("高风险") && constraint.includes("标记")) {
+      checked.push("high_risk_tagged");
+      const highRiskTasks = plan.task_graph.tasks.filter(t => t.risk_level === "high" || t.risk_level === "critical");
+      for (const hrt of highRiskTasks) {
+        const hasRouting = plan.routing_decisions.some(r => r.task_id === hrt.id);
+        if (!hasRouting) {
+          violations.push(`高风险任务 ${hrt.id} 未出现在路由决策中`);
+        }
+      }
+    }
+
+    if (constraint.includes("不可在规划阶段修改任何代码文件")) {
+      checked.push("no_code_modification");
+      // planPhase 是纯计算不执行 worker，此约束由设计保证，但仍需记录已检查
+    }
+
+    // 注意：歧义项 > 2 的约束由 executeRun 的 Phase 1b 处理（走 blocked 可恢复语义），
+    // 不在此处校验，避免将可恢复阻断降级为 failed
+  }
+
+  return { passed: violations.length === 0, violations, checked };
+}
+
+// ============================================================
 // Orchestrator Runtime — 统一主入口
 // ============================================================
 
@@ -493,7 +637,7 @@ export class OrchestratorRuntime {
     const pluginRoot = resolve(moduleDir, "../..");
     const skillsDir = resolve(pluginRoot, "skills");
 
-    /** 从 SKILL.md 中提取协议摘要（去除 frontmatter，截断到合理长度） */
+    /** 从 SKILL.md 中提取完整协议内容（去除 frontmatter） */
     const loadProtocol = (skillId: string): string | undefined => {
       const filePath = resolve(skillsDir, skillId, "SKILL.md");
       if (!existsSync(filePath)) return undefined;
@@ -504,8 +648,7 @@ export class OrchestratorRuntime {
           const endIdx = content.indexOf("---", 3);
           if (endIdx > 0) content = content.slice(endIdx + 3).trim();
         }
-        // 截断到合理长度避免 prompt 膨胀（保留前 800 字符作为协议摘要）
-        return content.length > 800 ? content.slice(0, 800) + "\n..." : content;
+        return content;
       } catch {
         return undefined;
       }
@@ -787,7 +930,9 @@ export class OrchestratorRuntime {
       });
 
       if (!mergeGuardResult.allowed) {
-        transitionRunStatus(execution, "blocked", `MergeGuard 阻断: ${mergeGuardResult.blocking_reasons.join("; ")}`);
+        if (isValidRunTransition(execution.status, "blocked")) {
+          transitionRunStatus(execution, "blocked", `MergeGuard 阻断: ${mergeGuardResult.blocking_reasons.join("; ")}`);
+        }
       }
 
       // Phase 5b-pre: P1-2 HiddenEvalRunner — 在终态判定之前执行，结果影响终态
@@ -822,13 +967,13 @@ export class OrchestratorRuntime {
       } catch { /* hidden eval 非关键路径 */ }
 
       // Phase 5b: 终态判定（在 MergeGuard + HiddenEval 之后）
-      const finalStatus = this.determineFinalStatus(execution, plan);
+      // hiddenEvalBlocked 参与终态判定，而非事后覆盖（succeeded -> blocked 是非法迁移）
+      const finalStatus = hiddenEvalBlocked
+        ? "blocked" as RunStatus
+        : this.determineFinalStatus(execution, plan);
       if (execution.status !== finalStatus) {
-        transitionRunStatus(execution, finalStatus, "执行完成");
-      }
-      // hidden eval block 降级终态
-      if (hiddenEvalBlocked && execution.status === "succeeded") {
-        transitionRunStatus(execution, "blocked", "HiddenEval 阻断: 隐藏评估未通过");
+        transitionRunStatus(execution, finalStatus,
+          hiddenEvalBlocked ? "HiddenEval 阻断: 隐藏评估未通过" : "执行完成");
       }
 
       // Phase 5c: 使用执行时真实收集的 attestation（不再 finalize 重建）
@@ -1168,7 +1313,7 @@ export class OrchestratorRuntime {
       });
     }
 
-    return {
+    const plan: RunPlan = {
       schema_version: SCHEMA_VERSION,
       plan_id: generateId("plan"),
       run_id: ctx.run_id,
@@ -1182,6 +1327,31 @@ export class OrchestratorRuntime {
       stage_contracts: buildStageContracts(grounding, taskGraph.tasks),
       planned_at: new Date().toISOString(),
     };
+
+    // 协议消费: 从 harness-plan 协议提取约束，对 plan 产出做 post-validation
+    if (this.skillRegistry) {
+      const planManifest = this.skillRegistry.get("harness-plan");
+      if (planManifest?.protocol_content) {
+        const constraints = extractPlanConstraints(planManifest.protocol_content);
+        const validation = validatePlanAgainstProtocol(plan, constraints);
+        emitAudit(ctx, "run_planned", {
+          phase: "protocol_validation",
+          skill_id: "harness-plan",
+          constraints_checked: validation.checked,
+          passed: validation.passed,
+          violations: validation.violations,
+        });
+
+        // fail-closed: 协议约束校验失败时阻断规划
+        if (!validation.passed) {
+          throw new Error(
+            `规划协议约束校验失败: ${validation.violations.join("; ")}`
+          );
+        }
+      }
+    }
+
+    return plan;
   }
 
   private async executePhase(
@@ -1657,6 +1827,46 @@ export class OrchestratorRuntime {
           continue;
         }
 
+        // 协议 fail-closed: task-level 必跑 blocking gate 缺失检查（在 merge 之前）
+        if (this.skillRegistry && ctx.config.enabled_gates.length > 0) {
+          const verifyManifest = this.skillRegistry.get("harness-verify");
+          if (verifyManifest?.protocol_content) {
+            const taskProtocolSpecs = extractVerifyGateSpec(verifyManifest.protocol_content);
+            const executedTaskGateTypes = new Set(gateResults.map(g => g.gate_type));
+            // 只检查同时支持 task 级的协议必选 blocking gate
+            const taskLevelContracts = this.gateSystem.getContracts();
+            const missingTaskGates = taskProtocolSpecs
+              .filter(s => s.blocking
+                && !executedTaskGateTypes.has(s.gate as any)
+                && taskLevelContracts.some((c: any) => c.type === s.gate && c.levels.includes("task")))
+              .map(s => s.gate);
+            if (missingTaskGates.length > 0) {
+              // 生成合成 FAIL GateResult，保证报告和控制面能展示缺失 gate
+              const syntheticResults = createSyntheticGateResults(
+                missingTaskGates, ctx.run_id, "task", task.id
+              );
+              ctx.collectedGateResults.push(...syntheticResults);
+
+              emitAudit(ctx, "gate_blocked", {
+                phase: "task_protocol_coverage",
+                missing_blocking_gates: missingTaskGates,
+              }, task.id, attempt.attempt_id);
+
+              transitionAttemptStatus(attempt, "failed", `协议必跑 blocking gate 未执行: ${missingTaskGates.join(", ")}`);
+              // 配置错误不可重试：用 unsupported_capability (retry:false) 避免空转重试
+              attempt.failure_class = "unsupported_capability";
+              attempt.failure_detail = `enabled_gates 缺少协议要求的: ${missingTaskGates.join(", ")}`;
+              lastFailureClass = attempt.failure_class;
+              ctx.project.root_path = originalRootPath;
+              if (proxyPrep.worktree_path) {
+                proxy.cleanupWorktree(originalRootPath, proxyPrep.worktree_path, proxyPrep.worktree_branch);
+              }
+              // 配置错误不可重试 — throw 后由 catch 统一调用 markSkillFailed
+              throw new Error(`协议必跑 gate 缺失（配置错误，不可重试）: ${missingTaskGates.join(", ")}`);
+            }
+          }
+        }
+
         // P0-4: worktree 合并必须在 attempt 标为 succeeded 之前执行
         // 此时 attempt 仍在 post_check 态，迁移到 failed 合法
         ctx.project.root_path = originalRootPath;
@@ -1764,6 +1974,11 @@ export class OrchestratorRuntime {
           ...(execution.completed_attempts[task.id] || []), attempt
         ];
         markSkillFailed(`执行异常: ${attempt.failure_detail}`);
+        // 不可重试的失败类型直接退出重试循环
+        const failureAction = FAILURE_ACTION_MAP[attempt.failure_class as FailureClass];
+        if (failureAction && !failureAction.retry) {
+          break;
+        }
         // 模型升级由下一次循环顶部的动态路由自动处理
       }
     }
@@ -1805,30 +2020,87 @@ export class OrchestratorRuntime {
       exit_code: 0,
     } : undefined;
 
+    // 协议消费: 从 harness-verify 协议提取门禁分级规范
+    let protocolGateSpecs: Array<{ gate: string; blocking: boolean }> = [];
+    if (this.skillRegistry) {
+      const verifyManifest = this.skillRegistry.get("harness-verify");
+      if (verifyManifest?.protocol_content) {
+        protocolGateSpecs = extractVerifyGateSpec(verifyManifest.protocol_content);
+        const verifyConstraints = extractProtocolSection(verifyManifest.protocol_content, "约束");
+        emitAudit(ctx, "run_planned", {
+          phase: "verify_protocol_loaded",
+          skill_id: "harness-verify",
+          gate_spec_count: protocolGateSpecs.length,
+          gate_specs: protocolGateSpecs.map(g => `${g.gate}:${g.blocking ? "blocking" : "signal"}`),
+          has_constraints: !!verifyConstraints,
+        });
+      }
+    }
+
     const runGates = await this.gateSystem.evaluate(
       { ctx, plan, level: "run", workerOutput: aggregatedWorkerOutput },
       ctx.config.enabled_gates
     );
 
-    // 收集 run-level gate 结果
+    // 协议覆盖写回: 将协议的 blocking 定义写回 GateResult，保证报告和控制面一致
+    if (protocolGateSpecs.length > 0) {
+      for (const gate of runGates) {
+        const spec = protocolGateSpecs.find(s => s.gate === gate.gate_type);
+        if (spec) {
+          gate.blocking = spec.blocking;
+        }
+      }
+    }
+
+    // 收集 run-level gate 结果（已包含协议覆盖后的 blocking 值）
     ctx.collectedGateResults.push(...runGates);
 
-    // 使用 classification 路径判定阻断
-    if (this.gateSystem.hasBlockingFailure(runGates)) {
-      const classified = this.gateSystem.classifyResults(runGates);
+    // 使用协议驱动的 classification 判定阻断（协议定义的 blocking 覆盖硬编码分类）
+    if (this.gateSystem.hasBlockingFailure(runGates, protocolGateSpecs.length > 0 ? protocolGateSpecs : undefined)) {
+      const classified = this.gateSystem.classifyResults(runGates, protocolGateSpecs.length > 0 ? protocolGateSpecs : undefined);
       transitionRunStatus(execution, "blocked",
         `Hard gate 阻断: ${classified.blocking_failures.map(g => g.gate_type).join(", ")}`);
       for (const g of classified.blocking_failures) {
-        emitAudit(ctx, "gate_blocked", { gate_type: g.gate_type, level: "run", strength: "hard" });
+        const strength = classifyGate(g.gate_type, protocolGateSpecs.length > 0 ? protocolGateSpecs : undefined).strength;
+        emitAudit(ctx, "gate_blocked", { gate_type: g.gate_type, level: "run", strength });
       }
       return;
     }
 
-    // 审计全部结果（含 signal 警告）
+    // 审计全部结果（含 signal 警告），使用协议驱动的分级
     for (const gate of runGates) {
-      const strength = classifyGate(gate.gate_type).strength;
-      emitAudit(ctx, gate.passed ? "gate_passed" : "gate_blocked",
-        { gate_type: gate.gate_type, level: "run", strength, signal_only: strength === "signal" });
+      const strength = classifyGate(gate.gate_type, protocolGateSpecs.length > 0 ? protocolGateSpecs : undefined).strength;
+      emitAudit(ctx, gate.passed ? "gate_passed" : "gate_blocked", {
+        gate_type: gate.gate_type,
+        level: "run",
+        strength,
+        signal_only: strength === "signal",
+      });
+    }
+
+    // 协议强制: 当 enabled_gates 非空时，协议要求的阻断性门禁必须全部包含
+    // 如果 enabled_gates 为空（显式关闭所有 gate），跳过此检查（视为有意覆盖）
+    if (protocolGateSpecs.length > 0 && ctx.config.enabled_gates.length > 0) {
+      const executedGateTypes = new Set(runGates.map(g => g.gate_type));
+      const missingBlockingGates = protocolGateSpecs
+        .filter(s => s.blocking && !executedGateTypes.has(s.gate as any))
+        .map(s => s.gate);
+      if (missingBlockingGates.length > 0) {
+        // 生成合成 FAIL GateResult，保证报告和控制面展示缺失 gate
+        const syntheticResults = createSyntheticGateResults(
+          missingBlockingGates, ctx.run_id, "run"
+        );
+        ctx.collectedGateResults.push(...syntheticResults);
+
+        emitAudit(ctx, "gate_blocked", {
+          phase: "verify_protocol_coverage",
+          missing_blocking_gates: missingBlockingGates,
+        });
+        if (isValidRunTransition(execution.status, "blocked")) {
+          transitionRunStatus(execution, "blocked",
+            `协议要求的阻断性门禁未执行: ${missingBlockingGates.join(", ")}（需在 enabled_gates 中启用）`);
+        }
+      }
     }
   }
 
