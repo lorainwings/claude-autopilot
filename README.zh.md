@@ -12,7 +12,7 @@
 | 插件 | 版本 | 说明 |
 |------|------|------|
 | [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.4.1 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
-| [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.5.1 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
+| [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.5.2 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.2.8 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 
 ## 快速安装

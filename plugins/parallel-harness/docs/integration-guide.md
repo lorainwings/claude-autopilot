@@ -2,7 +2,7 @@
 
 # parallel-harness Integration Guide
 
-> Version: v1.5.1 (GA) | Last Updated: 2026-04-09
+> Version: v1.5.2 (GA) | Last Updated: 2026-04-09
 
 ## Overview
 
