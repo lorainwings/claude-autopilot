@@ -920,6 +920,25 @@ describe("verify 协议主链 — gate 实际执行", () => {
     if (reviewGateViews.length > 0) {
       expect(reviewGateViews[0].blocking).toBe(false);
     }
+
+    // detail.gate_results 应包含协议缺失 gate 的 synthetic fail 行
+    const syntheticFails = detail!.gate_results.filter(
+      (g: any) => !g.passed && g.summary?.includes("协议必跑")
+    );
+    expect(syntheticFails.length).toBeGreaterThan(0);
+
+    // detail.timeline 中 skill_failed 每个 attempt 最多出现一次
+    const skillFailedInTimeline = detail!.timeline.filter(
+      (t: any) => t.type === "skill_failed"
+    );
+    const failedByMsg = new Map<string, number>();
+    for (const t of skillFailedInTimeline) {
+      const key = t.message || "unknown";
+      failedByMsg.set(key, (failedByMsg.get(key) || 0) + 1);
+    }
+    for (const [, count] of failedByMsg) {
+      expect(count).toBeLessThanOrEqual(1);
+    }
   }, INTEGRATION_TIMEOUT_MS);
 
   it("DEFAULT_RUN_CONFIG.enabled_gates 包含 security", () => {
