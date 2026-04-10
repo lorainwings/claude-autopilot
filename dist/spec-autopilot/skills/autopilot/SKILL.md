@@ -136,7 +136,7 @@ Phase 0 完成后获得：version、mode、session_id、ANCHOR_SHA、config、re
 Phase 1 完成后获得：requirement_packet、change_name、complexity、decisions。
 
 > Phase 1 在主线程中执行，Skill 调用直接注入当前上下文。**v5.5 跳过规则**: 当 `recovery_phase > 1` 时跳过。
-> Phase 1 结束时发射 `phase_end 1` 事件，payload 包含 `requirement_packet_hash`（v6.0 H-1 补全）。
+> Phase 1 结束时发射 `phase_end 1` 事件，payload 包含 `requirement_packet_hash`（v6.0 H-1 补全）、`clarity_score`、`discussion_rounds`、`challenge_agents_activated`（v7.1 清晰度系统）。
 
 Phase 1 关键约束摘要（详见 autopilot-phase1 Skill）：
 

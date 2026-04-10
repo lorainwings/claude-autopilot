@@ -149,6 +149,8 @@ export interface OrchestrationOverview {
   discussionRounds: number | null;
   /** v7.1: 激活的挑战代理 */
   challengeAgentsActivated: string[];
+  /** v7.1: 标记 phase_end 事件是否已提供清晰度指标（区分"未赋值"和"显式 null/[]"） */
+  _phase1ClarityFromEvent: boolean;
   /** compact 风险等级 */
   contextBudget: { percent: number; risk: "low" | "medium" | "high" } | null;
   /** archive readiness */
@@ -446,6 +448,7 @@ const DEFAULT_ORCHESTRATION: OrchestrationOverview = {
   clarityScore: null,
   discussionRounds: null,
   challengeAgentsActivated: [],
+  _phase1ClarityFromEvent: false,
   contextBudget: null,
   archiveReadiness: null,
   recoverySource: null,
@@ -710,6 +713,17 @@ export const useStore = create<AppState>((set) => ({
           if (typeof p.requirement_packet_hash === "string") {
             orchestration.requirementPacketHash = p.requirement_packet_hash;
           }
+          // v7.1: 从 phase_end 事件直接提取清晰度系统指标
+          // 仅当 payload 包含 v7.1 字段键时才标记事件已提供——区分"旧协议无字段"和"新协议显式 null/[]"
+          const hasV71Fields = "clarity_score" in p || "discussion_rounds" in p || "challenge_agents_activated" in p;
+          if (hasV71Fields) {
+            orchestration._phase1ClarityFromEvent = true;
+            orchestration.clarityScore = typeof p.clarity_score === "number" ? p.clarity_score : null;
+            orchestration.discussionRounds = typeof p.discussion_rounds === "number" ? p.discussion_rounds : null;
+            orchestration.challengeAgentsActivated = Array.isArray(p.challenge_agents_activated)
+              ? p.challenge_agents_activated as string[]
+              : [];
+          }
         }
         if (event.type === "status_snapshot") {
           const p = event.payload as Record<string, unknown>;
@@ -866,10 +880,19 @@ export const useStore = create<AppState>((set) => ({
         orchestration.requirementPacketHash = meta.requirementPacketHash;
       }
 
-      // v7.1: Phase 1 清晰度评分 & 讨论轮数 & 挑战代理
-      orchestration.clarityScore = meta?.clarityScore ?? null;
-      orchestration.discussionRounds = meta?.discussionRounds ?? null;
-      orchestration.challengeAgentsActivated = meta?.challengeAgentsActivated ?? [];
+      // v7.1: Phase 1 清晰度评分 & 讨论轮数 & 挑战代理 — 仅当事件流尚未提供时用 meta fallback
+      // _phase1ClarityFromEvent 标志区分"初始未赋值"和"事件明确给了 null/[]"
+      if (!orchestration._phase1ClarityFromEvent) {
+        if (meta?.clarityScore != null) {
+          orchestration.clarityScore = meta.clarityScore;
+        }
+        if (meta?.discussionRounds != null) {
+          orchestration.discussionRounds = meta.discussionRounds;
+        }
+        if (meta?.challengeAgentsActivated && meta.challengeAgentsActivated.length > 0) {
+          orchestration.challengeAgentsActivated = meta.challengeAgentsActivated;
+        }
+      }
 
       // v7.0: 恢复状态 (工作包 G) — recoverySource 不再永远是 null
       if (meta.recoverySource && !orchestration.recoverySource) {
