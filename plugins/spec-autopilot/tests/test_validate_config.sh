@@ -290,6 +290,138 @@ YAML
 output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/floor_cov" 2>/dev/null)
 assert_contains "21j. hook_floors coverage > gate coverage" "$output" "min_change_coverage_pct"
 
+# 21k. research.agent="Explore" → HARD BLOCK (valid=false, enum_errors)
+# P1 fail-closed: Explore agents are read-only and cannot write research files
+mkdir -p "$XREF_TEST_DIR/explore_deprecated/.claude"
+cat > "$XREF_TEST_DIR/explore_deprecated/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+    research:
+      enabled: true
+      agent: "Explore"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/explore_deprecated" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21k. research.agent=Explore → valid=false (hard block)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21k. research.agent=Explore → expected valid=false, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "21k. error lists Explore in enum_errors" "$output" "Explore"
+assert_contains "21k. error field is research.agent" "$output" "research.agent"
+assert_contains "21k. error suggests general-purpose" "$output" "general-purpose"
+# Verify it's NOT in cross_ref_warnings (must be a hard error)
+enum_count=$(echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len([e for e in d.get('enum_errors',[]) if 'research.agent' in e]))" 2>/dev/null || echo "0")
+if [ "$enum_count" -ge "1" ]; then
+  green "  PASS: 21k. Explore error is in enum_errors (not soft warning)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21k. Explore error not found in enum_errors"
+  FAIL=$((FAIL + 1))
+fi
+
+# 21k2. case insensitive — lowercase "explore" also blocked
+mkdir -p "$XREF_TEST_DIR/explore_lowercase/.claude"
+cat > "$XREF_TEST_DIR/explore_lowercase/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+    research:
+      enabled: true
+      agent: "explore"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/explore_lowercase" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21k2. research.agent=explore (lowercase) → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21k2. lowercase explore → expected valid=false, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+
+# 21l. research.agent="general-purpose" → valid=true (happy path)
+mkdir -p "$XREF_TEST_DIR/explore_ok/.claude"
+cat > "$XREF_TEST_DIR/explore_ok/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "business-analyst"
+    research:
+      enabled: true
+      agent: "general-purpose"
+  testing:
+    agent: "qa-expert"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/explore_ok" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "True" ] || [ "$valid" = "true" ]; then
+  green "  PASS: 21l. research.agent=general-purpose → valid=true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21l. general-purpose → expected valid=true, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+# Verify no Explore-related error
+assert_not_contains "21l. general-purpose → no Explore error" "$output" "Explore"
+
 rm -rf "$XREF_TEST_DIR"
 
 teardown_autopilot_fixture

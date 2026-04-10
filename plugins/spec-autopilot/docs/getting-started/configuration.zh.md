@@ -52,7 +52,7 @@ services:
 | `auto_scan.enabled` | boolean | 否 | `true` | 启用项目结构自动扫描以生成引导文档 |
 | `auto_scan.max_depth` | number | 否 | `2` | 模块布局的目录树扫描深度 |
 | `research.enabled` | boolean | 否 | `true` | 在讨论前启用研究 Agent 进行技术可行性分析 |
-| `research.agent` | string | 否 | `"Explore"` | 研究用子 Agent 类型（Explore 快速且只读） |
+| `research.agent` | string | 否 | `"general-purpose"` | 研究用子 Agent 类型（general-purpose 可读写文件） |
 | `complexity_routing.enabled` | boolean | 否 | `true` | 启用自动复杂度评估和讨论深度路由 |
 | `complexity_routing.thresholds.small` | number | 否 | `2` | "小型"复杂度的最大文件数（快速确认模式） |
 | `complexity_routing.thresholds.medium` | number | 否 | `5` | "中型"复杂度的最大文件数（标准讨论） |

@@ -52,7 +52,7 @@ services:
 | `auto_scan.enabled` | boolean | No | `true` | Enable auto-scan of project structure to generate Steering Documents |
 | `auto_scan.max_depth` | number | No | `2` | Directory tree scan depth for module layout |
 | `research.enabled` | boolean | No | `true` | Enable research agent for technical feasibility analysis before discussion |
-| `research.agent` | string | No | `"Explore"` | Sub-agent type for research (Explore is fast and read-only) |
+| `research.agent` | string | No | `"general-purpose"` | Sub-agent type for research (general-purpose can read and write files) |
 | `complexity_routing.enabled` | boolean | No | `true` | Enable automatic complexity assessment and discussion depth routing |
 | `complexity_routing.thresholds.small` | number | No | `2` | Max files for "small" complexity (quick-confirm mode) |
 | `complexity_routing.thresholds.medium` | number | No | `5` | Max files for "medium" complexity (standard discussion) |

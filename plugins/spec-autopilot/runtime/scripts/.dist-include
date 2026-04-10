@@ -29,6 +29,7 @@ unified-write-edit-check.sh
 
 # ── Runtime scripts (called by skills / other runtime scripts) ──
 check-predecessor-for-subagent.sh
+check-tdd-mode.sh
 check-allure-install.sh
 check-security-tools-install.sh
 clean-phase-artifacts.sh

@@ -31,7 +31,24 @@ user-invocable: false
 
 检查 `.claude/autopilot.config.yaml` 是否存在：
 - **不存在** → 调用 Skill(`spec-autopilot:autopilot-setup`) 自动扫描项目并生成配置
-- **存在** → 直接读取并解析所有配置节，然后调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-config.sh` 验证 schema 完整性（valid=false 时展示 missing_keys 并提示修复）
+- **存在** → 直接读取并解析所有配置节，然后调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-config.sh` 验证 schema 完整性
+
+**校验结果处理（fail-closed）**：
+
+解析 JSON 输出，若 `valid === false`，**必须硬阻断流程**并展示所有非空错误类别：
+
+| 字段 | 含义 | 处理 |
+|------|------|------|
+| `missing_keys` | 缺少必需配置项 | 列出每项并提示补全 |
+| `type_errors` | 类型不匹配 | 列出每项并提示修正类型 |
+| `enum_errors` | 值不在允许范围（含 deprecated/forbidden 值） | 列出每项并**严格按错误信息中的建议值替换** |
+| `range_errors` | 数值范围越界 | 列出每项并提示调整范围 |
+| `model_routing_errors` | model_routing 配置错误 | 列出每项 |
+
+> **硬阻断语义**：`valid === false` 时**禁止**进入 Step 3，**禁止**以任何形式继续后续 Phase。必须通过 AskUserQuestion 要求用户修复配置（或允许用户手动编辑 `.claude/autopilot.config.yaml` 后重跑 `/autopilot`）。
+
+> **cross_ref_warnings 处理**：`cross_ref_warnings` 是信息性警告，不阻断流程。当列表非空时，展示给用户作为提醒，但允许继续。注意：部分历史提示（如 `research.agent="Explore"`）已提升为 `enum_errors` 硬错误，不再出现在 warnings 中。
+
 - **python3 可用性检查**: 执行 `Bash("command -v python3")`
   - 如果退出码 != 0 → 输出 `[FATAL] python3 is required for autopilot Hook constraint checking. Install: brew install python3 / apt install python3`，设置 `status: "blocked"`，终止流程
   - 如果可用 → 继续

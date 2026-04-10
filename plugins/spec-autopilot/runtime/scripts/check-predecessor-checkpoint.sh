@@ -202,11 +202,12 @@ last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
 EXEC_MODE=$(get_autopilot_mode "$CHANGES_DIR")
 
 # --- Lazy-load TDD mode (only when full mode needs it) ---
-# Avoids ~50ms python3 fork for lite/minimal modes that never use TDD.
+# Uses _common.sh get_tdd_mode() for lock-file-first consistency
+# with check-tdd-mode.sh (Phase 4 skip) and check-predecessor-for-subagent.sh.
 TDD_MODE=""
 _get_tdd_mode() {
   if [ -z "$TDD_MODE" ]; then
-    TDD_MODE=$(read_config_value "$PROJECT_ROOT" "phases.implementation.tdd_mode" "false")
+    TDD_MODE=$(get_tdd_mode "$PROJECT_ROOT")
   fi
   echo "$TDD_MODE"
 }

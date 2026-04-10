@@ -45,7 +45,7 @@
 
 1. Parse `$ARGUMENTS` (file path, text, or empty → ask user)
 2. **Auto-Scan**: Scan project structure → generate Steering Documents (project-context.md, existing-patterns.md, tech-constraints.md)
-3. **Research Agent**: Dispatch Explore agent → analyze related code, dependency compatibility, technical feasibility → research-findings.md
+3. **Research Agent**: Dispatch general-purpose agent → analyze related code, dependency compatibility, technical feasibility → research-findings.md
 4. **Complexity Routing**: Evaluate complexity based on research (small ≤2 files / medium 3-5 files / large 6+ files)
 5. Dispatch business-analyst sub-agent for analysis (injected with Steering + Research context)
 6. **Multi-round decision LOOP** until all points clarified (complexity affects loop depth)

@@ -428,6 +428,35 @@ except Exception:
   [ -n "$result" ] && echo "$result" || echo "$default_val"
 }
 
+# --- Unified TDD mode detection (single source of truth) ---
+# Usage: get_tdd_mode <project_root>
+# Returns: "true" or "false" on stdout
+# Strategy: lock file (.autopilot-active) priority → config fallback
+# All scripts (check-tdd-mode.sh, check-predecessor-checkpoint.sh,
+# check-predecessor-for-subagent.sh) MUST use this function to avoid
+# inconsistent TDD state between Phase 4 skip and Phase 5 predecessor gate.
+get_tdd_mode() {
+  local project_root="$1"
+  local tdd_mode="false"
+
+  # Priority 1: lock file tdd_mode (runtime state)
+  local lock_file="$project_root/openspec/changes/.autopilot-active"
+  if [ -f "$lock_file" ]; then
+    local lock_tdd
+    lock_tdd=$(read_lock_json_field "$lock_file" "tdd_mode" "")
+    case "$lock_tdd" in
+      true | True | TRUE) tdd_mode="true" ;;
+    esac
+  fi
+
+  # Priority 2: config file (only if lock file didn't have tdd_mode)
+  if [ "$tdd_mode" != "true" ]; then
+    tdd_mode=$(read_config_value "$project_root" "phases.implementation.tdd_mode" "false")
+  fi
+
+  echo "$tdd_mode"
+}
+
 # --- Get human-readable phase label ---
 # Usage: get_phase_label <phase_number>
 # Returns: label string on stdout
