@@ -117,11 +117,13 @@
 
 ### DAG 可视化
 
-```
-task_1 (分析)
-  ├── task_2 (拆分 string) ──── task_4 (测试 string)
-  ├── task_3 (拆分 array) ───── task_5 (测试 array)
-  └── task_6 (更新导入，依赖 task_2 + task_3)
+```mermaid
+graph TB
+    T1["task_1: 分析"] --> T2["task_2: 拆分 string"]
+    T1 --> T3["task_3: 拆分 array"]
+    T2 --> T4["task_4: 测试 string"]
+    T3 --> T5["task_5: 测试 array"]
+    T2 & T3 --> T6["task_6: 更新导入"]
 ```
 
 ---
@@ -207,14 +209,21 @@ task_1 (分析)
 
 ### 执行时间线
 
-```
-时间 ─────────────────────────────────────────▶
-
-批次 0:  [task_1: 分析 utils.ts]
-              │
-批次 1:  [task_2: 拆分 string] [task_3: 拆分 array]  ← 并行
-              │                        │
-批次 2:  [task_4: 测试]  [task_5: 测试]  [task_6: 更新导入]  ← 并行
+```mermaid
+graph TB
+    subgraph B0["批次 0"]
+        T1["task_1: 分析 utils.ts"]
+    end
+    subgraph B1["批次 1 (并行)"]
+        T2["task_2: 拆分 string"]
+        T3["task_3: 拆分 array"]
+    end
+    subgraph B2["批次 2 (并行)"]
+        T4["task_4: 测试"]
+        T5["task_5: 测试"]
+        T6["task_6: 更新导入"]
+    end
+    B0 --> B1 --> B2
 ```
 
 ### 模型路由决策
@@ -421,39 +430,21 @@ const requestId = manager.requestFeedback({
 
 ## 完整 Run 生命周期示例
 
-```
-1. 用户输入意图
-   └── RunStatus: pending
-
-2. Intent Analyzer 分析意图
-   └── Task Graph Builder 构建 DAG
-   └── Complexity Scorer 评分
-   └── Ownership Planner 分配所有权
-   └── Model Router 路由模型
-   └── RunStatus: planned
-
-3. 策略检查，发现需要审批
-   └── RunStatus: awaiting_approval
-   └── 管理员审批通过
-   └── RunStatus: scheduled
-
-4. Scheduler 生成批次
-   └── 批次 0 启动
-   └── RunStatus: running
-
-5. Worker 执行
-   └── 批次 0 完成 → 批次 1 启动 → 批次 2 启动
-   └── Merge Guard 检查每个 Worker 输出
-
-6. Gate System 评估
-   └── RunStatus: verifying
-   └── 所有 blocking gate 通过
-
-7. PR 创建
-   └── PR Summary 生成
-   └── Review 评论添加
-
-8. 完成
-   └── RunStatus: succeeded
-   └── 审计日志导出
+```mermaid
+graph TB
+    S1["1. 用户输入意图"] --> S1s["RunStatus: pending"]
+    S1s --> S2["2. Intent Analyzer → Task Graph Builder\n→ Complexity Scorer → Ownership Planner\n→ Model Router"]
+    S2 --> S2s["RunStatus: planned"]
+    S2s --> S3["3. 策略检查：需要审批"]
+    S3 --> S3a["RunStatus: awaiting_approval"]
+    S3a --> S3b["管理员审批通过"]
+    S3b --> S3s["RunStatus: scheduled"]
+    S3s --> S4["4. Scheduler 生成批次"]
+    S4 --> S4s["RunStatus: running"]
+    S4s --> S5["5. Worker 执行批次\nMerge Guard 检查输出"]
+    S5 --> S6["6. Gate System 评估"]
+    S6 --> S6s["RunStatus: verifying"]
+    S6s --> S7["7. PR 创建\nSummary + Review 评论"]
+    S7 --> S8["8. 完成"]
+    S8 --> S8s["RunStatus: succeeded\n审计日志导出"]
 ```

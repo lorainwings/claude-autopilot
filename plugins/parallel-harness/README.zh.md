@@ -72,11 +72,10 @@ bun install
 用户: /harness 将 utils.ts 中的所有 helper 函数拆分到独立模块
 ```
 
-主编排器会自动执行以下流程：
+`/harness` skill 会先调用 `runtime/scripts/execute-harness.ts`，再由 TypeScript runtime 作为真正的执行入口。进入 worker 阶段后，runtime 会在嵌套 Claude 会话里显式调用对应的 namespaced stage skill，例如：
 
-1. `/harness-plan` — 意图分析 + 任务图构建 + 所有权规划
-2. `/harness-dispatch` — 调度批次 + Worker 派发
-3. `/harness-verify` — 门禁验证 + 质量报告
+1. `/parallel-harness:harness-dispatch` — Worker 派发 / 所有权范围内实现
+2. `/parallel-harness:harness-verify` — 验证 / 门禁导向审查
 
 ### 2. 配置运行参数
 
@@ -146,13 +145,21 @@ graph TB
 ## 状态机
 
 **Run 状态机**:
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded/failed/blocked
+```mermaid
+graph TB
+    P[pending] --> PL[planned] --> AA[awaiting_approval] --> SC[scheduled] --> RN[running] --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
 ```
 
 **Task Attempt 状态机**:
-```
-pending → pre_check → executing → post_check → succeeded/failed/timed_out
+```mermaid
+graph TB
+    P[pending] --> PC[pre_check] --> EX[executing] --> PO[post_check]
+    PO --> OK[succeeded]
+    PO --> FL[failed]
+    PO --> TO[timed_out]
 ```
 
 ## 降级策略

@@ -43,11 +43,10 @@ Use the `/harness` command in Claude Code to start the main orchestration flow:
 User: /harness Split all helper functions in utils.ts into separate modules
 ```
 
-The orchestrator automatically executes:
+The `/harness` skill shells into `runtime/scripts/execute-harness.ts`, which then runs the TypeScript runtime as the source of truth. During worker execution, the runtime explicitly invokes the selected stage skill in nested Claude sessions using namespaced skill commands such as:
 
-1. `/harness-plan` — Intent analysis + task graph building + ownership planning
-2. `/harness-dispatch` — Batch scheduling + worker dispatch
-3. `/harness-verify` — Gate verification + quality report
+1. `/parallel-harness:harness-dispatch` — worker dispatch / owned-file implementation
+2. `/parallel-harness:harness-verify` — verification / gate-oriented review
 
 ## Architecture
 
@@ -105,13 +104,21 @@ graph LR
 ## State Machines
 
 **Run State Machine**:
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded/failed/blocked
+```mermaid
+graph TB
+    P[pending] --> PL[planned] --> AA[awaiting_approval] --> SC[scheduled] --> RN[running] --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
 ```
 
 **Task Attempt State Machine**:
-```
-pending → pre_check → executing → post_check → succeeded/failed/timed_out
+```mermaid
+graph TB
+    P[pending] --> PC[pre_check] --> EX[executing] --> PO[post_check]
+    PO --> OK[succeeded]
+    PO --> FL[failed]
+    PO --> TO[timed_out]
 ```
 
 ## Downgrade Strategies

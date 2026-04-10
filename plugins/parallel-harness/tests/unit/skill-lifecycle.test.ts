@@ -782,13 +782,15 @@ describe("inferTaskPhase", () => {
 });
 
 // ============================================================
-// Fix 3: LocalWorkerAdapter prompt 包含协议摘要
+// Fix 3: LocalWorkerAdapter 走真实 Claude skill 调用链
 // ============================================================
 
-describe("LocalWorkerAdapter skill protocol injection", () => {
-  it("contract 有 skill_protocol_summary 时注入到 prompt", () => {
-    // 通过直接测试 prompt 构建逻辑来验证
-    // LocalWorkerAdapter.execute 内部组 prompt 的逻辑
+describe("LocalWorkerAdapter Claude skill invocation", () => {
+  it("selected_skill_id 存在时，prompt 以 namespaced slash skill 开头", () => {
+    const {
+      buildWorkerPrompt,
+    } = require("../../runtime/workers/claude-skill-invocation");
+
     const contract = {
       task_id: "t1",
       goal: "实现功能",
@@ -801,62 +803,48 @@ describe("LocalWorkerAdapter skill protocol injection", () => {
       skill_protocol_summary: "[Skill: Harness Dispatch v1.0.0] 并行工程调度阶段协议模板。",
     };
 
-    // 模拟 LocalWorkerAdapter 的 prompt 构建
-    const promptParts = [
-      `任务: ${contract.goal}`,
-      `验收标准: ${contract.acceptance_criteria.join("; ")}`,
-      `允许修改的文件: ${contract.allowed_paths.join(", ")}`,
-      `禁止修改的文件: ${contract.forbidden_paths.join(", ")}`,
-    ];
-
-    // 关键断言：skill_protocol_summary 被注入
-    if (contract.skill_protocol_summary) {
-      promptParts.push(`\n## 协议约束\n${contract.skill_protocol_summary}`);
-    }
-
-    const prompt = promptParts.join("\n");
-    expect(prompt).toContain("## 协议约束");
-    expect(prompt).toContain("Harness Dispatch v1.0.0");
-    expect(prompt).toContain("调度阶段协议模板");
+    const prompt = buildWorkerPrompt(contract);
+    expect(prompt.startsWith("/parallel-harness:harness-dispatch\n")).toBe(true);
+    expect(prompt).not.toContain("## 协议约束");
   });
 
-  it("contract 无 skill_protocol_summary 时不注入", () => {
+  it("没有 selected_skill_id 时回退注入协议摘要", () => {
+    const {
+      buildWorkerPrompt,
+    } = require("../../runtime/workers/claude-skill-invocation");
+
     const contract = {
       goal: "实现功能",
       acceptance_criteria: ["通过测试"],
       allowed_paths: ["src/"],
       forbidden_paths: [],
       test_requirements: [],
+      context: { relevant_files: [], relevant_snippets: [] },
+      skill_protocol_summary: "[Skill: Harness Dispatch v1.0.0] 并行工程调度阶段协议模板。",
     } as any;
 
-    const promptParts = [
-      `任务: ${contract.goal}`,
-    ];
-
-    if (contract.skill_protocol_summary) {
-      promptParts.push(`\n## 协议约束\n${contract.skill_protocol_summary}`);
-    }
-
-    const prompt = promptParts.join("\n");
-    expect(prompt).not.toContain("协议约束");
+    const prompt = buildWorkerPrompt(contract);
+    expect(prompt).toContain("## 协议约束");
+    expect(prompt).toContain("Harness Dispatch v1.0.0");
   });
 
-  it("selected_skill_id 应注入环境变量", () => {
-    const contract = {
-      task_id: "t1",
-      selected_skill_id: "harness-plan",
-    } as any;
+  it("nested claude CLI 调用会携带 plugin-dir，确保 stage skill 可解析", () => {
+    const {
+      buildClaudeCliArgs,
+    } = require("../../runtime/workers/claude-skill-invocation");
 
-    // 验证环境变量构建逻辑
-    const env: Record<string, string> = {
-      PARALLEL_HARNESS_TASK_ID: contract.task_id,
-    };
+    const args = buildClaudeCliArgs({
+      prompt: "/parallel-harness:harness-dispatch\n任务: 实现功能",
+      pluginRoot: "/tmp/parallel-harness",
+      claudeBin: "claude",
+    });
 
-    if (contract.selected_skill_id) {
-      env.PARALLEL_HARNESS_SKILL_ID = contract.selected_skill_id;
-    }
-
-    expect(env.PARALLEL_HARNESS_SKILL_ID).toBe("harness-plan");
+    expect(args).toEqual([
+      "claude",
+      "--plugin-dir", "/tmp/parallel-harness",
+      "-p", "/parallel-harness:harness-dispatch\n任务: 实现功能",
+      "--output-format", "json",
+    ]);
   });
 });
 

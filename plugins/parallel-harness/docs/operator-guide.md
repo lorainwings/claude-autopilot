@@ -113,8 +113,12 @@ The complete lifecycle of a Run is managed by `RunStore`. Within a Claude Code s
 
 **Run State Machine**:
 
-```
-pending → planned → awaiting_approval → scheduled → running → verifying → succeeded/failed/blocked
+```mermaid
+graph TB
+    P[pending] --> PL[planned] --> AA[awaiting_approval] --> SC[scheduled] --> RN[running] --> VR[verifying]
+    VR --> OK[succeeded]
+    VR --> FL[failed]
+    VR --> BK[blocked]
 ```
 
 Each state transition is recorded in the `StatusTransition` list, which includes:

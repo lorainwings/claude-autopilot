@@ -21,6 +21,7 @@ import { classifyGate } from "../gates/gate-classification";
 import { ApprovalWorkflow } from "../governance/governance";
 import { WorkerExecutionController, type WorkerExecutionConfig } from "../workers/worker-runtime";
 import { ExecutionProxy, inspectMergeTargetCleanliness } from "../workers/execution-proxy";
+import { buildClaudeCliArgs, buildWorkerPrompt } from "../workers/claude-skill-invocation";
 import { SessionStore, RunStore, AuditTrail, FileStore } from "../persistence/session-persistence";
 import type { TaskGraph, TaskNode, ModelTier } from "../orchestrator/task-graph";
 import type { VerificationResult } from "../verifiers/verifier-result";
@@ -2755,38 +2756,16 @@ export class LocalWorkerAdapter implements WorkerAdapter {
   async execute(input: import("../orchestrator/role-contracts").WorkerInput): Promise<WorkerOutput> {
     const startTime = Date.now();
     const contract = input.contract;
-
-    // 构造 prompt：将结构化 task contract 转换为 claude CLI 可执行的指令
-    const promptParts = [
-      `任务: ${contract.goal}`,
-      `验收标准: ${contract.acceptance_criteria.join("; ")}`,
-      `允许修改的文件: ${contract.allowed_paths.join(", ")}`,
-      `禁止修改的文件: ${contract.forbidden_paths.join(", ")}`,
-      contract.test_requirements.length > 0
-        ? `测试要求: ${contract.test_requirements.join("; ")}`
-        : "",
-    ];
-
-    // 注入 Skill 协议约束（skill_protocol_summary 是 runtime 确定性注入的）
-    if (contract.skill_protocol_summary) {
-      promptParts.push(`\n## 协议约束\n${contract.skill_protocol_summary}`);
-    }
-
-    // 注入 ContextPack：相关文件和代码片段
-    if (contract.context?.relevant_files && contract.context.relevant_files.length > 0) {
-      promptParts.push(`\n相关文件:\n${contract.context.relevant_files.map((f) => `- ${f}`).join("\n")}`);
-    }
-    if (contract.context?.relevant_snippets && contract.context.relevant_snippets.length > 0) {
-      promptParts.push(`\n参考代码片段:\n${contract.context.relevant_snippets.map((s) => `--- ${s.file_path} ---\n${s.content}`).join("\n\n")}`);
-    }
-
-    promptParts.push(`执行完成后，请在输出中列出所有实际修改的文件路径（每行一个，以 "MODIFIED:" 为前缀）。`);
-
-    const prompt = promptParts.filter(Boolean).join("\n");
+    const prompt = buildWorkerPrompt(contract);
+    const claudeArgs = buildClaudeCliArgs({
+      prompt,
+      claudeBin: process.env.PARALLEL_HARNESS_CLAUDE_BIN,
+      pluginRoot: process.env.CLAUDE_PLUGIN_ROOT,
+    });
 
     try {
       const proc = Bun.spawn(
-        ["claude", "-p", prompt, "--output-format", "json"],
+        claudeArgs,
         {
           cwd: input.project_root || undefined,
           stdout: "pipe",
