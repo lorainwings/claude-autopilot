@@ -365,6 +365,148 @@ assert_file_contains "11a. snapshot schema title says v7.1" "$SNAPSHOT_SCHEMA" "
 # 11b. Schema JSON uses schema_version 7.1
 assert_file_contains "11b. schema_version is 7.1" "$SNAPSHOT_SCHEMA" '"7.1"'
 
+# 11c. Actual write script uses schema_version 7.1 (not 7.0)
+assert_file_contains "11c. save-state script schema_version is 7.1" "$SAVE_STATE" "'schema_version': '7.1'"
+
+# 11d. Actual write script markdown header says v7.1
+assert_file_contains "11d. save-state script markdown says v7.1" "$SAVE_STATE" "state-snapshot.json v7.1"
+
+# ================================================================
+# Part 12: Snapshot replay — event-source flag prevents stale meta from overwriting v7.1 values
+# ================================================================
+
+# 12a. OrchestrationOverview has _phase1ClarityFromEvent flag
+assert_file_contains "12a. store has _phase1ClarityFromEvent flag" "$STORE_TS" "_phase1ClarityFromEvent"
+
+# 12b. phase_end handler sets _phase1ClarityFromEvent = true
+assert_file_contains "12b. phase_end sets _phase1ClarityFromEvent = true" "$STORE_TS" "_phase1ClarityFromEvent = true"
+
+# 12c. meta fallback checks _phase1ClarityFromEvent flag (not value-based guard)
+assert_file_contains "12c. meta fallback checks _phase1ClarityFromEvent" "$STORE_TS" "!orchestration._phase1ClarityFromEvent"
+
+# 12d. Default _phase1ClarityFromEvent is false
+assert_file_contains "12d. default _phase1ClarityFromEvent is false" "$STORE_TS" "_phase1ClarityFromEvent: false"
+
+# 12e. Flag is only set when v7.1 fields are present in payload (key-existence check)
+assert_file_contains "12e. v7.1 flag uses key-existence check (\"in\" p)" "$STORE_TS" '"clarity_score" in p'
+
+# ================================================================
+# Part 13: Behavioral test — store merge order with explicit null/empty values
+# ================================================================
+
+echo ""
+echo "--- Part 13: Store merge order behavioral tests ---"
+
+STORE_BEHAVIORAL_RESULT=$(bun -e "
+import { useStore } from '$(cd "$TEST_DIR/.." && pwd)/gui/src/store/index.ts';
+
+const results: string[] = [];
+
+// Helper: reset store
+function reset() {
+  useStore.getState().reset();
+}
+
+// --- Case A: phase_end with values → null meta must NOT overwrite ---
+reset();
+useStore.getState().addEvents([{
+  type: 'phase_end', phase: 1, mode: 'full', timestamp: '2026-01-01T00:00:00Z',
+  change_name: 'test', session_id: 's1', phase_label: 'P1', total_phases: 7,
+  sequence: 1, payload: {
+    requirement_packet_hash: 'abc123',
+    clarity_score: 0.85,
+    discussion_rounds: 5,
+    challenge_agents_activated: ['contrarian', 'simplifier']
+  }
+}]);
+useStore.getState().initOrchestrationFromMeta({
+  clarityScore: null,
+  discussionRounds: null,
+  challengeAgentsActivated: []
+});
+const a = useStore.getState().orchestration;
+results.push(a.clarityScore === 0.85 ? 'A1:OK' : 'A1:FAIL=' + a.clarityScore);
+results.push(a.discussionRounds === 5 ? 'A2:OK' : 'A2:FAIL=' + a.discussionRounds);
+results.push(a.challengeAgentsActivated.length === 2 ? 'A3:OK' : 'A3:FAIL=' + JSON.stringify(a.challengeAgentsActivated));
+
+// --- Case B: phase_end with explicit null/[] → stale meta must NOT overwrite ---
+reset();
+useStore.getState().addEvents([{
+  type: 'phase_end', phase: 1, mode: 'full', timestamp: '2026-01-01T00:00:00Z',
+  change_name: 'test', session_id: 's1', phase_label: 'P1', total_phases: 7,
+  sequence: 2, payload: {
+    requirement_packet_hash: 'def456',
+    clarity_score: null,
+    discussion_rounds: null,
+    challenge_agents_activated: []
+  }
+}]);
+useStore.getState().initOrchestrationFromMeta({
+  clarityScore: 0.91,
+  discussionRounds: 6,
+  challengeAgentsActivated: ['contrarian']
+});
+const b = useStore.getState().orchestration;
+results.push(b.clarityScore === null ? 'B1:OK' : 'B1:FAIL=' + b.clarityScore);
+results.push(b.discussionRounds === null ? 'B2:OK' : 'B2:FAIL=' + b.discussionRounds);
+results.push(b.challengeAgentsActivated.length === 0 ? 'B3:OK' : 'B3:FAIL=' + JSON.stringify(b.challengeAgentsActivated));
+
+// --- Case C: no phase_end yet → meta SHOULD populate as fallback ---
+reset();
+useStore.getState().initOrchestrationFromMeta({
+  clarityScore: 0.75,
+  discussionRounds: 3,
+  challengeAgentsActivated: ['simplifier']
+});
+const c = useStore.getState().orchestration;
+results.push(c.clarityScore === 0.75 ? 'C1:OK' : 'C1:FAIL=' + c.clarityScore);
+results.push(c.discussionRounds === 3 ? 'C2:OK' : 'C2:FAIL=' + c.discussionRounds);
+results.push(c.challengeAgentsActivated.length === 1 ? 'C3:OK' : 'C3:FAIL=' + JSON.stringify(c.challengeAgentsActivated));
+
+// --- Case D: legacy phase_end (no v7.1 fields) → meta SHOULD fallback ---
+reset();
+useStore.getState().addEvents([{
+  type: 'phase_end', phase: 1, mode: 'full', timestamp: '2026-01-01T00:00:00Z',
+  change_name: 'test', session_id: 's1', phase_label: 'P1', total_phases: 7,
+  sequence: 4, payload: {
+    requirement_packet_hash: 'legacy-pkt'
+  }
+}]);
+useStore.getState().initOrchestrationFromMeta({
+  clarityScore: 0.91,
+  discussionRounds: 6,
+  challengeAgentsActivated: ['contrarian']
+});
+const d = useStore.getState().orchestration;
+results.push(d.clarityScore === 0.91 ? 'D1:OK' : 'D1:FAIL=' + d.clarityScore);
+results.push(d.discussionRounds === 6 ? 'D2:OK' : 'D2:FAIL=' + d.discussionRounds);
+results.push(d.challengeAgentsActivated.length === 1 && d.challengeAgentsActivated[0] === 'contrarian' ? 'D3:OK' : 'D3:FAIL=' + JSON.stringify(d.challengeAgentsActivated));
+results.push(d.requirementPacketHash === 'legacy-pkt' ? 'D4:OK' : 'D4:FAIL=' + d.requirementPacketHash);
+
+console.log(results.join(','));
+" 2>/dev/null)
+
+# Parse results
+IFS=',' read -ra CASES <<< "$STORE_BEHAVIORAL_RESULT"
+ALL_BEHAVIORAL_PASS=true
+for case_result in "${CASES[@]}"; do
+  CASE_ID="${case_result%%:*}"
+  CASE_STATUS="${case_result#*:}"
+  if [ "$CASE_STATUS" = "OK" ]; then
+    green "  PASS: 13-${CASE_ID}. store merge order"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 13-${CASE_ID}. store merge order (${CASE_STATUS})"
+    FAIL=$((FAIL + 1))
+    ALL_BEHAVIORAL_PASS=false
+  fi
+done
+
+if [ ${#CASES[@]} -eq 0 ]; then
+  red "  FAIL: 13. behavioral test produced no output (bun execution failed)"
+  FAIL=$((FAIL + 1))
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

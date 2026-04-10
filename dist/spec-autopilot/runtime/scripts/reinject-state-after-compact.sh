@@ -79,7 +79,7 @@ try:
 
     # 验证 schema_version（兼容 6.0 和 7.0）
     sv = data.get('schema_version', '')
-    if sv not in ('6.0', '7.0'):
+    if sv not in ('6.0', '7.0', '7.1'):
         print('INVALID:schema_version_mismatch', file=sys.stderr)
         sys.exit(1)
 
@@ -128,8 +128,8 @@ try:
     model_routing = data.get('model_routing')
     recovery_confidence = data.get('recovery_confidence', 'high')
 
-    # v7.0: 验证所有新字段的存在性（仅 v7.0 schema 需要）
-    if sv == '7.0':
+    # v7.0+: 验证所有新字段的存在性（v7.0+ schema 需要）
+    if sv in ('7.0', '7.1'):
         required_v7_fields = ['mode', 'current_phase', 'executed_phases', 'skipped_phases',
                               'recovery_source', 'report_state', 'active_agents', 'active_tasks',
                               'discarded_artifacts', 'replay_required_tasks']

@@ -90,8 +90,9 @@ export async function refreshSnapshot(forceSnapshot = false) {
       broadcastEvents(added);
     }
 
-    // meta 变化时即使无新增 event 也广播 snapshot（已连接 GUI 增量刷新）
-    if (metaChanged && added.length === 0) {
+    // meta 变化时广播 snapshot（含 v7.1 清晰度指标等编排数据）
+    // v7.1 修复: 即使有新增 event 也需要广播 meta，否则同时发生的 meta 变化会被丢弃
+    if (metaChanged) {
       broadcastSnapshot(next.events);
     }
   } finally {

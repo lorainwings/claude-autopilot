@@ -80,6 +80,8 @@ fi
 
 # Cleanup
 rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/.agent-dispatch-ts-"* 2>/dev/null || true
+rm -f "$REPO_ROOT/logs/.active-agent-phase-"* "$REPO_ROOT/logs/.active-agent-session-"* 2>/dev/null || true
+rm -f "$REPO_ROOT/logs/agent-dispatch-record.json" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/events.jsonl" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/.event_sequence" 2>/dev/null || true
 rmdir "$REPO_ROOT/logs/.event_sequence.lk" 2>/dev/null || true

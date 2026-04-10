@@ -111,8 +111,8 @@ else:
   fi
   # Check schema_version
   SV=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['schema_version'])" "$SNAP_FILE" 2>/dev/null)
-  if [ "$SV" = "7.0" ]; then
-    green "  PASS: 2d. schema_version=7.0"
+  if [ "$SV" = "7.1" ]; then
+    green "  PASS: 2d. schema_version=7.1"
     PASS=$((PASS + 1))
   else
     red "  FAIL: 2d. schema_version (got $SV)"

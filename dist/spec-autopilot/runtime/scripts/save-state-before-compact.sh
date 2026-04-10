@@ -426,7 +426,7 @@ if os.path.isfile(routing_file):
         pass
 
 snapshot_data = {
-    'schema_version': '7.0',
+    'schema_version': '7.1',
     'saved_at': now_iso,
     'change_name': change_name,
     # --- v7.0 新增字段 ---
@@ -488,7 +488,7 @@ lines = [
     f'',
     f'> Auto-saved before context compaction at {now_iso}',
     f'> This file is auto-generated. Re-injected into context after compaction.',
-    f'> **Primary control state**: state-snapshot.json v7.0 (snapshot_hash={snapshot_hash})',
+    f'> **Primary control state**: state-snapshot.json v7.1 (snapshot_hash={snapshot_hash})',
     f'',
     f'## Current Progress',
     f'',
