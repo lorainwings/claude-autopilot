@@ -137,6 +137,19 @@ result=$(bash "$SUBAGENT_SCRIPT" "openspec/changes/feat/context/phase-results" "
 assert_contains "2h8. relative path + full+tdd → predecessor 3" "$result" '"predecessor":3'
 popd >/dev/null
 
+# 2h8b. P1 回归：config tdd_mode=false + lock tdd_mode=true → predecessor=3（统一数据源）
+# 此测试验证 check-predecessor-for-subagent.sh 使用 get_tdd_mode()（锁文件优先）
+# 而非仅读取 config，确保与 check-tdd-mode.sh 判定一致（均返回 TDD 生效）
+echo 'phases:
+  implementation:
+    tdd_mode: false' > "$TMPDIR_SA/.claude/autopilot.config.yaml"
+echo '{"mode":"full","tdd_mode":true}' > "$TMPDIR_SA/openspec/changes/.autopilot-active"
+echo '{"status":"ok"}' > "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-3-ff.json"
+result=$(bash "$SUBAGENT_SCRIPT" "$TMPDIR_SA/openspec/changes/feat/context/phase-results" "5" "full" 2>/dev/null)
+assert_contains "2h8b. config=false+lock=true → predecessor 3 (lock wins)" "$result" '"predecessor":3'
+assert_contains "2h8b. config=false+lock=true → status ok" "$result" '"status":"ok"'
+rm -f "$TMPDIR_SA/openspec/changes/.autopilot-active"
+
 # 2h9. 前驱 checkpoint 不存在 → exists=false
 rm -f "$TMPDIR_SA/openspec/changes/feat/context/phase-results/phase-4-testing.json"
 rm -f "$TMPDIR_SA/.claude/autopilot.config.yaml"

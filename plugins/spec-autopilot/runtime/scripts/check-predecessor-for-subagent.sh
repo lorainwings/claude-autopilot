@@ -38,7 +38,8 @@ fi
 PRED_PHASE=0
 
 # TDD mode 运行时覆盖：full mode Phase 5 前驱从 4 → 3
-# 注意：这需要项目根目录，从 phase_results_dir 向上推导
+# 统一数据源：使用 _common.sh get_tdd_mode() 保持与 check-tdd-mode.sh 和
+# check-predecessor-checkpoint.sh 一致（锁文件优先 → config fallback）
 if [ "$MODE" = "full" ] && [ "$TARGET_PHASE" -eq 5 ] 2>/dev/null; then
   PROJECT_ROOT=""
   # phase_results_dir 格式: .../openspec/changes/<name>/context/phase-results
@@ -47,7 +48,7 @@ if [ "$MODE" = "full" ] && [ "$TARGET_PHASE" -eq 5 ] 2>/dev/null; then
     PROJECT_ROOT="${PHASE_RESULTS_DIR%/openspec/changes/*/context/phase-results}"
   fi
   if [ -n "$PROJECT_ROOT" ]; then
-    TDD_MODE=$(read_config_value "$PROJECT_ROOT" "phases.implementation.tdd_mode" "false" 2>/dev/null || echo "false")
+    TDD_MODE=$(get_tdd_mode "$PROJECT_ROOT" 2>/dev/null || echo "false")
     if [ "$TDD_MODE" = "true" ]; then
       PRED_PHASE=3
     fi

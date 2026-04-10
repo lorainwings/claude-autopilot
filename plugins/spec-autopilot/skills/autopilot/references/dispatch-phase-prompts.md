@@ -4,7 +4,11 @@
 
 ## Phase 1（技术调研 — 主线程调度，不含 autopilot-phase 标记）
 
-- Agent: config.phases.requirements.research.agent（默认 Explore）
+- Agent: config.phases.requirements.research.agent（默认 general-purpose）
+- **运行时防御性降级（必须执行）**：在构造 Task 调用之前，**必须**对 `research.agent` 的值做大小写不敏感检查：
+  - 若值为 `"Explore"`（包括 `"explore"`, `"EXPLORE"` 等任何大小写形式）→ **强制降级**为 `"general-purpose"`，并输出一行警告：`⚠ research.agent="Explore" is forbidden (read-only), forced to "general-purpose"`
+  - 理由：Explore agent 是只读的，无法 Write 调研产出文件（research-findings.md / web-research-findings.md），会违反 v3.3.0 子 Agent 自写入约束
+  - 这是最后一层 fail-closed 防御（Phase 0 的 enum_errors 校验为第一层，SKILL.md 硬阻断为第二层）。即使前两层被绕过（如手动跳过 Phase 0），此处仍确保 subagent_type 不为 Explore
 - 条件：`config.phases.requirements.research.enabled === true`
 - 任务：分析与需求相关的现有代码、依赖兼容性、技术可行性
 - Prompt 必须注入：RAW_REQUIREMENT + Steering Documents 路径
@@ -79,7 +83,7 @@
 - 项目上下文从 config.project_context + config.test_suites + Phase 1 Steering Documents 自动注入
 - 可选覆盖：config.phases.testing.instruction_files / reference_files（非空时注入）
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
-- **Phase 4 在 full 模式下不可跳过，不可降级为 warning**（TDD 模式除外：当 `tdd_mode: true` 且 `mode: full` 时，Phase 4 由 Phase 5 吸收，标记 `skipped_tdd`）
+- **Phase 4 在 full 模式下不可跳过，不可降级为 warning**（TDD 模式除外：当 `check-tdd-mode.sh` 返回 `TDD_SKIP` 时，Phase 4 由 Phase 5 吸收，标记 `skipped_tdd`。**必须通过确定性 Bash 脚本检测，禁止 AI 依赖记忆判断**）
 
 Phase 4 子 Agent prompt 构造详见以下参考文件（dispatch 时读取并注入）：
 

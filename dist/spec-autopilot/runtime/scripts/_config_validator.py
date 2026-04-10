@@ -357,6 +357,20 @@ def validate(config_path):
     if tdd_mode is True:
         cross_ref_warnings.append("tdd_mode=true: TDD cycle only active in full execution mode")
 
+    # HARD BLOCK: research.agent="Explore" is deprecated and breaks runtime.
+    # Explore agents are read-only and cannot Write research output files,
+    # violating the v3.3.0 self-write constraint. Upgraded users with old
+    # config MUST migrate before Phase 0 can complete. This is a hard error
+    # (enum_errors → valid=false), NOT a warning — do not downgrade.
+    research_agent = get_value(yaml_data, "phases.requirements.research.agent")
+    if isinstance(research_agent, str) and research_agent.lower() == "explore":
+        enum_errors.append(
+            'phases.requirements.research.agent: "Explore" is forbidden '
+            "(read-only agents cannot write research output files, causing "
+            "Phase 1 dispatch failure). "
+            'Change to "general-purpose" in .claude/autopilot.config.yaml'
+        )
+
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
     # Handle both PyYAML list and regex-fallback string "[unit, api, ...]"

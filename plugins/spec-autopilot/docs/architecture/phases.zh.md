@@ -45,7 +45,7 @@
 
 1. 解析 `$ARGUMENTS`（文件路径、文本或空 → 向用户询问）
 2. **自动扫描**：扫描项目结构 → 生成引导文档（project-context.md、existing-patterns.md、tech-constraints.md）
-3. **调研 Agent**：派遣 Explore Agent → 分析相关代码、依赖兼容性、技术可行性 → research-findings.md
+3. **调研 Agent**：派遣 general-purpose Agent → 分析相关代码、依赖兼容性、技术可行性 → research-findings.md
 4. **复杂度路由**：基于调研结果评估复杂度（小型 ≤2 文件 / 中型 3-5 文件 / 大型 6+ 文件）
 5. 派遣业务分析师子 Agent 进行分析（注入引导文档 + 调研上下文）
 6. **多轮决策循环**，直到所有要点澄清（复杂度影响循环深度）
