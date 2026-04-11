@@ -166,59 +166,12 @@ echo '.autopilot-active' >> .gitignore
 
 ### Step 9: 创建锁文件（v5.6 确定性脚本）
 
-直接通过 Bash 调用 python3 内联脚本创建锁文件（替代原有后台 Agent）：
+直接通过 Bash 调用独立脚本创建锁文件（替代原有后台 Agent）：
+
+(v8.0: 内联 Python 已提取为独立脚本)
 
 ```bash
-Bash('python3 -c "
-import json, os, sys, tempfile
-
-session_cwd = sys.argv[1]
-lock_data = json.loads(sys.argv[2])
-
-lock_dir = os.path.join(session_cwd, \"openspec/changes\")
-os.makedirs(lock_dir, exist_ok=True)
-lock_path = os.path.join(lock_dir, \".autopilot-active\")
-
-# PID conflict detection
-result = {\"status\": \"ok\", \"action\": \"created\"}
-if os.path.exists(lock_path):
-    try:
-        with open(lock_path) as f:
-            old = json.load(f)
-        old_pid = int(old.get(\"pid\", 0))
-        old_sid = old.get(\"session_id\", \"\")
-        # Check if PID is alive
-        try:
-            os.kill(old_pid, 0)
-            pid_alive = True
-        except (ProcessLookupError, PermissionError, OSError):
-            pid_alive = False
-        if pid_alive and old_sid == lock_data.get(\"session_id\"):
-            result = {\"status\": \"conflict\", \"action\": \"none\", \"message\": f\"PID {old_pid} still alive with same session\"}
-            print(json.dumps(result))
-            sys.exit(0)
-        result[\"action\"] = \"overwritten\"
-    except Exception:
-        result[\"action\"] = \"overwritten\"
-
-# Atomic write: tempfile + os.replace
-tmp_fd, tmp_path = tempfile.mkstemp(dir=lock_dir, suffix=\".tmp\")
-try:
-    with os.fdopen(tmp_fd, \"w\") as f:
-        json.dump(lock_data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp_path, lock_path)
-except Exception as e:
-    try: os.unlink(tmp_path)
-    except: pass
-    result = {\"status\": \"error\", \"message\": str(e)}
-
-# Verify
-if result[\"status\"] != \"error\":
-    with open(lock_path) as f:
-        json.load(f)  # validate JSON
-
-print(json.dumps(result))
-" "${session_cwd}" '"'"'${lock_json}'"'"'')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/create-lockfile.sh "${session_cwd}" '"'"'${lock_json}'"'"'')
 ```
 
 解析返回的 JSON：
@@ -236,32 +189,15 @@ git commit --allow-empty -m "autopilot: start <change_name>"
 ANCHOR_SHA=$(git rev-parse HEAD)
 ```
 
-直接通过 Bash 调用 python3 更新锁文件中的 `anchor_sha` 字段（替代原有后台 Agent）：
+直接通过 Bash 调用独立脚本更新锁文件中的 `anchor_sha` 字段（替代原有后台 Agent）：
+
+(v8.0: 内联 Python 已提取为独立脚本)
 
 ```bash
-Bash('python3 -c "
-import json, os, sys, tempfile
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/update-anchor-sha.sh "${session_cwd}/openspec/changes/.autopilot-active" "${ANCHOR_SHA}"')
+```
 
-lock_path = sys.argv[1]
-anchor_sha = sys.argv[2]
-
-with open(lock_path) as f:
-    data = json.load(f)
-data[\"anchor_sha\"] = anchor_sha
-
-tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(lock_path), suffix=\".tmp\")
-try:
-    with os.fdopen(tmp_fd, \"w\") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp_path, lock_path)
-    print(json.dumps({\"status\": \"ok\", \"anchor_sha\": anchor_sha}))
-except Exception as e:
-    try: os.unlink(tmp_path)
-    except: pass
-    print(json.dumps({\"status\": \"error\", \"message\": str(e)}))
-" "${session_cwd}/openspec/changes/.autopilot-active" "${ANCHOR_SHA}"')
-
-> **原子性保障**：如果 Step 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse $ANCHOR_SHA` 有效，无效则跳过 autosquash 并警告用户。
+> **原子性保障**：如果 Step 10 之前崩溃，恢复时检测到 `anchor_sha` 为空 → 重新创建锚定 commit 并更新。Phase 7 autosquash 前**必须**验证 `anchor_sha` 非空且 `git rev-parse ${ANCHOR_SHA}^{commit}` 有效；无效时必须先重建 anchor，重建失败则**硬阻断归档**。
 
 ---
 

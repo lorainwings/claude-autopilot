@@ -63,7 +63,7 @@ dispatch 子 Agent 时按以下优先级构造项目上下文：
 |-------|------|-------|------|
 | 1 | deep | opus | 需求分析需要深度推理 |
 | 2 | fast | haiku | OpenSpec 创建是机械性操作 |
-| 3 | fast | haiku | FF 生成是模板化操作 |
+| 3 | fast | haiku | FF 生成是模板化操作（v8.0: 复用 Phase 2 路由结果，不再独立调用 resolve-model-routing.sh） |
 | 4 | deep | opus | 测试设计需要创造力 |
 | 5 | deep | opus | 代码实施需要最强推理能力 |
 | 6 | fast | haiku | 报告生成是机械性操作 |

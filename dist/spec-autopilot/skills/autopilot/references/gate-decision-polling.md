@@ -23,8 +23,25 @@
 | 0 | `override` | 记录日志 `[GATE] Override accepted: {reason}` → 视为通过，继续下一阶段 |
 | 0 | `retry` | 记录日志 `[GATE] Retry requested: {reason}` → 重新执行完整 8 步检查清单 |
 | 0 | `fix` | 记录日志 `[GATE] Fix requested` → 将 `fix_instructions` 展示给用户，等待修复后重新执行 8 步检查清单 |
-| 0 | `auto_continue` | 记录日志 `[GATE] Auto-continue: gate passed` → 自动推进到下一阶段（用于 gate pass 后的自动推进场景） |
+| 0 | `auto_continue` | 记录日志 `[GATE] Auto-continue` → 自动推进到下一阶段 |
 | 1 | `timeout` | 轮询超时（默认 300 秒），回退到原有行为：向用户展示阻断信息，通过 AskUserQuestion 请求决策 |
+
+**v8.1 GUI 不可达异步拉起**: 轮询前先检查 GUI 可达性，并校验 `/api/info.projectRoot` 是否属于当前项目。如果 GUI 不可达，或端口上是别的项目实例，**必须先异步启动 GUI 可视化大盘前端服务**（fire-and-forget，不等待 health ready），然后**立即返回 `auto_continue`（exit 0）**，并在返回 JSON 中附带 `dashboard_url` / `health_url` / `ws_url`。主流程继续执行，GUI 大盘在后台自行完成启动。
+
+**返回示例**：
+
+```json
+{
+  "action": "auto_continue",
+  "phase": 3,
+  "elapsed_seconds": 0,
+  "reason": "gui_dashboard_bootstrap",
+  "gui_status": "starting",
+  "dashboard_url": "http://localhost:9527",
+  "health_url": "http://localhost:9527/api/health",
+  "ws_url": "ws://localhost:9528"
+}
+```
 
 **decision.json 格式**（由 GUI 写入 `openspec/changes/<name>/context/decision.json`）：
 

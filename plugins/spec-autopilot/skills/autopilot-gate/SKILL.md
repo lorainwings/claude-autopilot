@@ -30,6 +30,19 @@ user-invocable: false
 
 **执行前读取**: `autopilot/references/log-format.md`（日志格式规范）
 
+### 条件化参考文件读取（v8.0 上下文优化）
+
+不同阶段过渡所需的参考文件不同。**按需加载**以减少主窗口上下文占用：
+
+| 切换点 | 必读文件 | 条件读取 |
+|--------|---------|---------|
+| Phase 1→2（联合快速路径） | `log-format.md` + `gate-checkpoint-ops.md` | 无需读取 decision-polling/special-gates/optional-validation |
+| Phase 2→3（快速路径内联） | 由快速路径内联处理，**不调用本 Skill** | — |
+| Phase 3→4, 6→7 | `log-format.md` + `gate-checkpoint-ops.md` + `gate-decision-polling.md` | 无需 special-gates |
+| Phase 4→5, Phase 5→6 | **全部 5 个文件** | 含特殊门禁 |
+
+> Phase 2→3 过渡由主编排器的联合调度快速路径直接处理，不触发本 Skill。Phase 3 的前置验证由 Hook L2 自动完成。
+
 ## 三层门禁架构
 
 | 层级 | 机制 | 执行者 |
@@ -108,7 +121,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 **v6.0 自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
 
-**执行前读取**: `autopilot/references/gate-decision-polling.md`（完整流程 + decision.json 格式 + 安全约束）
+**条件读取**: `autopilot/references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
 
 ### 特殊门禁
 
@@ -119,13 +132,13 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 - **TDD 完整性审计 (L3)**: 扫描 `phase5-tasks/task-N.json` 验证 tdd_cycle 完整性
 - **Phase 6.5 代码审查 (Advisory Gate)**: 可选门禁，不阻断 Phase 7 predecessor，结果在 Phase 7 汇合
 
-**执行前读取**: `autopilot/references/gate-special-gates.md`
+**条件读取**: `autopilot/references/gate-special-gates.md`（仅 Phase 4→5, Phase 5→6 过渡时读取，其他过渡无特殊门禁）
 
 ### 可选验证
 
 语义验证（soft check）和 Brownfield 三向一致性检查。
 
-**执行前读取**: `autopilot/references/gate-optional-validation.md`
+**条件读取**: `autopilot/references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
 
 ## 执行模式感知
 

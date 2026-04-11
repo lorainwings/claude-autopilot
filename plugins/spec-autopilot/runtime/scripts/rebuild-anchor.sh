@@ -3,6 +3,8 @@
 #
 # Usage: rebuild-anchor.sh <project_root> <lock_file>
 # Creates a new anchor commit and atomically updates the lock file's anchor_sha field.
+# The rebuilt commit preserves the "autopilot: start <change>" subject when
+# possible so existing fixup commits remain autosquash-compatible.
 # Exit: 0 = success, 1 = failure (fail-closed: archive MUST NOT proceed on failure)
 # Stdout: new anchor SHA on success
 #
@@ -28,6 +30,16 @@ if [ ! -f "$LOCK_FILE" ]; then
   exit 1
 fi
 
+CHANGE_NAME=$(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    print(data.get('change', ''))
+except Exception:
+    pass
+" "$LOCK_FILE" 2>/dev/null || echo "")
+
 # Verify working tree is clean before creating anchor
 DIRTY=$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null || echo "")
 if [ -n "$DIRTY" ]; then
@@ -38,7 +50,12 @@ if [ -n "$DIRTY" ]; then
 fi
 
 # Create new empty anchor commit
-NEW_SHA=$(git -C "$PROJECT_ROOT" commit --allow-empty -m 'autopilot: anchor (recovery)' 2>&1) || {
+COMMIT_MSG="autopilot: anchor (recovery)"
+if [ -n "$CHANGE_NAME" ]; then
+  COMMIT_MSG="autopilot: start $CHANGE_NAME"
+fi
+
+NEW_SHA=$(git -C "$PROJECT_ROOT" commit --allow-empty -m "$COMMIT_MSG" 2>&1) || {
   echo "ERROR: Failed to create anchor commit: $NEW_SHA" >&2
   exit 1
 }

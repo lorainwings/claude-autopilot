@@ -49,6 +49,8 @@ Phase 2 和 Phase 3 均为机械性 OpenSpec 操作，共享同一 agent 和 mod
 
 ## 共享约束
 
-- Phase 2/3 派发后等待 Claude Code 自动完成通知，收到通知后继续统一调度模板 Step 4
-- 两者均遵循统一调度模板 Step 0-8 的完整流程（gate check → dispatch → envelope → checkpoint）
+- Phase 2/3 采用**联合调度快速路径**（v8.0）：单次 gate 验证 + 单次 model routing + 两个串行 background Task
+- Phase 2 完成后直接进入 Phase 3，**无需**再次调用 Skill("autopilot-gate") 或 resolve-model-routing.sh
+- Phase 3 的前置 checkpoint 验证由 Hook L2 (`check-predecessor-checkpoint.sh`) 在 Task 派发时自动执行
 - 两者均为 full 模式专属，lite/minimal 模式跳过
+- 主编排器 `autopilot/SKILL.md` "Phase 2-3 联合调度快速路径" 定义了完整的 Fast-Step 0-9 流程

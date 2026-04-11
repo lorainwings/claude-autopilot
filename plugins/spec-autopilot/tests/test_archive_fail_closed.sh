@@ -93,6 +93,9 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+REBUILT_SUBJECT=$(git -C "$TMPDIR_ANCHOR" log -1 --format='%s' 2>/dev/null || echo "")
+assert_contains "5d2: rebuild-anchor commit subject keeps start marker" "$REBUILT_SUBJECT" 'autopilot: start test'
+
 # 5e: rebuild-anchor 在脏工作区时应该失败（v6.0 新增）
 (
   cd "$TMPDIR_ANCHOR" || exit 1
