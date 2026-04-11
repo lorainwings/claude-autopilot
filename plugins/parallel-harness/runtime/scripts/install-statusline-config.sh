@@ -58,14 +58,15 @@ fi
 mkdir -p "$CLAUDE_DIR"
 
 if [ -n "$CHAIN_WITH" ]; then
-  # Chain mode: run both the existing statusLine command and the harness collector,
-  # combining their output so the user keeps their original statusLine info.
+  # Escape single quotes for safe embedding in the generated bridge script
+  CHAIN_WITH_SAFE=$(printf '%s' "$CHAIN_WITH" | sed "s/'/'\\\\''/g")
   cat >"$BRIDGE_SCRIPT" <<CHAINEOF
 #!/usr/bin/env bash
+# chain-target: $CHAIN_WITH
 set -uo pipefail
 INPUT=\$(cat)
 HARNESS_OUT=\$(printf '%s' "\$INPUT" | bash "$COLLECTOR_SCRIPT" 2>/dev/null || echo "[harness] ready")
-PREV_OUT=\$(printf '%s' "\$INPUT" | bash "$CHAIN_WITH" 2>/dev/null || true)
+PREV_OUT=\$(printf '%s' "\$INPUT" | bash -c '$CHAIN_WITH_SAFE' 2>/dev/null || true)
 if [ -n "\$PREV_OUT" ]; then
   printf "%s | %s" "\$PREV_OUT" "\$HARNESS_OUT"
 else
@@ -75,6 +76,7 @@ CHAINEOF
 else
   cat >"$BRIDGE_SCRIPT" <<EOF
 #!/usr/bin/env bash
+# chain-target:
 set -euo pipefail
 exec bash "$COLLECTOR_SCRIPT"
 EOF

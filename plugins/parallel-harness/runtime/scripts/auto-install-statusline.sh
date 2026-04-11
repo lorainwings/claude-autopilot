@@ -50,8 +50,9 @@ LOCAL_SETTINGS="$CLAUDE_DIR/settings.local.json"
 PROJECT_SETTINGS="$CLAUDE_DIR/settings.json"
 USER_SETTINGS="${HOME}/.claude/settings.json"
 
-# Only skip if the harness bridge is ALREADY installed at local scope.
-# If a different statusLine exists (project/user), we still install and chain with it.
+# Only skip if the harness bridge is ALREADY installed AND its chain target
+# matches the current upstream. If the user added/changed/removed a custom
+# statusLine since last install, we regenerate the bridge to keep chaining current.
 harness_bridge_installed() {
   local file="$1"
   [ -f "$file" ] || return 1
@@ -70,10 +71,6 @@ except Exception:
 raise SystemExit(1)
 ' "$file" 2>/dev/null
 }
-
-if harness_bridge_installed "$LOCAL_SETTINGS"; then
-  exit 0
-fi
 
 # Detect existing statusLine command at any scope for chaining
 existing_statusline_command() {
@@ -98,13 +95,27 @@ raise SystemExit(1)
   return 1
 }
 
-CHAIN_ARGS=""
 EXISTING_CMD=$(existing_statusline_command "$LOCAL_SETTINGS" "$PROJECT_SETTINGS" "$USER_SETTINGS" 2>/dev/null || true)
-if [ -n "$EXISTING_CMD" ]; then
-  CHAIN_ARGS="--chain-with $EXISTING_CMD"
+
+# Skip only if the bridge is already installed AND its chain target matches the
+# current upstream statusLine. If the user added/changed/removed a custom
+# statusLine since last install, we must regenerate the bridge.
+if harness_bridge_installed "$LOCAL_SETTINGS"; then
+  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-parallel-harness.sh"
+  RECORDED_TARGET=""
+  if [ -f "$BRIDGE_SCRIPT" ]; then
+    RECORDED_TARGET=$(sed -n 's/^# chain-target: *//p' "$BRIDGE_SCRIPT" 2>/dev/null || true)
+  fi
+  if [ "$EXISTING_CMD" = "$RECORDED_TARGET" ]; then
+    exit 0
+  fi
 fi
 
-bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJECT_ROOT" --scope local $CHAIN_ARGS >/dev/null 2>&1 || exit 0
+if [ -n "$EXISTING_CMD" ]; then
+  bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJECT_ROOT" --scope local --chain-with "$EXISTING_CMD" >/dev/null 2>&1 || exit 0
+else
+  bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJECT_ROOT" --scope local >/dev/null 2>&1 || exit 0
+fi
 
 echo "[parallel-harness] statusLine auto-installed for skill observability."
 exit 0
