@@ -53,6 +53,7 @@ mkdir -p "$DIST_DIR"
 
 # 复制插件元数据（市场安装所需最小集）
 cp -r .claude-plugin "$DIST_DIR/"
+cp -r hooks         "$DIST_DIR/"
 cp -r runtime       "$DIST_DIR/"
 cp -r skills        "$DIST_DIR/"
 cp -r config        "$DIST_DIR/"
@@ -71,6 +72,16 @@ for forbidden in node_modules tests tools bun.lock "*.tsbuildinfo"; do
     exit 1
   fi
 done
+
+# 校验：hooks.json 引用的脚本必须存在于 dist/runtime/scripts/
+if [ -f "$DIST_DIR/hooks/hooks.json" ]; then
+  grep -o 'runtime/scripts/[^" ]*\.sh' "$DIST_DIR/hooks/hooks.json" | sed 's|runtime/scripts/||' | while read -r script; do
+    if [ ! -f "$DIST_DIR/runtime/scripts/$script" ]; then
+      echo "ERROR: hooks.json references runtime/scripts/$script but it is missing from dist"
+      exit 1
+    fi
+  done
+fi
 
 DIST_SIZE=$(du -sh "$DIST_DIR" 2>/dev/null | cut -f1)
 echo "dist built: $DIST_SIZE"

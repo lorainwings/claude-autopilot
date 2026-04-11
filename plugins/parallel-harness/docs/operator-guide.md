@@ -2,7 +2,7 @@
 
 # parallel-harness Operator Guide
 
-> Version: v1.5.2 (GA) | Last updated: 2026-04-09
+> Version: v1.6.0 (GA) | Last updated: 2026-04-09
 
 ## Installation and Deployment
 

@@ -1,6 +1,6 @@
 > [English](README.md) | 中文
 
-# parallel-harness v1.5.2 <!-- x-release-please-version -->
+# parallel-harness v1.6.0 <!-- x-release-please-version -->
 
 > Claude Code 并行 AI 工程控制面插件 — 商业化 GA 版本
 
@@ -19,7 +19,7 @@
 
 ## 版本信息
 
-- **版本**: v1.5.2 (GA) <!-- x-release-please-version -->
+- **版本**: v1.6.0 (GA) <!-- x-release-please-version -->
 - **Schema 版本**: 1.0.0
 - **运行时**: Bun
 - **语言**: TypeScript
@@ -76,6 +76,18 @@ bun install
 
 1. `/parallel-harness:harness-dispatch` — Worker 派发 / 所有权范围内实现
 2. `/parallel-harness:harness-verify` — 验证 / 门禁导向审查
+
+## 实际 Skill 可观测性
+
+真实插件会话现在会通过 Claude hooks 记录 `Skill` 工具调用，不再只依赖 transcript 文案是否”看起来像”用了 skill。
+
+- 事实来源：`.parallel-harness/data/plugin-observability/sessions/<session>/skill-events.jsonl`
+- 原始 hook 证据：`.parallel-harness/data/plugin-observability/sessions/<session>/raw/hooks.jsonl`
+- 记录阶段：`PreToolUse(Skill)` 请求 + `PostToolUse(Skill)` 完成 + `PostToolUseFailure(Skill)` 失败
+- 阶段映射：`parallel-harness:harness-plan` / `harness-dispatch` / `harness-verify` 会分别标记为 `planning` / `dispatch` / `verification`
+- 状态栏：会话启动时插件会自动安装本地 `statusLine` bridge，并将最近一次 skill 显示为 `[harness] skill harness-plan`。如果用户已在项目或用户层配置了自定义 statusLine，harness bridge 会采用链式安装与原有 statusLine 并存，而非替换。
+
+这样即使 `/harness` 的自然语言输出不稳定，也能对真实的子 skill 调用建立确定性证据链。
 
 ### 2. 配置运行参数
 
