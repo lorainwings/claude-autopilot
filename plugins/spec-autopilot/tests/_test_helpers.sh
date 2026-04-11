@@ -23,7 +23,7 @@ assert_contains() {
   local name="$1" haystack="$2" needle="$3"
   # Use here-string (<<<) instead of echo|grep pipe to avoid SIGPIPE
   # when grep -q closes stdin early under pipefail (Ubuntu/GNU bash).
-  if grep -q "$needle" <<< "$haystack"; then
+  if grep -q -- "$needle" <<< "$haystack"; then
     green "  PASS: $name (contains '$needle')"
     PASS=$((PASS + 1))
   else
@@ -36,7 +36,7 @@ assert_not_contains() {
   local name="$1" haystack="$2" needle="$3"
   # Use here-string (<<<) instead of echo|grep pipe to avoid SIGPIPE
   # when grep -q closes stdin early under pipefail (Ubuntu/GNU bash).
-  if ! grep -q "$needle" <<< "$haystack"; then
+  if ! grep -q -- "$needle" <<< "$haystack"; then
     green "  PASS: $name (correctly missing '$needle')"
     PASS=$((PASS + 1))
   else
@@ -71,7 +71,7 @@ assert_file_exists() {
 
 assert_file_contains() {
   local name="$1" filepath="$2" needle="$3"
-  if grep -q "$needle" "$filepath"; then
+  if grep -q -- "$needle" "$filepath"; then
     green "  PASS: $name (contains '$needle')"
     PASS=$((PASS + 1))
   else
@@ -82,7 +82,7 @@ assert_file_contains() {
 
 assert_file_not_contains() {
   local name="$1" filepath="$2" needle="$3"
-  if ! grep -q "$needle" "$filepath"; then
+  if ! grep -q -- "$needle" "$filepath"; then
     green "  PASS: $name (correctly missing '$needle')"
     PASS=$((PASS + 1))
   else

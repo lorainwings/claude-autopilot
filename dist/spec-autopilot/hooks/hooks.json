@@ -12,6 +12,16 @@
         ]
       },
       {
+        "matcher": "^AskUserQuestion$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/guard-ask-user-phase.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "^Task$",
         "hooks": [
           {

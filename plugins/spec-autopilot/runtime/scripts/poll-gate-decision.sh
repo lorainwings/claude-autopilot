@@ -35,10 +35,36 @@ fi
 PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(resolve_project_root)}"
 POLL_TIMEOUT=$(read_config_value "$PROJECT_ROOT" "gui.decision_poll_timeout" "300")
 POLL_INTERVAL=1
+GUI_PORT=$(read_config_value "$PROJECT_ROOT" "gui.port" "9527")
+GUI_WS_PORT="${AUTOPILOT_WS_PORT:-$((GUI_PORT + 1))}"
+START_GUI_SERVER_SCRIPT="${START_GUI_SERVER_SCRIPT:-$SCRIPT_DIR/start-gui-server.sh}"
 
 CONTEXT_DIR="${CHANGE_DIR}context"
 DECISION_REQUEST_FILE="${CONTEXT_DIR}/decision-request.json"
 DECISION_FILE="${CONTEXT_DIR}/decision.json"
+
+sanitize_project_root() {
+  python3 -c "
+import pathlib, sys
+path = sys.argv[1]
+home = str(pathlib.Path.home())
+if path.startswith(home):
+    path = '~' + path[len(home):]
+print(path)
+" "$1" 2>/dev/null || printf '%s\n' "$1"
+}
+
+gui_server_available_for_project() {
+  local info_resp resp_root sanitized_root
+
+  curl -sf --max-time 1 "http://localhost:${GUI_PORT}/api/health" >/dev/null 2>&1 || return 1
+  info_resp=$(curl -sf --max-time 1 "http://localhost:${GUI_PORT}/api/info" 2>/dev/null) || return 1
+  resp_root=$(printf '%s' "$info_resp" | python3 -c "import json,sys; print(json.load(sys.stdin).get('projectRoot',''))" 2>/dev/null) || resp_root=""
+  [ -n "$resp_root" ] || return 1
+
+  sanitized_root=$(sanitize_project_root "$PROJECT_ROOT")
+  [ "$resp_root" = "$sanitized_root" ]
+}
 
 OVERRIDE_ALLOWED=$(python3 -c "
 import json, sys
@@ -115,6 +141,39 @@ fi
 # --- Step 2: Emit decision_pending event to event bus ---
 bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_pending" "$PHASE" "$MODE" \
   "{\"awaiting_decision\":true,\"timeout_seconds\":$POLL_TIMEOUT}" 2>/dev/null || true
+
+# --- Step 2.5: GUI reachability pre-check (v8.1) ---
+# If GUI is not reachable, bootstrap the dashboard asynchronously and
+# immediately continue the pipeline. Do not wait for frontend readiness here.
+if ! gui_server_available_for_project; then
+  GUI_BOOTSTRAP_OUTPUT=$(AUTOPILOT_HTTP_PORT="${AUTOPILOT_HTTP_PORT:-$GUI_PORT}" AUTOPILOT_WS_PORT="$GUI_WS_PORT" \
+    bash "$START_GUI_SERVER_SCRIPT" --no-wait "$PROJECT_ROOT" 2>/dev/null || true)
+  GUI_BOOTSTRAP_JSON=$(echo "$GUI_BOOTSTRAP_OUTPUT" | grep '^GUI_SERVER_JSON:' | tail -1 | sed 's/^GUI_SERVER_JSON://')
+
+  GUI_STATUS=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('status','starting'))" \
+    "${GUI_BOOTSTRAP_JSON:-{}}" 2>/dev/null || echo "starting")
+  DASHBOARD_URL=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('http_url',''))" \
+    "${GUI_BOOTSTRAP_JSON:-{}}" 2>/dev/null || echo "")
+  WS_URL=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('ws_url',''))" \
+    "${GUI_BOOTSTRAP_JSON:-{}}" 2>/dev/null || echo "")
+  HEALTH_URL=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('health_url',''))" \
+    "${GUI_BOOTSTRAP_JSON:-{}}" 2>/dev/null || echo "")
+
+  [ -z "$DASHBOARD_URL" ] && DASHBOARD_URL="http://localhost:${GUI_PORT}"
+  [ -z "$WS_URL" ] && WS_URL="ws://localhost:${GUI_WS_PORT}"
+  [ -z "$HEALTH_URL" ] && HEALTH_URL="http://localhost:${GUI_PORT}/api/health"
+
+  rm -f "$DECISION_REQUEST_FILE" 2>/dev/null || true
+
+  EVENT_PAYLOAD=$(printf '{"action":"auto_continue","elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}' \
+    "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL")
+  bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_received" "$PHASE" "$MODE" \
+    "$EVENT_PAYLOAD" 2>/dev/null || true
+
+  printf '{"action":"auto_continue","phase":%s,"elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}\n' \
+    "$PHASE" "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL"
+  exit 0
+fi
 
 # --- Step 3: Poll for decision.json ---
 ELAPSED=0

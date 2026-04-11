@@ -20,6 +20,7 @@ capture-hook-event.sh
 check-predecessor-checkpoint.sh
 check-skill-size.sh
 emit-tool-event.sh
+guard-ask-user-phase.sh
 guard-no-verify.sh
 post-task-validator.sh
 reinject-state-after-compact.sh
@@ -28,6 +29,8 @@ scan-checkpoints-on-start.sh
 unified-write-edit-check.sh
 
 # ── Runtime scripts (called by skills / other runtime scripts) ──
+create-lockfile.sh
+update-anchor-sha.sh
 check-predecessor-for-subagent.sh
 check-tdd-mode.sh
 check-allure-install.sh
@@ -45,6 +48,7 @@ install-statusline-config.sh
 parallel-merge-guard.sh
 poll-gate-decision.sh
 rebuild-anchor.sh
+autosquash-archive.sh
 recovery-decision.sh
 resolve-model-routing.sh
 rules-scanner.sh

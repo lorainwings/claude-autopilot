@@ -15,8 +15,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- 端口配置 ---
-HTTP_PORT=9527
-WS_PORT=9528
+HTTP_PORT="${AUTOPILOT_HTTP_PORT:-9527}"
+WS_PORT="${AUTOPILOT_WS_PORT:-9528}"
 
 # --- 结构化 JSON 输出 ---
 # 所有诊断信息输出到 stderr，JSON 输出到 stdout
@@ -26,6 +26,7 @@ emit_json() {
   local reused="${2:-false}"
   local started="${3:-false}"
   local error="${4:-}"
+  local async="${5:-false}"
 
   local http_url="http://localhost:${HTTP_PORT}"
   local ws_url="ws://localhost:${WS_PORT}"
@@ -37,11 +38,11 @@ emit_json() {
     # 转义 error 中的双引号和反斜杠
     local escaped_error
     escaped_error=$(printf '%s' "$error" | sed 's/\\/\\\\/g; s/"/\\"/g')
-    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s,"error":"%s"}' \
-      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started" "$escaped_error")
+    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s,"async":%s,"error":"%s"}' \
+      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started" "$async" "$escaped_error")
   else
-    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s}' \
-      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started")
+    json=$(printf '{"status":"%s","http_url":"%s","ws_url":"%s","health_url":"%s","reused_existing":%s,"started_new":%s,"async":%s}' \
+      "$status" "$http_url" "$ws_url" "$health_url" "$reused" "$started" "$async")
   fi
 
   echo "GUI_SERVER_JSON:${json}"
@@ -49,11 +50,13 @@ emit_json() {
 
 # --- Parse mode flag ---
 MODE="start"
+NO_WAIT="false"
 POSITIONAL_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --stop) MODE="stop" ;;
     --check-health) MODE="check-health" ;;
+    --no-wait) NO_WAIT="true" ;;
     *) POSITIONAL_ARGS+=("$arg") ;;
   esac
 done
@@ -165,6 +168,7 @@ stop_server() {
 
 # --- Start server in background ---
 start_server() {
+  local wait_for_health="${1:-true}"
   local server_script=""
 
   # runtime/server/ 为标准路径（源码态 & dist 态统一）
@@ -184,11 +188,16 @@ start_server() {
   mkdir -p "$LOGS_DIR"
 
   # Start server as daemon (detached, logs to files)
-  nohup bun run "$server_script" --project-root "$PROJECT_ROOT" --no-open \
+  AUTOPILOT_HTTP_PORT="$HTTP_PORT" AUTOPILOT_WS_PORT="$WS_PORT" \
+    nohup bun run "$server_script" --project-root "$PROJECT_ROOT" --no-open \
     >>"$SERVER_LOG" 2>>"$SERVER_ERR_LOG" &
 
   local server_pid=$!
   write_pid "$server_pid"
+
+  if [ "$wait_for_health" != "true" ]; then
+    return 0
+  fi
 
   # Wait up to 3 seconds for server to be ready (health check)
   local max_wait=30 # 30 * 0.1s = 3s
@@ -244,13 +253,13 @@ case "$MODE" in
     # 先检查 PID 文件中的进程是否存活
     if check_pid_alive && check_server_alive; then
       # 已运行，复用现有服务器
-      emit_json "reused" "true" "false"
+      emit_json "reused" "true" "false" "" "$NO_WAIT"
       exit 0
     fi
 
     # HTTP 探活（兼容无 PID 文件但已有服务的情况）
     if check_server_alive; then
-      emit_json "reused" "true" "false"
+      emit_json "reused" "true" "false" "" "$NO_WAIT"
       exit 0
     fi
 
@@ -258,12 +267,17 @@ case "$MODE" in
     remove_pid
 
     # Not running, start it
-    if start_server; then
-      echo "✨ 引擎已启动，GUI 大盘见 http://localhost:${HTTP_PORT}" >&2
-      emit_json "started" "false" "true"
+    if start_server "$([ "$NO_WAIT" = "true" ] && echo "false" || echo "true")"; then
+      if [ "$NO_WAIT" = "true" ]; then
+        echo "✨ GUI 大盘正在后台异步启动，地址 http://localhost:${HTTP_PORT}" >&2
+        emit_json "starting" "false" "true" "" "true"
+      else
+        echo "✨ 引擎已启动，GUI 大盘见 http://localhost:${HTTP_PORT}" >&2
+        emit_json "started" "false" "true"
+      fi
     else
       # 启动失败，输出失败 JSON 但不阻断 autopilot 执行
-      emit_json "failed" "false" "false" "GUI 服务器启动失败"
+      emit_json "failed" "false" "false" "GUI 服务器启动失败" "$NO_WAIT"
       exit 0
     fi
     ;;
