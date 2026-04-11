@@ -48,6 +48,18 @@ The `/harness` skill shells into `runtime/scripts/execute-harness.ts`, which the
 1. `/parallel-harness:harness-dispatch` — worker dispatch / owned-file implementation
 2. `/parallel-harness:harness-verify` — verification / gate-oriented review
 
+## Actual Skill Observability
+
+Real plugin sessions now capture `Skill` tool invocations through Claude hooks, instead of relying only on transcript wording.
+
+- Source of truth: `.parallel-harness/data/plugin-observability/sessions/<session>/skill-events.jsonl`
+- Raw hook evidence: `.parallel-harness/data/plugin-observability/sessions/<session>/raw/hooks.jsonl`
+- Recorded lifecycle: `PreToolUse(Skill)` request + `PostToolUse(Skill)` completion + `PostToolUseFailure(Skill)` failure
+- Phase hinting: `parallel-harness:harness-plan` / `harness-dispatch` / `harness-verify` are tagged as `planning` / `dispatch` / `verification`
+- Status line: on session start, the plugin auto-installs a local `statusLine` bridge and shows the latest skill as `[harness] skill harness-plan`. If the user already has a custom statusLine configured (at project or user scope), the harness bridge chains with it instead of replacing it.
+
+This closes the gap where `/harness` could conceptually use sub-skills without producing deterministic evidence in actual plugin execution.
+
 ## Architecture
 
 ```
