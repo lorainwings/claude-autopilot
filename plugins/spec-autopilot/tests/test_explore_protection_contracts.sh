@@ -70,16 +70,16 @@ line=$(grep -i 'explore.*general-purpose\|Explore.*降级\|Explore.*forbidden' "
 assert_contains "L3a. dispatch mentions Explore→general-purpose fallback" "$line" "general-purpose"
 
 # L3b. dispatch mentions case-insensitive check
-line=$(grep -i '大小写不敏感\|case-insensitive\|不区分大小写' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3b. dispatch specifies case-insensitive check" "$line" ""
+line=$(grep -E '大小写|case.insensitive|不区分大小写' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3b. dispatch specifies case-insensitive check" "$line" "大小写"
 
 # L3c. dispatch mentions "强制降级" or "forced" semantics
-line=$(grep '强制降级\|forced\|强制' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3c. dispatch has forced fallback semantics" "$line" ""
+line=$(grep -E '强制降级|forced to' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3c. dispatch has forced fallback semantics" "$line" "强制降级"
 
 # L3d. dispatch mentions this is a defense layer (defense-in-depth context)
-line=$(grep '防御\|defense\|fail-closed\|最后一层' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3d. dispatch mentions defense-in-depth context" "$line" ""
+line=$(grep -E 'fail-closed|最后一层' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3d. dispatch mentions defense-in-depth context" "$line" "fail-closed"
 
 # ────────────────────────────────────────
 # Layer 1 contracts: validator produces enum_errors (not cross_ref_warnings)
