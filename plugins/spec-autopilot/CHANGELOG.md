@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.2...spec-autopilot-v5.4.3) (2026-04-11)
+
+
+### Fixed
+
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/lorainwings/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/lorainwings/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
+
 ## [5.4.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.1...spec-autopilot-v5.4.2) (2026-04-10)
 
 
