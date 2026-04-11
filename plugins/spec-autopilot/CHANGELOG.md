@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.3...spec-autopilot-v5.4.4) (2026-04-11)
+
+
+### Fixed
+
+* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/lorainwings/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
+
 ## [5.4.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.2...spec-autopilot-v5.4.3) (2026-04-11)
 
 
