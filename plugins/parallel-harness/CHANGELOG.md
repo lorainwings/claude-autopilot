@@ -4,6 +4,19 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.5.2...parallel-harness-v1.6.0) (2026-04-11)
+
+
+### Added
+
+* **parallel-harness:** 增加 skill 可观测性、hooks 机制与终态迁移防御 ([0785917](https://github.com/lorainwings/claude-autopilot/commit/078591714090861d32c5a62e4c3c5f114a0a71a9))
+* **parallel-harness:** 增加 skill 可观测性、hooks 机制与终态迁移防御 ([67b3e1b](https://github.com/lorainwings/claude-autopilot/commit/67b3e1b8c2cde41d2a8b0af7968a0911ca85a751))
+
+
+### Fixed
+
+* **parallel-harness:** 修复 statusLine bridge 在上游变更时未重新生成的问题 ([b7c572f](https://github.com/lorainwings/claude-autopilot/commit/b7c572f24411ab06da687aae7cdbb7bb2413ee38))
+
 ## [1.5.2](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.5.1...parallel-harness-v1.5.2) (2026-04-10)
 
 
