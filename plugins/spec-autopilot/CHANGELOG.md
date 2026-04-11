@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.1...spec-autopilot-v5.4.2) (2026-04-10)
+
+
+### Fixed
+
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/lorainwings/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/lorainwings/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
+
 ## [5.4.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.0...spec-autopilot-v5.4.1) (2026-04-10)
 
 
