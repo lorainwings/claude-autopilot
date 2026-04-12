@@ -49,8 +49,6 @@ jobs:
           fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
-        with:
-          cache: true
 
       - name: Install spec-autopilot GUI dependencies
         if: needs.release-please.outputs.sa_release_created == 'true'
