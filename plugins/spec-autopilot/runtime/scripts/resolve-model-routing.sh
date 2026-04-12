@@ -337,8 +337,11 @@ def resolve(phase, complexity, requirement_type, retry_count, critical, config_p
     if config_tier == TIER_AUTO:
         result['selected_tier'] = 'auto'
         result['selected_model'] = 'auto'
-        result['selected_effort'] = 'medium'
-        result['routing_reason'] = f'config phase_{phase} 指定 auto, 继承父会话模型'
+        result['selected_effort'] = env_effort or 'medium'
+        reason = f'config phase_{phase} 指定 auto, 继承父会话模型'
+        if env_effort:
+            reason += f', 环境变量 AUTOPILOT_PHASE{phase}_EFFORT={env_effort} 覆盖 effort'
+        result['routing_reason'] = reason
         return result
 
     # 第三步：确定 base_tier

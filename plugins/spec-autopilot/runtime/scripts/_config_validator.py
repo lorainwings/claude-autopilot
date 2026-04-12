@@ -387,7 +387,7 @@ def validate(config_path):
         "phases.requirements.research.agent",
         "phases.openspec.agent",
         "phases.testing.agent",
-        "phases.reporting.agent",
+        "phases.implementation.parallel.default_agent",
     ]
     for field in agent_fields:
         agent_val = get_value(yaml_data, field)
@@ -400,6 +400,20 @@ def validate(config_path):
                 f"Ensure .claude/agents/{agent_val}.md exists, or run "
                 f"/autopilot-agents to install recommended community agents."
             )
+
+    # Cross-ref: domain_agents.*.agent values (Phase 5 parallel domain agents)
+    domain_agents = get_value(yaml_data, "phases.implementation.parallel.domain_agents")
+    if isinstance(domain_agents, dict):
+        for domain_path, domain_cfg in domain_agents.items():
+            if isinstance(domain_cfg, dict):
+                da_val = domain_cfg.get("agent")
+                if isinstance(da_val, str) and da_val and da_val not in KNOWN_BUILTIN_AGENTS:
+                    field_path = f"phases.implementation.parallel.domain_agents.{domain_path}.agent"
+                    cross_ref_warnings.append(
+                        f'{field_path}: "{da_val}" is not a built-in Droid agent type. '
+                        f"Ensure .claude/agents/{da_val}.md exists, or run "
+                        f"/autopilot-agents to install recommended community agents."
+                    )
 
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")

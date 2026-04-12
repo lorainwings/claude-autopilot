@@ -210,6 +210,31 @@ else
 fi
 rm -rf "$ENV_ROOT2"
 
+# B3d. tier=auto + AUTOPILOT_PHASE1_EFFORT=low → effort 应被覆盖为 low
+ENV_ROOT3=$(mktemp -d)
+mkdir -p "$ENV_ROOT3/.claude"
+cat > "$ENV_ROOT3/.claude/autopilot.config.yaml" <<YAML
+model_routing:
+  enabled: true
+  phases:
+    phase_1:
+      tier: auto
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(AUTOPILOT_PHASE1_EFFORT=low bash "$SCRIPT_DIR/resolve-model-routing.sh" "$ENV_ROOT3" 1 2>/dev/null)
+effort=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_effort'])" 2>/dev/null)
+if [ "$effort" = "low" ]; then
+  green "  PASS: B3d. tier=auto + EFFORT=low 独立覆盖成功"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B3d. tier=auto + EFFORT 覆盖失败 (effort=$effort, expected=low)"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$ENV_ROOT3"
+
 # =============================================================================
 # C. 新格式对象化配置测试
 # =============================================================================

@@ -69,11 +69,11 @@ user-invocable: false
 
 **先启动 GUI 服务器**，再将地址嵌入 Banner 统一输出，避免分两步展示。
 
-先从已加载的 config 中读取 `gui.port`（默认 9527），以环境变量形式传入脚本：
+先从已加载的 config 中读取 `gui.port`（默认 9527），计算 WS 端口（`gui.port + 1`），以环境变量形式传入脚本：
 
-调用 `Bash("AUTOPILOT_HTTP_PORT={gui_port} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh <project_root>")`：
+调用 `Bash("AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_port+1} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh <project_root>")`：
 
-其中 `{gui_port}` 从 `config.gui.port` 读取，未配置时默认 `9527`。
+其中 `{gui_port}` 从 `config.gui.port` 读取，未配置时默认 `9527`。`{gui_port+1}` 为 WS 端口（如 `9528`）。
 
 解析脚本输出中 `GUI_SERVER_JSON:` 前缀行的 JSON，提取 `http_url` 字段作为实际 GUI 地址。
 

@@ -207,8 +207,8 @@ Step -1: 恢复跳过前置检查（v5.5 新增）
           - N == recovery_phase → 从该阶段开始恢复执行
           - N > recovery_phase → 正常执行
         → 跳过的 Phase 不发射 phase_start/phase_end 事件
-Step -0.5: GUI 健康检查（v5.7 自动恢复）
-        → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
+Step -0.5: GUI 健康检查（v5.7 自动恢复，v9.1 端口透传）
+        → Bash('AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_port+1} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
 Step 0: 发射 Phase 开始事件（v4.2 Event Bus）
         → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start {N} {mode}')
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")

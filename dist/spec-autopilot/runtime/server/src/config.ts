@@ -5,8 +5,8 @@
 import { join, resolve } from "node:path";
 import { accessSync } from "node:fs";
 
-export const WS_PORT = parseInt(process.env.AUTOPILOT_WS_PORT || "8765", 10);
 export const HTTP_PORT = parseInt(process.env.AUTOPILOT_HTTP_PORT || "9527", 10);
+export const WS_PORT = parseInt(process.env.AUTOPILOT_WS_PORT || String(HTTP_PORT + 1), 10);
 export const POLL_INTERVAL_MS = parseInt(process.env.AUTOPILOT_POLL_MS || "700", 10);
 
 // CLI 参数解析

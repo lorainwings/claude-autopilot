@@ -18,7 +18,16 @@ import type { ModelRoutingState } from "./store";
 
 declare const __PLUGIN_VERSION__: string;
 
-const wsBridge = new WSBridge();
+// WSBridge 延迟初始化：先从 /api/info 获取动态 wsPort，再创建连接
+let wsBridge: WSBridge | null = null;
+
+function getOrCreateBridge(wsPort?: number): WSBridge {
+  if (!wsBridge) {
+    const port = wsPort ?? (parseInt(window.location.port, 10) || 9527) + 1;
+    wsBridge = new WSBridge(`ws://${window.location.hostname || "localhost"}:${port}`);
+  }
+  return wsBridge;
+}
 
 // --- Model Routing Banner (v5.8) ---
 // 显示在中心主视区，醒目提示当前 Phase 的模型路由决策
@@ -86,25 +95,43 @@ export function App() {
   const [activeView, setActiveView] = useState<"orchestration" | "diagnostics">("orchestration");
 
   useEffect(() => {
-    wsBridge.connect();
+    let cancelled = false;
 
-    const unsubscribe = wsBridge.onEvents((events) => {
+    // 从 /api/info 获取动态 wsPort，然后建立 WebSocket 连接
+    fetch("/api/info")
+      .then((r) => r.json())
+      .then((info) => {
+        if (cancelled) return;
+        const bridge = getOrCreateBridge(info.wsPort);
+        bridge.connect();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // /api/info 不可达时使用默认端口
+        const bridge = getOrCreateBridge();
+        bridge.connect();
+      });
+
+    // 延迟订阅：bridge 可能尚未创建，用 getter 保证安全
+    const checkBridge = () => getOrCreateBridge();
+
+    const unsubscribe = checkBridge().onEvents((events) => {
       addEvents(events);
     });
 
     // H-2/H-1: 从 snapshot meta 初始化编排关键字段（archiveReadiness、requirementPacketHash）
-    const unsubscribeMeta = wsBridge.onMeta((meta) => {
+    const unsubscribeMeta = checkBridge().onMeta((meta) => {
       initOrchestrationFromMeta(meta);
     });
 
     // v5.4: Listen for reset signal (restart scenario) -> clear all GUI state
-    const unsubscribeReset = wsBridge.onReset(() => {
+    const unsubscribeReset = checkBridge().onReset(() => {
       useStore.getState().reset();
     });
 
     // v5.1.51: decision_ack only for UI feedback -- does not control GateBlockCard visibility
     // Merged into single atomic setState to avoid intermediate render (P0-3 fix)
-    const unsubscribeAck = wsBridge.onDecisionAck(() => {
+    const unsubscribeAck = checkBridge().onDecisionAck(() => {
       const state = useStore.getState();
       const blockEvents = state.events.filter((e) => e.type === "gate_block");
       const lastBlockSeq = blockEvents.length > 0 ? blockEvents[blockEvents.length - 1]!.sequence : -1;
@@ -112,7 +139,7 @@ export function App() {
     });
 
     const checkConnection = setInterval(() => {
-      setConnected(wsBridge.connected);
+      setConnected(checkBridge().connected);
     }, 1000);
 
     // v5.4: Independent HTTP health ping (not tied to WS state)
@@ -136,19 +163,20 @@ export function App() {
       });
 
     return () => {
+      cancelled = true;
       clearInterval(checkConnection);
       clearInterval(checkHttp);
       unsubscribe();
       unsubscribeMeta();
       unsubscribeReset();
       unsubscribeAck();
-      wsBridge.disconnect();
+      checkBridge().disconnect();
     };
   }, [addEvents, initOrchestrationFromMeta, setConnected, setHttpOk]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {
-      wsBridge.sendDecision({ action, phase, reason });
+      wsBridge?.sendDecision({ action, phase, reason });
     } catch (error) {
       console.error("Failed to send decision:", error);
       throw error;
