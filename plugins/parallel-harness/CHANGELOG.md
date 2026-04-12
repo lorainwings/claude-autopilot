@@ -4,6 +4,15 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.1](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.6.0...parallel-harness-v1.6.1) (2026-04-12)
+
+
+### Fixed
+
+* add .parallel-harness marker dir in auto-install tests ([455230c](https://github.com/lorainwings/claude-autopilot/commit/455230c8c6f666986c6f0d15b766da98ed7f62a9))
+* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/lorainwings/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
+* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/lorainwings/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
+
 ## [1.6.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.5.2...parallel-harness-v1.6.0) (2026-04-11)
 
 

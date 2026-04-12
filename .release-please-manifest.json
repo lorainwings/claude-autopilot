@@ -1,5 +1,5 @@
 {
-  "plugins/spec-autopilot": "5.4.4",
-  "plugins/parallel-harness": "1.6.0",
+  "plugins/spec-autopilot": "5.4.5",
+  "plugins/parallel-harness": "1.6.1",
   "plugins/daily-report": "1.2.8"
 }
