@@ -45,6 +45,9 @@ PY
 )" || PROJECT_ROOT=""
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# --- Project relevance guard: only install in projects that use parallel-harness ---
+[ -d "$PROJECT_ROOT/.parallel-harness" ] || exit 0
+
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 LOCAL_SETTINGS="$CLAUDE_DIR/settings.local.json"
 PROJECT_SETTINGS="$CLAUDE_DIR/settings.json"

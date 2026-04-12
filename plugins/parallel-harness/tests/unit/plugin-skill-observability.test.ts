@@ -286,6 +286,7 @@ describe("plugin skill observability", () => {
 
   test("auto-install chains with existing user-level statusLine instead of skipping", () => {
     const project = createTempProject();
+    mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-chain-001";
 
     // Pre-configure a user-level statusLine to simulate existing config
@@ -332,6 +333,7 @@ describe("plugin skill observability", () => {
 
   test("auto-install chains correctly when existing statusLine command has spaces and arguments", () => {
     const project = createTempProject();
+    mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-chain-spaces-001";
 
     // Create a directory with spaces in the name
@@ -387,6 +389,7 @@ describe("plugin skill observability", () => {
 
   test("auto-install skips if harness bridge is already at local scope and upstream unchanged", () => {
     const project = createTempProject();
+    mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-skip-001";
 
     // First install
@@ -418,6 +421,7 @@ describe("plugin skill observability", () => {
 
   test("auto-install refreshes bridge when user adds a custom statusLine after initial install", () => {
     const project = createTempProject();
+    mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-refresh-001";
 
     // First install: no upstream statusLine → plain bridge (no chain)
@@ -459,6 +463,7 @@ describe("plugin skill observability", () => {
 
   test("auto-install refreshes bridge when upstream statusLine is removed", () => {
     const project = createTempProject();
+    mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-refresh-remove-001";
 
     // Pre-configure user-level statusLine
