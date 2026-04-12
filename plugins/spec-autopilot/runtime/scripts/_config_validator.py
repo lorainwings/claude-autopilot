@@ -73,9 +73,11 @@ def parse_yaml(config_path):
             if not stripped or stripped.startswith("#"):
                 continue
             indent = len(line) - len(stripped)
-            key_match = re.match(r"([\w][\w_.]*):\s*(.*)", stripped)
+            # Match YAML keys: bare keys like `foo:`, quoted keys like `"backend/":` or `'frontend/':`
+            key_match = re.match(r'(?:"([^"]+)"|\'([^\']+)\'|([\w][\w_.]*))\s*:\s*(.*)', stripped)
             if key_match:
-                key = key_match.group(1)
+                key = key_match.group(1) or key_match.group(2) or key_match.group(3)
+                raw = key_match.group(4).strip()
                 while indent_stack and indent <= indent_stack[-1]:
                     indent_stack.pop()
                     if path:
@@ -83,7 +85,6 @@ def parse_yaml(config_path):
                 path.append(key)
                 indent_stack.append(indent)
                 full_key = ".".join(path)
-                raw = key_match.group(2).strip()
                 if not raw:
                     yaml_data[full_key] = True
                 elif raw.lower() == "true":
