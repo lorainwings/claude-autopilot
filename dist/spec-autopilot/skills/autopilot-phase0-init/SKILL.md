@@ -71,11 +71,13 @@ user-invocable: false
 
 调用 `Bash("bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh <project_root>")`：
 
-- **已存活** → 静默退出（exit 0），GUI 地址仍为 `http://localhost:9527`
-- **未存活** → 后台启动 autopilot-server.ts，GUI 地址为 `http://localhost:9527`
+解析脚本输出中 `GUI_SERVER_JSON:` 前缀行的 JSON，提取 `http_url` 字段作为实际 GUI 地址。
+
+- **已存活** → 静默退出（exit 0），从 JSON 提取 `http_url`
+- **未存活** → 后台启动 autopilot-server.ts，从 JSON 提取 `http_url`
 - **启动失败** → GUI 行显示 `unavailable`，不阻断流程（GUI 为可选增强功能）
 
-> **零侵入保障**: 服务器以守护进程运行，日志重定向到 `/dev/null`，不干扰主线程输出。
+> **零侵入保障**: 服务器以守护进程运行，日志重定向到文件（`logs/gui-server.log`），不干扰主线程输出。
 
 **然后渲染 Banner**（将 GUI 地址合并到 Banner 中）：
 
@@ -90,7 +92,7 @@ user-invocable: false
 │   Change    {change_name}                        │
 │   Session   {session_id}                         │
 │   Started   {YYYY-MM-DD HH:mm:ss}               │
-│   GUI       http://localhost:9527                │
+│   GUI       {gui_url}                            │
 │                                                  │
 ╰──────────────────────────────────────────────────╯
 ```
@@ -98,7 +100,7 @@ user-invocable: false
 - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 9 写入锁文件时复用同一值
 - change_name：此时尚未确定，显示 `pending`（Phase 1 完成后更新锁文件时回填）
 - Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
-- GUI：服务器启动成功时显示 `http://localhost:9527`，启动失败时显示 `unavailable`
+- GUI：从 `start-gui-server.sh` 的 `GUI_SERVER_JSON:` 输出解析 `http_url` 字段，服务器启动成功时显示实际地址（如 `http://localhost:9527`），启动失败时显示 `unavailable`
 
 ### Step 4.5: 初始化事件文件 + 发射 Phase 0 开始事件（v5.2 Event Bus 补全）
 

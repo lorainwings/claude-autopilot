@@ -1,10 +1,10 @@
 ---
-name: autopilot-setup-model-router
+name: autopilot-models
 description: "Configure per-phase AI model routing strategy for autopilot. Supports cost-optimized, balanced, and quality-max presets with custom per-phase configuration."
 argument-hint: "[cost | balanced | quality | custom | show]"
 ---
 
-# Autopilot Setup Model Router — 模型路由策略配置
+# Autopilot Models — 模型路由策略配置
 
 配置各阶段的 AI 模型路由策略，支持预设方案和逐 Phase 自定义。
 
@@ -44,7 +44,7 @@ argument-hint: "[cost | balanced | quality | custom | show]"
   3. .claude/agents/*.md 中的 model frontmatter
   4. 继承主会话模型
 
-切换策略: /autopilot-setup-model-router [cost|balanced|quality|custom]
+切换策略: /autopilot-models [cost|balanced|quality|custom]
 ```
 
 ---

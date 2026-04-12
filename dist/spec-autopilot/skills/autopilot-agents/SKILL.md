@@ -1,10 +1,10 @@
 ---
-name: autopilot-setup-agents
+name: autopilot-agents
 description: "Discover, install and configure AI agents for autopilot phases from community sources (OMC, Anthropic official, VoltAgent, etc.). Supports install/list/swap/recommend/sources modes."
 argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
 ---
 
-# Autopilot Setup Agents — Agent 发现/安装/热交换
+# Autopilot Agents — Agent 发现/安装/热交换
 
 从社区来源（≥1000 stars）发现、安装和配置各阶段的专业 AI Agent。
 
@@ -44,7 +44,7 @@ argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
   Phase 6B: code-reviewer (Anthropic 官方, 9/10, 置信度≥80 过滤)
 ```
 
-输出后提示：`输入 /autopilot-setup-agents install 安装推荐 Agent`
+输出后提示：`输入 /autopilot-agents install 安装推荐 Agent`
 
 ---
 
@@ -143,15 +143,15 @@ Phase-Agent 映射:
   Phase 6B (代码审查) → {agent} ({model})
   Phase 7 (归档)      → {agent} ({model})
 
-热交换: /autopilot-setup-agents swap <phase> <agent>
-查看:   /autopilot-setup-agents list
+热交换: /autopilot-agents swap <phase> <agent>
+查看:   /autopilot-agents list
 ```
 
 ---
 
 ### `swap` 模式
 
-用法: `/autopilot-setup-agents swap phase4 test-engineer`
+用法: `/autopilot-agents swap phase4 test-engineer`
 
 ```
 Step 1: 解析参数 — phase 编号 + 新 agent 名称

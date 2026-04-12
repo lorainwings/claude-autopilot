@@ -108,8 +108,8 @@ relaxed:
   测试套件: {N} 个 | 服务: {N} 个
 
   快速开始: 输入 /autopilot <需求描述>
-  调整 Agent: /autopilot-setup-agents [install|list|swap|recommend]
-  调整模型: /autopilot-setup-model-router [cost|balanced|quality]
+  调整 Agent: /autopilot-agents [install|list|swap|recommend]
+  调整模型: /autopilot-models [cost|balanced|quality]
   调整配置: 编辑 .claude/autopilot.config.yaml
 ```
 
@@ -284,7 +284,7 @@ IF .claude/agents/ 下存在 analyst.md / executor.md / code-reviewer.md 等:
 ELSE:
   AskUserQuestion: "autopilot 支持安装专业 Agent 以提升各阶段效果。是否安装？"
   选项:
-  - "安装推荐 Agent (Recommended)" → 调用 Skill("spec-autopilot:autopilot-setup-agents" "install")
+  - "安装推荐 Agent (Recommended)" → 调用 Skill("spec-autopilot:autopilot-agents" "install")
   - "跳过，稍后手动安装" → 继续后续步骤
 ```
 
@@ -302,7 +302,7 @@ IF config.model_routing.phases 已有 7 个 phase 配置:
 ELSE:
   AskUserQuestion: "是否配置模型路由策略？（影响成本和质量）"
   选项:
-  - "配置模型路由 (Recommended)" → 调用 Skill("spec-autopilot:autopilot-setup-model-router")
+  - "配置模型路由 (Recommended)" → 调用 Skill("spec-autopilot:autopilot-models")
   - "使用默认路由" → 跳过（使用 resolve-model-routing.sh 的内置默认值）
 ```
 

@@ -374,7 +374,7 @@ def validate(config_path):
     # Soft warning: non-builtin agent types (e.g. "business-analyst", "qa-expert")
     # are valid if a matching .claude/agents/{name}.md exists. Since the validator
     # only reads the YAML (not the filesystem), we emit an informational warning
-    # guiding the user to install the custom agent via /autopilot-setup-agents.
+    # guiding the user to install the custom agent via /autopilot-agents.
     KNOWN_BUILTIN_AGENTS = {
         "general-purpose",
         "Explore",
@@ -398,7 +398,7 @@ def validate(config_path):
             cross_ref_warnings.append(
                 f'{field}: "{agent_val}" is not a built-in Claude Code agent type. '
                 f"Ensure .claude/agents/{agent_val}.md exists, or run "
-                f"/autopilot-setup-agents to install recommended community agents."
+                f"/autopilot-agents to install recommended community agents."
             )
 
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions

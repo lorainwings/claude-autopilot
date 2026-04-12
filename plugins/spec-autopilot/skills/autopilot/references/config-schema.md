@@ -19,7 +19,7 @@ services:
 
 phases:
   requirements:
-    agent: "general-purpose"    # 推荐安装 OMC "analyst" Agent（/autopilot-setup-agents install）
+    agent: "general-purpose"    # 推荐安装 OMC "analyst" Agent（/autopilot-agents install）
     min_qa_rounds: 1
     max_rounds: 15             # 硬性安全阀：讨论最大轮数（强制结束）
     soft_warning_rounds: 8     # 软性提醒轮次：提示用户当前清晰度
@@ -81,7 +81,7 @@ phases:
     instruction_files: []      # 可选：覆盖内置 OpenSpec 创建/FF 指令
     reference_files: []        # 可选：项目自定义参考文件
   testing:
-    agent: "general-purpose"    # 推荐安装 OMC "test-engineer" Agent（/autopilot-setup-agents install）
+    agent: "general-purpose"    # 推荐安装 OMC "test-engineer" Agent（/autopilot-agents install）
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     reference_files: []        # 可选：项目自定义参考文件
     gate:

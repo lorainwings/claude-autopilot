@@ -139,6 +139,77 @@ Task(subagent_type: "general-purpose", prompt: "
 - PID 文件位于 `${change_dir}context/allure-serve.pid`（change 级隔离，由子 Agent 写入）
 - **服务保活策略**：Allure 服务在 Phase 7 归档后**不自动 kill**。服务保持运行确保用户可随时通过 Summary Box 链接查看报告。Step 9 输出停止命令提示，由用户自行决定停止时机。
 
+### Step 2.6: Test Report 线框（v9.0 测试报告即时可见）
+
+> **仅 full 和 lite 模式**。minimal 模式跳过此步骤（无 Phase 6）。
+
+在 Allure 服务启动（Step 2.5）完成后，立即渲染 **Test Report 线框**，确保用户在归档前即可查看测试结果和报告访问地址。
+
+#### 数据收集
+
+从以下来源确定性读取数据（不依赖主线程上下文变量）：
+
+1. **测试结果**: 从 Phase 6 checkpoint（`phase-6-report.json`）读取 `suite_results`（total/passed/failed/skipped）
+2. **Allure 地址**: 从 Step 2.5 子 Agent 返回的 JSON 信封提取 `url` 字段，或从 `${change_dir}context/allure-preview.json` 读取
+
+```bash
+Bash('
+  CHANGE_DIR="openspec/changes/{change_name}"
+  CONTEXT_DIR="${CHANGE_DIR}/context"
+
+  # 1. 从 Phase 6 checkpoint 读取测试结果
+  P6_CHECKPOINT="${CONTEXT_DIR}/phase-results/phase-6-report.json"
+  TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; PASS_RATE="0"
+  if [ -f "$P6_CHECKPOINT" ]; then
+    TOTAL=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"total\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    PASSED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"passed\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    FAILED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"failed\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    SKIPPED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"skipped\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    if [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+      PASS_RATE=$(python3 -c "print(round($PASSED/$TOTAL*100, 1))" 2>/dev/null || echo 0)
+    fi
+  fi
+
+  # 2. 从 allure-preview.json 读取 Allure 地址
+  ALLURE_URL=""
+  if [ -f "${CONTEXT_DIR}/allure-preview.json" ]; then
+    ALLURE_URL=$(python3 -c "import json; print(json.load(open(\"${CONTEXT_DIR}/allure-preview.json\")).get(\"url\",\"\"))" 2>/dev/null || echo "")
+  fi
+
+  python3 -c "
+import json
+print(json.dumps({
+    \"total\": $TOTAL, \"passed\": $PASSED, \"failed\": $FAILED, \"skipped\": $SKIPPED,
+    \"pass_rate\": \"$PASS_RATE\", \"allure_url\": \"$ALLURE_URL\"
+}))
+  "
+')
+```
+
+#### 线框渲染
+
+从 Bash 输出解析 JSON，渲染 Test Report 线框：
+
+> **渲染规则**: 使用 markdown 代码块输出。框内宽度固定 **50 字符**（纯 ASCII），与 Banner 和 Summary Box 一致。
+
+```
+╭──────────────────────────────────────────────────╮
+│                                                  │
+│   Test Report                                    │
+│                                                  │
+│   Total   {N}  Passed  {N}  Failed  {N}          │
+│   Skipped {N}  Pass Rate  {N}%                   │
+│                                                  │
+│   Allure  {allure_url}                           │
+│                                                  │
+╰──────────────────────────────────────────────────╯
+```
+
+> **Allure 行渲染规则**：
+> - `allure_url` 非空时展示实际地址（如 `http://localhost:4040`）
+> - `allure_url` 为空时（无产物或启动失败）展示 `unavailable`
+> - Allure 行**始终展示**，确保用户了解报告可用状态
+
 ### Step 3: Archive Readiness 检查与归档决策
 
 **v6.0 Archive Readiness 自动化**: 归档前执行统一的 archive-readiness 判定。所有判定条件通过时自动归档，无需人工确认；任一条件失败时硬阻断并展示原因。
@@ -389,7 +460,7 @@ print(json.dumps(result))
 > 仅展示实际执行的阶段（lite/minimal 跳过的阶段不显示）。框内宽度固定 50 字符（纯 ASCII）。
 > **Quick Links 区域渲染规则**（v8.0 确定性地址）：
 > - GUI 行：`gui_url` 非空时展示，为空时显示 `unavailable`
-> - Allure 行：`allure_url` 非空时展示，Allure 服务未启动（无产物或启动失败）时**不展示此行**
+> - Allure 行：`allure_url` 非空时展示实际地址，为空时显示 `unavailable`（**始终展示此行**，确保用户了解报告可用状态）
 > - Services 行：`services` 字典中每个 key-value 展示一行，字典为空时**不展示此行**
 > - TDD 行仅在 `test_driven_summary` 非 null 时展示（full 模式非 TDD 模式）
 > - **所有地址从磁盘文件读取**（allure-preview.json、GUI PID 文件、autopilot.config.yaml），不依赖 AI 在上下文中持有变量值
