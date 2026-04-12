@@ -2,7 +2,7 @@
 
 # parallel-harness Troubleshooting
 
-> Version: v1.6.0 (GA) | Last Updated: 2026-04-09
+> Version: v1.7.0 (GA) | Last Updated: 2026-04-09
 
 ## Common Errors and Solutions
 

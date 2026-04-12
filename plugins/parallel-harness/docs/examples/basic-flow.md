@@ -2,7 +2,7 @@
 
 # parallel-harness Basic Flow Examples
 
-> Version: v1.6.0 (GA) | Last updated: 2026-04-09
+> Version: v1.7.0 (GA) | Last updated: 2026-04-09
 
 ## Example 1: Requirement Decomposition into a Task Graph
 
