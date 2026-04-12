@@ -25,6 +25,9 @@ if [ -n "$STDIN_DATA" ]; then
 fi
 [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# --- Project relevance guard: only install in projects that use autopilot ---
+[ -d "$PROJECT_ROOT/openspec" ] || [ -f "$PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
+
 # --- Check if statusLine is already configured in any scope ---
 # Priority: local > project > user
 CLAUDE_DIR="$PROJECT_ROOT/.claude"

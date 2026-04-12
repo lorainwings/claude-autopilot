@@ -40,7 +40,9 @@ if [ -n "$STAGED" ]; then
   if [ ! -f "$TEST_SCRIPT" ]; then
     echo "WARNING: tests/run_all.sh not found, skipping" >&2
   else
-    if ! bash "$TEST_SCRIPT"; then
+    # Unset git hook env vars so test subprocesses don't accidentally
+    # operate on the main repo when they create temp git repos.
+    if ! env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE bash "$TEST_SCRIPT"; then
       echo ""
       echo "❌ Hook tests failed. Fix the issues above before committing."
       exit 1
