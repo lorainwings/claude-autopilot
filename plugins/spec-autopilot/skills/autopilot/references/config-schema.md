@@ -19,7 +19,7 @@ services:
 
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"    # 推荐安装 OMC "analyst" Agent（/autopilot-setup-agents install）
     min_qa_rounds: 1
     max_rounds: 15             # 硬性安全阀：讨论最大轮数（强制结束）
     soft_warning_rounds: 8     # 软性提醒轮次：提示用户当前清晰度
@@ -81,7 +81,7 @@ phases:
     instruction_files: []      # 可选：覆盖内置 OpenSpec 创建/FF 指令
     reference_files: []        # 可选：项目自定义参考文件
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"    # 推荐安装 OMC "test-engineer" Agent（/autopilot-setup-agents install）
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     reference_files: []        # 可选：项目自定义参考文件
     gate:
@@ -105,11 +105,11 @@ phases:
       default_agent: "general-purpose"  # 未匹配域的 fallback Agent
       domain_agents:             # 路径前缀 → Agent 映射（最长前缀匹配，每域 1 Agent）
         "backend/":
-          agent: "backend-developer"
+          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "backend-developer"
         "frontend/":
-          agent: "frontend-developer"
+          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "frontend-developer"
         "node/":
-          agent: "fullstack-developer"
+          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "fullstack-developer"
         # ---- 多技术栈项目示例 ----
         # "services/auth/":           { agent: "java-architect" }
         # "services/payment/":        { agent: "backend-developer" }
@@ -167,51 +167,54 @@ gates:
     after_phase_4: false     # 测试设计后自动继续
 
 model_routing:                   # 模型路由配置（v5.3 升级为执行级路由）
-  # ── 旧格式（向后兼容，仍可用）──
-  # phase_1: heavy               # heavy=Opus 级, light=Sonnet 级, auto=继承父进程
-  # phase_2: light
-  # ...
-
-  # ── 新格式（推荐）──
   enabled: true                  # 是否启用模型路由（false 时退化为默认路由）
   default_session_model: opusplan  # 主线程默认模型
   default_subagent_model: sonnet   # 子 Agent 默认模型
   fallback_model: sonnet           # 模型不可用时的兜底模型
+  # 模型优先级链（高→低）:
+  #   1. AUTOPILOT_PHASE{N}_MODEL 环境变量（单次实验覆盖）
+  #   2. 下方 per-phase 配置
+  #   3. .claude/agents/*.md 中的 model frontmatter
+  #   4. 继承主会话模型
   phases:
-    phase_1:
+    phase_1:                     # 需求分析：需要长上下文理解（MRCR 76%），Opus 不可替代
       tier: deep                 # fast/standard/deep/auto
       model: opus                # haiku/sonnet/opus/opusplan
       effort: high               # low/medium/high
-    phase_2:
+    phase_2:                     # OpenSpec：纯模板操作，Haiku 成本最优
       tier: fast
       model: haiku
       effort: low
-    phase_3:
+    phase_3:                     # FF 生成：模板化操作，复用 Phase 2 路由
       tier: fast
       model: haiku
       effort: low
-    phase_4:
-      tier: deep
-      model: opus
-      effort: high
-    phase_5:
+    phase_4:                     # 测试设计：SWE-bench Sonnet≈Opus（仅差 1.3pp），有 gate 兜底
       tier: standard
       model: sonnet
       effort: medium
+      escalate_on_failure_to: deep  # 测试设计不达标时升级到 Opus
+    phase_5:                     # 实施：Opus 能发现 Sonnet 遗漏的 memory leak/async bug
+      tier: deep
+      model: opus
+      effort: high
       escalate_on_failure_to: deep  # 失败时升级目标
-    phase_6:
+    phase_6:                     # 测试执行+报告：机械性操作
       tier: fast
       model: haiku
       effort: low
-    phase_7:
+    phase_7:                     # 归档：纯机械操作
       tier: fast
       model: haiku
       effort: low
 
-  # ── 兼容映射 ──
-  # heavy -> deep (opus)
-  # light -> standard (sonnet)
-  # auto  -> 继承父会话模型（resolver 输出 selected_tier=auto, dispatch 不覆盖模型）
+  # Phase 6B 代码审查独立模型配置
+  # 代码审查不含 autopilot-phase 标记，dispatch 时传入 critical=true 触发升级到 deep/opus
+  # 或通过以下配置显式指定：
+  # code_review:
+  #   tier: deep
+  #   model: opus
+  #   effort: high
 
   # ── 自动升级策略（内置，无需配置）──
   # fast 连续失败 1 次 → 升级到 standard

@@ -49,6 +49,7 @@ argument-hint: "[可选: 项目根目录路径]"
 # --- Strict 预设 ---
 strict:
   default_mode: "full"
+  model_strategy: "quality_max"  # 质量优先模型路由
   phases.implementation.tdd_mode: true
   phases.implementation.tdd_refactor: true
   phases.reporting.coverage_target: 80
@@ -66,6 +67,7 @@ strict:
 # --- Moderate 预设 ---
 moderate:
   default_mode: "full"
+  model_strategy: "balanced"     # 平衡模型路由
   phases.implementation.tdd_mode: false
   phases.reporting.coverage_target: 60
   phases.reporting.zero_skip_required: true
@@ -82,6 +84,7 @@ moderate:
 # --- Relaxed 预设 ---
 relaxed:
   default_mode: "minimal"
+  model_strategy: "cost_optimized"  # 省钱优先模型路由
   phases.implementation.tdd_mode: false
   phases.reporting.coverage_target: 40
   phases.reporting.zero_skip_required: false
@@ -101,11 +104,13 @@ relaxed:
 ```
 ✓ autopilot 配置已生成: .claude/autopilot.config.yaml
   预设: {preset_name} | 模式: {default_mode} | TDD: {on/off}
+  Agent: {agent_summary} | 模型策略: {model_strategy}
   测试套件: {N} 个 | 服务: {N} 个
 
   快速开始: 输入 /autopilot <需求描述>
+  调整 Agent: /autopilot-setup-agents [install|list|swap|recommend]
+  调整模型: /autopilot-setup-model-router [cost|balanced|quality]
   调整配置: 编辑 .claude/autopilot.config.yaml
-  详细文档: 查看 plugins/spec-autopilot/docs/configuration.md
 ```
 
 > **非 Wizard 模式**: 不传 `--interactive` 时，行为与原有 Step 1-6 完全一致（向后兼容）。
@@ -266,6 +271,42 @@ IF playwright_login.steps 为空 且检测到 Playwright:
 将配置写入 `.claude/autopilot.config.yaml`。
 
 如果文件已存在 → AskUserQuestion 确认是否覆盖。
+
+### Step 5.3: Agent 安装引导
+
+检查 `.claude/agents/` 是否已安装 autopilot 推荐的专业 Agent：
+
+```
+IF .claude/agents/ 下存在 analyst.md / executor.md / code-reviewer.md 等:
+  → 输出 "✓ 已检测到 {N} 个专业 Agent"
+  → 跳过本步骤
+
+ELSE:
+  AskUserQuestion: "autopilot 支持安装专业 Agent 以提升各阶段效果。是否安装？"
+  选项:
+  - "安装推荐 Agent (Recommended)" → 调用 Skill("spec-autopilot:autopilot-setup-agents" "install")
+  - "跳过，稍后手动安装" → 继续后续步骤
+```
+
+> Agent 安装是可选步骤，跳过不影响 autopilot 功能。未安装专业 Agent 时使用内置 general-purpose。
+
+### Step 5.4: 模型路由引导
+
+检查 config 中 `model_routing` 是否已有完整的 per-phase 配置：
+
+```
+IF config.model_routing.phases 已有 7 个 phase 配置:
+  → 输出当前策略摘要
+  → 跳过本步骤
+
+ELSE:
+  AskUserQuestion: "是否配置模型路由策略？（影响成本和质量）"
+  选项:
+  - "配置模型路由 (Recommended)" → 调用 Skill("spec-autopilot:autopilot-setup-model-router")
+  - "使用默认路由" → 跳过（使用 resolve-model-routing.sh 的内置默认值）
+```
+
+> 模型路由配置是可选步骤。跳过时使用内置默认路由（Phase 1/5: opus, Phase 4: sonnet, 其余: haiku）。
 
 ### Step 5.5: LSP 插件推荐
 

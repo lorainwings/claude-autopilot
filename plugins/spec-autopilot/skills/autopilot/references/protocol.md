@@ -71,14 +71,6 @@
 | 6 | fast | haiku | 报告生成是机械性操作 |
 | 7 | fast | haiku | 汇总与归档较简单 |
 
-### 旧格式兼容映射
-
-| 旧值 | 新 tier | 新 model |
-|------|---------|----------|
-| heavy | deep | opus |
-| light | standard | sonnet |
-| auto | auto（继承父会话） | auto（不覆盖） |
-
 ### 升级与回退策略
 
 | 触发条件 | 动作 | 执行层 |
@@ -169,8 +161,6 @@ bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLE
   }
 }
 ```
-
-> 向后兼容: 旧格式 `model_routing: { phase_1: heavy, phase_2: light, ... }` 仍可用，自动映射到新 tier 体系。
 
 ## Checkpoint 文件命名
 

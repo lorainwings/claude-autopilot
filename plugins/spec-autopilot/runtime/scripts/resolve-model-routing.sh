@@ -66,18 +66,12 @@ TIER_EFFORT_MAP = {
     'deep': 'high',
 }
 
-# 旧格式兼容映射 — 注意: auto 不在此表中，单独处理
-LEGACY_MAP = {
-    'heavy': 'deep',
-    'light': 'standard',
-}
-
 # 默认 phase 路由策略
 DEFAULT_PHASE_ROUTING = {
     1: 'deep',      # 需求分析需要深度推理
     2: 'fast',      # OpenSpec 创建是机械性操作
     3: 'fast',      # FF 生成是模板化操作
-    4: 'deep',      # 测试设计需要创造力
+    4: 'standard',  # 测试设计（SWE-bench Sonnet≈Opus，有 gate 兜底，失败自动升级）
     5: 'deep',      # 代码实施需要最强推理能力
     6: 'fast',      # 报告生成是机械性操作
     7: 'fast',      # 汇总与归档较简单
@@ -243,10 +237,10 @@ def resolve_tier_from_config(mr_config, phase):
         return None
 
     if isinstance(mr_config, str):
-        # 旧格式顶层字符串
+        # 顶层字符串
         if mr_config == 'auto':
             return TIER_AUTO
-        return LEGACY_MAP.get(mr_config, mr_config)
+        return mr_config
 
     if isinstance(mr_config, dict):
         # 检查 enabled 字段
@@ -262,7 +256,7 @@ def resolve_tier_from_config(mr_config, phase):
             if isinstance(pval, str):
                 if pval == 'auto':
                     return TIER_AUTO
-                return LEGACY_MAP.get(pval, pval)
+                return pval
             elif isinstance(pval, dict):
                 tier = pval.get('tier')
                 if tier:
@@ -277,13 +271,13 @@ def resolve_tier_from_config(mr_config, phase):
                             return t
                     return 'standard'
 
-        # 旧格式 flat dict: phase_1: heavy
+        # flat dict: phase_1: <tier>
         if phase_key in mr_config:
             val = mr_config[phase_key]
             if isinstance(val, str):
                 if val == 'auto':
                     return TIER_AUTO
-                return LEGACY_MAP.get(val, val)
+                return val
 
         # 回退到 default_subagent_model
         default_model = mr_config.get('default_subagent_model')
@@ -297,6 +291,27 @@ def resolve_tier_from_config(mr_config, phase):
 
 def resolve(phase, complexity, requirement_type, retry_count, critical, config_path):
     \"\"\"主解析逻辑。\"\"\"
+    # ── 环境变量覆盖（最高优先级，用于实验/调试）──
+    env_model = os.environ.get(f'AUTOPILOT_PHASE{phase}_MODEL')
+    env_effort = os.environ.get(f'AUTOPILOT_PHASE{phase}_EFFORT')
+    if env_model:
+        # 从 model 反查 tier
+        env_tier = 'standard'
+        for t, m in TIER_MODEL_MAP.items():
+            if m == env_model or t == env_model:
+                env_tier = t
+                env_model = TIER_MODEL_MAP.get(t, env_model)
+                break
+        return {
+            'selected_tier': env_tier,
+            'selected_model': env_model,
+            'selected_effort': env_effort or TIER_EFFORT_MAP.get(env_tier, 'medium'),
+            'routing_reason': f'环境变量 AUTOPILOT_PHASE{phase}_MODEL={env_model} 覆盖',
+            'escalated_from': None,
+            'fallback_applied': False,
+            'fallback_model': 'sonnet',
+        }
+
     mr_config = parse_config(config_path)
     result = {
         'selected_tier': None,
@@ -381,7 +396,7 @@ def resolve(phase, complexity, requirement_type, retry_count, critical, config_p
             if isinstance(pval, dict):
                 esc_target = pval.get('escalate_on_failure_to')
                 if esc_target:
-                    esc_tier = LEGACY_MAP.get(esc_target, esc_target)
+                    esc_tier = esc_target
                     if esc_tier in TIER_MODEL_MAP:
                         escalated_from = escalated_from or base_tier
                         base_tier = esc_tier
