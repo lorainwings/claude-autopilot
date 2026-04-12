@@ -167,6 +167,20 @@ output=$(run_guard "$PROJECT_6")
 [ -z "$output" ]
 assert_exit "6. stale progress in another change does not block Phase 1" 0 $?
 
+# ============================================
+# Test 7: Phase 5 active → allow (exception recovery paths need AskUserQuestion)
+# ============================================
+echo ""
+echo "--- Test 7: Phase 5 active → allow (exception recovery) ---"
+
+PROJECT_7="$TMP_ROOT/project-phase5-allow"
+setup_project "$PROJECT_7" "5"
+echo '{"change":"test-change","current_phase":5}' > "$PROJECT_7/openspec/changes/.autopilot-active"
+
+output=$(run_guard "$PROJECT_7")
+[ -z "$output" ]
+assert_exit "7. phase 5 → allow (merge conflict/worktree failure recovery)" 0 $?
+
 echo ""
 echo "=== guard-ask-user-phase: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ] || exit 1

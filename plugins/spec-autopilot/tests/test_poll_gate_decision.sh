@@ -176,7 +176,7 @@ BOOTSTRAP_ARGS=$(cat "$PROJECT_ROOT/logs/mock-gui-bootstrap.args" 2>/dev/null ||
 assert_contains "3g. async bootstrap uses --no-wait" "$BOOTSTRAP_ARGS" '--no-wait'
 rm -rf "$(dirname "$PROJECT_ROOT")"
 
-# 4. Legacy config opt-out no longer blocks bootstrap path
+# 4. Config opt-out: auto_continue_on_gui_unavailable=false → fail-closed (timeout)
 PROJECT_ROOT=$(setup_poll_project)
 CHANGE_DIR="$PROJECT_ROOT/openspec/changes/test-feature/"
 GUI_PORT=$(get_configured_gui_port "$PROJECT_ROOT")
@@ -191,9 +191,8 @@ MOCK_GUI_SCRIPT=$(create_mock_gui_bootstrap "$PROJECT_ROOT" "$GUI_PORT")
 OUTPUT=$(PROJECT_ROOT_QUICK="$PROJECT_ROOT" START_GUI_SERVER_SCRIPT="$MOCK_GUI_SCRIPT" bash "$POLL_SCRIPT" "$CHANGE_DIR" 3 full '{"blocked_step":2,"error_message":"test"}' 2>&1)
 EXIT_CODE=$?
 
-assert_exit "4a. GUI unavailable + legacy opt-out still returns exit 0" 0 "$EXIT_CODE"
-assert_contains "4b. GUI unavailable + legacy opt-out still auto_continue" "$OUTPUT" '"action":"auto_continue"'
-assert_contains "4c. GUI unavailable + legacy opt-out still returns dashboard URL" "$OUTPUT" "\"dashboard_url\":\"http://localhost:${GUI_PORT}\""
+assert_exit "4a. GUI unavailable + opt-out=false → timeout exit 1 (fail-closed)" 1 "$EXIT_CODE"
+assert_contains "4b. GUI unavailable + opt-out=false → timeout action" "$OUTPUT" '"action":"timeout"'
 rm -rf "$(dirname "$PROJECT_ROOT")"
 
 echo "Results: $PASS passed, $FAIL failed"

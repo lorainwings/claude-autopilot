@@ -461,6 +461,12 @@ def resolve(phase, complexity, requirement_type, retry_count, critical, config_p
             if isinstance(pval, dict) and 'model' in pval and retry_count == 0:
                 result['selected_model'] = pval['model']
 
+    # 第十二步：环境变量 EFFORT 独立覆盖（最高优先级）
+    # 允许单独设置 AUTOPILOT_PHASE{N}_EFFORT 而不设置 MODEL
+    if env_effort:
+        result['selected_effort'] = env_effort
+        result['routing_reason'] += f', 环境变量 AUTOPILOT_PHASE{phase}_EFFORT={env_effort} 覆盖 effort'
+
     return result
 
 
