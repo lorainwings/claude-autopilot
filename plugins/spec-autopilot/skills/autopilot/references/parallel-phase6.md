@@ -18,10 +18,11 @@ tri_path_parallel:
         allure_args: "{suite.allure_args}"
         merge_strategy: "none"
 
-  # 路径 B: 代码审查（后台 Task）
+  # 路径 B: 代码审查（后台 Task，critical=true 强制 Opus）
   path_b:
     type: "background"
     condition: "config.phases.code_review.enabled"
+    model_routing: "resolve-model-routing.sh phase=6 critical=true"  # 强制 deep/opus
     agent: "general-purpose"
     prompt_source: "references/phase6-code-review.md"
     no_phase_marker: true  # 不含 autopilot-phase 标记，Hook 直接放行

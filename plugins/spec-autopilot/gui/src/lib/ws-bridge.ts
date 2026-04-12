@@ -89,12 +89,14 @@ export class WSBridge {
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private lastPong = 0;
+  private disposed = false;
 
   constructor(url = "ws://localhost:8765") {
     this.url = url;
   }
 
   connect() {
+    if (this.disposed) return;
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     try {
@@ -159,6 +161,7 @@ export class WSBridge {
   }
 
   disconnect() {
+    this.disposed = true;
     this.clearConnectTimeout();
     this.stopPing();
     if (this.reconnectTimer) {
@@ -215,6 +218,7 @@ export class WSBridge {
   }
 
   private scheduleReconnect() {
+    if (this.disposed) return;
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;

@@ -18,7 +18,20 @@ import type { ModelRoutingState } from "./store";
 
 declare const __PLUGIN_VERSION__: string;
 
-const wsBridge = new WSBridge();
+// 模块级 bridge 引用，由 useEffect 内部异步初始化
+let _bridge: WSBridge | null = null;
+
+/** 计算 WS URL：优先用 /api/info 返回的 wsPort，否则从当前页面端口 +1 推导 */
+async function resolveWsUrl(): Promise<string> {
+  const host = window.location.hostname || "localhost";
+  try {
+    const r = await fetch("/api/info", { signal: AbortSignal.timeout(3000) });
+    const info = await r.json();
+    if (info.wsPort) return `ws://${host}:${info.wsPort}`;
+  } catch { /* fall through */ }
+  const httpPort = parseInt(window.location.port, 10) || 9527;
+  return `ws://${host}:${httpPort + 1}`;
+}
 
 // --- Model Routing Banner (v5.8) ---
 // 显示在中心主视区，醒目提示当前 Phase 的模型路由决策
@@ -86,41 +99,37 @@ export function App() {
   const [activeView, setActiveView] = useState<"orchestration" | "diagnostics">("orchestration");
 
   useEffect(() => {
-    wsBridge.connect();
+    let cancelled = false;
+    let connectionTimer: ReturnType<typeof setInterval> | null = null;
+    let httpTimer: ReturnType<typeof setInterval> | null = null;
+    let unsubs: Array<() => void> = [];
 
-    const unsubscribe = wsBridge.onEvents((events) => {
-      addEvents(events);
+    // 异步初始化：先拿 wsPort，再创建 bridge + 订阅
+    resolveWsUrl().then((wsUrl) => {
+      if (cancelled) return;
+
+      const bridge = new WSBridge(wsUrl);
+      _bridge = bridge;
+      bridge.connect();
+
+      unsubs.push(bridge.onEvents((events) => { addEvents(events); }));
+      unsubs.push(bridge.onMeta((meta) => { initOrchestrationFromMeta(meta); }));
+      unsubs.push(bridge.onReset(() => { useStore.getState().reset(); }));
+      unsubs.push(bridge.onDecisionAck(() => {
+        const state = useStore.getState();
+        const blockEvents = state.events.filter((e) => e.type === "gate_block");
+        const lastBlockSeq = blockEvents.length > 0 ? blockEvents[blockEvents.length - 1]!.sequence : -1;
+        useStore.setState({ decisionAcked: true, lastAckedBlockSequence: lastBlockSeq });
+      }));
+
+      connectionTimer = setInterval(() => { setConnected(bridge.connected); }, 1000);
     });
-
-    // H-2/H-1: 从 snapshot meta 初始化编排关键字段（archiveReadiness、requirementPacketHash）
-    const unsubscribeMeta = wsBridge.onMeta((meta) => {
-      initOrchestrationFromMeta(meta);
-    });
-
-    // v5.4: Listen for reset signal (restart scenario) -> clear all GUI state
-    const unsubscribeReset = wsBridge.onReset(() => {
-      useStore.getState().reset();
-    });
-
-    // v5.1.51: decision_ack only for UI feedback -- does not control GateBlockCard visibility
-    // Merged into single atomic setState to avoid intermediate render (P0-3 fix)
-    const unsubscribeAck = wsBridge.onDecisionAck(() => {
-      const state = useStore.getState();
-      const blockEvents = state.events.filter((e) => e.type === "gate_block");
-      const lastBlockSeq = blockEvents.length > 0 ? blockEvents[blockEvents.length - 1]!.sequence : -1;
-      useStore.setState({ decisionAcked: true, lastAckedBlockSequence: lastBlockSeq });
-    });
-
-    const checkConnection = setInterval(() => {
-      setConnected(wsBridge.connected);
-    }, 1000);
 
     // v5.4: Independent HTTP health ping (not tied to WS state)
-    const checkHttp = setInterval(() => {
+    httpTimer = setInterval(() => {
       fetch("/api/health", { signal: AbortSignal.timeout(2000) })
         .then((r) => { setHttpOk(r.ok); })
         .catch(() => {
-          // Fallback to /api/info if /api/health not available
           fetch("/api/info", { signal: AbortSignal.timeout(2000) })
             .then((r) => { setHttpOk(r.ok); })
             .catch(() => { setHttpOk(false); });
@@ -136,19 +145,18 @@ export function App() {
       });
 
     return () => {
-      clearInterval(checkConnection);
-      clearInterval(checkHttp);
-      unsubscribe();
-      unsubscribeMeta();
-      unsubscribeReset();
-      unsubscribeAck();
-      wsBridge.disconnect();
+      cancelled = true;
+      if (connectionTimer) clearInterval(connectionTimer);
+      if (httpTimer) clearInterval(httpTimer);
+      unsubs.forEach((fn) => fn());
+      _bridge?.disconnect();
+      _bridge = null;
     };
   }, [addEvents, initOrchestrationFromMeta, setConnected, setHttpOk]);
 
   const handleDecision = async (action: "retry" | "fix" | "override", phase: number, reason?: string) => {
     try {
-      wsBridge.sendDecision({ action, phase, reason });
+      _bridge?.sendDecision({ action, phase, reason });
     } catch (error) {
       console.error("Failed to send decision:", error);
       throw error;

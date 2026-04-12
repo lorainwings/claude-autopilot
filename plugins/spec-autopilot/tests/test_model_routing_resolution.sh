@@ -38,9 +38,9 @@ assert_json_field "A2. Phase 2 默认 model=haiku" "$output" "selected_model" "h
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 3 2>/dev/null)
 assert_json_field "A3. Phase 3 默认 tier=fast" "$output" "selected_tier" "fast"
 
-# A4. Phase 4 -> deep/opus
+# A4. Phase 4 -> standard/sonnet (v5.5: 降级，SWE-bench Sonnet≈Opus，有 gate 兜底)
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 4 2>/dev/null)
-assert_json_field "A4. Phase 4 默认 tier=deep" "$output" "selected_tier" "deep"
+assert_json_field "A4. Phase 4 默认 tier=standard" "$output" "selected_tier" "standard"
 
 # A5. Phase 5 -> deep/opus
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$EMPTY_ROOT" 5 2>/dev/null)
@@ -58,21 +58,20 @@ assert_json_field "A7. Phase 7 默认 tier=fast" "$output" "selected_tier" "fast
 rm -rf "$EMPTY_ROOT"
 
 # =============================================================================
-# B. 旧格式兼容测试
+# B. Legacy 格式拒绝测试（heavy/light 已删除，必须报错）
 # =============================================================================
 echo ""
-echo "--- B. 旧格式兼容 ---"
+echo "--- B. Legacy 格式拒绝 ---"
 
 LEGACY_ROOT=$(mktemp -d)
 mkdir -p "$LEGACY_ROOT/.claude"
 
-# B1. 旧格式 per-phase: heavy/light
+# B1. 旧格式 heavy/light 不再映射，会走 fallback（因为不在 TIER_MODEL_MAP 中）
 cat > "$LEGACY_ROOT/.claude/autopilot.config.yaml" << 'YAML'
 version: "1.0"
 model_routing:
   phase_1: heavy
   phase_2: light
-  phase_5: heavy
 services: {}
 phases:
   requirements:
@@ -93,27 +92,148 @@ test_suites:
     command: "npm test"
 YAML
 
+# B1a. heavy 不再映射为 deep，而是触发 fallback
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$LEGACY_ROOT" 1 2>/dev/null)
-assert_json_field "B1. heavy -> deep" "$output" "selected_tier" "deep"
-
-output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$LEGACY_ROOT" 2 2>/dev/null)
-assert_json_field "B1. light -> standard" "$output" "selected_tier" "standard"
-
-output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$LEGACY_ROOT" 5 2>/dev/null)
-assert_json_field "B1. phase_5 heavy -> deep" "$output" "selected_tier" "deep"
-
-# B2. Config validator 旧格式通过
-output=$(bash "$SCRIPT_DIR/validate-config.sh" "$LEGACY_ROOT" 2>/dev/null)
-mr_errors=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('model_routing_errors',[]))" 2>/dev/null || echo "[]")
-if [ "$mr_errors" = "[]" ]; then
-  green "  PASS: B2. 旧格式 config validator 无 model_routing_errors"
+tier=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_tier'])" 2>/dev/null)
+fallback=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['fallback_applied'])" 2>/dev/null)
+if [ "$fallback" = "True" ]; then
+  green "  PASS: B1a. heavy 触发 fallback（不再映射为 deep）"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: B2. 旧格式 config validator (errors=$mr_errors)"
+  red "  FAIL: B1a. heavy 应触发 fallback (tier=$tier, fallback=$fallback)"
+  FAIL=$((FAIL + 1))
+fi
+
+# B1b. light 不再映射为 standard，而是触发 fallback
+output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$LEGACY_ROOT" 2 2>/dev/null)
+fallback=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['fallback_applied'])" 2>/dev/null)
+if [ "$fallback" = "True" ]; then
+  green "  PASS: B1b. light 触发 fallback（不再映射为 standard）"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B1b. light 应触发 fallback"
+  FAIL=$((FAIL + 1))
+fi
+
+# B2. Config validator 拒绝旧格式 heavy/light
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$LEGACY_ROOT" 2>/dev/null)
+mr_errors=$(echo "$output" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('model_routing_errors',[])))" 2>/dev/null || echo "0")
+if [ "$mr_errors" -gt 0 ]; then
+  green "  PASS: B2. validator 拒绝 heavy/light (model_routing_errors=$mr_errors)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B2. validator 应拒绝 heavy/light (model_routing_errors=$mr_errors)"
   FAIL=$((FAIL + 1))
 fi
 
 rm -rf "$LEGACY_ROOT"
+
+# B3. 环境变量覆盖测试
+ENV_ROOT=$(mktemp -d)
+mkdir -p "$ENV_ROOT/.claude"
+cat > "$ENV_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+model_routing:
+  enabled: true
+  phases:
+    phase_1:
+      tier: fast
+      model: haiku
+services: {}
+phases:
+  requirements:
+    agent: "ba"
+  testing:
+    agent: "qa"
+    gate:
+      min_test_count_per_type: 3
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+# B3a. AUTOPILOT_PHASE1_MODEL=opus 覆盖 config 中的 haiku
+output=$(AUTOPILOT_PHASE1_MODEL=opus bash "$SCRIPT_DIR/resolve-model-routing.sh" "$ENV_ROOT" 1 2>/dev/null)
+model=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_model'])" 2>/dev/null)
+if [ "$model" = "opus" ]; then
+  green "  PASS: B3a. 环境变量 AUTOPILOT_PHASE1_MODEL=opus 覆盖成功"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B3a. 环境变量覆盖失败 (model=$model, expected=opus)"
+  FAIL=$((FAIL + 1))
+fi
+
+# B3b. 无环境变量时使用 config 值
+output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$ENV_ROOT" 1 2>/dev/null)
+model=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_model'])" 2>/dev/null)
+if [ "$model" = "haiku" ]; then
+  green "  PASS: B3b. 无环境变量时使用 config haiku"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B3b. 无环境变量时应为 haiku (model=$model)"
+  FAIL=$((FAIL + 1))
+fi
+
+rm -rf "$ENV_ROOT"
+
+# B3c. AUTOPILOT_PHASE1_EFFORT=low 单独覆盖 effort（不设 MODEL）
+ENV_ROOT2=$(mktemp -d)
+mkdir -p "$ENV_ROOT2/.claude"
+cat > "$ENV_ROOT2/.claude/autopilot.config.yaml" <<YAML
+model_routing:
+  enabled: true
+  phases:
+    phase_1:
+      tier: deep
+      model: opus
+      effort: high
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(AUTOPILOT_PHASE1_EFFORT=low bash "$SCRIPT_DIR/resolve-model-routing.sh" "$ENV_ROOT2" 1 2>/dev/null)
+effort=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_effort'])" 2>/dev/null)
+if [ "$effort" = "low" ]; then
+  green "  PASS: B3c. 环境变量 AUTOPILOT_PHASE1_EFFORT=low 独立覆盖成功"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B3c. 独立 EFFORT 覆盖失败 (effort=$effort, expected=low)"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$ENV_ROOT2"
+
+# B3d. tier=auto + AUTOPILOT_PHASE1_EFFORT=low → effort 应被覆盖为 low
+ENV_ROOT3=$(mktemp -d)
+mkdir -p "$ENV_ROOT3/.claude"
+cat > "$ENV_ROOT3/.claude/autopilot.config.yaml" <<YAML
+model_routing:
+  enabled: true
+  phases:
+    phase_1:
+      tier: auto
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(AUTOPILOT_PHASE1_EFFORT=low bash "$SCRIPT_DIR/resolve-model-routing.sh" "$ENV_ROOT3" 1 2>/dev/null)
+effort=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['selected_effort'])" 2>/dev/null)
+if [ "$effort" = "low" ]; then
+  green "  PASS: B3d. tier=auto + EFFORT=low 独立覆盖成功"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: B3d. tier=auto + EFFORT 覆盖失败 (effort=$effort, expected=low)"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$ENV_ROOT3"
 
 # =============================================================================
 # C. 新格式对象化配置测试
@@ -321,7 +441,7 @@ cat > "$AUTO_ROOT/.claude/autopilot.config.yaml" << 'YAML'
 version: "1.0"
 model_routing:
   phase_1: auto
-  phase_2: heavy
+  phase_2: deep
 services: {}
 phases:
   requirements:
@@ -347,9 +467,9 @@ output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$AUTO_ROOT" 1 2>/dev/null)
 assert_json_field "G1. auto -> selected_tier=auto" "$output" "selected_tier" "auto"
 assert_json_field "G1. auto -> selected_model=auto" "$output" "selected_model" "auto"
 
-# G2. phase_2: heavy -> 仍正常映射为 deep
+# G2. phase_2: deep -> selected_tier=deep（简写 per-phase 格式）
 output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$AUTO_ROOT" 2 2>/dev/null)
-assert_json_field "G2. heavy -> selected_tier=deep" "$output" "selected_tier" "deep"
+assert_json_field "G2. deep -> selected_tier=deep" "$output" "selected_tier" "deep"
 
 # G3. 新格式 auto
 cat > "$AUTO_ROOT/.claude/autopilot.config.yaml" << 'YAML'

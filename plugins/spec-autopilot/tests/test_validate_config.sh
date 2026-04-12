@@ -229,6 +229,81 @@ YAML
 output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/domain_no_par" 2>/dev/null)
 assert_contains "21h. domain_agents+parallel.enabled=false" "$output" "domain_agents"
 
+# 21h2. domain_agents with quoted slash keys (real schema format) → per-domain warnings
+mkdir -p "$XREF_TEST_DIR/domain_slash/.claude"
+cat > "$XREF_TEST_DIR/domain_slash/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+    parallel:
+      enabled: true
+      default_agent: "custom-fallback"
+      domain_agents:
+        "backend/":
+          agent: "java-architect"
+        "frontend/":
+          agent: "react-specialist"
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/domain_slash" 2>/dev/null)
+assert_contains "21h2a. quoted slash key backend/ agent warned" "$output" "java-architect"
+assert_contains "21h2b. quoted slash key frontend/ agent warned" "$output" "react-specialist"
+assert_contains "21h2c. default_agent also warned" "$output" "custom-fallback"
+
+# 21h3. inline mapping format (schema multi-stack example) → per-domain warnings
+mkdir -p "$XREF_TEST_DIR/domain_inline/.claude"
+cat > "$XREF_TEST_DIR/domain_inline/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+    parallel:
+      enabled: true
+      default_agent: "general-purpose"
+      domain_agents:
+        "services/auth/":           { agent: "java-architect" }
+        "apps/web/":               { agent: "react-specialist" }
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/domain_inline" 2>/dev/null)
+assert_contains "21h3a. inline mapping services/auth/ agent warned" "$output" "java-architect"
+assert_contains "21h3b. inline mapping apps/web/ agent warned" "$output" "react-specialist"
+
 # 21i. tdd_mode=true with empty test_suites → warning
 mkdir -p "$XREF_TEST_DIR/tdd_no_suites/.claude"
 cat > "$XREF_TEST_DIR/tdd_no_suites/.claude/autopilot.config.yaml" << 'YAML'

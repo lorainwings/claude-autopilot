@@ -142,9 +142,13 @@ fi
 bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_pending" "$PHASE" "$MODE" \
   "{\"awaiting_decision\":true,\"timeout_seconds\":$POLL_TIMEOUT}" 2>/dev/null || true
 
-# --- Step 2.5: GUI reachability pre-check (v8.1) ---
-# If GUI is not reachable, bootstrap the dashboard asynchronously and
-# immediately continue the pipeline. Do not wait for frontend readiness here.
+# --- Step 2.5: GUI reachability pre-check (v8.1, v9.1 respect opt-out) ---
+# If GUI is not reachable, bootstrap the dashboard asynchronously.
+# Respect auto_continue_on_gui_unavailable config (default true).
+# When set to false, skip auto_continue and fall through to normal polling
+# (which will time out — this is the fail-closed behaviour the user wants).
+AUTO_CONTINUE_ON_GUI_UNAVAILABLE=$(read_config_value "$PROJECT_ROOT" "gui.auto_continue_on_gui_unavailable" "true")
+
 if ! gui_server_available_for_project; then
   GUI_BOOTSTRAP_OUTPUT=$(AUTOPILOT_HTTP_PORT="${AUTOPILOT_HTTP_PORT:-$GUI_PORT}" AUTOPILOT_WS_PORT="$GUI_WS_PORT" \
     bash "$START_GUI_SERVER_SCRIPT" --no-wait "$PROJECT_ROOT" 2>/dev/null || true)
@@ -163,16 +167,20 @@ if ! gui_server_available_for_project; then
   [ -z "$WS_URL" ] && WS_URL="ws://localhost:${GUI_WS_PORT}"
   [ -z "$HEALTH_URL" ] && HEALTH_URL="http://localhost:${GUI_PORT}/api/health"
 
-  rm -f "$DECISION_REQUEST_FILE" 2>/dev/null || true
+  if [ "$AUTO_CONTINUE_ON_GUI_UNAVAILABLE" = "true" ]; then
+    # Auto-continue: clear decision request and proceed immediately
+    rm -f "$DECISION_REQUEST_FILE" 2>/dev/null || true
 
-  EVENT_PAYLOAD=$(printf '{"action":"auto_continue","elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}' \
-    "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL")
-  bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_received" "$PHASE" "$MODE" \
-    "$EVENT_PAYLOAD" 2>/dev/null || true
+    EVENT_PAYLOAD=$(printf '{"action":"auto_continue","elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}' \
+      "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL")
+    bash "$SCRIPT_DIR/emit-phase-event.sh" "gate_decision_received" "$PHASE" "$MODE" \
+      "$EVENT_PAYLOAD" 2>/dev/null || true
 
-  printf '{"action":"auto_continue","phase":%s,"elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}\n' \
-    "$PHASE" "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL"
-  exit 0
+    printf '{"action":"auto_continue","phase":%s,"elapsed_seconds":0,"reason":"gui_dashboard_bootstrap","gui_status":"%s","dashboard_url":"%s","health_url":"%s","ws_url":"%s"}\n' \
+      "$PHASE" "$GUI_STATUS" "$DASHBOARD_URL" "$HEALTH_URL" "$WS_URL"
+    exit 0
+  fi
+  # else: auto_continue_on_gui_unavailable=false — fall through to normal polling (fail-closed)
 fi
 
 # --- Step 3: Poll for decision.json ---

@@ -18,7 +18,7 @@
 
 ## Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）
 
-- Agent: config.phases.requirements.agent（默认 business-analyst）
+- Agent: config.phases.requirements.agent（默认 general-purpose; 推荐安装 OMC "analyst" Agent）
 - 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
 - Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents 路径（供 BA 自行 Read）+ 调研信封摘要（decision_points + tech_constraints + complexity）
 - **上下文隔离红线**（v6.0）：主线程**禁止**读取 `research-findings.md` 或 `web-research-findings.md` 正文内容。
@@ -79,7 +79,7 @@
 
 ## Phase 4（测试用例设计）
 
-- Agent: config.phases.testing.agent（默认 qa-expert）
+- Agent: config.phases.testing.agent（默认 general-purpose; 推荐安装 OMC "test-engineer" Agent）
 - 项目上下文从 config.project_context + config.test_suites + Phase 1 Steering Documents 自动注入
 - 可选覆盖：config.phases.testing.instruction_files / reference_files（非空时注入）
 - 门禁：4 类测试全部创建、每类 ≥ min_test_count_per_type
@@ -203,7 +203,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 
 ## Phase 6（测试报告）
 
-- Agent: qa-expert
+- Agent: general-purpose（推荐安装 OMC "qa-tester" Agent）
 - 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
 - 可选覆盖：config.phases.reporting.instruction_files（非空时注入）

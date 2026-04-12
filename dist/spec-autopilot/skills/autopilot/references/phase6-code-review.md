@@ -15,13 +15,24 @@
 3. 过滤 `config.phases.code_review.skip_patterns` 中的文件模式
 4. 执行 `git diff $anchor_sha..HEAD -- <filtered_files>` 获取目标 diff
 
+### Step 1.5: 模型路由（critical=true 强制 Opus）
+
+代码审查是发现隐藏缺陷的最后防线，dispatch 前必须调用 resolver 以 `critical=true` 获取模型路由：
+
+```bash
+ROUTING_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/resolve-model-routing.sh "$(pwd)" 6 "" "" 0 true)
+```
+
+`critical=true` 触发自动升级到 `deep/opus`，无论用户选择了何种策略预设。从 `ROUTING_JSON` 提取 `selected_model` 用于 Task 的 `model` 参数。
+
 ### Step 2: 派发审查 Agent
 
-使用 Task 工具派发代码审查子 Agent：
+使用 Task 工具派发代码审查子 Agent（model 从 Step 1.5 路由结果获取）：
 
 ```
 Task(
   subagent_type: "pr-review-toolkit:code-reviewer",
+  model: "{selected_model}",
   run_in_background: true,
   prompt: "你是代码审查专家。审查以下代码变更：
 

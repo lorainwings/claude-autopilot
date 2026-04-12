@@ -89,8 +89,11 @@ fi
 
 # --- Phase gate logic ---
 # Phase 1 and Phase 7: always allow user questions
+# Phase 5: allow — merge conflicts, worktree failures, and consecutive-warn
+#   recovery paths require AskUserQuestion per SKILL.md/phase5-implementation.md.
+#   Normal continuous execution is enforced by the orchestrator, not this hook.
 case "$CURRENT_PHASE" in
-  1 | 7) exit 0 ;;
+  1 | 5 | 7) exit 0 ;;
 esac
 
 # Phase 2-6: block unless explicitly configured

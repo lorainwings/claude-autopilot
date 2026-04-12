@@ -66,18 +66,10 @@
 | 1 | deep | opus | 需求分析需要深度推理 |
 | 2 | fast | haiku | OpenSpec 创建是机械性操作 |
 | 3 | fast | haiku | FF 生成是模板化操作 |
-| 4 | deep | opus | 测试设计需要创造力 |
-| 5 | standard | sonnet | 代码实施需要完整能力 |
+| 4 | standard | sonnet | 测试设计（SWE-bench Sonnet≈Opus，有 gate 兜底，失败自动升级） |
+| 5 | deep | opus | 代码实施需要最强推理能力 |
 | 6 | fast | haiku | 报告生成是机械性操作 |
 | 7 | fast | haiku | 汇总与归档较简单 |
-
-### 旧格式兼容映射
-
-| 旧值 | 新 tier | 新 model |
-|------|---------|----------|
-| heavy | deep | opus |
-| light | standard | sonnet |
-| auto | auto（继承父会话） | auto（不覆盖） |
 
 ### 升级与回退策略
 
@@ -169,8 +161,6 @@ bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLE
   }
 }
 ```
-
-> 向后兼容: 旧格式 `model_routing: { phase_1: heavy, phase_2: light, ... }` 仍可用，自动映射到新 tier 体系。
 
 ## Checkpoint 文件命名
 

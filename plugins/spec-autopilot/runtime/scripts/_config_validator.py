@@ -73,9 +73,11 @@ def parse_yaml(config_path):
             if not stripped or stripped.startswith("#"):
                 continue
             indent = len(line) - len(stripped)
-            key_match = re.match(r"([\w][\w_.]*):\s*(.*)", stripped)
+            # Match YAML keys: bare keys like `foo:`, quoted keys like `"backend/":` or `'frontend/':`
+            key_match = re.match(r'(?:"([^"]+)"|\'([^\']+)\'|([\w][\w_.]*))\s*:\s*(.*)', stripped)
             if key_match:
-                key = key_match.group(1)
+                key = key_match.group(1) or key_match.group(2) or key_match.group(3)
+                raw = key_match.group(4).strip()
                 while indent_stack and indent <= indent_stack[-1]:
                     indent_stack.pop()
                     if path:
@@ -83,9 +85,20 @@ def parse_yaml(config_path):
                 path.append(key)
                 indent_stack.append(indent)
                 full_key = ".".join(path)
-                raw = key_match.group(2).strip()
                 if not raw:
                     yaml_data[full_key] = True
+                elif raw.startswith("{") and raw.endswith("}"):
+                    # Inline mapping: { key: value, key2: value2 }
+                    yaml_data[full_key] = True
+                    inner = raw[1:-1].strip()
+                    for pair in inner.split(","):
+                        pair = pair.strip()
+                        if ":" in pair:
+                            ik, _, iv = pair.partition(":")
+                            ik = ik.strip().strip('"').strip("'")
+                            iv = iv.strip().strip('"').strip("'")
+                            if ik:
+                                yaml_data[f"{full_key}.{ik}"] = iv if iv else True
                 elif raw.lower() == "true":
                     yaml_data[full_key] = True
                 elif raw.lower() == "false":
@@ -371,6 +384,67 @@ def validate(config_path):
             'Change to "general-purpose" in .claude/autopilot.config.yaml'
         )
 
+    # Soft warning: non-builtin agent types (e.g. "business-analyst", "qa-expert")
+    # are valid if a matching .claude/agents/{name}.md exists. Since the validator
+    # only reads the YAML (not the filesystem), we emit an informational warning
+    # guiding the user to install the custom agent via /autopilot-agents.
+    KNOWN_BUILTIN_AGENTS = {
+        "general-purpose",
+        "Explore",
+        "Plan",
+        "claude-code-guide",
+        "statusline-setup",
+    }
+    agent_fields = [
+        "phases.requirements.agent",
+        "phases.requirements.research.agent",
+        "phases.openspec.agent",
+        "phases.testing.agent",
+        "phases.implementation.parallel.default_agent",
+    ]
+    for field in agent_fields:
+        agent_val = get_value(yaml_data, field)
+        if isinstance(agent_val, str) and agent_val and agent_val not in KNOWN_BUILTIN_AGENTS:
+            # Skip the Explore check (already handled as enum_error above)
+            if field == "phases.requirements.research.agent" and agent_val.lower() == "explore":
+                continue
+            cross_ref_warnings.append(
+                f'{field}: "{agent_val}" is not a built-in Claude Code agent type. '
+                f"Ensure .claude/agents/{agent_val}.md exists, or run "
+                f"/autopilot-agents to install recommended community agents."
+            )
+
+    # Cross-ref: domain_agents.*.agent values (Phase 5 parallel domain agents)
+    # Strategy A: PyYAML parsed nested dict
+    domain_agents = get_value(yaml_data, "phases.implementation.parallel.domain_agents")
+    if isinstance(domain_agents, dict):
+        for domain_path, domain_cfg in domain_agents.items():
+            if isinstance(domain_cfg, dict):
+                da_val = domain_cfg.get("agent")
+                if isinstance(da_val, str) and da_val and da_val not in KNOWN_BUILTIN_AGENTS:
+                    field_path = f"phases.implementation.parallel.domain_agents.{domain_path}.agent"
+                    cross_ref_warnings.append(
+                        f'{field_path}: "{da_val}" is not a built-in Droid agent type. '
+                        f"Ensure .claude/agents/{da_val}.md exists, or run "
+                        f"/autopilot-agents to install recommended community agents."
+                    )
+    # Strategy B: regex fallback flattened dotted keys
+    # Pattern: phases.implementation.parallel.domain_agents.<path>.agent = <value>
+    DA_PREFIX = "phases.implementation.parallel.domain_agents."
+    for flat_key, flat_val in yaml_data.items():
+        if (
+            flat_key.startswith(DA_PREFIX)
+            and flat_key.endswith(".agent")
+            and isinstance(flat_val, str)
+            and flat_val
+            and flat_val not in KNOWN_BUILTIN_AGENTS
+        ):
+            cross_ref_warnings.append(
+                f'{flat_key}: "{flat_val}" is not a built-in Droid agent type. '
+                f"Ensure .claude/agents/{flat_val}.md exists, or run "
+                f"/autopilot-agents to install recommended community agents."
+            )
+
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
     # Handle both PyYAML list and regex-fallback string "[unit, api, ...]"
@@ -496,7 +570,6 @@ def validate(config_path):
     model_routing_errors = []
     mr = get_value(yaml_data, "model_routing")
     if mr is not None:
-        VALID_LEGACY_VALUES = {"heavy", "light", "auto"}
         VALID_TIERS = {"fast", "standard", "deep", "auto"}
         VALID_MODELS = {"haiku", "sonnet", "opus", "opusplan"}
         VALID_EFFORTS = {"low", "medium", "high"}
@@ -529,18 +602,16 @@ def validate(config_path):
             mr["phases"] = phases_dict if phases_dict else {}
 
         if isinstance(mr, str):
-            # 旧格式顶层字符串: heavy/light/auto
-            if mr not in VALID_LEGACY_VALUES:
-                model_routing_errors.append(
-                    f'model_routing: "{mr}" not in allowed values {sorted(VALID_LEGACY_VALUES)}'
-                )
+            # 顶层字符串 (简写): 必须是有效 tier
+            if mr not in VALID_TIERS:
+                model_routing_errors.append(f'model_routing: "{mr}" not in allowed values {sorted(VALID_TIERS)}')
         elif isinstance(mr, dict):
-            # 检查是否为旧格式 flat dict (phase_1: heavy, phase_2: light, ...)
+            # 新格式对象化配置
             all_phase_keys = all(k in VALID_PHASES for k in mr.keys())
-            all_legacy_vals = all(isinstance(v, str) and v in VALID_LEGACY_VALUES for v in mr.values())
+            all_tier_vals = all(isinstance(v, str) and v in VALID_TIERS for v in mr.values())
 
-            if all_phase_keys and all_legacy_vals and len(mr) > 0:
-                # 旧格式 per-phase dict — 合法，无需进一步校验
+            if all_phase_keys and all_tier_vals and len(mr) > 0:
+                # 简写 per-phase dict (phase_1: fast) — 合法，无需进一步校验
                 pass
             else:
                 # 新格式对象化配置
@@ -550,12 +621,21 @@ def validate(config_path):
                     "default_subagent_model",
                     "fallback_model",
                     "phases",
-                    # 兼容旧格式 phase_N 键混在新格式顶层
+                    # 允许简写 phase_N 键混在顶层
                 } | VALID_PHASES
 
                 for key in mr.keys():
                     if key not in allowed_top_keys:
                         model_routing_errors.append(f'model_routing: unknown key "{key}"')
+
+                # 校验顶层 phase_N 简写值（phase_1: <tier>）
+                for pkey in VALID_PHASES:
+                    if pkey in mr:
+                        pval = mr[pkey]
+                        if isinstance(pval, str) and pval not in VALID_TIERS:
+                            model_routing_errors.append(
+                                f'model_routing.{pkey}: "{pval}" not in allowed values {sorted(VALID_TIERS)}'
+                            )
 
                 # enabled 字段
                 mr_enabled = mr.get("enabled")
@@ -591,11 +671,11 @@ def validate(config_path):
                                 model_routing_errors.append(f'model_routing.phases: unknown phase key "{pkey}"')
                                 continue
                             if isinstance(pval, str):
-                                # 兼容旧格式: phase_1: heavy
-                                if pval not in VALID_LEGACY_VALUES:
+                                # 简写: phase_1: fast/standard/deep/auto
+                                if pval not in VALID_TIERS:
                                     model_routing_errors.append(
                                         f'model_routing.phases.{pkey}: "{pval}" not in '
-                                        f"allowed values {sorted(VALID_LEGACY_VALUES)}"
+                                        f"allowed values {sorted(VALID_TIERS)}"
                                     )
                             elif isinstance(pval, dict):
                                 allowed_phase_keys = {
