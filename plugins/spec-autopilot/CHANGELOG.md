@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.4.5](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.4...spec-autopilot-v5.4.5) (2026-04-12)
+
+
+### Fixed
+
+* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/lorainwings/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
+* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/lorainwings/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
+
 ## [5.4.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.3...spec-autopilot-v5.4.4) (2026-04-11)
 
 
