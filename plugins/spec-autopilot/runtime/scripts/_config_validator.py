@@ -87,6 +87,18 @@ def parse_yaml(config_path):
                 full_key = ".".join(path)
                 if not raw:
                     yaml_data[full_key] = True
+                elif raw.startswith("{") and raw.endswith("}"):
+                    # Inline mapping: { key: value, key2: value2 }
+                    yaml_data[full_key] = True
+                    inner = raw[1:-1].strip()
+                    for pair in inner.split(","):
+                        pair = pair.strip()
+                        if ":" in pair:
+                            ik, _, iv = pair.partition(":")
+                            ik = ik.strip().strip('"').strip("'")
+                            iv = iv.strip().strip('"').strip("'")
+                            if ik:
+                                yaml_data[f"{full_key}.{ik}"] = iv if iv else True
                 elif raw.lower() == "true":
                     yaml_data[full_key] = True
                 elif raw.lower() == "false":
