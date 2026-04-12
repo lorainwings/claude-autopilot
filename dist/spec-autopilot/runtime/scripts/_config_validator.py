@@ -402,6 +402,7 @@ def validate(config_path):
             )
 
     # Cross-ref: domain_agents.*.agent values (Phase 5 parallel domain agents)
+    # Strategy A: PyYAML parsed nested dict
     domain_agents = get_value(yaml_data, "phases.implementation.parallel.domain_agents")
     if isinstance(domain_agents, dict):
         for domain_path, domain_cfg in domain_agents.items():
@@ -414,6 +415,22 @@ def validate(config_path):
                         f"Ensure .claude/agents/{da_val}.md exists, or run "
                         f"/autopilot-agents to install recommended community agents."
                     )
+    # Strategy B: regex fallback flattened dotted keys
+    # Pattern: phases.implementation.parallel.domain_agents.<path>.agent = <value>
+    DA_PREFIX = "phases.implementation.parallel.domain_agents."
+    for flat_key, flat_val in yaml_data.items():
+        if (
+            flat_key.startswith(DA_PREFIX)
+            and flat_key.endswith(".agent")
+            and isinstance(flat_val, str)
+            and flat_val
+            and flat_val not in KNOWN_BUILTIN_AGENTS
+        ):
+            cross_ref_warnings.append(
+                f'{flat_key}: "{flat_val}" is not a built-in Droid agent type. '
+                f"Ensure .claude/agents/{flat_val}.md exists, or run "
+                f"/autopilot-agents to install recommended community agents."
+            )
 
     # Cross-ref: required_test_types entries must have corresponding test_suites definitions
     req_types = get_value(yaml_data, "phases.testing.gate.required_test_types")
