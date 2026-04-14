@@ -45,16 +45,20 @@ jobs:
         id: release
         run: |
           eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
-          echo "skip=${SKIP_WHOLE_CI}" >> "$GITHUB_OUTPUT"
-          echo "skip_dist_stale=${SKIP_DIST_STALE}" >> "$GITHUB_OUTPUT"
+          {
+            echo "skip=${SKIP_WHOLE_CI}"
+            echo "skip_dist_stale=${SKIP_DIST_STALE}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Force all (workflow_dispatch)
         id: force
         if: github.event_name == 'workflow_dispatch' && inputs.force_all
         run: |
-          echo "run_sa=true" >> "$GITHUB_OUTPUT"
-          echo "run_ph=true" >> "$GITHUB_OUTPUT"
-          echo "run_dr=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "run_sa=true"
+            echo "run_ph=true"
+            echo "run_dr=true"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Detect changed paths
         if: steps.force.conclusion == 'skipped'
@@ -98,9 +102,11 @@ jobs:
           fi
 
           # 写入所有决策到 GITHUB_OUTPUT
-          echo "run_sa=$SA" >> "$GITHUB_OUTPUT"
-          echo "run_ph=$PH" >> "$GITHUB_OUTPUT"
-          echo "run_dr=$DR" >> "$GITHUB_OUTPUT"
+          {
+            echo "run_sa=$SA"
+            echo "run_ph=$PH"
+            echo "run_dr=$DR"
+          } >> "$GITHUB_OUTPUT"
 
           AFFECTED=""
           [ "$SA" = "true" ] && AFFECTED="spec-autopilot"

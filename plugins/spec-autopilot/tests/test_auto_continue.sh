@@ -13,8 +13,15 @@ echo "--- Auto-continue: requirement packet 确认后自动推进 ---"
 setup_autopilot_fixture
 
 # --- 1. autopilot-setup 预设: 所有预设 after_phase_1 = false ---
-INIT_SKILL="$SKILL_DIR/autopilot-setup/SKILL.md"
-init_content=$(cat "$INIT_SKILL")
+# v9.2: 预设模板已迁移到 references/setup-wizard.md（SKILL 拆分）
+INIT_WIZARD_REF="$SKILL_DIR/autopilot-setup/references/setup-wizard.md"
+if [ -f "$INIT_WIZARD_REF" ]; then
+  init_content=$(cat "$INIT_WIZARD_REF")
+else
+  # fallback: 兼容旧版本（预设模板仍在 SKILL.md 中）
+  INIT_SKILL="$SKILL_DIR/autopilot-setup/SKILL.md"
+  init_content=$(cat "$INIT_SKILL")
+fi
 
 # 1a. Strict 预设: after_phase_1 = false
 strict_section=$(echo "$init_content" | sed -n '/# --- Strict 预设/,/# --- Moderate 预设/p')
@@ -70,18 +77,26 @@ poll_content=$(cat "$POLL_SCRIPT")
 assert_contains "3a: poll 脚本接受 auto_continue" "$poll_content" 'auto_continue'
 
 # --- 4. autopilot-phase7: 自动归档（不再强制 AskUser）---
+# v9.2: SKILL 拆分后，合并 SKILL.md + references/ 搜索
 PHASE7_SKILL="$SKILL_DIR/autopilot-phase7-archive/SKILL.md"
+PHASE7_REFS_DIR="$SKILL_DIR/autopilot-phase7-archive/references"
+phase7_content=$(cat "$PHASE7_SKILL")
+if [ -d "$PHASE7_REFS_DIR" ]; then
+  for ref_file in "$PHASE7_REFS_DIR"/*.md; do
+    [ -f "$ref_file" ] && phase7_content="$phase7_content"$'\n'"$(cat "$ref_file")"
+  done
+fi
 
 # 4a. archive-readiness ready → 自动归档
-assert_file_contains "4a: readiness ready → 无需 AskUserQuestion" "$PHASE7_SKILL" '无需 AskUserQuestion'
+assert_contains "4a: readiness ready → 无需 AskUserQuestion" "$phase7_content" '无需 AskUserQuestion'
 
 # 4b. 不再有"必须 AskUserQuestion 询问用户"的归档确认
-assert_file_not_contains "4b: 无强制 AskUser 归档确认" "$PHASE7_SKILL" '必须.*AskUserQuestion.*归档'
-assert_file_contains "4b2: Phase 7 Step 4 自动执行归档" "$PHASE7_SKILL" 'archive readiness 通过后自动执行'
-assert_file_contains "4b3: 知识提取等待点已改为 archive-readiness" "$PHASE7_SKILL" 'archive-readiness 检查前等待完成'
-assert_file_contains "4b4: Phase 7 Step 2 明确禁止忽略继续归档" "$PHASE7_SKILL" '不得.*Step 2 提供.*忽略继续归档'
-assert_file_not_contains "4b5: Phase 7 不再写 user_override" "$PHASE7_SKILL" 'user_override'
-assert_file_not_contains "4b6: Phase 7 不再写 override_reason" "$PHASE7_SKILL" 'override_reason'
+assert_not_contains "4b: 无强制 AskUser 归档确认" "$phase7_content" '必须.*AskUserQuestion.*归档'
+assert_contains "4b2: Phase 7 Step 4 自动执行归档" "$phase7_content" 'archive readiness 通过后自动执行'
+assert_contains "4b3: 知识提取等待点已改为 archive-readiness" "$phase7_content" 'archive-readiness 检查前等待完成'
+assert_contains "4b4: Phase 7 Step 2 明确禁止忽略继续归档" "$phase7_content" '不得.*Step 2 提供.*忽略继续归档'
+assert_not_contains "4b5: Phase 7 不再写 user_override" "$phase7_content" 'user_override'
+assert_not_contains "4b6: Phase 7 不再写 override_reason" "$phase7_content" 'override_reason'
 
 # --- 4c-4e. Phase 1 最终确认后必须直接推进 ---
 PHASE1_REQ="$SKILL_DIR/autopilot/references/phase1-requirements.md"

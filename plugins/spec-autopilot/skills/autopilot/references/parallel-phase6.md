@@ -56,9 +56,11 @@ Task(subagent_type: "qa-expert", run_in_background: true,
   ## Allure 集成
   {if config.phases.reporting.format === 'allure'}
   确保测试结果输出到 Allure 格式:
-  - pytest: 添加 `--alluredir=allure-results/{suite_name}`
-  - Playwright: 设置 `ALLURE_RESULTS_DIR=allure-results/{suite_name}`
-  - Gradle: 复制 XML 结果到 `allure-results/{suite_name}/`
+  - 统一结果目录: `ALLURE_RESULTS_DIR=openspec/changes/{change_name}/reports/allure-results/{suite_name}`
+  - pytest: 添加 `--alluredir=$ALLURE_RESULTS_DIR`
+  - Playwright: 设置 `ALLURE_RESULTS_DIR` 环境变量
+  - Gradle: 复制 XML 结果到 `$ALLURE_RESULTS_DIR/`
+  - 执行 allure_post 命令（如配置）: `ALLURE_RESULTS_DIR=$ALLURE_RESULTS_DIR eval '{suite.allure_post}'`
   {end if}
 
   ## 返回要求
@@ -69,12 +71,16 @@ Task(subagent_type: "qa-expert", run_in_background: true,
 ```
 
 主线程汇合后:
+
 1. 合并所有套件的测试结果
 2. **确定性执行** Allure 报告合并（当 `allure-results/` 存在时）：
+
    ```
    Bash('
-     if [ -d "allure-results" ]; then
-       npx allure generate allure-results/ -o allure-report/ --clean
+     ALLURE_RESULTS="openspec/changes/{change_name}/reports/allure-results"
+     ALLURE_REPORT="openspec/changes/{change_name}/reports/allure-report"
+     if [ -d "$ALLURE_RESULTS" ]; then
+       npx allure generate "$ALLURE_RESULTS" -o "$ALLURE_REPORT" --clean
        if [ $? -eq 0 ]; then
          echo "ALLURE_GENERATED"
        else
@@ -85,11 +91,12 @@ Task(subagent_type: "qa-expert", run_in_background: true,
      fi
    ')
    ```
-   - `ALLURE_GENERATED` → 设置 `report_url` 为 `file:///path/to/allure-report/index.html`
+
+   - `ALLURE_GENERATED` → 设置 `report_url` 为 `file://${ALLURE_REPORT}/index.html`
    - `ALLURE_GENERATE_FAILED` → 降级为 custom 格式，输出 `[WARN]`
    - `NO_ALLURE_RESULTS` → 使用 custom 格式
 3. 汇总 pass_rate、异常提醒、报告链接
 4. 设置 `report_url`：
-   - allure-report/ 存在: `file:///path/to/allure-report/index.html`
+   - allure-report/ 存在: `file://${ALLURE_REPORT}/index.html`
    - 否则: `file:///path/to/testreport/test-report.html`
    — Phase 7 Step 2.5 启动 Allure 服务后，最终展示链接将更新为 `http://localhost:{port}`

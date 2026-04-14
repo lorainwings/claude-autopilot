@@ -11,11 +11,17 @@ source "$TEST_DIR/_fixtures.sh"
 echo "--- Archive fail-closed: fixup/anchor/autosquash hard block ---"
 setup_autopilot_fixture
 
-# --- 1. Phase 7 SKILL.md: fixup 完整性检查是硬阻断而非 warning ---
+# --- 1. Phase 7 SKILL.md + references: fixup 完整性检查是硬阻断而非 warning ---
 PHASE7_SKILL="$SKILL_DIR/autopilot-phase7-archive/SKILL.md"
+PHASE7_REFS_DIR="$SKILL_DIR/autopilot-phase7-archive/references"
 
-# 1a. fixup 完整性检查失败描述为"硬阻断归档"
+# v9.2: SKILL 拆分后，关键字段定义分布在 SKILL.md 和 references/ 中，合并搜索
 phase7_content=$(cat "$PHASE7_SKILL")
+if [ -d "$PHASE7_REFS_DIR" ]; then
+  for ref_file in "$PHASE7_REFS_DIR"/*.md; do
+    [ -f "$ref_file" ] && phase7_content="$phase7_content"$'\n'"$(cat "$ref_file")"
+  done
+fi
 assert_contains "1a: fixup 不完整 → 硬阻断" "$phase7_content" '硬阻断归档'
 
 # 1b. 不再有 "[WARNING] fixup" 的警告级别描述

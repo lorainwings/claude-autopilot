@@ -59,8 +59,15 @@ assert_contains "51e: git add -A does not stage ignored lockfile" "$RESULTS_51" 
 rm -rf "$TMPDIR_51"
 
 # --- 51f-51h: Phase 7 fixup 完整性 fail-closed 验证 ---
+# v9.2: SKILL 拆分后，合并 SKILL.md + references/ 搜索
 PHASE7_SKILL="$SCRIPT_DIR/../../skills/autopilot-phase7-archive/SKILL.md"
+PHASE7_REFS_DIR="$SCRIPT_DIR/../../skills/autopilot-phase7-archive/references"
 phase7_content=$(cat "$PHASE7_SKILL")
+if [ -d "$PHASE7_REFS_DIR" ]; then
+  for ref_file in "$PHASE7_REFS_DIR"/*.md; do
+    [ -f "$ref_file" ] && phase7_content="$phase7_content"$'\n'"$(cat "$ref_file")"
+  done
+fi
 
 # 51f: fixup 不完整时是"硬阻断"而非"warning"
 assert_contains "51f: fixup < checkpoint → 硬阻断" "$phase7_content" '硬阻断归档.*fail-closed'

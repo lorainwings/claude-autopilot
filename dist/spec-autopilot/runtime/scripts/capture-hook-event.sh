@@ -39,6 +39,11 @@ except Exception:
 
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
 
+# --- Project relevance guard: only capture in autopilot projects ---
+# Uses the resolved PROJECT_ROOT (from stdin cwd), not the script runner's pwd.
+# Non-autopilot projects skip silently — no logs/sessions/ directory created.
+[ -d "$PROJECT_ROOT/openspec" ] || [ -f "$PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
+
 SESSION_ID=$(python3 -c '
 import json, sys
 data = json.loads(sys.stdin.read())
