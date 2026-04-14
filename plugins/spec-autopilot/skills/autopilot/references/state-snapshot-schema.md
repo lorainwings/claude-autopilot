@@ -1,4 +1,4 @@
-# State Snapshot Schema (v7.1)
+# State Snapshot Schema
 
 > 本文件由 autopilot-recovery SKILL.md 引用。定义 state-snapshot.json 的完整结构和消费方契约。
 

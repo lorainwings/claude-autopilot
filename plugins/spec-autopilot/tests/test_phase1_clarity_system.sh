@@ -359,8 +359,8 @@ assert_file_contains "10h. OrchestrationPanel renders clarityScore" "$ORCH_PANEL
 
 SNAPSHOT_SCHEMA="$SKILL_DIR/autopilot/references/state-snapshot-schema.md"
 
-# 11a. Schema doc title says v7.1 (not v6.0)
-assert_file_contains "11a. snapshot schema title says v7.1" "$SNAPSHOT_SCHEMA" "v7.1"
+# 11a. Schema doc includes schema_version field
+assert_file_contains "11a. snapshot schema has schema_version field" "$SNAPSHOT_SCHEMA" '"schema_version"'
 
 # 11b. Schema JSON uses schema_version 7.1
 assert_file_contains "11b. schema_version is 7.1" "$SNAPSHOT_SCHEMA" '"7.1"'
