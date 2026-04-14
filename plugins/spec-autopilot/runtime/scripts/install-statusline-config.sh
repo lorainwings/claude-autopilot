@@ -43,7 +43,6 @@ COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
   SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-spec-autopilot.sh"
 else
   CLAUDE_DIR="$PROJECT_ROOT/.claude"
   if [ "$SCOPE" = "project" ]; then
@@ -51,21 +50,15 @@ else
   else
     SETTINGS_FILE="$CLAUDE_DIR/settings.local.json"
   fi
-  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-autopilot.sh"
 fi
 
 mkdir -p "$CLAUDE_DIR"
 
-cat >"$BRIDGE_SCRIPT" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-exec bash "$COLLECTOR_SCRIPT"
-EOF
-chmod +x "$BRIDGE_SCRIPT"
+# Write collector path directly into settings — no bridge script needed.
+STATUSLINE_COMMAND="bash $COLLECTOR_SCRIPT"
 
-python3 - "$SETTINGS_FILE" "$BRIDGE_SCRIPT" <<'PY'
+python3 - "$SETTINGS_FILE" "$STATUSLINE_COMMAND" <<'PY'
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -107,12 +100,8 @@ if [ "$SCOPE" = "local" ] && git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/nu
   if ! grep -qxF '.claude/settings.local.json' "$EXCLUDE_FILE" 2>/dev/null; then
     printf "%s\n" '.claude/settings.local.json' >>"$EXCLUDE_FILE"
   fi
-  if ! grep -qxF '.claude/statusline-autopilot.sh' "$EXCLUDE_FILE" 2>/dev/null; then
-    printf "%s\n" '.claude/statusline-autopilot.sh' >>"$EXCLUDE_FILE"
-  fi
 fi
 
 printf "statusLine installed\n"
 printf "scope=%s\n" "$SCOPE"
 printf "settings=%s\n" "$SETTINGS_FILE"
-printf "bridge=%s\n" "$BRIDGE_SCRIPT"

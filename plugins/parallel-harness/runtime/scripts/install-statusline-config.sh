@@ -44,7 +44,6 @@ COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
   SETTINGS_FILE="$CLAUDE_DIR/settings.json"
-  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-parallel-harness.sh"
 else
   CLAUDE_DIR="$PROJECT_ROOT/.claude"
   if [ "$SCOPE" = "project" ]; then
@@ -52,38 +51,21 @@ else
   else
     SETTINGS_FILE="$CLAUDE_DIR/settings.local.json"
   fi
-  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-parallel-harness.sh"
 fi
 
 mkdir -p "$CLAUDE_DIR"
 
+# Build statusLine command directly — no bridge script needed.
 if [ -n "$CHAIN_WITH" ]; then
-  # Escape single quotes for safe embedding in the generated bridge script
+  # Chain: run harness collector then pass through to the original statusLine command.
+  # Both receive stdin (Claude statusLine JSON) and their stdout is concatenated.
   CHAIN_WITH_SAFE=$(printf '%s' "$CHAIN_WITH" | sed "s/'/'\\\\''/g")
-  cat >"$BRIDGE_SCRIPT" <<CHAINEOF
-#!/usr/bin/env bash
-# chain-target: $CHAIN_WITH
-set -uo pipefail
-INPUT=\$(cat)
-HARNESS_OUT=\$(printf '%s' "\$INPUT" | bash "$COLLECTOR_SCRIPT" 2>/dev/null || echo "[harness] ready")
-PREV_OUT=\$(printf '%s' "\$INPUT" | bash -c '$CHAIN_WITH_SAFE' 2>/dev/null || true)
-if [ -n "\$PREV_OUT" ]; then
-  printf "%s | %s" "\$PREV_OUT" "\$HARNESS_OUT"
+  STATUSLINE_COMMAND="bash -c 'INPUT=\$(cat); HARNESS_OUT=\$(printf \"%s\" \"\$INPUT\" | bash \"$COLLECTOR_SCRIPT\" 2>/dev/null || echo \"[harness] ready\"); PREV_OUT=\$(printf \"%s\" \"\$INPUT\" | bash -c '\"'\"'$CHAIN_WITH_SAFE'\"'\"' 2>/dev/null || true); if [ -n \"\$PREV_OUT\" ]; then printf \"%s | %s\" \"\$PREV_OUT\" \"\$HARNESS_OUT\"; else printf \"%s\" \"\$HARNESS_OUT\"; fi'"
 else
-  printf "%s" "\$HARNESS_OUT"
+  STATUSLINE_COMMAND="bash $COLLECTOR_SCRIPT"
 fi
-CHAINEOF
-else
-  cat >"$BRIDGE_SCRIPT" <<EOF
-#!/usr/bin/env bash
-# chain-target:
-set -euo pipefail
-exec bash "$COLLECTOR_SCRIPT"
-EOF
-fi
-chmod +x "$BRIDGE_SCRIPT"
 
-python3 - "$SETTINGS_FILE" "$BRIDGE_SCRIPT" <<'PY'
+python3 - "$SETTINGS_FILE" "$STATUSLINE_COMMAND" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -125,15 +107,11 @@ if [ "$SCOPE" = "local" ] && git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/nu
   if ! grep -qxF '.claude/settings.local.json' "$EXCLUDE_FILE" 2>/dev/null; then
     printf "%s\n" '.claude/settings.local.json' >>"$EXCLUDE_FILE"
   fi
-  if ! grep -qxF '.claude/statusline-parallel-harness.sh' "$EXCLUDE_FILE" 2>/dev/null; then
-    printf "%s\n" '.claude/statusline-parallel-harness.sh' >>"$EXCLUDE_FILE"
-  fi
 fi
 
 printf "statusLine installed\n"
 printf "scope=%s\n" "$SCOPE"
 printf "settings=%s\n" "$SETTINGS_FILE"
-printf "bridge=%s\n" "$BRIDGE_SCRIPT"
 if [ -n "$CHAIN_WITH" ]; then
   printf "chained_with=%s\n" "$CHAIN_WITH"
 fi

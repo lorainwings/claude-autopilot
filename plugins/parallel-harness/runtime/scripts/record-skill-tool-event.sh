@@ -117,6 +117,11 @@ timestamp = datetime.now(timezone.utc).isoformat()
 phase_hint = infer_phase(skill_name)
 is_parallel_harness_skill = skill_name.startswith("parallel-harness:")
 
+# Only record events for parallel-harness's own skills — avoid polluting
+# application projects that don't use parallel-harness with .parallel-harness/ data.
+if not is_parallel_harness_skill:
+    raise SystemExit(0)
+
 event_type = "skill_tool_requested" if hook_name == "PreToolUse" else (
     "skill_tool_failed" if hook_name == "PostToolUseFailure" else "skill_tool_completed"
 )
