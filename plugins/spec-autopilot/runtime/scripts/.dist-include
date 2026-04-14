@@ -53,6 +53,7 @@ recovery-decision.sh
 resolve-model-routing.sh
 rules-scanner.sh
 save-phase-context.sh
+start-allure-serve.sh
 start-gui-server.sh
 statusline-collector.sh
 tdd-refactor-rollback.sh

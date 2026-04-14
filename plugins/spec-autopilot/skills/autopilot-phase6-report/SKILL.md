@@ -122,3 +122,104 @@ npx allure generate "$ALLURE_RESULTS_DIR" -o "$ALLURE_REPORT_DIR" --clean
 `allure_report_generated: false` 时 Phase 7 Step 2.5 会尝试 fallback generate。
 
 > **降级兜底**: Allure 生成失败时降级为 `report_format: "custom"`，不阻断 Phase 6。
+
+### Step A5.5: 启动 Allure 预览服务
+
+当 `allure_report_generated === true` 时，**立即启动** Allure 本地预览服务，确保用户在 Phase 6 完成后即可通过浏览器查看测试报告：
+
+```bash
+Bash('
+  CHANGE_DIR="openspec/changes/{change_name}"
+
+  # 从配置读取 Allure 服务端口
+  BASE_PORT=$(python3 -c "
+import yaml
+try:
+    cfg = yaml.safe_load(open(\".claude/autopilot.config.yaml\"))
+    print(cfg.get(\"phases\",{}).get(\"reporting\",{}).get(\"allure\",{}).get(\"serve_port\", 4040))
+except: print(4040)
+  " 2>/dev/null || echo 4040)
+
+  # 调用统一启动脚本
+  bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-allure-serve.sh "$CHANGE_DIR" "$BASE_PORT"
+')
+```
+
+解析返回 JSON：
+- `status === "ok"` → 从 `url` 和 `pid` 字段提取地址和 PID，更新 Phase 6 checkpoint 追加字段：
+  ```json
+  {
+    "allure_preview_url": "http://localhost:{port}",
+    "allure_serve_pid": {pid}
+  }
+  ```
+- `status === "skipped"` → 无 Allure 产物，跳过预览
+- `status === "warning"` → 展示错误信息，不阻断 Phase 6
+
+启动成功后，调用 `emit-report-ready-event.sh` 更新事件（补充 `allure_preview_url`）：
+
+```bash
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-report-ready-event.sh \
+  "openspec/changes" "{change_name}" "{mode}" "{session_id}"')
+```
+
+> **设计意图**: 将 Allure 服务启动从 Phase 7 Step 2.5 前移至此，使用户在 Phase 6 完成后即可点击链接查看交互式测试报告。Phase 7 Step 2.5 仅负责验证服务存活和兜底重启。
+
+### Step A6: Test Report 线框（Phase 6 即时展示）
+
+Allure 服务启动完成后，立即渲染 **Test Report 线框**，确保用户在 Phase 6 结束时即可看到测试结果概览和报告访问地址：
+
+```bash
+Bash('
+  CHANGE_DIR="openspec/changes/{change_name}"
+  CONTEXT_DIR="${CHANGE_DIR}/context"
+
+  # 从 Phase 6 checkpoint 读取测试结果
+  P6_CHECKPOINT="${CONTEXT_DIR}/phase-results/phase-6-report.json"
+  TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; PASS_RATE="0"
+  if [ -f "$P6_CHECKPOINT" ]; then
+    TOTAL=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"total\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    PASSED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"passed\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    FAILED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"failed\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    SKIPPED=$(python3 -c "import json; d=json.load(open(\"$P6_CHECKPOINT\")); print(sum(s.get(\"skipped\",0) for s in d.get(\"suite_results\",[])))" 2>/dev/null || echo 0)
+    if [ "$TOTAL" -gt 0 ] 2>/dev/null; then
+      PASS_RATE=$(python3 -c "print(round($PASSED/$TOTAL*100, 1))" 2>/dev/null || echo 0)
+    fi
+  fi
+
+  # 从 allure-preview.json 读取 Allure 地址
+  ALLURE_URL=""
+  if [ -f "${CONTEXT_DIR}/allure-preview.json" ]; then
+    ALLURE_URL=$(python3 -c "import json; print(json.load(open(\"${CONTEXT_DIR}/allure-preview.json\")).get(\"url\",\"\"))" 2>/dev/null || echo "")
+  fi
+
+  python3 -c "
+import json
+print(json.dumps({
+    \"total\": $TOTAL, \"passed\": $PASSED, \"failed\": $FAILED, \"skipped\": $SKIPPED,
+    \"pass_rate\": \"$PASS_RATE\", \"allure_url\": \"$ALLURE_URL\"
+}))
+  "
+')
+```
+
+从 Bash 输出解析 JSON，渲染 Test Report 线框：
+
+```
+╭──────────────────────────────────────────────────╮
+│                                                  │
+│   Test Report                                    │
+│                                                  │
+│   Total   {N}  Passed  {N}  Failed  {N}          │
+│   Skipped {N}  Pass Rate  {N}%                   │
+│                                                  │
+│   Allure  {allure_url}                           │
+│                                                  │
+╰──────────────────────────────────────────────────╯
+```
+
+> **Allure 行渲染规则**：
+>
+> - `allure_url` 非空时展示实际地址（如 `http://localhost:4040`）
+> - `allure_url` 为空时（无产物或启动失败）展示 `unavailable`
+> - Allure 行**始终展示**，确保用户了解报告可用状态
