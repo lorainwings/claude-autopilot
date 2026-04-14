@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.5.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.1...spec-autopilot-v5.5.2) (2026-04-14)
+
+
+### Changed
+
+* **spec-autopilot:** 清除 SKILL/references/CLAUDE.md/README 中的内部版本标注 ([0ee63db](https://github.com/lorainwings/claude-autopilot/commit/0ee63db4f155e2947e9fca32425ea6712ba54ac3))
+
 ## [5.5.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.0...spec-autopilot-v5.5.1) (2026-04-14)
 
 
