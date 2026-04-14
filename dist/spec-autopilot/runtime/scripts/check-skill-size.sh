@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+# --- Project relevance guard: only check in autopilot projects ---
+_PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+[ -d "$_PROJECT_ROOT/openspec" ] || [ -f "$_PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
+
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 MAX_LINES=500
 WARN_LINES=450

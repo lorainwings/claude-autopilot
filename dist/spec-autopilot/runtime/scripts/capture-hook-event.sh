@@ -17,6 +17,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
+# --- Project relevance guard: only capture in autopilot projects ---
+# Checks for openspec/ dir or autopilot config file. Non-autopilot projects
+# skip silently — no logs/sessions/ directory created, no side effects.
+_PROJECT_ROOT_EARLY="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+[ -d "$_PROJECT_ROOT_EARLY/openspec" ] || [ -f "$_PROJECT_ROOT_EARLY/.claude/autopilot.config.yaml" ] || exit 0
+
 PROJECT_ROOT=$(python3 -c '
 import json, os, sys, subprocess
 data = json.loads(sys.stdin.read())
