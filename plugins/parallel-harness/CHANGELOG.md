@@ -4,6 +4,18 @@ All notable changes to parallel-harness will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.8.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.7.0...parallel-harness-v1.8.0) (2026-04-14)
+
+
+### Added
+
+* **parallel-harness,spec-autopilot:** 优化持久化目录结构 + Phase 6 Allure 服务前移 ([a35fa54](https://github.com/lorainwings/claude-autopilot/commit/a35fa544b4956643c3f588b0736fc5db2a070ea3))
+
+
+### Fixed
+
+* **spec-autopilot,parallel-harness:** 修复 5 项插件污染与配置问题 ([9e696c2](https://github.com/lorainwings/claude-autopilot/commit/9e696c2d05e0410c4d4f84a272696a5331eb25f2))
+
 ## [1.7.0](https://github.com/lorainwings/claude-autopilot/compare/parallel-harness-v1.6.1...parallel-harness-v1.7.0) (2026-04-12)
 
 
