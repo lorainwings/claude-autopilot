@@ -612,7 +612,7 @@ export class OrchestratorRuntime {
     const dataDir = options.dataDir || ".parallel-harness/data";
     this.sessionStore = options.sessionStore || SessionStore.createDurable(`${dataDir}/sessions`);
     this.runStore = options.runStore || RunStore.createDurable(dataDir);
-    this.auditTrail = options.auditTrail || AuditTrail.createDurable(`${dataDir}/audit`);
+    this.auditTrail = options.auditTrail || AuditTrail.createDurable(dataDir);
     this.prProvider = options.prProvider;
     this.rbacEngine = options.rbacEngine;
     this.hookRegistry = options.hookRegistry;
@@ -703,6 +703,12 @@ export class OrchestratorRuntime {
    * 执行完整 Run — 统一入口 API
    */
   async executeRun(request: RunRequest): Promise<RunResult> {
+    // GC：每次 run 前清理过期数据（静默失败）
+    try {
+      const { runGC } = await import("../persistence/gc");
+      await runGC(this.runStore, this.auditTrail);
+    } catch { /* GC 失败不阻断 run 执行 */ }
+
     const run_id = generateId("run");
     const batch_id = generateId("batch");
 

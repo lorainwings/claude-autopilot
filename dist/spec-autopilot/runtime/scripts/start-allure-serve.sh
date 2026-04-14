@@ -116,7 +116,7 @@ for offset in $(seq 0 9); do
 done
 
 if [[ -z "$SERVE_PORT" ]]; then
-  echo "{\"status\":\"warning\",\"error\":\"端口 $BASE_PORT-$((BASE_PORT+9)) 全部被占用\"}"
+  echo "{\"status\":\"warning\",\"error\":\"端口 $BASE_PORT-$((BASE_PORT + 9)) 全部被占用\"}"
   exit 0
 fi
 
@@ -124,7 +124,7 @@ fi
 mkdir -p "$CONTEXT_DIR"
 nohup npx allure open "$ALLURE_REPORT_DIR" -p "$SERVE_PORT" >/dev/null 2>&1 &
 ALLURE_PID=$!
-echo "$ALLURE_PID" > "$PID_FILE"
+echo "$ALLURE_PID" >"$PID_FILE"
 
 # ── 等待服务就绪 ──
 ALLURE_URL="http://localhost:$SERVE_PORT"
