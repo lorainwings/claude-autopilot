@@ -1,4 +1,4 @@
-# State Snapshot Schema (v7.1)
+# State Snapshot Schema
 
 > 本文件由 autopilot-recovery SKILL.md 引用。定义 state-snapshot.json 的完整结构和消费方契约。
 
@@ -12,9 +12,9 @@
   "execution_mode": "full|lite|minimal",
   "anchor_sha": "string|null",
   "requirement_packet_hash": "string|null (sha256[:16] of phase-1 checkpoint)",
-  "clarity_score": "number|null (v7.1: Phase 1 最终清晰度评分)",
-  "discussion_rounds": "number|null (v7.1: Phase 1 实际讨论轮数)",
-  "challenge_agents_activated": ["string (v7.1: 激活的挑战代理列表)"],
+  "clarity_score": "number|null (Phase 1 最终清晰度评分)",
+  "discussion_rounds": "number|null (Phase 1 实际讨论轮数)",
+  "challenge_agents_activated": ["string (激活的挑战代理列表)"],
   "gate_frontier": "number (highest passed gate phase)",
   "last_completed_phase": "number",
   "next_action": {

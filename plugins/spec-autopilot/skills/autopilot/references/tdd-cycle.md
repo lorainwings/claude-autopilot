@@ -105,7 +105,7 @@ failing_signal 必须包含：
 
 ## 串行 TDD (`parallel.enabled: false` + `tdd_mode: true`)
 
-### TDD 阶段状态文件（v5.1 L2 确定性门禁）
+### TDD 阶段状态文件（L2 确定性门禁）
 
 主线程在每个 TDD 步骤派发前，**必须**写入 `.tdd-stage` 状态文件，供 `unified-write-edit-check.sh` L2 Hook 确定性拦截：
 
@@ -204,7 +204,7 @@ for each task in task_list:
   │ Step 6: 主线程确定性验证 (L2)                          │
   │   result = Bash("{test_command}")                      │
   │   IF exit_code != 0:                                  │
-  │     → v5.2 强制回滚: Bash("git checkout -- .")        │
+  │     → 强制回滚: Bash("git checkout -- .")        │
   │       (全文件回滚，确保代码绝对不被污染)                │
   │     → 记录 tdd_cycle.refactor = { reverted: true }    │
   │   IF exit_code == 0:                                  │

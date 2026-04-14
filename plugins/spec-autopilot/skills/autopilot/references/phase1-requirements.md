@@ -35,7 +35,7 @@
 
 > **设计意图**: 避免在模糊需求上直接启动三路并行调研，浪费 Token 且调研结果噪音大。
 
-## Step 1.1.5b 需求成熟度评估（v6.0 新增）
+## Step 1.1.5b 需求成熟度评估
 
 在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，决定调研方案：
 
@@ -69,7 +69,7 @@ ELIF flags == 0:
 
 > **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研，partial 需求按需补充，ambiguous 需求才全面展开。
 
-## Step 1.1.7 定向澄清预检（v5.4 新增）
+## Step 1.1.7 定向澄清预检
 
 **触发条件**: flags >= 2 且 flags < 3（信息不足但未达强制预循环阈值）。
 
@@ -127,7 +127,7 @@ IF flags < 2:
 
 > **设计意图**: 在 2-flag 灰区用最小成本收敛方向，避免过早进入高 Token 消耗的三路调研。与 flags >= 3 的强制预循环互补。
 
-## Step 1.1.6 需求类型分类与路由（v4.2 新增）
+## Step 1.1.6 需求类型分类与路由
 
 对 RAW_REQUIREMENT 执行确定性规则分类（非 AI 判断），将需求路由到差异化流水线：
 
@@ -140,7 +140,7 @@ IF flags < 2:
 | **Chore** | 含"配置/CI/CD/文档/lint/format/依赖更新/版本号/changelog"等关键词 | `requirement_type: "chore"` |
 | **Feature** | 以上均不匹配（默认） | `requirement_type: "feature"` |
 
-> **v5.2 复合需求路由**: 当需求同时命中多个分类（如"重构登录模块并添加 SSO 支持"同时匹配 Refactor + Feature），
+> **复合需求路由**: 当需求同时命中多个分类（如"重构登录模块并添加 SSO 支持"同时匹配 Refactor + Feature），
 > `requirement_type` 使用数组表示（如 `["refactor", "feature"]`），`routing_overrides` 取所有命中类别中**最严格**的阈值。
 > 例如 Refactor(change_coverage=100%) + Feature(sad_path=20%) → 合并为 `change_coverage_min_pct: 100, sad_path_min_ratio_pct: 20`。
 
@@ -169,7 +169,7 @@ IF flags < 2:
 }
 ```
 
-**v5.2 复合需求示例**（多类型命中时）：
+**复合需求示例**（多类型命中时）：
 ```json
 {
   "requirement_type": ["refactor", "feature"],
@@ -186,11 +186,11 @@ IF flags < 2:
 
 > **向后兼容**: `requirement_type` 和 `routing_overrides` 为可选字段。未分类时等效 `feature` 默认值。
 
-## 1.2 项目上下文扫描（Auto-Scan）— v3.2.0 并行增强
+## 1.2 项目上下文扫描（Auto-Scan）— 并行增强
 
-> **后台执行约束**（v3.4.0）：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
+> **后台执行约束**：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
 
-> **v5.3 Agent 事件（Belt & Suspenders）**：Hook 自动发射 agent_dispatch/complete 事件。SKILL.md 中的手动发射为双重保障，任一机制工作即可驱动 GUI ParallelKanban 显示 Agent 卡片。
+> **Agent 事件**：Hook 自动发射 agent_dispatch/complete 事件。SKILL.md 中的手动发射为双重保障，任一机制工作即可驱动 GUI ParallelKanban 显示 Agent 卡片。
 
 Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `references/parallel-phase1.md` 配置）。
 
@@ -198,13 +198,13 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 ## 1.3 技术调研（Research Agent）
 
-> **后台执行约束**（v3.4.0）：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
+> **后台执行约束**：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
 
 调用 Task(subagent_type = "general-purpose", run_in_background: true) 并行技术调研。此 Task 不含 `autopilot-phase` 标记。
 
 → 详见 `phase1-requirements-detail.md`（Research Agent Prompt 模板、调研深度配置）
 
-### 1.3.3 联网调研（Web Research）— v3.3.7 搜索策略重构
+### 1.3.3 联网调研（Web Research）— 搜索策略重构
 
 **核心原则**: 默认执行搜索，仅当规则引擎判定可跳过时才跳过。不依赖 AI 自评置信度。
 
@@ -220,7 +220,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 ## 1.5 需求分析（增强版）
 
-> **上下文保护**（v3.4.0）：business-analyst 使用 `run_in_background: true`，自行 Write 完整分析，主线程仅消费信封。
+> **上下文保护**：business-analyst 使用 `run_in_background: true`，自行 Write 完整分析，主线程仅消费信封。
 
 调用 Task(subagent_type = "business-analyst", run_in_background: true) 分析需求，注入 Steering Context + 调研结论。
 
@@ -232,7 +232,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 → 详见 `phase1-requirements-detail.md`（决策卡片完整格式、应用场景、决策记录持久化）
 
-## 1.6 多轮决策循环（LOOP）— v7.1 弹性收敛重构
+## 1.6 多轮决策循环（LOOP）— 弹性收敛重构
 
 **循环退出条件**: 清晰度评分达标 + 所有决策点已澄清 + 满足最低轮数。
 
@@ -270,7 +270,7 @@ LOOP:
   IF 挑战代理激活条件满足（见 phase1-challenge-agents.md）:
       执行挑战代理提问（替代本轮常规提问）
   ELIF 存在未决策点:
-      # 一次一问原则（v7.1）
+      # 一次一问原则
       IF complexity == "small":
           合并全部未决策点为一次 AskUserQuestion（保持快速路径）
       ELSE:  # medium / large
@@ -312,7 +312,7 @@ LOOP:
       EXIT LOOP
 ```
 
-### 复杂度对讨论的影响（v7.1 改为影响阈值而非轮数）
+### 复杂度对讨论的影响（改为影响阈值而非轮数）
 
 | 复杂度 | 清晰度阈值 | 提问策略 | 苏格拉底/挑战代理 |
 |--------|-----------|---------|-----------------|
@@ -322,7 +322,7 @@ LOOP:
 
 → 详见 `phase1-requirements-detail.md`（主动讨论协议、各复杂度路径详细流程）
 
-## 1.7 生成结构化提示词（上下文隔离增强 v6.0）
+## 1.7 生成结构化提示词（上下文隔离增强）
 
 整理所有决策结果，包含：
 
@@ -338,7 +338,7 @@ LOOP:
 
 > **上下文隔离红线**：以上所有数据均来自 JSON 信封中的结构化字段，**禁止**主线程 Read 子 Agent 的正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md）来构造结构化提示词。
 
-## 1.8 最终确认（v7.0.1 AskUserQuestion 强制）
+## 1.8 最终确认（AskUserQuestion 强制）
 
 **硬约束**: 最终需求确认**必须且只能**通过 `AskUserQuestion` 工具完成，**严禁**通过纯文字输出让用户确认。
 
@@ -411,12 +411,12 @@ LOOP:
 4. **主线程不代写**：requirement-packet.json 由主线程从信封数据合成，不读取子 Agent 正文工件
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
-> v5.1: 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
+> 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
 > **连续执行要求**: 当 `config.gates.user_confirmation.after_phase_1 !== true` 时，1.9 完成后主线程必须继续进入下一执行阶段，不得先回到“请用户决定是否继续”的闲置状态。
 
 ## 1.10 可配置用户确认点
 
-如果 `config.gates.user_confirmation.after_phase_1 === true`（**v6.0 默认 false**，需求评审后默认自动推进）：
+如果 `config.gates.user_confirmation.after_phase_1 === true`（**默认 false**，需求评审后默认自动推进）：
 - AskUserQuestion：「需求分析已完成，是否确认进入 OpenSpec 创建阶段？」
 - 选"暂停" → 结束当前流水线，用户可后续通过崩溃恢复继续
 
@@ -430,6 +430,6 @@ LOOP:
 
 | 协议 | 触发条件 | 说明 |
 |------|---------|------|
-| 苏格拉底模式 | `config.mode == "socratic"` 或 `complexity == "large"` | 7 步挑战性提问深化需求（v5.2: +非功能需求质询） |
+| 苏格拉底模式 | `config.mode == "socratic"` 或 `complexity == "large"` | 7 步挑战性提问深化需求（+非功能需求质询） |
 | 崩溃恢复 | Phase 1 中途崩溃 | 按已完成步骤跳过重复工作 |
 | 决策格式验证 | medium/large 复杂度 | Hook 确定性验证 DecisionPoint 完整性 |

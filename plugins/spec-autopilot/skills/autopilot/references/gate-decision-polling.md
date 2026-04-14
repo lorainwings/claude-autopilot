@@ -4,7 +4,7 @@
 
 当门禁阻断时，在输出 `[GATE] BLOCKED` 日志 **之后**，必须启动 GUI 决策轮询循环，使 GUI 用户可通过 `decision.json` 发送 Override/Retry/Fix 指令。
 
-**v6.0 自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。用户确认点（`config.gates.user_confirmation.after_phase_{N}`）仅在配置为 `true` 时才中断——所有预设默认为 `false`，确保 requirement packet 确认后全链路自动推进。
+**自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。用户确认点（`config.gates.user_confirmation.after_phase_{N}`）仅在配置为 `true` 时才中断——所有预设默认为 `false`，确保 requirement packet 确认后全链路自动推进。
 
 **流程：**
 
@@ -26,7 +26,7 @@
 | 0 | `auto_continue` | 记录日志 `[GATE] Auto-continue` → 自动推进到下一阶段 |
 | 1 | `timeout` | 轮询超时（默认 300 秒），回退到原有行为：向用户展示阻断信息，通过 AskUserQuestion 请求决策 |
 
-**v8.1 GUI 不可达异步拉起**: 轮询前先检查 GUI 可达性，并校验 `/api/info.projectRoot` 是否属于当前项目。如果 GUI 不可达，或端口上是别的项目实例，**必须先异步启动 GUI 可视化大盘前端服务**（fire-and-forget，不等待 health ready），然后**立即返回 `auto_continue`（exit 0）**，并在返回 JSON 中附带 `dashboard_url` / `health_url` / `ws_url`。主流程继续执行，GUI 大盘在后台自行完成启动。
+**GUI 不可达异步拉起**: 轮询前先检查 GUI 可达性，并校验 `/api/info.projectRoot` 是否属于当前项目。如果 GUI 不可达，或端口上是别的项目实例，**必须先异步启动 GUI 可视化大盘前端服务**（fire-and-forget，不等待 health ready），然后**立即返回 `auto_continue`（exit 0）**，并在返回 JSON 中附带 `dashboard_url` / `health_url` / `ws_url`。主流程继续执行，GUI 大盘在后台自行完成启动。
 
 **返回示例**：
 

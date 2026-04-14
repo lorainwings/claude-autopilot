@@ -3,7 +3,7 @@
 > 本文件由 `autopilot-phase7-archive/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含确定性地址收集、Summary Box 模板和渲染规则。
 
-## 确定性地址收集（v8.0 — 从磁盘读取，不依赖上下文变量）
+## 确定性地址收集（从磁盘读取，不依赖上下文变量）
 
 Summary Box 渲染前，通过**单次 Bash 脚本**从磁盘文件确定性读取所有关键地址：
 
@@ -102,7 +102,7 @@ print(json.dumps(result))
 
 > 仅展示实际执行的阶段（lite/minimal 跳过的阶段不显示）。框内宽度固定 50 字符（纯 ASCII）。
 
-## Quick Links 渲染规则（v8.0 确定性地址）
+## Quick Links 渲染规则（确定性地址）
 
 - GUI 行：`gui_url` 非空时展示，为空时显示 `unavailable`
 - Allure 行：`allure_url` 非空时展示实际地址，为空时显示 `unavailable`（**始终展示此行**，确保用户了解报告可用状态）

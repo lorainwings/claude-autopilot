@@ -1,4 +1,4 @@
-# Phase 1 混合清晰度评分系统（v7.1）
+# Phase 1 混合清晰度评分系统
 
 > 本文件由 `phase1-requirements.md` 1.6 节引用。定义多轮决策循环的退出条件评分机制。
 > 参考 oh-my-claudecode Deep Interview 的数学化模糊度门禁 + Superpowers 的自然收敛设计。

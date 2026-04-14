@@ -1,6 +1,6 @@
 # Phase 1 并行调度配置与模板
 
-> 本文件从 `parallel-dispatch.md` 拆分（v5.2），仅在 Phase 1 按需加载。
+> 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 1 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
 ## Phase 1: 需求调研并行
@@ -22,7 +22,7 @@ parallel_tasks:
     condition: "search_policy.default: search — 规则判定跳过时不派发此 Agent"
 ```
 
-**子 Agent 自写入约束**（v3.3.0）：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。
+**子 Agent 自写入约束**：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。
 
 调研 Agent 返回信封格式：
 ```json
@@ -80,12 +80,12 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 
 等待全部完成 → 主线程**仅从各 Agent 返回的 JSON 信封**提取 `decision_points`、`tech_constraints`、`complexity`、`key_files` 等结构化字段 → 将这些**信封摘要**（而非正文）注入到 business-analyst 的 dispatch prompt。
 
-> **上下文隔离红线**（v6.0）：主线程**禁止** `Read(research-findings.md)` 或 `Read(web-research-findings.md)` 获取调研全文。
+> **上下文隔离红线**：主线程**禁止** `Read(research-findings.md)` 或 `Read(web-research-findings.md)` 获取调研全文。
 > 全文由 business-analyst 子 Agent 在自己的执行环境中直接 Read。
 > 主线程仅消费信封中的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）。
 > 主线程仅通过 `Bash("test -s {output_file} && echo ok")` 验证产出文件存在性。
 
-## 需求理解增强（v3.2.0）
+## 需求理解增强
 
 ### 复杂度自适应调研深度
 
@@ -100,12 +100,12 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 
 ### 主动决策增强
 
-所有复杂度级别均展示决策卡片（v3.2.0 取消 small 豁免）：
+所有复杂度级别均展示决策卡片（取消 small 豁免）：
 - **small**: 仅关键技术决策点（1-2 个卡片）
 - **medium**: 所有识别到的决策点 + 调研依据
 - **large**: 全部决策点 + 调研依据 + 竞品对比 + 推荐方案
 
-决策卡片增强字段（v3.2.0）：
+决策卡片增强字段：
 ```json
 {
   "point": "决策点描述",
@@ -120,7 +120,7 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 - `proactive`（默认）: AI 主动识别决策点并展示
 - `reactive`: 仅在用户提问时展示
 
-## 需求成熟度驱动调研方案选择（v6.0 新增）
+## 需求成熟度驱动调研方案选择
 
 ### 成熟度三级分类
 

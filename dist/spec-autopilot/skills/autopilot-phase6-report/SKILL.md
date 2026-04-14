@@ -41,7 +41,7 @@ autopilot-gate 额外验证：
 
 详见 `autopilot/references/protocol.md` Allure 报告章节。
 
-## Phase 6 三路并行（v3.2.2 增强）
+## Phase 6 三路并行（增强）
 
 > 详见 `autopilot/references/mode-routing-table.md` § 7。
 

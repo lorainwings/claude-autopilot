@@ -68,19 +68,19 @@
 
 ---
 
-## 并行执行模式（v3.2.0 混合模式增强）
+## 并行执行模式（混合模式增强）
 
 当 `config.phases.implementation.parallel.enabled = true` 时，Phase 5 使用**混合模式**：
 按独立域分组并行 + 每组完成后批量 review，兼顾速度和质量。
 
 > **参考协议**: `references/parallel-dispatch.md`（通用并行编排）+ `references/parallel-phase5.md`（Phase 5 专属配置与模板）
 
-### 并行模式核心流程（v3.4.0: 域级单 Agent）
+### 并行模式核心流程（域级单 Agent）
 
-> **v3.4.0 变更**: 每个域（backend/frontend/node）严格只分配 1 个 Agent，
+> 每个域（backend/frontend/node）严格只分配 1 个 Agent，
 > 该 Agent 批量处理域内所有 tasks。跨域并行（backend ‖ frontend ‖ node），域内串行。
 >
-> **v5.8 强制约束**: `parallel.enabled = true` 时，**主线程禁止自行编码实施任何 task**。
+> **强制约束**: `parallel.enabled = true` 时，**主线程禁止自行编码实施任何 task**。
 > 所有实施工作必须通过子 Agent（Task 工具）完成。主线程角色严格限于编排：
 > 解析任务清单、分域、dispatch Task、等待结果、合并 worktree、写 checkpoint。
 
@@ -119,15 +119,15 @@
 2. 构建 task 依赖图（基于 task 描述中的文件引用和显式依赖声明）
 3. 识别可并行执行的 task 组（无共享文件修改的 task）
 
-> **v5.5**: 依赖分析已下沉到 `generate-parallel-plan.sh` 确定性脚本。
+> 依赖分析已下沉到 `generate-parallel-plan.sh` 确定性脚本。
 > 主线程调用脚本生成 `parallel_plan.json`，其中 `dependency_graph` 字段
 > 包含完整的依赖关系（显式 depends_on + 文件冲突隐式依赖）。
 
-### 文件所有权分区（v3.0 新增）
+### 文件所有权分区
 
 在依赖图基础上增加文件所有权隔离，从根本上消除合并冲突：
 
-#### 分区算法（v3.4.0: 通用路径前缀匹配）
+#### 分区算法（通用路径前缀匹配）
 
 ```
 1. 解析 tasks.md → 提取每个 task 的 affected_files[]
@@ -172,7 +172,7 @@ unified-write-edit-check.sh 在并行模式下额外检查：
 
 > **降级**：如果 ownership 文件不存在（非并行模式），跳过此检查（向后兼容）。
 
-### 依赖图构建算法（v2.4.0 细化）
+### 依赖图构建算法
 
 ```
 1. 解析 tasks.md 中每个 task 的描述
@@ -186,7 +186,7 @@ unified-write-edit-check.sh 在并行模式下额外检查：
 6. 组间按 task 编号最小值排序，顺序执行
 ```
 
-### 并行派发策略（v3.4.0: 域级单 Agent）
+### 并行派发策略（域级单 Agent）
 
 ```
 域分区: 三步检测 → 前缀匹配 + auto 发现 + 同 Agent 合并
@@ -208,14 +208,14 @@ for each domain in [backend, frontend, node] where domain_tasks 非空:
 cross_cutting 串行执行
 ```
 
-### 合并策略（v3.4.0: 简化为域级合并）
+### 合并策略（简化为域级合并）
 
 - 每个域完成后，合并该域 worktree（最多 3 次 merge，而非每 task 1 次）
 - 合并冲突 → AskUserQuestion 展示冲突文件，让用户选择处理方式
 - 合并成功后运行 quick_check 验证
 - 域 Agent 返回的信封中含 `tasks_completed` 数组，主线程为每个 task 写入 checkpoint
 
-### Worktree 生命周期管理（v3.4.0: 每域 1 个 worktree）
+### Worktree 生命周期管理（每域 1 个 worktree）
 
 ```
 1. 创建（每域 1 个）: git worktree add .claude/worktrees/{domain} -b autopilot-{domain}
@@ -247,13 +247,13 @@ cross_cutting 串行执行
 > 此后置审计作为补偿机制，在合并后验证 TDD 循环完整性。
 > **WS-E 治理强化**: test_intent 和 failing_signal 从可选字段升级为门禁必检字段。
 
-### 并行 Checkpoint 管理（v2.4.0 细化）
+### 并行 Checkpoint 管理
 
 - 每个 task 合并成功后，由**主线程**（非子 Agent）写入 `phase5-tasks/task-N.json`
 - 子 Agent 不直接写入 checkpoint（隔离约束）
 - 主线程从子 Agent 返回的 JSON 信封提取 artifacts 和 summary
 
-### 降级决策树（v5.8 更新）
+### 降级决策树
 
 > **关键约束**: `parallel.enabled = true` 时，降级目标为"子 Agent 串行模式"（路径 B），
 > **绝不允许**主线程自行编码实施任务。降级仅改变 Task 的 `run_in_background` 参数（改为 false），
@@ -439,18 +439,18 @@ Phase 5 启动时（含压缩后恢复），扫描 `phase5-tasks/` 目录：
 3. 从下一个 task 继续执行
 4. 如果没有 task checkpoint → 从 task 1 开始
 
-### 串行模式优化：无依赖 task 后台并行引擎（v4.2 — Concurrency Engine）
+### 串行模式优化：无依赖 task 后台并行引擎（Concurrency Engine）
 
-> **v4.2 升级**: 从 v4.1 可选优化升级为**默认行为**。串行模式下自动检测无依赖 task 并批量后台派发，
+> **升级**: 从可选优化升级为**默认行为**。串行模式下自动检测无依赖 task 并批量后台派发，
 > 显著降低 Phase 5 总耗时。仅在显式禁用或 TDD 模式下回退到纯串行。
 
 **启用条件**（默认全部满足）：
 1. `config.serial_task.allow_background_parallel !== false`（默认 true）
 2. 不处于 TDD 模式（TDD 必须严格串行以保障 RED-GREEN 顺序）
 
-**核心算法：Batch Scheduler（v5.5 — 确定性计划驱动）**
+**核心算法：Batch Scheduler（确定性计划驱动）**
 
-> **v5.5 变更**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
+> **变更**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
 > Scheduler 消费 `parallel_plan.json` 的 `batches` 字段，而非模型自行决定 batch 分组。
 > fallback 时**必须**有结构化 `fallback_reason`。
 
@@ -614,7 +614,7 @@ Phase 5 启动时，扫描 `phase5-tasks/` 目录：
 1. 确保 `phase5-tasks/` 目录存在
 2. 写入 `task-N.json`（N 为 task 编号）
 3. 验证写入成功
-4. **v5.2: 发射 task_progress 事件**（GUI 实时看板消费）：
+4. **发射 task_progress 事件**（GUI 实时看板消费）：
    ```
    Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" {status} {N} {total} {mode} [tdd_step]')
    ```

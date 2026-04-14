@@ -31,7 +31,7 @@ curl -sf {service.health_url} || echo "BLOCKED: {service.name} 未启动"
 | 完整业务流程 | 主流程 + 分支流程 + 异常中断 | ≥5 个完整流程 |
 | 边界条件和异常 | 空值、超长、并发、权限、网络异常 | ≥8 个边界用例 |
 
-## 变更聚焦专项测试（v3.2.5 新增）
+## 变更聚焦专项测试
 
 测试用例**必须聚焦本次变更**，而非泛化生成。流程如下：
 
@@ -71,7 +71,7 @@ ChatPanel.vue drag (修复 BUG)     → test_chat_panel_drag_persistence
 
 **门禁**: `coverage_pct` ≥ 80%。未覆盖的变更点必须在 `untested_points` 中说明原因。
 
-## 需求追溯矩阵（v3.2.0 新增）
+## 需求追溯矩阵
 
 每个测试用例**必须**追溯到 Phase 1 确认的具体需求点：
 
@@ -94,7 +94,7 @@ test('用户登录', async ({ page }) => {
 
 4. 追溯覆盖率要求：≥ 80%（每个需求点至少有 1 个测试用例）
 
-## 并行执行模式（v3.2.0 新增）
+## 并行执行模式
 
 当以并行模式执行时，你仅负责**一种测试类型**：
 - 你的测试类型：`{test_type}`（由控制器分配）
@@ -148,9 +148,9 @@ test('用户登录', async ({ page }) => {
 
 status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
 必须包含 test_counts、artifacts、dry_run_results、test_pyramid 字段。
-**v3.2.0 新增**: 必须包含 `test_traceability` 字段（需求追溯映射）。
-**v3.2.5 新增**: 必须包含 `change_coverage` 字段（变更聚焦覆盖率）。
-**v4.2.0 新增**: 必须包含 `sad_path_counts` 字段（异常分支用例统计）。
+**必须包含 `test_traceability` 字段（需求追溯映射）。
+**必须包含 `change_coverage` 字段（变更聚焦覆盖率）。
+**必须包含 `sad_path_counts` 字段（异常分支用例统计）。
 
 ```json
 {
@@ -169,5 +169,5 @@ status 只允许 "ok" 或 "blocked"（Phase 4 不接受 warning）。
 }
 ```
 
-**Sad Path 门禁规则** (v4.2.0): `sad_path_counts` 中每种测试类型的异常分支用例数 ≥ `test_counts` 同类型总数的 20%。
+**Sad Path 门禁规则**: `sad_path_counts` 中每种测试类型的异常分支用例数 ≥ `test_counts` 同类型总数的 20%。
 异常分支包括：错误输入、权限不足、资源不存在、超时、并发冲突、网络异常等场景。

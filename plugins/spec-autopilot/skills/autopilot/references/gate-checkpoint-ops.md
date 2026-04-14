@@ -21,7 +21,7 @@ phase-results/
 阶段完成后，将子 Agent 返回的 JSON 信封写入对应文件：
 
 1. 确保 `context/phase-results/` 目录存在（不存在则创建）
-2. **v5.1 原子性写入**: 将完整 JSON 信封写入临时文件 `phase-{N}-{slug}.json.tmp`
+2. **原子性写入**: 将完整 JSON 信封写入临时文件 `phase-{N}-{slug}.json.tmp`
 3. 验证临时文件 JSON 格式合法（读回并解析）
 4. 执行原子重命名：`mv phase-{N}-{slug}.json.tmp phase-{N}-{slug}.json`
 5. 验证最终文件存在且可解析

@@ -61,7 +61,7 @@ Bash('bash {CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.s
 - openspec/changes/{change_name}/context/tech-constraints.md
 - openspec/changes/{change_name}/context/research-findings.md
 - openspec/changes/{change_name}/context/web-research-findings.md（如存在）
-- openspec/changes/{change_name}/context/requirements-analysis.md（v3.4.0, 如存在）
+- openspec/changes/{change_name}/context/requirements-analysis.md（如存在）
 
 {if config.phases[phase].instruction_files 非空}
 ## 项目自定义指令（覆盖）
@@ -79,7 +79,7 @@ Bash('bash {CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.s
 {end for}
 {end if}
 
-### 模型路由（v5.4 三种事件类型）
+### 模型路由（三种事件类型）
 
 dispatch 子 Agent 前，主线程先调用 `resolve-model-routing.sh` 获取模型路由决策：
 

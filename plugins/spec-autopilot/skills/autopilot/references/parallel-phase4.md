@@ -1,6 +1,6 @@
 # Phase 4 并行调度配置与模板
 
-> 本文件从 `parallel-dispatch.md` 拆分（v5.2），仅在 Phase 4 按需加载。
+> 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 4 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
 ## Phase 4: 测试用例并行生成
@@ -105,7 +105,7 @@ status 只允许 "ok" 或 "blocked"：
 - 任何原因无法创建 → `"status": "blocked"`，summary 说明阻塞原因
 - **禁止返回 "warning"**：Phase 4 不接受降级通过
 
-### 变更聚焦专项测试（v3.2.5 新增）
+### 变更聚焦专项测试
 
 测试用例**必须聚焦本次变更点**，不允许只生成泛化测试。
 

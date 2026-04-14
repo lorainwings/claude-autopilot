@@ -2,7 +2,7 @@
 
 > 本文件从 `autopilot-dispatch/SKILL.md` 提取，供 dispatch 构造子 Agent 时按需读取。
 
-### 模型路由 dispatch 流程（v5.3 新增）
+### 模型路由 dispatch 流程
 
 dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
 
@@ -45,7 +45,7 @@ dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
      '{"requested_model":"opus","fallback_model":"sonnet","fallback_reason":"Rate limit"}' "$AGENT_ID" "model_fallback"
    ```
 
-5.5. **主线程醒目输出模型路由 Banner**（v5.7）:
+5.5. **主线程醒目输出模型路由 Banner**:
    解析 `ROUTING_JSON` 后，主线程 stdout 直接打印以下内容（用户可见）：
 
    ```

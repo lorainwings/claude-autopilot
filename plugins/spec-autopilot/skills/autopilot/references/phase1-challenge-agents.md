@@ -1,4 +1,4 @@
-# Phase 1 挑战代理协议（v7.1）
+# Phase 1 挑战代理协议
 
 > 本文件由 `phase1-requirements.md` 1.6 节和 `phase1-supplementary.md` 引用。
 > 定义多轮决策循环中自动激活的视角转换机制。

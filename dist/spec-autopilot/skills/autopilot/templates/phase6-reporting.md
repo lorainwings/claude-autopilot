@@ -50,7 +50,7 @@ npx allure generate allure-results -o allure-report --clean
 - 在 testreport/ 目录生成 test-report.md 和 test-report.html
 {end if}
 
-## 并行测试执行（v3.2.0 新增）
+## 并行测试执行
 
 当以并行模式执行时，你仅负责**一个测试套件**：
 - 你的套件：`{suite_name}`（由控制器分配）
@@ -81,7 +81,7 @@ npx allure generate allure-results -o allure-report --clean
 - 已知问题：known_issues 列表
 - 零跳过验证结果
 
-### v3.2.0 增强要求
+### 增强要求
 
 **异常提醒**（anomaly_alerts）：
 对每个失败或跳过的用例，生成人类可读的异常描述：
