@@ -2,7 +2,7 @@
 
 # parallel-harness Policy Configuration Guide
 
-> Version: v1.7.0 (GA) | Last updated: 2026-04-09
+> Version: v1.8.0 (GA) | Last updated: 2026-04-09
 
 ## Overview
 
