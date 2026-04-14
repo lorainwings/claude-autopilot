@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.5.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.0...spec-autopilot-v5.5.1) (2026-04-14)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 hooks 项目感知保护在 CI 环境下的误判 ([4503ddf](https://github.com/lorainwings/claude-autopilot/commit/4503ddf56e38545090beee71ee5efe38a841a7b9))
+
+
+### Changed
+
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([a83834a](https://github.com/lorainwings/claude-autopilot/commit/a83834a648c410daf0e8faed2ec7b2fd1c47b99f))
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([daa405f](https://github.com/lorainwings/claude-autopilot/commit/daa405fe73df95e18394bf94dac58dbdfbe92a89))
+
 ## [5.5.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.5...spec-autopilot-v5.5.0) (2026-04-12)
 
 
