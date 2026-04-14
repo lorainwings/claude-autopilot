@@ -53,10 +53,10 @@ LOCAL_SETTINGS="$CLAUDE_DIR/settings.local.json"
 PROJECT_SETTINGS="$CLAUDE_DIR/settings.json"
 USER_SETTINGS="${HOME}/.claude/settings.json"
 
-# Only skip if the harness bridge is ALREADY installed AND its chain target
-# matches the current upstream. If the user added/changed/removed a custom
-# statusLine since last install, we regenerate the bridge to keep chaining current.
-harness_bridge_installed() {
+# Only skip if the harness collector is ALREADY configured in statusLine command.
+# If the user added/changed/removed a custom statusLine since last install,
+# we must re-install to keep chaining current.
+harness_collector_installed() {
   local file="$1"
   [ -f "$file" ] || return 1
   python3 -c '
@@ -65,7 +65,7 @@ import sys
 try:
     data = json.loads(open(sys.argv[1], encoding="utf-8").read())
     cmd = str(data.get("statusLine", {}).get("command", ""))
-    if "statusline-parallel-harness" in cmd:
+    if "statusline-collector.sh" in cmd and "parallel-harness" in cmd:
         raise SystemExit(0)
 except SystemExit:
     raise
@@ -85,7 +85,8 @@ import sys
 try:
     data = json.loads(open(sys.argv[1], encoding="utf-8").read())
     cmd = str(data.get("statusLine", {}).get("command", ""))
-    if cmd and "statusline-parallel-harness" not in cmd:
+    # Skip if empty or already our collector
+    if cmd and not ("statusline-collector.sh" in cmd and "parallel-harness" in cmd):
         print(cmd)
         raise SystemExit(0)
 except SystemExit:
@@ -100,18 +101,10 @@ raise SystemExit(1)
 
 EXISTING_CMD=$(existing_statusline_command "$LOCAL_SETTINGS" "$PROJECT_SETTINGS" "$USER_SETTINGS" 2>/dev/null || true)
 
-# Skip only if the bridge is already installed AND its chain target matches the
-# current upstream statusLine. If the user added/changed/removed a custom
-# statusLine since last install, we must regenerate the bridge.
-if harness_bridge_installed "$LOCAL_SETTINGS"; then
-  BRIDGE_SCRIPT="$CLAUDE_DIR/statusline-parallel-harness.sh"
-  RECORDED_TARGET=""
-  if [ -f "$BRIDGE_SCRIPT" ]; then
-    RECORDED_TARGET=$(sed -n 's/^# chain-target: *//p' "$BRIDGE_SCRIPT" 2>/dev/null || true)
-  fi
-  if [ "$EXISTING_CMD" = "$RECORDED_TARGET" ]; then
-    exit 0
-  fi
+# Skip if already installed — no bridge file to check chain target against,
+# so just verify the collector command is present.
+if harness_collector_installed "$LOCAL_SETTINGS"; then
+  exit 0
 fi
 
 if [ -n "$EXISTING_CMD" ]; then

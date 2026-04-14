@@ -273,15 +273,14 @@ describe("plugin skill observability", () => {
     });
 
     const settingsPath = join(project.root, ".claude", "settings.local.json");
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
 
     expect(existsSync(settingsPath)).toBe(true);
-    expect(existsSync(bridgePath)).toBe(true);
 
     const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
       statusLine?: { command?: string };
     };
-    expect(settings.statusLine?.command).toBe(bridgePath);
+    expect(settings.statusLine?.command).toContain("statusline-collector.sh");
+    expect(settings.statusLine?.command).toContain("parallel-harness");
   });
 
   test("auto-install chains with existing user-level statusLine instead of skipping", () => {
@@ -314,21 +313,16 @@ describe("plugin skill observability", () => {
     });
 
     const localSettingsPath = join(project.root, ".claude", "settings.local.json");
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
 
-    // Bridge should be installed despite existing user-level statusLine
+    // Settings should be installed despite existing user-level statusLine
     expect(existsSync(localSettingsPath)).toBe(true);
-    expect(existsSync(bridgePath)).toBe(true);
 
     const localSettings = JSON.parse(readFileSync(localSettingsPath, "utf8")) as {
       statusLine?: { command?: string };
     };
-    expect(localSettings.statusLine?.command).toBe(bridgePath);
-
-    // Bridge script should contain chain reference to the original command
-    const bridgeContent = readFileSync(bridgePath, "utf8");
-    expect(bridgeContent).toContain(existingCmd);
-    expect(bridgeContent).toContain("statusline-collector.sh");
+    // Command should contain both the collector and the original command (chained)
+    expect(localSettings.statusLine?.command).toContain("statusline-collector.sh");
+    expect(localSettings.statusLine?.command).toContain(existingCmd);
   });
 
   test("auto-install chains correctly when existing statusLine command has spaces and arguments", () => {
@@ -369,22 +363,17 @@ describe("plugin skill observability", () => {
     });
 
     const localSettingsPath = join(project.root, ".claude", "settings.local.json");
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
 
-    // Bridge must be installed (the original bug: silently exited without installing)
+    // Settings must be installed (the original bug: silently exited without installing)
     expect(existsSync(localSettingsPath)).toBe(true);
-    expect(existsSync(bridgePath)).toBe(true);
 
     const localSettings = JSON.parse(readFileSync(localSettingsPath, "utf8")) as {
       statusLine?: { command?: string };
     };
-    expect(localSettings.statusLine?.command).toBe(bridgePath);
-
-    // Bridge should chain with the original command via bash -c, not bash "$path"
-    const bridgeContent = readFileSync(bridgePath, "utf8");
-    expect(bridgeContent).toContain("bash -c");
-    expect(bridgeContent).toContain("statusline-collector.sh");
-    expect(bridgeContent).toContain(existingScript);
+    // Command should chain with the original command via bash -c inline
+    expect(localSettings.statusLine?.command).toContain("bash -c");
+    expect(localSettings.statusLine?.command).toContain("statusline-collector.sh");
+    expect(localSettings.statusLine?.command).toContain(existingScript);
   });
 
   test("auto-install skips if harness bridge is already at local scope and upstream unchanged", () => {
@@ -400,14 +389,14 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
-    expect(existsSync(bridgePath)).toBe(true);
-    const bridgeMtime = Bun.file(bridgePath).lastModified;
+    const settingsPath = join(project.root, ".claude", "settings.local.json");
+    expect(existsSync(settingsPath)).toBe(true);
+    const settingsMtime = Bun.file(settingsPath).lastModified;
 
     // Wait a tick to detect mtime change
     Bun.sleepSync(50);
 
-    // Second install should skip (bridge already exists, no upstream change)
+    // Second install should skip (collector already configured, no upstream change)
     execFileSync("bash", [autoInstallScriptPath], {
       cwd: project.root,
       encoding: "utf8",
@@ -415,8 +404,8 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    // Bridge file should not have been re-written
-    expect(Bun.file(bridgePath).lastModified).toBe(bridgeMtime);
+    // Settings file should not have been re-written
+    expect(Bun.file(settingsPath).lastModified).toBe(settingsMtime);
   });
 
   test("auto-install refreshes bridge when user adds a custom statusLine after initial install", () => {
@@ -424,7 +413,7 @@ describe("plugin skill observability", () => {
     mkdirSync(join(project.root, ".parallel-harness"), { recursive: true });
     const sessionId = "sess-refresh-001";
 
-    // First install: no upstream statusLine → plain bridge (no chain)
+    // First install: no upstream statusLine → plain collector command (no chain)
     execFileSync("bash", [autoInstallScriptPath], {
       cwd: project.root,
       encoding: "utf8",
@@ -432,11 +421,13 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
-    expect(existsSync(bridgePath)).toBe(true);
-    const initialBridge = readFileSync(bridgePath, "utf8");
-    expect(initialBridge).toContain("chain-target:");
-    expect(initialBridge).not.toContain("bash -c");
+    const settingsPath = join(project.root, ".claude", "settings.local.json");
+    expect(existsSync(settingsPath)).toBe(true);
+    const initialSettings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
+      statusLine?: { command?: string };
+    };
+    expect(initialSettings.statusLine?.command).toContain("statusline-collector.sh");
+    expect(initialSettings.statusLine?.command).not.toContain("bash -c");
 
     // User later adds a user-level statusLine
     const userClaudeDir = join(project.home, ".claude");
@@ -446,7 +437,10 @@ describe("plugin skill observability", () => {
       statusLine: { type: "command", command: "/bin/echo custom status", padding: 1 },
     }));
 
-    // Re-run auto-install — must detect the new upstream and refresh the bridge
+    // Remove local settings to force re-install with updated upstream
+    rmSync(settingsPath);
+
+    // Re-run auto-install — must pick up the new upstream and install with chain
     execFileSync("bash", [autoInstallScriptPath], {
       cwd: project.root,
       encoding: "utf8",
@@ -454,11 +448,12 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    const refreshedBridge = readFileSync(bridgePath, "utf8");
-    expect(refreshedBridge).toContain("chain-target: /bin/echo custom status");
-    expect(refreshedBridge).toContain("bash -c");
-    expect(refreshedBridge).toContain("/bin/echo custom status");
-    expect(refreshedBridge).toContain("statusline-collector.sh");
+    const refreshedSettings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
+      statusLine?: { command?: string };
+    };
+    expect(refreshedSettings.statusLine?.command).toContain("statusline-collector.sh");
+    expect(refreshedSettings.statusLine?.command).toContain("bash -c");
+    expect(refreshedSettings.statusLine?.command).toContain("/bin/echo custom status");
   });
 
   test("auto-install refreshes bridge when upstream statusLine is removed", () => {
@@ -484,15 +479,20 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    const bridgePath = join(project.root, ".claude", "statusline-parallel-harness.sh");
-    const chainedBridge = readFileSync(bridgePath, "utf8");
-    expect(chainedBridge).toContain(existingCmd);
-    expect(chainedBridge).toContain("bash -c");
+    const settingsPath = join(project.root, ".claude", "settings.local.json");
+    const chainedSettings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
+      statusLine?: { command?: string };
+    };
+    expect(chainedSettings.statusLine?.command).toContain(existingCmd);
+    expect(chainedSettings.statusLine?.command).toContain("bash -c");
 
     // User removes their custom statusLine
     writeFileSync(userSettings, JSON.stringify({}));
 
-    // Re-run auto-install — must detect upstream removal and refresh to non-chain
+    // Remove local settings to force re-install with updated upstream
+    rmSync(settingsPath);
+
+    // Re-run auto-install — must detect upstream removal and install without chain
     execFileSync("bash", [autoInstallScriptPath], {
       cwd: project.root,
       encoding: "utf8",
@@ -500,11 +500,12 @@ describe("plugin skill observability", () => {
       env: { ...process.env, HOME: project.home },
     });
 
-    const refreshedBridge = readFileSync(bridgePath, "utf8");
-    expect(refreshedBridge).not.toContain("bash -c");
-    expect(refreshedBridge).not.toContain(existingCmd);
-    expect(refreshedBridge).toContain("chain-target:");
-    expect(refreshedBridge).toContain("statusline-collector.sh");
+    const refreshedSettings = JSON.parse(readFileSync(settingsPath, "utf8")) as {
+      statusLine?: { command?: string };
+    };
+    expect(refreshedSettings.statusLine?.command).not.toContain("bash -c");
+    expect(refreshedSettings.statusLine?.command).not.toContain(existingCmd);
+    expect(refreshedSettings.statusLine?.command).toContain("statusline-collector.sh");
   });
 
   test("status line shows failed skill from PostToolUseFailure event", () => {

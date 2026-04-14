@@ -41,7 +41,7 @@ user-invocable: false
 |------|------|------|
 | `missing_keys` | 缺少必需配置项 | 列出每项并提示补全 |
 | `type_errors` | 类型不匹配 | 列出每项并提示修正类型 |
-| `enum_errors` | 值不在允许范围（含 deprecated/forbidden 值） | 列出每项并**严格按错误信息中的建议值替换** |
+| `enum_errors` | 值不在允许范围（含 deprecated/forbidden 值） | 列出每项并通过 **AskUserQuestion** 询问用户是否同意按错误信息中的建议值修改配置，**禁止**未经用户确认直接修改 |
 | `range_errors` | 数值范围越界 | 列出每项并提示调整范围 |
 | `model_routing_errors` | model_routing 配置错误 | 列出每项 |
 
@@ -117,9 +117,9 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 > **必要性**: Phase 0/1 此前未接入 Event Bus，导致 GUI 在 Phase 2 之前无任何数据。此步骤确保 `events.jsonl` 在 GUI 服务器启动后立即创建，且 Phase 0 生命周期事件对 GUI 可见。
 
-### Step 5: 检查已启用插件
+### Step 5: 检查必需插件
 
-读取 `.claude/settings.json` 的 `enabledPlugins` → 检查已启用插件列表
+读取 `.claude/settings.json` 的 `enabledPlugins` → 仅检查 `spec-autopilot` 是否已启用。不列出、不评判其他无关插件（忽略 enabledPlugins 中的其余条目）。
 
 ### Step 6: 崩溃恢复
 
