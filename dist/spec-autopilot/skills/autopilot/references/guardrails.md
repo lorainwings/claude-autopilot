@@ -23,7 +23,7 @@
 
 | 约束 | 规则 |
 |------|------|
-| 上下文保护 | 每 Phase 完成后通过后台 Checkpoint Agent 写入 checkpoint + git fixup commit（v3.4.3）；子 Agent 回传精简摘要，不传原始输出；Phase 7 归档时 autosquash 合并 |
+| 上下文保护 | 每 Phase 完成后通过后台 Checkpoint Agent 写入 checkpoint + git fixup commit；子 Agent 回传精简摘要，不传原始输出；Phase 7 归档时 autosquash 合并 |
 | PID 回收防护 | 锁文件同时检查 PID 存活 + session_id 匹配，防止 PID 被系统回收导致误判 |
 | 质量扫描超时 | 硬超时（默认 10 分钟），超时自动标记 timeout，不询问用户 |
 | **后台 Agent 通用超时** | 所有 `run_in_background: true` 的 Agent 硬超时 30 分钟（`config.background_agent_timeout_minutes`），超时标记 `"timeout"` 并展示警告 |
@@ -74,4 +74,4 @@
 6. 如果 next_phase == 5 且 Phase 5 状态为 in_progress，扫描 `phase5-tasks/` 目录确定 task 级恢复点
 
 > **禁止**：恢复后重复执行已标记 `ok`/`warning` 的阶段。
-> **v5.8 增强**：恢复注入现在包含所有已完成阶段的上下文快照（而非仅最新一个），以及确定性的下一步操作指令，减少 AI 解析歧义。
+> 恢复注入现在包含所有已完成阶段的上下文快照（而非仅最新一个），以及确定性的下一步操作指令，减少 AI 解析歧义。

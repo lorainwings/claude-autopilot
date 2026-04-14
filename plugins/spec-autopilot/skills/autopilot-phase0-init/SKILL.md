@@ -65,7 +65,7 @@ user-invocable: false
   - 不匹配 → mode 从 config 读取，整体为需求
 ```
 
-### Step 4: 启动 GUI 服务器 + 展示启动 Banner（v5.2 合并）
+### Step 4: 启动 GUI 服务器 + 展示启动 Banner（合并）
 
 **先启动 GUI 服务器**，再将地址嵌入 Banner 统一输出，避免分两步展示。
 
@@ -106,7 +106,7 @@ user-invocable: false
 - Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
 - GUI：从 `start-gui-server.sh` 的 `GUI_SERVER_JSON:` 输出解析 `http_url` 字段，服务器启动成功时显示实际地址（如 `http://localhost:9527`），启动失败时显示 `unavailable`
 
-### Step 4.5: 初始化事件文件 + 发射 Phase 0 开始事件（v5.2 Event Bus 补全）
+### Step 4.5: 初始化事件文件 + 发射 Phase 0 开始事件（Event Bus 补全）
 
 确保事件文件存在并发射 Phase 0 开始事件：
 
@@ -125,9 +125,9 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 调用 Skill(`spec-autopilot:autopilot-recovery`)：扫描 checkpoint + progress 文件，决定起始阶段和子步骤恢复点
 
-> **v5.3**: Recovery 同时扫描 `phase-{N}-progress.json` 实现子步骤粒度恢复
+> Recovery 同时扫描 `phase-{N}-progress.json` 实现子步骤粒度恢复
 
-### Step 6.1: 事件文件恢复清理（v5.4 新增）
+### Step 6.1: 事件文件恢复清理
 
 根据崩溃恢复决策清理事件文件：
 
@@ -142,7 +142,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 **从断点继续** → 不清理事件文件（保留历史事件供 GUI 展示已完成 Phase）。
 
-### Step 7: 创建阶段任务（v5.5 恢复状态增强, v7.0.1 顺序强制）
+### Step 7: 创建阶段任务（恢复状态增强, 顺序强制）
 
 使用 TaskCreate 创建阶段任务 + blockedBy 依赖链：
 - **full 模式**: 创建 Phase 1-7（7 个任务）
@@ -158,7 +158,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 - **P == recovery_phase** → TaskCreate 后立即 TaskUpdate status = `in_progress`
 - **P > recovery_phase** → 保持默认 `pending` 状态
 
-> **v5.5 变更**: 之前仅将 P < recovery 标记为 completed。现在额外将 P == recovery 标记为 in_progress，使 GUI 和任务列表准确反映当前工作阶段。
+> 之前仅将 P < recovery 标记为 completed。现在额外将 P == recovery 标记为 in_progress，使 GUI 和任务列表准确反映当前工作阶段。
 
 ### Step 8: 确保锁文件被 gitignore
 
@@ -170,11 +170,9 @@ echo '.autopilot-active' >> .gitignore
 
 > 此文件是会话级运行时锁，包含 PID/session_id 等本机信息，禁止提交到 git。
 
-### Step 9: 创建锁文件（v5.6 确定性脚本）
+### Step 9: 创建锁文件（确定性脚本）
 
 直接通过 Bash 调用独立脚本创建锁文件（替代原有后台 Agent）：
-
-(v8.0: 内联 Python 已提取为独立脚本)
 
 ```bash
 Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/create-lockfile.sh "${session_cwd}" '"'"'${lock_json}'"'"'')
@@ -186,7 +184,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/create-lockfile.sh "${session_c
 
 > **原子性**：初次写入时 `anchor_sha` 设为空字符串，Step 10 创建 commit 后更新。
 
-### Step 10: 创建锚定 Commit（v5.6 确定性更新）
+### Step 10: 创建锚定 Commit（确定性更新）
 
 为后续 fixup + autosquash 策略创建空锚定 commit：
 
@@ -197,8 +195,6 @@ ANCHOR_SHA=$(git rev-parse HEAD)
 
 直接通过 Bash 调用独立脚本更新锁文件中的 `anchor_sha` 字段（替代原有后台 Agent）：
 
-(v8.0: 内联 Python 已提取为独立脚本)
-
 ```bash
 Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/update-anchor-sha.sh "${session_cwd}/openspec/changes/.autopilot-active" "${ANCHOR_SHA}"')
 ```
@@ -207,7 +203,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/update-anchor-sha.sh "${session
 
 ---
 
-### Step 10.5: 发射 Phase 0 结束事件（v5.2 Event Bus 补全）
+### Step 10.5: 发射 Phase 0 结束事件（Event Bus 补全）
 
 ```bash
 Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}\'')
@@ -232,7 +228,7 @@ Phase 0 完成后，主编排器获得：
 
 ---
 
-## 锁文件管理（v5.6 确定性脚本重构）
+## 锁文件管理（确定性脚本重构）
 
 管理 `${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期。通过 python3 内联脚本 + 原子写入（tempfile + os.replace）确保确定性。
 

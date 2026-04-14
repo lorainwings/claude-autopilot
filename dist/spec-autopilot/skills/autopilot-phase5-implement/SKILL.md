@@ -12,7 +12,7 @@ Phase 5 是流水线中最复杂的阶段，具有三条互斥执行路径。本
 
 > dispatch 的具体 prompt 构造逻辑保持在 `autopilot-dispatch` 中。
 
-## Phase 5 主线程职责边界（v5.7 上下文节制化）
+## Phase 5 主线程职责边界（上下文节制化）
 
 主线程在 Phase 5 中**仅执行最小编排**，禁止读取实施相关参考文档：
 
@@ -118,13 +118,13 @@ END FOR
 >
 > **违反此约束等同于违反 CLAUDE.md 状态机硬约束第 3 条。**
 
-解析任务 → **生成 `parallel_plan.json`**（v5.4: 调用 `generate-parallel-plan.sh` 确定性调度器） → 按 batch 分区 → worktree 并行 → 按编号合并 → 全量测试。详见 `autopilot/references/parallel-phase5.md`。
+解析任务 → **生成 `parallel_plan.json`**（调用 `generate-parallel-plan.sh` 确定性调度器） → 按 batch 分区 → worktree 并行 → 按编号合并 → 全量测试。详见 `autopilot/references/parallel-phase5.md`。
 
 ### 【路径 B — 串行模式】（`parallel.enabled = false` 或降级）
 
-逐个前台 Task → JSON 信封 → task checkpoint。**v5.4**: 串行模式也调用 `generate-parallel-plan.sh` 生成计划，Batch Scheduler 消费 `batches` 字段执行。详见 `autopilot/references/phase5-implementation.md` 串行模式章节。
+逐个前台 Task → JSON 信封 → task checkpoint。串行模式也调用 `generate-parallel-plan.sh` 生成计划，Batch Scheduler 消费 `batches` 字段执行。详见 `autopilot/references/phase5-implementation.md` 串行模式章节。
 
-**v5.8 串行模式 CLAUDE.md 变更检测**: 串行模式下，每个 task dispatch 前执行轻量 CLAUDE.md 变更检测：
+**串行模式 CLAUDE.md 变更检测**: 串行模式下，每个 task dispatch 前执行轻量 CLAUDE.md 变更检测：
 
 ```bash
 # 在每个 task dispatch 前（与 Gate Step 5.5 相同逻辑）

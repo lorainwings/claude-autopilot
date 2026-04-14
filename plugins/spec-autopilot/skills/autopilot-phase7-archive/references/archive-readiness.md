@@ -5,7 +5,7 @@
 
 ## Step 3: Archive Readiness 检查与归档决策
 
-**v6.0 Archive Readiness 自动化**: 归档前执行统一的 archive-readiness 判定。所有判定条件通过时自动归档，无需人工确认；任一条件失败时硬阻断并展示原因。
+**Archive Readiness 自动化**: 归档前执行统一的 archive-readiness 判定。所有判定条件通过时自动归档，无需人工确认；任一条件失败时硬阻断并展示原因。
 
 ### Step 3.1: 构建 archive-readiness.json
 
@@ -51,13 +51,13 @@ ELSE:
   → 禁止 "忽略继续归档" 选项（fail-closed 原则）
 ```
 
-**v5.8 block_on_critical 语义保留**: 当 `config.phases.code_review.block_on_critical = true` 时：
+**block_on_critical 语义保留**: 当 `config.phases.code_review.block_on_critical = true` 时：
 
 1. 检查 `phase-6.5-code-review.json` 中是否存在 `critical` 级别 findings
 2. 如有 critical findings 未修复 → `review_findings_clear = false`，归入 `block_reasons`
 3. 如无 critical findings 或 `block_on_critical = false` → `review_findings_clear = true`
 
-**v5.3 进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 summary_complete complete')`
+**进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 summary_complete complete')`
 
 ## Step 4: 归档操作（archive readiness 通过后自动执行）
 
@@ -73,8 +73,8 @@ a. **归档前清理**：
 
 b. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 true，默认 true）：
 
-- **v5.3 进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 autosquash_started in_progress')`
-- **v8.0 独立脚本**: 所有 fixup 完整性检查、非 autopilot fixup 检查、anchor 验证/重建、rebase 操作已封装到 `autosquash-archive.sh`：
+- **进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 autosquash_started in_progress')`
+- **独立脚本**: 所有 fixup 完整性检查、非 autopilot fixup 检查、anchor 验证/重建、rebase 操作已封装到 `autosquash-archive.sh`：
 
     ```bash
     Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/autosquash-archive.sh "$(pwd)" "${ANCHOR_SHA}" "${change_name}"')
@@ -95,7 +95,7 @@ b. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 
     - anchor 重建失败时：`[BLOCKED] anchor 重建失败，无法执行 autosquash。归档中止。`
     - autosquash 失败时：`[BLOCKED] autosquash 失败，无法合并 fixup commits。归档中止。`
 
-  > **v8.0 上下文优化**: 主线程不再内联执行 ~50 行 git 操作，仅调用一次 Bash 并解析 JSON 结果。
+  > **上下文优化**: 主线程不再内联执行 ~50 行 git 操作，仅调用一次 Bash 并解析 JSON 结果。
 
 c. **归档**（模式感知）：
 

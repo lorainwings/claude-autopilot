@@ -23,15 +23,15 @@
 
 ## 代码质量硬约束
 
-1. **禁止 TODO/FIXME/HACK 占位符**: L2 Hook `unified-write-edit-check.sh` 确定性拦截 (v5.1, 原 banned-patterns-check.sh)
-2. **禁止恒真断言**: L2 Hook `unified-write-edit-check.sh` 拦截 `expect(true).toBe(true)` 等 (v5.1, 原 assertion-quality-check.sh)
-3. **Anti-Rationalization**: 10+6 种 excuse 模式匹配 → status 强制降级为 blocked (v5.2: +时间/环境/第三方借口)
+1. **禁止 TODO/FIXME/HACK 占位符**: L2 Hook `unified-write-edit-check.sh` 确定性拦截
+2. **禁止恒真断言**: L2 Hook `unified-write-edit-check.sh` 拦截 `expect(true).toBe(true)` 等
+3. **Anti-Rationalization**: 10+6 种 excuse 模式匹配 → status 强制降级为 blocked
 4. **代码约束**: `code_constraints` 配置的 forbidden_files/patterns → L2 硬阻断
 5. **Test Pyramid 地板**: unit_pct ≥ 30%, e2e_pct ≤ 40%, total ≥ 10 (L2 可配置)
 6. **Change Coverage**: coverage_pct ≥ 80% (bugfix/refactor 路由可提升至 100%)
-7. **Sad Path 比例**: sad_path_counts 每类型 ≥ test_counts 同类型 20% (v4.2)
+7. **Sad Path 比例**: sad_path_counts 每类型 ≥ test_counts 同类型 20%
 
-## 需求路由 (v4.2)
+## 需求路由
 
 需求自动分类为 Feature/Bugfix/Refactor/Chore，不同类别动态调整门禁阈值：
 
@@ -39,24 +39,24 @@
 - **Refactor**: change_coverage = 100%, 必须含行为保持测试
 - **Chore**: 放宽至 change_coverage ≥ 60%, typecheck 即可
 
-## GUI Event Bus API (v4.2 Vanguard)
+## GUI Event Bus API
 
 事件发射到 `logs/events.jsonl`，格式见 `references/event-bus-api.md`：
 
 - `phase_start` / `phase_end`: Phase 生命周期
 - `gate_pass` / `gate_block`: 门禁判定
-- `task_progress`: Phase 5 任务细粒度进度 (v5.2)
-- `decision_ack`: GUI 决策确认 (v5.2, WebSocket-only)
+- `task_progress`: Phase 5 任务细粒度进度
+- `decision_ack`: GUI 决策确认 (WebSocket-only)
 - 所有事件含 ISO-8601 时间戳 + phase 编号 + mode + payload
 
 ## 子 Agent 约束
 
 1. **禁止自行读取计划文件**: 上下文由主线程提取注入
-2. **禁止修改 openspec/ checkpoint**: L2 Hook `unified-write-edit-check.sh` 确定性阻断 (v5.1)，checkpoint 写入仅限 Bash 工具
+2. **禁止修改 openspec/ checkpoint**: L2 Hook `unified-write-edit-check.sh` 确定性阻断，checkpoint 写入仅限 Bash 工具
 3. **必须返回 JSON 信封**: `{"status": "ok|warning|blocked|failed", "summary": "...", "artifacts": [...]}`
 4. **背景 Agent 产出必须 Write 到文件**: 返回信封仅含摘要，禁止全文灌入主窗口
 5. **文件所有权 ENFORCED**: 并行模式下仅可修改 owned_files 范围内的文件
-6. **背景 Agent 必须接受 L2 验证**: JSON 信封 + 反合理化检查不可绕过 (v5.1)
+6. **背景 Agent 必须接受 L2 验证**: JSON 信封 + 反合理化检查不可绕过
 7. **Phase 1 上下文隔离**: 主线程禁止 Read 调研/BA 正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md），仅消费 JSON 信封中的结构化字段
 8. **Dispatch 审计**: dispatch 记录必须包含 selection_reason、resolved_priority、owned_artifacts，由 post-task-validator 验证
 9. **Review findings fail-closed**: Phase 6.5 code review 中 `blocking: true` 的 findings 硬阻断 Phase 7 归档

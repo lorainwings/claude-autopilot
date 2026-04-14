@@ -1,6 +1,6 @@
 # Phase 5 并行调度配置与模板
 
-> 本文件从 `parallel-dispatch.md` 拆分（v5.2），仅在 Phase 5 按需加载。
+> 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 5 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
 ## Phase 5: 实施并行（混合模式）
@@ -11,7 +11,7 @@
 
 ```yaml
 parallel_config:
-  split_strategy: "domain-single-agent"   # v3.4.0: 域级单 Agent（废弃旧 "domain-partition" 域内多 Agent）
+  split_strategy: "domain-single-agent"   # 域级单 Agent（废弃旧 "domain-partition" 域内多 Agent）
   merge_strategy: "worktree"
   review_after: true                      # 每组完成后批量 review
 
@@ -34,7 +34,7 @@ parallel_config:
     #   agent: "backend-developer"
 
   cross_cutting_strategy: "serial_after_parallel"
-  max_parallel_domains: 8                 # 最多 8 个域同时并行（v3.4.0 扩大）
+  max_parallel_domains: 8                 # 最多 8 个域同时并行
   degrade_threshold: 3                    # 合并冲突文件数超过此值则降级
 ```
 
@@ -55,7 +55,7 @@ parallel_config:
 > **触发条件**: `config.phases.implementation.parallel.enabled = true`
 > **强制约束**: 进入并行模式后，禁止进入串行模式或调用串行 Task 派发流程
 
-核心增强（v3.2.0）：
+核心增强：
 1. **混合模式** — 按独立域分组并行 + 每组完成后批量 review
 2. **控制器提取全文** — 主线程一次性读取所有任务文本，subagent 不自己读计划文件
 3. **subagent 提问机制** — subagent 可通过 AskUserQuestion 向用户提问
@@ -72,7 +72,7 @@ parallel_config:
 主线程一次性提取所有 task 的完整文本（子 Agent 禁止自行读取计划文件）
 ```
 
-### Step 1.3: affected_files 元数据校验（v5.7 新增）
+### Step 1.3: affected_files 元数据校验
 
 在传入 `generate-parallel-plan.sh` 之前，主线程**必须**校验每个 task 的 `affected_files` 字段：
 
@@ -88,7 +88,7 @@ for each task in tasks:
 > **设计意图**: generate-parallel-plan.sh 依赖 affected_files 进行文件冲突检测和域分组。
 > 缺失时脚本无法有效分组，导致 fallback_to_serial。
 
-### Step 1.5: 生成并行计划（v5.5 — 确定性 batch 调度）
+### Step 1.5: 生成并行计划（确定性 batch 调度）
 
 > **HARD CONSTRAINT**: 主线程在 dispatch 前**必须**调用 `generate-parallel-plan.sh` 生成 `parallel_plan.json`。
 > Scheduler 必须消费 `parallel_plan.json` 的 `batches`，而非模型自行决定并行策略。
@@ -114,7 +114,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-parallel-event.sh \
 - 如果所有任务都有依赖链，则 `fallback_to_serial=true` + 结构化 reason
 - fallback 时**必须**有结构化 reason（不允许空字符串）
 
-### Step 2: 文件所有权分区（v3.4.0: 三步域检测）
+### Step 2: 文件所有权分区（三步域检测）
 
 ```python
 # Step A: 最长前缀匹配
@@ -147,7 +147,7 @@ if len(domain_tasks) > max_agents:
 写入: phase5-ownership/{domain_name}.json
 ```
 
-### Step 3: 域级并行 Task 派发（v3.4.0 — 单 Agent 模式）
+### Step 3: 域级并行 Task 派发（单 Agent 模式）
 
 > **HARD CONSTRAINT**: 每个域严格 1 个 Agent，禁止同一域内派发多个 Agent。
 > 域内多个 tasks 作为批量任务注入到同一 Agent 的 prompt。
@@ -230,11 +230,11 @@ unified-write-edit-check Hook 会拦截越权修改。
 
 等待 Claude Code 自动完成通知（禁止 TaskOutput 轮询）。最多 max_agents 个域并行（默认 8），域内串行。
 
-### 串行模式 Batch Scheduler（v4.2 — 默认并行引擎）
+### 串行模式 Batch Scheduler（默认并行引擎）
 
 当 `parallel.enabled = false`（串行模式）时，自动启用 Batch Scheduler：
 
-> **v5.5 变更**: Batch Scheduler 必须消费 `parallel_plan.json` 的 `batches` 字段，
+> **变更**: Batch Scheduler 必须消费 `parallel_plan.json` 的 `batches` 字段，
 > 而非模型自行决定 batch 分组。调用 `generate-parallel-plan.sh` 生成计划后，
 > 严格按 `batches[].tasks` 顺序和 `can_parallel` 标志执行。
 
@@ -258,7 +258,7 @@ unified-write-edit-check Hook 会拦截越权修改。
 ```
 按 task 编号顺序合并:
 for each agent in sorted(agents, key=task_number):
-  # v5.2: 合并前发射 task running 事件
+  # 合并前发射 task running 事件
   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode}')
 
   git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
@@ -266,7 +266,7 @@ for each agent in sorted(agents, key=task_number):
   if conflict and conflict_files <= 3: AskUserQuestion show conflicts
   else: git worktree remove + git branch -d
 
-  # v5.2: 合并成功后发射 task passed 事件
+  # 合并成功后发射 task passed 事件
   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" passed {N} {total} {mode}')
 
 快速验证: 运行 config.test_suites 中 type=typecheck 的命令
@@ -319,7 +319,7 @@ cross_cutting_tasks 在所有并行组完成后串行执行
 记录: _metrics.parallel_fallback_reason
 ```
 
-## 代码生成约束增强（v3.2.0）
+## 代码生成约束增强
 
 ### 新增配置项
 
@@ -331,7 +331,7 @@ code_constraints:
   allowed_dirs: [...]
   max_file_lines: 800
 
-  # v3.2.0 新增
+  # 新增
   required_patterns:
     - pattern: "createWebHashHistory"
       context: "Vue Router 配置文件"

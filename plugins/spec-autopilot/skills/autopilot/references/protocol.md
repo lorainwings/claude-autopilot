@@ -49,7 +49,7 @@
 
 无标记的 Task 调用被 Hook 直接放行（exit 0）。
 
-## 模型路由（v5.3 升级为执行级路由）
+## 模型路由（升级为执行级路由）
 
 ### 路由层级
 
@@ -107,7 +107,7 @@ bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLE
 
 > 当 `selected_tier` / `selected_model` 为 `"auto"` 时，dispatch 不传递 model 参数，继承父会话模型。
 
-### 路由证据事件（v5.4 扩展为三种事件类型）
+### 路由证据事件
 
 `emit-model-routing-event.sh` 支持三种事件类型，通过第 6 参数 `event_type` 选择：
 
@@ -175,7 +175,7 @@ phase-results/
 └── phase-7-summary.json
 ```
 
-## DecisionPoint 格式（v2.4.0 增强）
+## DecisionPoint 格式
 
 Phase 1 JSON 信封中的 `decisions` 数组，每个元素为 DecisionPoint：
 
@@ -194,7 +194,7 @@ Phase 1 JSON 信封中的 `decisions` 数组，每个元素为 DecisionPoint：
 
 > **向后兼容**: 旧格式 `{"point": "...", "choice": "..."}` 仍被 checkpoint 和 gate 接受。增强字段（`options`、`rationale`、`affected_components`）为可选，validation hook 不强制检查。
 
-## Web Research 格式（v2.4.0 增强）
+## Web Research 格式
 
 Phase 1 JSON 信封中的 `web_research` 可选字段：
 
@@ -242,11 +242,11 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 - `tasks.md` 中所有任务标记为 `[x]`
 
 
-## 并行调度协议字段（v3.2.0 新增, v5.4 确定性调度器增强）
+## 并行调度协议字段
 
 当阶段使用并行执行时，JSON 信封增加以下可选字段：
 
-### 确定性并行计划（v5.4 新增）
+### 确定性并行计划
 
 `generate-parallel-plan.sh` 是确定性调度器脚本，接收任务列表 JSON，输出 `parallel_plan.json`。核心逻辑：
 
@@ -275,7 +275,7 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 
 > **HARD CONSTRAINT**: 主线程必须消费 `parallel_plan.json` 的 `batches` 字段执行调度，禁止模型自行决定并行策略。
 
-### 崩溃恢复 auto_continue 字段（v5.4 新增）
+### 崩溃恢复 auto_continue 字段
 
 `recovery-decision.sh` 输出中新增以下字段，支持单候选变更自动继续（无需用户交互）：
 
@@ -357,7 +357,7 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 }
 ```
 
-### Phase 6 並行 TDD 証跡フィールド（v5.1.18 新增）
+### Phase 6 並行 TDD 証跡フィールド
 
 | フィールド                  | 必須/可選 | 型      | 説明                                                |
 |---------------------------|----------|---------|-----------------------------------------------------|

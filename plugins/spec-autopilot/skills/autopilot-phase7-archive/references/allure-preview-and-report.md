@@ -3,9 +3,9 @@
 > 本文件由 `autopilot-phase7-archive/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 2.5（Allure 预览服务启动）和 Step 2.6（Test Report 线框渲染）。
 
-## Step 2.5: Allure 本地预览（v8.0 子 Agent 委托）
+## Step 2.5: Allure 本地预览（子 Agent 委托）
 
-> 当 Allure 产物存在时执行。v8.0 将原主线程内联的 ~170 行 Bash 操作委托给后台子 Agent，减少主窗口上下文污染。
+> 当 Allure 产物存在时执行。将原主线程内联的 ~170 行 Bash 操作委托给后台子 Agent，减少主窗口上下文污染。
 
 派发**前台 Task**（非后台）处理 Allure 预览全流程：
 
@@ -36,7 +36,7 @@ Task(subagent_type: "general-purpose", prompt: "
 ")
 ```
 
-> **v8.0 设计决策**: 使用**前台 Task**（非 `run_in_background`），确保 Allure 子 Agent 完成后主线程再进入 Step 3。这保证了：
+> **设计决策**: 使用**前台 Task**（非 `run_in_background`），确保 Allure 子 Agent 完成后主线程再进入 Step 3。这保证了：
 >
 > 1. `allure-preview.json` 在 Summary Box 渲染前已写入磁盘
 > 2. `state-snapshot.json` 已更新
@@ -49,7 +49,7 @@ Task(subagent_type: "general-purpose", prompt: "
 - PID 文件位于 `${change_dir}context/allure-serve.pid`（change 级隔离，由子 Agent 写入）
 - **服务保活策略**：Allure 服务在 Phase 7 归档后**不自动 kill**。服务保持运行确保用户可随时通过 Summary Box 链接查看报告。Step 9 输出停止命令提示，由用户自行决定停止时机。
 
-## Step 2.6: Test Report 线框（v9.0 测试报告即时可见）
+## Step 2.6: Test Report 线框（测试报告即时可见）
 
 > **仅 full 和 lite 模式**。minimal 模式跳过此步骤（无 Phase 6）。
 

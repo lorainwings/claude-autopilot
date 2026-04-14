@@ -2,7 +2,7 @@
 
 > 本文件从 `autopilot-dispatch/SKILL.md` 提取，供 dispatch 构造子 Agent 时按需读取。
 
-### 优先级 2.5: Project Rules Auto-Scan（全阶段注入，v3.0 增强）
+### 优先级 2.5: Project Rules Auto-Scan（全阶段注入）
 
 dispatch 任何阶段的子 Agent 时，自动运行 `rules-scanner.sh` 扫描项目 `.claude/rules/` 目录和 `CLAUDE.md`，提取所有约束并注入到子 Agent prompt 中。
 

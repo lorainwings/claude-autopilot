@@ -130,7 +130,7 @@ Phase 7 写入时检查：
 
 ---
 
-## 持久化 Steering Documents（v3.0 新增）
+## 持久化 Steering Documents
 
 ### 位置
 

@@ -89,7 +89,7 @@ for each (task_i, task_j) in tasks × tasks:
 当 tasks.md 中的 task 按顶级目录自然分离时，可跳过 Union-Find，直接按域分组：
 
 ```python
-# v3.4.0: 通用域检测（三步算法）
+# 通用域检测（三步算法）
 
 # ---- Step A: 路径前缀匹配（最长优先）----
 domain_prefixes = config...domain_agents.keys()
@@ -161,7 +161,7 @@ Task(
 ## 项目规则约束
 {rules_scan_result}
 
-## 产出写入（v3.3.0 上下文保护）
+## 产出写入（上下文保护）
 将完整产出 Write 到指定的 output_file 路径。禁止在返回信封中包含产出全文。
 
 ## 返回要求
@@ -171,7 +171,7 @@ Task(
 )
 ```
 
-> **v3.3.0 上下文保护**：Phase 1 调研 Agent 必须自行 Write 产出文件，返回信封仅包含结构化摘要和 `decision_points`。详见各调研 Agent 的信封格式定义。
+> **上下文保护**：Phase 1 调研 Agent 必须自行 Write 产出文件，返回信封仅包含结构化摘要和 `decision_points`。详见各调研 Agent 的信封格式定义。
 
 ### Worktree 隔离模板（Phase 5 实施专用 — 基础模板）
 
@@ -306,9 +306,9 @@ Task(
 
 降级原因记录到 checkpoint: `_metrics.parallel_fallback_reason`
 
-## 各 Phase 并行配置（v5.2 按需加载）
+## 各 Phase 并行配置（按需加载）
 
-> **v5.2 Token 优化**: 各 Phase 的并行配置和 dispatch 模板已拆分为独立文件，各阶段按需加载，避免全量注入。
+> **Token 优化**: 各 Phase 的并行配置和 dispatch 模板已拆分为独立文件，各阶段按需加载，避免全量注入。
 
 | Phase | 按需加载文件 | 内容 |
 |-------|-------------|------|
@@ -331,7 +331,7 @@ Task(
 
 ---
 
-## 并行调度协议总览（v3.2.0 新增，v5.2 拆分）
+## 并行调度协议总览
 
 > 以下为并行调度触发条件总览。各 Phase 的完整 dispatch 模板已拆分至独立文件（见上方索引表）。
 

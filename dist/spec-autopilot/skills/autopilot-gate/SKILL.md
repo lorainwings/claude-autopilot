@@ -30,7 +30,7 @@ user-invocable: false
 
 **执行前读取**: `autopilot/references/log-format.md`（日志格式规范）
 
-### 条件化参考文件读取（v8.0 上下文优化）
+### 条件化参考文件读取（上下文优化）
 
 不同阶段过渡所需的参考文件不同。**按需加载**以减少主窗口上下文占用：
 
@@ -61,13 +61,13 @@ user-invocable: false
 - [ ] Step 3: 将 JSON 写入 phase-results/phase-N-*.json（由本 Skill checkpoint 管理执行）
 - [ ] Step 4: TaskUpdate 将阶段 N 标记为 completed
 - [ ] Step 5: TaskGet 阶段 N+1 的任务，确认 blockedBy 为空
-- [ ] Step 5.5: CLAUDE.md 变更检测（v4.0）— 检查 CLAUDE.md 修改时间是否比 Phase 0 缓存的规则更新，是则重新扫描规则
+- [ ] Step 5.5: CLAUDE.md 变更检测 — 检查 CLAUDE.md 修改时间是否比 Phase 0 缓存的规则更新，是则重新扫描规则
 - [ ] Step 6: 读取 phase-results/phase-N-*.json 确认文件存在且可解析
 - [ ] Step 7: TaskUpdate 将阶段 N+1 标记为 in_progress
 - [ ] Step 8: 准备 dispatch 子 Agent（由 dispatch Skill 执行）
 ```
 
-### Step 5.5 CLAUDE.md 变更感知（v4.0 新增）
+### Step 5.5 CLAUDE.md 变更感知
 
 在每次阶段切换时检查项目 CLAUDE.md 是否在运行期间被修改：
 
@@ -115,11 +115,11 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 [GATE] Phase {N} → {N+1}: BLOCKED at Step {M} — {reason}
 ```
 
-### 双向反控：Gate 阻断后决策轮询（v5.1 新增）
+### 双向反控：Gate 阻断后决策轮询
 
 当门禁阻断时启动 GUI 决策轮询（override/retry/fix/auto_continue 自动推进/timeout）。
 
-**v6.0 自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
+**自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
 
 **条件读取**: `autopilot/references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
 
@@ -168,7 +168,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 ---
 
-## Checkpoint 管理（原 autopilot-checkpoint，v4.0 合入）
+## Checkpoint 管理（原 autopilot-checkpoint，合入）
 
 管理 `openspec/changes/<name>/context/phase-results/` 目录下的 checkpoint 文件。
 

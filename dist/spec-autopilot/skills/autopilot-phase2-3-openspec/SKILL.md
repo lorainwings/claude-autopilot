@@ -16,7 +16,7 @@ Phase 2 和 Phase 3 均为机械性 OpenSpec 操作，共享同一 agent 和 mod
 
 **执行位置**: Task 子 Agent（`run_in_background: true`）
 
-- Agent: `config.phases.openspec.agent`（默认 Plan，v3.4.0）
+- Agent: `config.phases.openspec.agent`（默认 Plan）
 - Model Tier: fast / haiku
 - **必须使用 `run_in_background: true`**：此阶段为机械性操作（OpenSpec 创建），不应占用主窗口上下文
 - 任务：从需求推导 kebab-case 名称，执行 `openspec new change "<name>"`
@@ -34,7 +34,7 @@ Phase 2 和 Phase 3 均为机械性 OpenSpec 操作，共享同一 agent 和 mod
 
 **执行位置**: Task 子 Agent（`run_in_background: true`）
 
-- Agent: `config.phases.openspec.agent`（默认 Plan，v3.4.0）
+- Agent: `config.phases.openspec.agent`（默认 Plan）
 - Model Tier: fast / haiku
 - **必须使用 `run_in_background: true`**：此阶段为机械性操作（FF 生成），不应占用主窗口上下文
 - 任务：按 openspec-ff-change 流程生成 proposal/specs/design/tasks
@@ -49,7 +49,7 @@ Phase 2 和 Phase 3 均为机械性 OpenSpec 操作，共享同一 agent 和 mod
 
 ## 共享约束
 
-- Phase 2/3 采用**联合调度快速路径**（v8.0）：单次 gate 验证 + 单次 model routing + 两个串行 background Task
+- Phase 2/3 采用**联合调度快速路径**：单次 gate 验证 + 单次 model routing + 两个串行 background Task
 - Phase 2 完成后直接进入 Phase 3，**无需**再次调用 Skill("autopilot-gate") 或 resolve-model-routing.sh
 - Phase 3 的前置 checkpoint 验证由 Hook L2 (`check-predecessor-checkpoint.sh`) 在 Task 派发时自动执行
 - 两者均为 full 模式专属，lite/minimal 模式跳过

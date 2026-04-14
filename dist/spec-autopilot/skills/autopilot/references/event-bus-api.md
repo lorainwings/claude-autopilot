@@ -1,15 +1,15 @@
 > **[中文版](event-bus-api.zh.md)** | English (default)
 
-# Event Bus API Reference (v5.0)
+# Event Bus API Reference
 
 > 本文件定义 autopilot 事件总线的事件格式规范，为 GUI 大盘集成提供标准化接口。
 
 ## 事件传输
 
 - **文件系统**: `logs/events.jsonl` (JSON Lines 格式，append-only)
-- **实时推送 (v5.0)**: WebSocket (`ws://localhost:8765`) — 双模服务器自动监听 events.jsonl 并推送
+- **实时推送**: WebSocket (`ws://localhost:8765`) — 双模服务器自动监听 events.jsonl 并推送
 
-## v5.0 通用上下文字段
+## 通用上下文字段
 
 所有事件类型均包含以下顶层字段，为 GUI 渲染提供充足上下文：
 
@@ -33,11 +33,11 @@ interface PhaseEvent {
   phase: number;             // 0-7
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;         // ISO-8601
-  change_name: string;       // v5.0: 变更名称
-  session_id: string;        // v5.0: 会话 ID
-  phase_label: string;       // v5.0: "Environment Setup" | "Requirements" | ...
-  total_phases: number;      // v5.0: 8 | 5 | 4
-  sequence: number;          // v5.0: 全局自增序号
+  change_name: string;       // 变更名称
+  session_id: string;        // 会话 ID
+  phase_label: string;       // "Environment Setup" | "Requirements" | ...
+  total_phases: number;      // 8 | 5 | 4
+  sequence: number;          // 全局自增序号
   payload: {
     status?: 'ok' | 'warning' | 'blocked' | 'failed';
     duration_ms?: number;
@@ -57,11 +57,11 @@ interface GateEvent {
   phase: number;             // 目标 Phase (即将进入的 Phase)
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;         // ISO-8601
-  change_name: string;       // v5.0: 变更名称
-  session_id: string;        // v5.0: 会话 ID
-  phase_label: string;       // v5.0: 目标 Phase 标签
-  total_phases: number;      // v5.0: 8 | 5 | 4
-  sequence: number;          // v5.0: 全局自增序号
+  change_name: string;       // 变更名称
+  session_id: string;        // 会话 ID
+  phase_label: string;       // 目标 Phase 标签
+  total_phases: number;      // 8 | 5 | 4
+  sequence: number;          // 全局自增序号
   payload: {
     gate_score?: string;     // "8/8"
     status?: 'ok' | 'warning' | 'blocked' | 'failed';
@@ -70,9 +70,9 @@ interface GateEvent {
 }
 ```
 
-### TaskProgressEvent (v5.2 实现)
+### TaskProgressEvent
 
-Phase 5 任务粒度进度事件。v5.2 起由 `emit-task-progress.sh` 脚本发射。
+Phase 5 任务粒度进度事件。由 `emit-task-progress.sh` 脚本发射。
 
 ```typescript
 interface TaskProgressEvent {
@@ -80,11 +80,11 @@ interface TaskProgressEvent {
   phase: 5;
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;           // ISO-8601
-  change_name: string;         // v5.0: 变更名称
-  session_id: string;          // v5.0: 会话 ID
-  phase_label: string;         // v5.0: "Implementation"
-  total_phases: number;        // v5.0: 8 | 5 | 4
-  sequence: number;            // v5.0: 全局自增序号
+  change_name: string;         // 变更名称
+  session_id: string;          // 会话 ID
+  phase_label: string;         // "Implementation"
+  total_phases: number;        // 8 | 5 | 4
+  sequence: number;            // 全局自增序号
   payload: {
     task_name: string;         // task 标识 (如 "task-1-add-login")
     status: 'running' | 'passed' | 'failed' | 'retrying';
@@ -96,7 +96,7 @@ interface TaskProgressEvent {
 }
 ```
 
-### DecisionAckEvent (v5.2 新增)
+### DecisionAckEvent
 
 GUI 决策确认事件。由 `autopilot-server.ts` 在写入决策文件后通过 WebSocket 广播。
 
@@ -113,7 +113,7 @@ interface DecisionAckEvent {
 
 > **注意**: `decision_ack` 仅通过 WebSocket 推送，不追加到 `events.jsonl`，因为它是 GUI 闭环事件。
 
-### ToolUseEvent (v5.3 新增)
+### ToolUseEvent
 
 工具调用事件。由 PostToolUse catch-all hook (`emit-tool-event.sh`) 在每次工具调用后自动发射。
 
@@ -123,11 +123,11 @@ interface ToolUseEvent {
   phase: number;               // 从 events.jsonl 最后一条 phase_start 推断
   mode: 'full' | 'lite' | 'minimal';
   timestamp: string;           // ISO-8601
-  change_name: string;         // v5.0: 变更名称
-  session_id: string;          // v5.0: 会话 ID
-  phase_label: string;         // v5.0: Phase 标签
-  total_phases: number;        // v5.0: 8 | 5 | 4
-  sequence: number;            // v5.0: 全局自增序号
+  change_name: string;         // 变更名称
+  session_id: string;          // 会话 ID
+  phase_label: string;         // Phase 标签
+  total_phases: number;        // 8 | 5 | 4
+  sequence: number;            // 全局自增序号
   payload: {
     tool_name: string;         // "Bash" | "Read" | "Write" | "Edit" | "Glob" | "Grep" | "Agent"
     key_param?: string;        // Bash→command前80字符, Read/Write/Edit→file_path, Glob/Grep→pattern
@@ -137,7 +137,7 @@ interface ToolUseEvent {
 }
 ```
 
-### AgentDispatchEvent / AgentCompleteEvent (v5.3 新增)
+### AgentDispatchEvent / AgentCompleteEvent
 
 Agent 生命周期事件。由 `emit-agent-event.sh` 在 Agent 派发和完成时发射。
 
@@ -185,9 +185,9 @@ interface AgentCompleteEvent {
 |------|---------|---------|
 | `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error` | Phase 0 Step 4.6/10.5 + Phase 1 Step 0/10 + 统一调度模板 Step 0/6.5 (Phase 2-6) + Phase 7 Step -1/6.5 |
 | `scripts/emit-gate-event.sh` | `gate_pass`, `gate_block` | SKILL.md 统一调度模板 Step 1 (Gate 判定后) |
-| `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 (v5.2) |
-| `scripts/emit-tool-event.sh` | `tool_use` | PostToolUse catch-all hook 自动触发 (v5.3) |
-| `scripts/emit-agent-event.sh` | `agent_dispatch`, `agent_complete` | 统一调度模板 Step 2.5/4.5 Agent 派发前/完成后 (v5.3) |
+| `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 |
+| `scripts/emit-tool-event.sh` | `tool_use` | PostToolUse catch-all hook 自动触发 |
+| `scripts/emit-agent-event.sh` | `agent_dispatch`, `agent_complete` | 统一调度模板 Step 2.5/4.5 Agent 派发前/完成后 |
 
 ## 使用示例
 

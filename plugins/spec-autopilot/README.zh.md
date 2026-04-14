@@ -17,18 +17,18 @@
 - **3 层门禁系统**: TaskCreate 依赖链 + Hook 检查点验证 + AI 清单校验
 - **崩溃恢复**: 自动扫描检查点并恢复会话（含 anchor_sha 验证）
 - **上下文压缩韧性**: 跨 Claude Code 上下文压缩的状态持久化
-- **反合理化检测**: 16 种模式检测（v5.2: +时间/环境/第三方借口，中英双语）防止子 Agent 跳过工作
+- **反合理化检测**: 16 种模式检测（中英双语）防止子 Agent 跳过工作
 - **测试金字塔强制**: Hook 级别的测试分布验证（L2/L3 分层阈值）
-- **TDD 确定性循环**: RED-GREEN-REFACTOR，含 L2 `tdd_metrics` 验证（v4.1）
-- **需求路由（v4.2）**: 自动分类需求为 Feature/Bugfix/Refactor/Chore，动态调整门禁阈值
-- **事件总线（v4.2/v5.0）**: 通过 `events.jsonl` + WebSocket 实时事件流，支持 GUI 和外部工具
-- **GUI V2 大盘（v5.0.8）**: 三栏实时仪表盘（Phase 时间轴 / 事件流 / 门禁决策）含 decision_ack 反馈回路
-- **并行执行（v5.0）**: 领域级并行 Agent（backend ‖ frontend ‖ node）含文件所有权强制
-- **7-Agent 并行审计（v5.0.10）**: 跨 7 个维度的全面并行审计
+- **TDD 确定性循环**: RED-GREEN-REFACTOR，含 L2 `tdd_metrics` 验证
+- **需求路由**: 自动分类需求为 Feature/Bugfix/Refactor/Chore，动态调整门禁阈值
+- **事件总线**: 通过 `events.jsonl` + WebSocket 实时事件流，支持 GUI 和外部工具
+- **GUI V2 大盘**: 三栏实时仪表盘（Phase 时间轴 / 事件流 / 门禁决策）含 decision_ack 反馈回路
+- **并行执行**: 领域级并行 Agent（backend ‖ frontend ‖ node）含文件所有权强制
+- **7-Agent 并行审计**: 跨 7 个维度的全面并行审计
 - **模块化测试套件**: 98 个测试文件，1169+ 个断言，覆盖所有 Hook 和脚本
-- **需求清晰度检测**: 预扫描规则引擎，在研究前检测模糊需求（v4.1）
+- **需求清晰度检测**: 预扫描规则引擎，在研究前检测模糊需求
 - **指标采集**: 每阶段计时和重试追踪
-- **苏格拉底需求模式**: 通过挑战性问题进行深度需求分析（v5.0.6: +Step 7 非功能需求）
+- **苏格拉底需求模式**: 通过挑战性问题进行深度需求分析（+Step 7 非功能需求）
 
 ## 架构
 
@@ -36,7 +36,7 @@
 graph TB
     subgraph "Main Thread (Orchestrator)"
         P0[Phase 0: Environment Check<br/>+ Crash Recovery]
-        P1[Phase 1: Requirements<br/>Multi-round Decision Loop<br/>+ Routing v4.2]
+        P1[Phase 1: Requirements<br/>Multi-round Decision Loop]
         P7[Phase 7: Summary<br/>+ Archive Readiness Auto]
     end
 
@@ -48,11 +48,11 @@ graph TB
         P6[Phase 6: Test Report]
     end
 
-    subgraph "Event Bus (v4.2/v5.0)"
+    subgraph "Event Bus"
         EB[events.jsonl + WebSocket :8765]
     end
 
-    subgraph "GUI V2 Dashboard (v5.0.8)"
+    subgraph "GUI V2 Dashboard"
         GUI[HTTP :9527<br/>PhaseTimeline / EventStream / GatePanel]
     end
 
@@ -144,7 +144,7 @@ sequenceDiagram
     Main->>Main: Resume from next phase
 ```
 
-### GUI V2 大盘（v5.0.8）
+### GUI V2 大盘
 
 实时可视化执行状态和门禁决策交互。
 
@@ -164,17 +164,17 @@ bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 
 **端口**: HTTP `9527`（静态资源） + WebSocket `8765`（实时推送 + decision_ack）
 
-### 事件发射脚本（v4.2/v5.0）
+### 事件发射脚本
 
 | 脚本 | 事件类型 | 触发时机 |
 |------|---------|---------|
 | `emit-phase-event.sh` | `phase_start` / `phase_end` / `error` | 阶段开始和结束 |
 | `emit-gate-event.sh` | `gate_pass` / `gate_block` | 门禁判定后 |
-| `emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后（v5.2） |
+| `emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 |
 
 ## 安装
 
-### 零配置接入（v3.0）
+### 零配置接入
 
 新项目只需一个配置文件即可运行 autopilot：
 
@@ -280,8 +280,8 @@ test_suites:
 | 脚本 | 事件 | 用途 |
 |------|------|------|
 | `check-predecessor-checkpoint.sh` | PreToolUse(Task) | 验证前置检查点 + 挂钟超时 + 模式感知门禁 |
-| `post-task-validator.sh` | PostToolUse(Task) | 统一验证器：JSON 信封 + 反合理化 + 代码约束 + 合并守卫 + 决策格式 + TDD 指标（v5.1） |
-| `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | 统一写入约束：禁止模式 + 断言质量 + 检查点保护 + 文件所有权（v5.1） |
+| `post-task-validator.sh` | PostToolUse(Task) | 统一验证器：JSON 信封 + 反合理化 + 代码约束 + 合并守卫 + 决策格式 + TDD 指标 |
+| `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | 统一写入约束：禁止模式 + 断言质量 + 检查点保护 + 文件所有权 |
 | `guard-no-verify.sh` | PreToolUse(Bash) | 阻断 git 命令中的 `--no-verify` 标志以强制执行 hook |
 | `scan-checkpoints-on-start.sh` | SessionStart | 报告现有检查点（模式感知的恢复建议） |
 | `save-state-before-compact.sh` | PreCompact | 持久化编排状态 |
@@ -294,12 +294,12 @@ test_suites:
 | `validate-config.sh` | 验证 autopilot.config.yaml 模式 |
 | `collect-metrics.sh` | 汇总每阶段执行指标 |
 | `check-allure-install.sh` | 检测 Allure 工具链安装 |
-| `emit-phase-event.sh` | 向事件总线发射阶段生命周期事件（v4.2） |
-| `emit-gate-event.sh` | 向事件总线发射门禁通过/阻断事件（v4.2） |
-| `emit-task-progress.sh` | 发射 Phase 5 任务进度事件（v5.2） |
+| `emit-phase-event.sh` | 向事件总线发射阶段生命周期事件 |
+| `emit-gate-event.sh` | 向事件总线发射门禁通过/阻断事件 |
+| `emit-task-progress.sh` | 发射 Phase 5 任务进度事件 |
 | `capture-hook-event.sh` | 捕获并记录 hook 执行事件，用于诊断 |
 | `emit-tool-event.sh` | 向事件总线发射工具级事件 |
-| `autopilot-server.ts` | GUI 双模服务器：HTTP:9527 + WebSocket:8765（v5.0.8） |
+| `autopilot-server.ts` | GUI 双模服务器：HTTP:9527 + WebSocket:8765 |
 | `_common.sh` | 共享工具函数 |
 
 ### 开发工具 (`tools/`)

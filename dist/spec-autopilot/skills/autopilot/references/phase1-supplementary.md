@@ -19,9 +19,9 @@
 | 4. 强制排优 | 当功能过多时迫使用户取舍 | "这 5 个功能中，如果只能在第一个版本实现 3 个，你会选择哪些？" |
 | 5. 魔鬼代言人 | 从反对角度审视需求 | "如果竞品已经有这个功能，我们的差异化价值在哪里？" |
 | 6. 最小可行范围 | 收敛到最小可交付范围 | "基于以上讨论，最小可行版本是否可以只包含 X 和 Y？" |
-| 7. 非功能需求质询 (v5.2) | 挖掘 SLA/性能/可靠性需求 | "这个功能预期的并发用户数是多少？响应时间 SLA 是否有要求？" |
+| 7. 非功能需求质询 | 挖掘 SLA/性能/可靠性需求 | "这个功能预期的并发用户数是多少？响应时间 SLA 是否有要求？" |
 
-> **Step 7 触发条件**（v5.2）：当 RAW_REQUIREMENT 包含以下关键词时**强制触发**第 7 步：
+> **Step 7 触发条件**：当 RAW_REQUIREMENT 包含以下关键词时**强制触发**第 7 步：
 > `并发|高并发|分布式|微服务|高可用|性能|吞吐|延迟|QPS|TPS|SLA|负载|扩容|弹性|容错|降级|限流|熔断|concurrent|distributed|scalab|throughput|latency|high.?avail|load.?balanc|fault.?toleran`
 >
 > **提问方向**：
@@ -43,7 +43,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
         4. 根据用户回答，可能产生新的决策点（回到循环开头）
 ```
 
-### 与挑战代理的协同（v7.1）
+### 与挑战代理的协同
 
 > 详见: `autopilot/references/phase1-challenge-agents.md`（完整的 3 种代理模式 + 停滞检测协议）
 
@@ -59,7 +59,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 
 ### 退出条件
 
-- **清晰度评分退出**（v7.1 主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
+- **清晰度评分退出**（主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
 - 安全阀：`soft_warning_rounds`（默认 8 轮）软提醒 + `max_rounds`（默认 15 轮）硬上限
 - 用户在软提醒时选择"以当前清晰度推进"
 - 详见: `autopilot/references/phase1-clarity-scoring.md`

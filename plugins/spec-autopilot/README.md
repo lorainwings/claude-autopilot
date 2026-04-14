@@ -17,18 +17,18 @@
 - **3-Layer Gate System**: TaskCreate dependencies + Hook checkpoint validation + AI checklist verification
 - **Crash Recovery**: Automatic checkpoint scanning and session resume (with anchor_sha validation)
 - **Context Compaction Resilience**: State persistence across Claude Code context compression
-- **Anti-Rationalization**: 16 pattern detection (v5.2: +time/environment/third-party excuses, bilingual CN/EN) to prevent sub-agents from skipping work
+- **Anti-Rationalization**: 16 pattern detection (bilingual CN/EN) to prevent sub-agents from skipping work
 - **Test Pyramid Enforcement**: Hook-level validation of test distribution (L2/L3 layered thresholds)
-- **TDD Deterministic Cycle**: RED-GREEN-REFACTOR with L2 `tdd_metrics` validation (v4.1)
-- **Requirements Routing (v4.2)**: Auto-classify requirements as Feature/Bugfix/Refactor/Chore with dynamic gate thresholds
-- **Event Bus (v4.2/v5.0)**: Real-time event streaming via `events.jsonl` + WebSocket for GUI and external tools
-- **GUI V2 Dashboard (v5.0.8)**: Three-column real-time dashboard (Phase timeline / Event stream / Gate decisions) with decision_ack feedback loop
-- **Parallel Execution (v5.0)**: Domain-level parallel agents (backend ‖ frontend ‖ node) with file ownership enforcement
-- **7-Agent Parallel Audit (v5.0.10)**: Comprehensive parallel audit across 7 dimensions
+- **TDD Deterministic Cycle**: RED-GREEN-REFACTOR with L2 `tdd_metrics` validation
+- **Requirements Routing**: Auto-classify requirements as Feature/Bugfix/Refactor/Chore with dynamic gate thresholds
+- **Event Bus**: Real-time event streaming via `events.jsonl` + WebSocket for GUI and external tools
+- **GUI V2 Dashboard**: Three-column real-time dashboard (Phase timeline / Event stream / Gate decisions) with decision_ack feedback loop
+- **Parallel Execution**: Domain-level parallel agents (backend ‖ frontend ‖ node) with file ownership enforcement
+- **7-Agent Parallel Audit**: Comprehensive parallel audit across 7 dimensions
 - **Modular Test Suite**: 98 test files with 1169+ assertions covering all hooks and scripts
-- **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research (v4.1)
+- **Requirements Clarity Detection**: Pre-scan rule engine to detect vague requirements before research
 - **Metrics Collection**: Per-phase timing and retry tracking
-- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (v5.0.6: +Step 7 non-functional requirements)
+- **Socratic Requirements Mode**: Deep requirements analysis through challenging questions (+Step 7 non-functional requirements)
 
 ## Architecture
 
@@ -36,7 +36,7 @@
 graph TB
     subgraph "Main Thread (Orchestrator)"
         P0[Phase 0: Environment Check<br/>+ Crash Recovery]
-        P1[Phase 1: Requirements<br/>Multi-round Decision Loop<br/>+ Routing v4.2]
+        P1[Phase 1: Requirements<br/>Multi-round Decision Loop]
         P7[Phase 7: Summary<br/>+ Archive Readiness Auto]
     end
 
@@ -48,11 +48,11 @@ graph TB
         P6[Phase 6: Test Report]
     end
 
-    subgraph "Event Bus (v4.2/v5.0)"
+    subgraph "Event Bus"
         EB[events.jsonl + WebSocket :8765]
     end
 
-    subgraph "GUI V2 Dashboard (v5.0.8)"
+    subgraph "GUI V2 Dashboard"
         GUI[HTTP :9527<br/>PhaseTimeline / EventStream / GatePanel]
     end
 
@@ -144,7 +144,7 @@ sequenceDiagram
     Main->>Main: Resume from next phase
 ```
 
-### GUI V2 Dashboard (v5.0.8)
+### GUI V2 Dashboard
 
 Real-time visualization of execution status and gate decision interaction.
 
@@ -164,17 +164,17 @@ bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 
 **Ports**: HTTP `9527` (static assets) + WebSocket `8765` (real-time push + decision_ack)
 
-### Event Emission Scripts (v4.2/v5.0)
+### Event Emission Scripts
 
 | Script | Event Type | Trigger |
 |--------|-----------|---------|
 | `emit-phase-event.sh` | `phase_start` / `phase_end` / `error` | Phase start and end |
 | `emit-gate-event.sh` | `gate_pass` / `gate_block` | After gate decision |
-| `emit-task-progress.sh` | `task_progress` | After each Phase 5 task completes (v5.2) |
+| `emit-task-progress.sh` | `task_progress` | After each Phase 5 task completes |
 
 ## Installation
 
-### Zero-Config Onboarding (v3.0)
+### Zero-Config Onboarding
 
 New projects only need a single configuration file to run autopilot:
 
@@ -280,8 +280,8 @@ test_suites:
 | Script | Event | Purpose |
 |--------|-------|---------|
 | `check-predecessor-checkpoint.sh` | PreToolUse(Task) | Verify predecessor checkpoint + wall-clock timeout + mode-aware gates |
-| `post-task-validator.sh` | PostToolUse(Task) | Unified validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics (v5.1) |
-| `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | Unified write constraint: banned patterns + assertion quality + checkpoint protection + file ownership (v5.1) |
+| `post-task-validator.sh` | PostToolUse(Task) | Unified validator: JSON envelope + anti-rationalization + code constraints + merge guard + decision format + TDD metrics |
+| `unified-write-edit-check.sh` | PostToolUse(Write/Edit) | Unified write constraint: banned patterns + assertion quality + checkpoint protection + file ownership |
 | `guard-no-verify.sh` | PreToolUse(Bash) | Block `--no-verify` flag in git commands to enforce hook execution |
 | `scan-checkpoints-on-start.sh` | SessionStart | Report existing checkpoints (mode-aware resume suggestion) |
 | `save-state-before-compact.sh` | PreCompact | Persist orchestration state |
@@ -294,12 +294,12 @@ test_suites:
 | `validate-config.sh` | Validate autopilot.config.yaml schema |
 | `collect-metrics.sh` | Aggregate per-phase execution metrics |
 | `check-allure-install.sh` | Detect Allure toolchain installation |
-| `emit-phase-event.sh` | Emit phase lifecycle events to Event Bus (v4.2) |
-| `emit-gate-event.sh` | Emit gate pass/block events to Event Bus (v4.2) |
-| `emit-task-progress.sh` | Emit Phase 5 task progress events (v5.2) |
+| `emit-phase-event.sh` | Emit phase lifecycle events to Event Bus |
+| `emit-gate-event.sh` | Emit gate pass/block events to Event Bus |
+| `emit-task-progress.sh` | Emit Phase 5 task progress events |
 | `capture-hook-event.sh` | Capture and log hook execution events for diagnostics |
 | `emit-tool-event.sh` | Emit tool-level events to Event Bus |
-| `autopilot-server.ts` | GUI dual-mode server: HTTP:9527 + WebSocket:8765 (v5.0.8) |
+| `autopilot-server.ts` | GUI dual-mode server: HTTP:9527 + WebSocket:8765 |
 | `_common.sh` | Shared utility functions |
 
 ### Development Tools (`tools/`)
