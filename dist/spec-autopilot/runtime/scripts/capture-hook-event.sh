@@ -17,12 +17,6 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
-# --- Project relevance guard: only capture in autopilot projects ---
-# Checks for openspec/ dir or autopilot config file. Non-autopilot projects
-# skip silently — no logs/sessions/ directory created, no side effects.
-_PROJECT_ROOT_EARLY="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-[ -d "$_PROJECT_ROOT_EARLY/openspec" ] || [ -f "$_PROJECT_ROOT_EARLY/.claude/autopilot.config.yaml" ] || exit 0
-
 PROJECT_ROOT=$(python3 -c '
 import json, os, sys, subprocess
 data = json.loads(sys.stdin.read())
@@ -44,6 +38,11 @@ except Exception:
 ' <<<"$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
 
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
+
+# --- Project relevance guard: only capture in autopilot projects ---
+# Uses the resolved PROJECT_ROOT (from stdin cwd), not the script runner's pwd.
+# Non-autopilot projects skip silently — no logs/sessions/ directory created.
+[ -d "$PROJECT_ROOT/openspec" ] || [ -f "$PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
 
 SESSION_ID=$(python3 -c '
 import json, sys

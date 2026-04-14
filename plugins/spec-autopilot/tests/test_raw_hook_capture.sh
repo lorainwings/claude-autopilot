@@ -10,6 +10,7 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 mkdir -p "$TMP_DIR/logs"
+mkdir -p "$TMP_DIR/openspec"  # mark as autopilot project for capture-hook-event.sh guard
 echo "phase5-impl" > "$TMP_DIR/logs/.active-agent-session-sess_1"
 
 HOOK_JSON='{"session_id":"sess:1","cwd":"'"$TMP_DIR"'","transcript_path":"'"$TMP_DIR"'/transcript.jsonl","tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_result":{"stdout":"hello"}}'
