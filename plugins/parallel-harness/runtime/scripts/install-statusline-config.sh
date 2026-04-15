@@ -85,7 +85,7 @@ if settings_path.exists():
         data = {}
 
 if "$schema" not in data:
-    data["$schema"] = "https://json.schemastore.org/droid-settings.json"
+    data["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
 
 data["statusLine"] = {
     "type": "command",
