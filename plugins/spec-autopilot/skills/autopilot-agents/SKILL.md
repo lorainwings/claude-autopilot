@@ -46,6 +46,29 @@ argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
 
 输出后提示：`输入 /autopilot-agents install 安装推荐 Agent`
 
+#### 域级 Agent 推荐（Phase 5 并行域 Agent）
+
+```
+╔═══════════════════════╦═══════════════════════╦════════════╦══════╦═══════════════════════════════════════════╗
+║ 域路径前缀             ║ 推荐 Agent            ║ 来源       ║ 评分 ║ 选择理由                                  ║
+╠═══════════════════════╬═══════════════════════╬════════════╬══════╬═══════════════════════════════════════════╣
+║ backend/              ║ backend-developer     ║ VoltAgent  ║ 8/10 ║ API/DB/安全/微服务专精                     ║
+║ frontend/             ║ frontend-developer    ║ VoltAgent  ║ 8/10 ║ React/Vue/Angular+TS strict+A11y          ║
+║ node/                 ║ fullstack-developer   ║ VoltAgent  ║ 9/10 ║ DB→API→UI 全链路+类型安全                  ║
+║ infra/ / devops/      ║ devops-engineer       ║ VoltAgent  ║ 8/10 ║ IaC/K8s/CI-CD/监控全覆盖                  ║
+║ shared/ / libs/       ║ executor              ║ OMC        ║ 8/10 ║ 通用执行+3 次升级+最小差异                 ║
+║ docs/                 ║ documentation-engineer║ VoltAgent  ║ 8/10 ║ 结构化文档+API 覆盖                       ║
+║ mobile/               ║ mobile-developer      ║ VoltAgent  ║ 8/10 ║ RN/Flutter/原生+离线同步                  ║
+║ data/                 ║ data-engineer         ║ VoltAgent  ║ 8/10 ║ ETL/Spark/Kafka/Airflow                   ║
+╚═══════════════════════╩═══════════════════════╩════════════╩══════╩═══════════════════════════════════════════╝
+
+来源仓库:
+  VoltAgent: VoltAgent/awesome-claude-code-subagents (17k+ ★) — 域级专精 Agent 最佳来源
+  OMC:       Yeachan-Heo/oh-my-claudecode (27.6k+ ★) — 工程化执行 + 通用 fallback
+```
+
+输出后提示：`输入 /autopilot-agents install 安装推荐 Agent（含域级 Agent）`
+
 ---
 
 ### `sources` 模式
@@ -117,6 +140,53 @@ argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
 4. 验证安装: Read(.claude/agents/{name}.md) 检查 frontmatter
 ```
 
+#### Step 3.5: 域级 Agent 安装
+
+在 Phase-level Agent 安装完成后，检查并引导域级 Agent 安装：
+
+```
+IF config.phases.implementation.parallel.domain_agents 中已有非 general-purpose agent:
+  → 输出 "✓ 已检测到 {N} 个域级 Agent 配置"
+  → 跳过
+
+ELSE:
+  # 检测项目域（利用 Glob 扫描）
+  detected_domains = []
+  FOR dir IN ["backend/", "frontend/", "node/", "infra/", "devops/",
+              "shared/", "libs/", "packages/", "docs/", "mobile/",
+              "android/", "ios/", "data/", "analytics/"]:
+    IF Glob("{dir}*") 有匹配文件:
+      detected_domains.append(dir)
+
+  IF detected_domains 非空:
+    AskUserQuestion: "检测到 {N} 个项目域，是否安装域级专业 Agent？"
+    选项:
+    - "安装推荐域 Agent (Recommended)" →
+        按域推荐映射表安装:
+          backend/        → backend-developer (VoltAgent)
+          frontend/       → frontend-developer (VoltAgent)
+          node/           → fullstack-developer (VoltAgent)
+          infra/ / devops/→ devops-engineer (VoltAgent)
+          shared/ / libs/ / packages/ → executor (OMC, 已安装)
+          docs/           → documentation-engineer (VoltAgent)
+          mobile/ / android/ / ios/ → mobile-developer (VoltAgent)
+          data/ / analytics/ → data-engineer (VoltAgent)
+
+        VoltAgent Agent 安装方式:
+        Bash('curl -sfL "https://raw.githubusercontent.com/VoltAgent/awesome-claude-code-subagents/main/agents/{agent_name}.md" -o ".claude/agents/{agent_name}.md"')
+        验证: Read(.claude/agents/{agent_name}.md) 检查 frontmatter
+        失败 → 使用 fallback agent（executor/general-purpose）
+
+    - "使用与 Phase 5 相同的 Agent" →
+        所有域使用 default_agent（如 executor）
+
+    - "跳过域 Agent" →
+        保持 general-purpose
+
+  ELSE:
+    → 输出 "未检测到多域项目结构，跳过域级 Agent 安装"
+```
+
 #### Step 4: 更新配置
 
 ```
@@ -126,6 +196,11 @@ argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
   phases.openspec.agent: "{selected_phase2_agent}"
   phases.testing.agent: "{selected_phase4_agent}"
   phases.implementation.parallel.default_agent: "{selected_phase5_agent}"
+
+  # 域级 Agent 配置写入（Step 2.5 选定的域 Agent）
+  IF 用户在 Step 2.5 选择了域级 Agent:
+    FOR each (prefix, agent) in selected_domain_agents:
+      phases.implementation.parallel.domain_agents."{prefix}".agent: "{agent}"
 ```
 
 #### Step 5: 输出结果
@@ -143,8 +218,13 @@ Phase-Agent 映射:
   Phase 6B (代码审查) → {agent} ({model})
   Phase 7 (归档)      → {agent} ({model})
 
-热交换: /autopilot-agents swap <phase> <agent>
-查看:   /autopilot-agents list
+域级 Agent 映射 (Phase 5 并行):
+  {prefix} → {agent} ({source})
+  ...
+
+热交换 Phase Agent: /autopilot-agents swap <phase> <agent>
+热交换域 Agent:     /autopilot-agents swap <domain_prefix/> <agent>
+查看:               /autopilot-agents list
 ```
 
 ---
@@ -176,6 +256,31 @@ phase6 → phases.testing.agent (共享 Phase 4)
 phase7 → (主线程执行，不配置 agent)
 ```
 
+#### 域 Agent 热交换
+
+用法: `/autopilot-agents swap backend/ backend-developer`
+
+```
+判断规则: 若第一参数包含 "/" → 视为域 swap；否则视为 Phase swap
+
+Step 1: 解析路径前缀（确保以 / 结尾）+ 新 agent 名称
+Step 2: 检查 .claude/agents/{agent}.md 是否存在
+  存在 → 继续
+  不存在 → 检查是否为内置类型（general-purpose/Plan/Explore）
+  都不是 → 提示安装: "Agent '{agent}' 未安装。运行 /autopilot-agents install 或手动下载到 .claude/agents/"
+Step 3: 读取 .claude/autopilot.config.yaml
+Step 4: 更新 phases.implementation.parallel.domain_agents."{prefix}".agent
+  IF 该前缀在 domain_agents 中不存在 → 新增条目
+Step 5: 输出新域映射
+
+示例:
+  /autopilot-agents swap backend/ backend-developer
+  → phases.implementation.parallel.domain_agents."backend/".agent: "backend-developer"
+
+  /autopilot-agents swap services/auth/ java-architect
+  → phases.implementation.parallel.domain_agents."services/auth/".agent: "java-architect"
+```
+
 ---
 
 ### `list` 模式
@@ -185,7 +290,16 @@ phase7 → (主线程执行，不配置 agent)
 检查 .claude/agents/ 下已安装的 Agent
 展示完整表格:
 
-Phase → Agent → 安装状态 → Model → 工具限制
+Phase-Agent 映射:
+  Phase → Agent → 安装状态 → Model → 工具限制
+
+域级 Agent 映射 (Phase 5 并行):
+  域路径前缀 → Agent → 安装状态
+
+  IF config.phases.implementation.parallel.enabled == false:
+    附加提示: "⚠ parallel 模式未启用，域级 Agent 在启用 parallel.enabled: true 后生效"
+  IF 所有 domain_agents.*.agent 均为 general-purpose:
+    附加提示: "💡 运行 /autopilot-agents install 安装域级专业 Agent"
 ```
 
 ---
