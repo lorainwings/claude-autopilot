@@ -140,8 +140,11 @@ for each task in task_list:
   │   - prompt 注入 test_intent（被测行为描述）            │
   │   - 返回: { test_file, test_command }                 │
   │                                                       │
-  │ Step 2: 主线程确定性验证 (L2)                          │
-  │   result = Bash("{test_command}")                      │
+  │ Step 2: 主线程确定性验证 (L2) — 带输出捕获              │
+  │   result = Bash("{test_command} 2>&1")                 │
+  │   test_output = result.stdout                          │
+  │   test_tail = test_output 最后 30 行                    │
+  │                                                       │
   │   IF exit_code == 0:                                  │
   │     → BLOCK: "TDD RED 违规: 测试在无实现的情况下通过。   │
   │       测试必须验证尚不存在的新行为。"                    │
@@ -152,6 +155,20 @@ for each task in task_list:
   │     → 记录 failing_signal = {                          │
   │         exit_code, assertion_message, test_file        │
   │       }                                                │
+  │                                                       │
+  │   ── RED 阶段评估摘要（主线程输出） ──                   │
+  │   输出结构化评估结果:                                   │
+  │     [TDD-EVAL] RED task-{N}:                           │
+  │       状态: {PASS|BLOCK}                                │
+  │       退出码: {exit_code}                               │
+  │       断言消息: {assertion_message}                      │
+  │       测试文件: {test_file}                              │
+  │       测试输出 (尾部 5 行):                              │
+  │         {test_tail 最后 5 行，缩进显示}                  │
+  │     记录: tdd_cycle.red.eval_summary = {                │
+  │       exit_code, assertion_message,                    │
+  │       output_tail: "最后 5 行测试输出"                   │
+  │     }                                                  │
   │                                                       │
   │ Step 2.5: 发射 RED 完成进度事件                         │
   │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
@@ -173,16 +190,38 @@ for each task in task_list:
   │     never modify test"                                │
   │   - 返回: { impl_files, summary }                     │
   │                                                       │
-  │ Step 4: 主线程确定性验证 (L2)                          │
-  │   result = Bash("{test_command}")                      │
+  │ Step 4: 主线程确定性验证 (L2) — 带输出捕获              │
+  │   result = Bash("{test_command} 2>&1")                 │
+  │   test_output = result.stdout                          │
+  │   test_tail = test_output 最后 30 行                    │
+  │                                                       │
   │   IF exit_code != 0:                                  │
   │     → 重试 (max_retries_per_task from config)         │
   │     → 耗尽重试 → AskUserQuestion                      │
   │   IF exit_code == 0:                                  │
   │     → PASS: 记录 tdd_cycle.green = { verified: true } │
   │   验证其他测试未被破坏:                                │
-  │   full_result = Bash("{full_test_command}")            │
+  │   full_result = Bash("{full_test_command} 2>&1")       │
   │   IF 其他测试失败 → 修复实现，不修改测试               │
+  │                                                       │
+  │   ── GREEN 阶段评估摘要（主线程输出） ──                 │
+  │   从 test_output 中提取测试统计:                        │
+  │     pass_count = 正则匹配测试框架输出中的通过数          │
+  │     fail_count = 正则匹配测试框架输出中的失败数          │
+  │     total_count = pass_count + fail_count               │
+  │   输出结构化评估结果:                                   │
+  │     [TDD-EVAL] GREEN task-{N}:                         │
+  │       状态: {PASS|FAIL|RETRY}                           │
+  │       退出码: {exit_code}                               │
+  │       测试统计: {pass_count}/{total_count} 通过          │
+  │       全量测试: {full_test_pass ? "通过" : "失败"}       │
+  │       测试输出 (尾部 5 行):                              │
+  │         {test_tail 最后 5 行，缩进显示}                  │
+  │     记录: tdd_cycle.green.eval_summary = {              │
+  │       exit_code, pass_count, total_count,              │
+  │       full_test_passed: bool,                          │
+  │       output_tail: "最后 5 行测试输出"                   │
+  │     }                                                  │
   │                                                       │
   │ Step 4.5: 发射 GREEN 完成进度事件                       │
   │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
@@ -201,14 +240,35 @@ for each task in task_list:
   │   - 删除重复、改善命名、提取辅助函数                   │
   │   - 禁止改变行为、禁止修改测试文件                     │
   │                                                       │
-  │ Step 6: 主线程确定性验证 (L2)                          │
-  │   result = Bash("{test_command}")                      │
+  │ Step 6: 主线程确定性验证 (L2) — 带输出捕获              │
+  │   result = Bash("{test_command} 2>&1")                 │
+  │   test_output = result.stdout                          │
+  │   test_tail = test_output 最后 30 行                    │
+  │                                                       │
   │   IF exit_code != 0:                                  │
   │     → 强制回滚: Bash("git checkout -- .")        │
   │       (全文件回滚，确保代码绝对不被污染)                │
   │     → 记录 tdd_cycle.refactor = { reverted: true }    │
   │   IF exit_code == 0:                                  │
   │     → PASS: 记录 tdd_cycle.refactor = {verified: true}│
+  │                                                       │
+  │   ── REFACTOR 阶段评估摘要（主线程输出） ──              │
+  │   从 test_output 中提取测试统计:                        │
+  │     pass_count = 正则匹配通过数                         │
+  │     与 GREEN 阶段 pass_count 对比                       │
+  │   输出结构化评估结果:                                   │
+  │     [TDD-EVAL] REFACTOR task-{N}:                      │
+  │       状态: {PASS|REVERTED}                             │
+  │       退出码: {exit_code}                               │
+  │       测试统计: {pass_count}/{total_count} 通过          │
+  │       与 GREEN 对比: {pass_count 不变 ? "一致" : "变化"}│
+  │       测试输出 (尾部 5 行):                              │
+  │         {test_tail 最后 5 行，缩进显示}                  │
+  │     记录: tdd_cycle.refactor.eval_summary = {           │
+  │       exit_code, pass_count, total_count,              │
+  │       green_pass_count_match: bool,                    │
+  │       output_tail: "最后 5 行测试输出"                   │
+  │     }                                                  │
   │                                                       │
   │ Step 6.5: 发射 REFACTOR 完成进度事件                    │
   │   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/   │
@@ -218,7 +278,11 @@ for each task in task_list:
   └───────────────────────────────────────────────────────┘
 
   Checkpoint: phase5-tasks/task-N.json
-    包含: tdd_cycle: { red: {...}, green: {...}, refactor: {...} }
+    包含: tdd_cycle: {
+      red: { verified, eval_summary: { exit_code, assertion_message, output_tail } },
+      green: { verified, eval_summary: { exit_code, pass_count, total_count, full_test_passed, output_tail } },
+      refactor: { verified|reverted, eval_summary: { exit_code, pass_count, green_pass_count_match, output_tail } }
+    }
 ```
 
 ### 测试命令解析
@@ -229,6 +293,69 @@ tdd_test_command 为空 → 从 test_suites 中提取：
   - task 内测试命令 = 子 Agent RED 返回的 test_command
   - full_test_command = 所有 test_suites 的 command 串联
 ```
+
+### TDD 测试命令 Allure 增强
+
+> **条件**: 当 `config.phases.reporting.format === "allure"` 时启用。
+> **设计意图**: TDD 各阶段的测试执行同样产出 Allure 结果，使 Phase 6 的 Allure 报告包含完整的 RED→GREEN 变迁记录，而非仅有 Phase 6 重跑的快照。
+
+```
+ALLURE_RESULTS_DIR="openspec/changes/{change_name}/reports/allure-results/tdd"
+mkdir -p "$ALLURE_RESULTS_DIR"
+
+# 将 allure_args 注入到 TDD 测试命令中
+tdd_allure_command 构造规则:
+  1. tdd_test_command 非空且已包含 --alluredir → 直接使用
+  2. tdd_test_command 非空但不含 allure 参数 → 追加 allure_args
+  3. test_suites[].allure_args 非空 → 使用 suite 级 allure_args
+  4. 以���均无 → 按框架默认追加:
+     - pytest:      追加 --alluredir=$ALLURE_RESULTS_DIR
+     - playwright:  设置环境变量 ALLURE_RESULTS_DIR=$ALLURE_RESULTS_DIR
+     - jest:        追加 --reporters=allure-jest --testEnvironment=allure-jest/node
+     - vitest:      追加 --reporter=allure-vitest
+     - 其他:        跳过 Allure 增强，仅使用原始命令
+
+# RED 阶段: 使用 allure 增强命令（失败结果也写入 Allure，记录初始 RED 状态）
+# GREEN 阶段: 使用 allure 增强命令（通过结果写入 Allure，记录 GREEN 转变）
+# REFACTOR 阶段: 使用 allure 增强命令（验证重构后测试仍通过）
+```
+
+每个 TDD 阶段的 Allure 结果写入独立子目录以区分来源:
+
+```
+allure-results/tdd/red/     ← RED 阶段（预期失败的测试结果）
+allure-results/tdd/green/   ← GREEN 阶段（测试通过的结果）
+allure-results/tdd/refactor/ ← REFACTOR 阶段（重构后验证结果）
+```
+
+> **Phase 6 联动**: Phase 6 Allure 收集时会扫描 `allure-results/tdd/` 子目录，将 TDD 过程中的测试结果合并到统一 Allure 报告中。详见 Phase 6 SKILL.md Step A2.5。
+
+### TDD 阶段评估摘要规范
+
+每个 TDD 阶段（RED/GREEN/REFACTOR）的 L2 验证完成后，主线程**必须**输出结构化评估摘要，确保 TDD 效果可评估、可追溯：
+
+```
+评估摘要格式:
+  [TDD-EVAL] {STAGE} task-{N}:
+    状态: {PASS|BLOCK|FAIL|RETRY|REVERTED}
+    退出码: {exit_code}
+    断言/统计: {阶段特定信息}
+    测试输出 (尾部 5 行):
+      {缩进的测试输出}
+
+评估摘要写入 checkpoint:
+  tdd_cycle.{stage}.eval_summary = {
+    exit_code: number,
+    output_tail: string,       // 最后 5 行测试输出
+    ...阶段特定字段
+  }
+
+RED 特定字段:   assertion_message, test_file
+GREEN 特定字段:  pass_count, total_count, full_test_passed
+REFACTOR 特定字段: pass_count, total_count, green_pass_count_match
+```
+
+> **GUI 联动**: `emit-task-progress.sh` 的 `tdd_step` 事件可携带 `eval_summary` 字段，GUI ParallelKanban 组件可展示每个 TDD 步骤的评估详情。
 
 ---
 

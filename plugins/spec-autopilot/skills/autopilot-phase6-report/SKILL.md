@@ -88,6 +88,39 @@ ALLURE_RESULTS_DIR="openspec/changes/{change_name}/reports/allure-results"
 mkdir -p "$ALLURE_RESULTS_DIR"
 ```
 
+### Step A2.5: TDD Allure 结果合并（TDD 模式专用）
+
+当 Phase 5 以 TDD 模式运行时（检测 `phase-4-tdd-override.json` 存在或 lock file 中 `tdd_mode: true`），TDD 各阶段已产出 Allure 结果到 `allure-results/tdd/` 子目录。此步骤将 TDD 结果合并到统一 Allure 目录：
+
+```bash
+TDD_ALLURE_DIR="openspec/changes/{change_name}/reports/allure-results/tdd"
+if [ -d "$TDD_ALLURE_DIR" ]; then
+  # 合并 TDD 各阶段的 Allure 结果到统一目录
+  for stage_dir in "$TDD_ALLURE_DIR"/red "$TDD_ALLURE_DIR"/green "$TDD_ALLURE_DIR"/refactor; do
+    if [ -d "$stage_dir" ]; then
+      cp -r "$stage_dir"/* "$ALLURE_RESULTS_DIR/" 2>/dev/null || true
+    fi
+  done
+  echo "[ALLURE] 已合并 TDD Allure 结果到统一目录"
+fi
+```
+
+> **设计意图**: TDD 模式下 Phase 5 的 RED→GREEN→REFACTOR 已经通过 Allure 增强命令产出了测试结果（详见 `tdd-cycle.md` TDD 测试命令 Allure 增强），此步骤确保这些结果被纳入统一 Allure 报告。
+
+### Step A2.6: TDD 模式强制全量 Allure 重跑
+
+当 Phase 5 以 TDD 模式运行时，Phase 6 **必须强制执行一次完整的 Allure 增强测试重跑**，而非依赖"智能跳过"逻辑（TDD 测试可能被标记为"近期通过"而被跳过，导致 Allure 结果不完整）：
+
+```
+IF tdd_mode was active in Phase 5:
+  → 设置 FORCE_RERUN=true
+  → 所有 test_suites 全量执行（忽略最近通过时间）
+  → 所有 test_suites 必须使用 allure_args 参数
+  → 确保 Allure 结果目录包含所有 suite 的完整结果
+```
+
+> **根因**: TDD Phase 5 的测试执行以 pass/fail 二值判断为核心，即使注入了 Allure 参数，其覆盖的可能只是 per-task 子集而非完整 suite。Phase 6 强制重跑确保 Allure 报告反映完整的测试覆盖。
+
 ### Step A3: 执行 allure_post 命令
 
 对每个 `config.test_suites` 中配置了 `allure_post` 的套件：

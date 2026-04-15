@@ -74,7 +74,7 @@ a. **归档前清理**：
 b. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 true，默认 true）：
 
 - **进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 autosquash_started in_progress')`
-- **独立脚本**: 所有 fixup 完整性检查、非 autopilot fixup 检查、anchor 验证/重建、rebase 操作已封装到 `autosquash-archive.sh`：
+- **独立脚本**: 所有 fixup 完整性检查（含按阶段校验）、非 autopilot fixup 检查、anchor 验证/重建、rebase 操作、merge --squash 备选、post-autosquash 验证已封装到 `autosquash-archive.sh`：
 
     ```bash
     Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/autosquash-archive.sh "$(pwd)" "${ANCHOR_SHA}" "${change_name}"')
@@ -92,8 +92,15 @@ b. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 
     - 用户选择"取消" → 中止归档，不执行 rebase
   - `status: "blocked"` → 硬阻断归档（fail-closed），展示 `error` 信息
     - fixup 不完整时：`[BLOCKED] fixup 完整性检查失败: ${FIXUP_COUNT} fixup commits < ${CHECKPOINT_COUNT} checkpoints.`
+    - 按阶段校验失败时：`[BLOCKED] 某些 Phase 缺少对应的 fixup commit，归档中止。`
     - anchor 重建失败时：`[BLOCKED] anchor 重建失败，无法执行 autosquash。归档中止。`
-    - autosquash 失败时：`[BLOCKED] autosquash 失败，无法合并 fixup commits。归档中止。`
+    - autosquash 失败时（含 merge --squash 备选也失败）：`[BLOCKED] autosquash 失败，备选方案也失败。归档中止，需要手动干预。`
+    - post-autosquash 验证失败时：`[BLOCKED] 归档后仍存在未合并的 fixup commits，归档完整性受损。`
+
+  > **增强说明**:
+  > 1. **merge --squash 备选**: 当 `git rebase --autosquash` 失败时（如历史中有 merge commits），自动尝试 `git merge --squash` 作为备选方案
+  > 2. **Post-autosquash 验证**: 归档后检查是否还有残留的 fixup commits，确保所有 fixup 已完全合并
+  > 3. **按阶段 fixup 校验**: 除了总数对比，还验证每个 Phase 都有对应的 fixup commit
 
   > **上下文优化**: 主线程不再内联执行 ~50 行 git 操作，仅调用一次 Bash 并解析 JSON 结果。
 
