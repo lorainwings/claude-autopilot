@@ -42,6 +42,7 @@ emit-gate-event.sh
 emit-model-routing-event.sh
 emit-phase-event.sh
 emit-report-ready-event.sh
+emit-sub-step-event.sh
 emit-tdd-audit-event.sh
 emit-task-progress.sh
 install-statusline-config.sh
@@ -60,6 +61,8 @@ tdd-refactor-rollback.sh
 validate-config.sh
 validate-decision-format.sh
 validate-json-envelope.sh
+statusline-health-check.sh
+verify-parallel-tdd-l2.sh
 verify-test-driven-l2.sh
 write-phase-progress.sh
 validate-requirement-packet.sh

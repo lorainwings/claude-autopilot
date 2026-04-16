@@ -444,6 +444,17 @@ Report per-task: tdd_cycles: [{ task, red_verified, green_verified, refactor_ver
     → PASS: L2 后置验证通过，tdd_metrics 可信
 ```
 
+#### Per-Domain L2 Verification (v5.7)
+
+并行模式下，每个 domain agent 完成后、worktree 合并前，主线程执行 L2 验证：
+
+1. 调用 `verify-parallel-tdd-l2.sh --worktree-path <wt> --test-command <cmd> --task-checkpoint <cp>`
+2. 验证 checkpoint 中每个 tdd_cycle 的 test_intent 和 failing_signal 完整性
+3. 在 worktree 中独立运行测试确认 GREEN 状态
+4. status=blocked 时拒绝合并该 domain 的代码
+
+这将并行 TDD 的 per-task 验证从 L1（agent 自报）提升到 L2（确定性 Bash 验证）。
+
 ---
 
 ## TDD 崩溃恢复

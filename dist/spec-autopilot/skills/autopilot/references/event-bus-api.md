@@ -179,15 +179,335 @@ interface AgentCompleteEvent {
 }
 ```
 
+### SubStepEvent
+
+Phase 0-4 子步骤进度事件。由 `emit-sub-step-event.sh` 在各阶段关键步骤执行时发射。
+
+```typescript
+interface SubStepEvent {
+  type: 'sub_step';
+  phase: number;               // 0-4
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    step_id: string;           // "env-check", "config-load", "crash-scan"
+    step_label: string;        // 人类可读步骤名称
+    step_index?: number;       // 当前步骤序号 (0-based)
+    total_steps?: number;      // 本 Phase 总步骤数
+    [key: string]: unknown;    // 额外自定义字段
+  };
+}
+```
+
+### GateStepEvent
+
+Gate 8-step 逐步检查结果事件。由 `emit-gate-event.sh gate_step` 在每个检查步骤完成时发射。
+
+```typescript
+interface GateStepEvent {
+  type: 'gate_step';
+  phase: number;               // 目标 Phase
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;           // ISO-8601
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    step_index: number;        // 0-7, 当前检查步骤
+    step_name: string;         // "predecessor_check", "hook_l2", ...
+    step_result: string;       // "pass" | "fail" | "skip" | "warning"
+    step_detail?: string;      // 可选详情
+  };
+}
+```
+
+### GateDecisionEvent
+
+Gate 决策生命周期事件。由 `emit-phase-event.sh gate_decision_pending|gate_decision_received` 发射。
+
+```typescript
+interface GateDecisionPendingEvent {
+  type: 'gate_decision_pending';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    gate_score?: string;       // "5/8"
+    blocking_steps?: string[]; // 失败的步骤名
+  };
+}
+
+interface GateDecisionReceivedEvent {
+  type: 'gate_decision_received';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    action: 'retry' | 'fix' | 'override';
+  };
+}
+```
+
+### ParallelEvent
+
+并行调度事件。由 SKILL.md 统一调度模板在并行计划/批次执行时发射。
+
+```typescript
+interface ParallelPlanEvent {
+  type: 'parallel_plan';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    total_tasks: number;
+    batch_count: number;
+    batch_sizes: number[];
+  };
+}
+
+interface ParallelBatchStartEvent {
+  type: 'parallel_batch_start';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    batch_index: number;       // 0-based
+    batch_size: number;
+    task_names: string[];
+  };
+}
+
+interface ParallelBatchEndEvent {
+  type: 'parallel_batch_end';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    batch_index: number;
+    passed: number;
+    failed: number;
+    duration_ms?: number;
+  };
+}
+```
+
+### ParallelTaskEvent
+
+并行任务状态事件。由调度模板在任务就绪/阻断/降级时发射。
+
+```typescript
+interface ParallelTaskReadyEvent {
+  type: 'parallel_task_ready';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    task_name: string;
+    batch_index: number;
+    owned_files: string[];
+  };
+}
+
+interface ParallelTaskBlockedEvent {
+  type: 'parallel_task_blocked';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    task_name: string;
+    reason: string;
+  };
+}
+
+interface ParallelFallbackEvent {
+  type: 'parallel_fallback';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    from: 'parallel';
+    to: 'serial';
+    reason: string;            // "merge_conflict_exceeded" | "consecutive_batch_failure" | "user_override"
+  };
+}
+```
+
+### ModelRoutingEvent
+
+模型路由事件。由 `emit-model-routing-event.sh` 在模型选择/降级时发射。
+
+```typescript
+interface ModelRoutingEvent {
+  type: 'model_routing';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    requested_model: string;
+    resolved_model: string;
+    strategy: string;          // "cost-optimized" | "balanced" | "quality-max" | "custom"
+  };
+}
+
+interface ModelEffectiveEvent {
+  type: 'model_effective';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    model: string;
+    phase_config: Record<string, string>;
+  };
+}
+
+interface ModelFallbackEvent {
+  type: 'model_fallback';
+  phase: number;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    from_model: string;
+    to_model: string;
+    reason: string;
+  };
+}
+```
+
+### TddAuditEvent
+
+TDD 审计事件。由 `emit-tdd-audit-event.sh` 在 Phase 5 完成后发射。
+
+```typescript
+interface TddAuditEvent {
+  type: 'tdd_audit';
+  phase: 5;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    cycle_count: number;
+    red_violations: number;
+    green_violations: number;
+    refactor_rollbacks: number;
+    red_commands: string[];
+    green_commands: string[];
+  };
+}
+```
+
+### ReportReadyEvent
+
+报告就绪事件。由 `emit-report-ready-event.sh` 在 Phase 6 完成时发射。
+
+```typescript
+interface ReportReadyEvent {
+  type: 'report_ready';
+  phase: 6;
+  mode: 'full' | 'lite' | 'minimal';
+  timestamp: string;
+  change_name: string;
+  session_id: string;
+  phase_label: string;
+  total_phases: number;
+  sequence: number;
+  payload: {
+    report_format: string;     // "allure" | "junit" | "custom" | "none"
+    report_path: string;
+    report_url: string;
+    allure_results_dir: string;
+    allure_preview_url: string;
+    suite_results: {
+      total: number;
+      passed: number;
+      failed: number;
+      skipped: number;
+      error: number;
+    };
+    anomaly_alerts: unknown[];
+  };
+}
+```
+
 ## 事件发射脚本
 
 | 脚本 | 事件类型 | 调用时机 |
 |------|---------|---------|
-| `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error` | Phase 0 Step 4.6/10.5 + Phase 1 Step 0/10 + 统一调度模板 Step 0/6.5 (Phase 2-6) + Phase 7 Step -1/6.5 |
-| `scripts/emit-gate-event.sh` | `gate_pass`, `gate_block` | SKILL.md 统一调度模板 Step 1 (Gate 判定后) |
+| `scripts/emit-phase-event.sh` | `phase_start`, `phase_end`, `error`, `gate_decision_pending`, `gate_decision_received` | Phase 0 Step 4.6/10.5 + Phase 1 Step 0/10 + 统一调度模板 Step 0/6.5 (Phase 2-6) + Phase 7 Step -1/6.5 |
+| `scripts/emit-gate-event.sh` | `gate_pass`, `gate_block`, `gate_step` | SKILL.md 统一调度模板 Step 1 (Gate 判定后)；`gate_step` 在每个 8-step 检查完成后 |
+| `scripts/emit-sub-step-event.sh` | `sub_step` | Phase 0-4 各关键子步骤执行时 |
 | `scripts/emit-task-progress.sh` | `task_progress` | Phase 5 每个 task 完成后 |
 | `scripts/emit-tool-event.sh` | `tool_use` | PostToolUse catch-all hook 自动触发 |
 | `scripts/emit-agent-event.sh` | `agent_dispatch`, `agent_complete` | 统一调度模板 Step 2.5/4.5 Agent 派发前/完成后 |
+| `scripts/emit-model-routing-event.sh` | `model_routing`, `model_effective`, `model_fallback` | 模型路由解析时 |
+| `scripts/emit-tdd-audit-event.sh` | `tdd_audit` | Phase 5 TDD 审计完成后 |
+| `scripts/emit-report-ready-event.sh` | `report_ready` | Phase 6 报告生成完成后 |
+| `scripts/emit-phase-event.sh` | `gate_decision_pending`, `gate_decision_received` | Gate 阻断后等待用户决策 / 收到决策时 |
 
 ## 使用示例
 

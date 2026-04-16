@@ -2,6 +2,7 @@
 # install-statusline-config.sh
 # Install Claude Code statusLine configuration for spec-autopilot.
 # Default scope: local project settings (.claude/settings.local.json).
+# 增强: 安装前备份、写入后 JSON 验证、CLAUDE_PLUGIN_ROOT 绝对路径解析。
 
 set -euo pipefail
 
@@ -40,9 +41,16 @@ COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
   exit 1
 }
 
-# Resolve plugin root (two levels up from runtime/scripts/) for version-resilient path.
-# Uses $CLAUDE_PLUGIN_ROOT at runtime (set by Claude Code for plugins) with absolute fallback.
+# 解析插件根目录（两级上层: runtime/scripts/ → 插件根）
+# 优先使用 CLAUDE_PLUGIN_ROOT 解析为绝对路径，否则使用 $SCRIPT_DIR/../.. 作为 fallback
 PLUGIN_ROOT_ABS="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# 如果 CLAUDE_PLUGIN_ROOT 已设置且有效，使用其绝对路径
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -d "$CLAUDE_PLUGIN_ROOT" ]; then
+  RESOLVED_PLUGIN_ROOT="$(cd "$CLAUDE_PLUGIN_ROOT" && pwd)"
+else
+  RESOLVED_PLUGIN_ROOT="$PLUGIN_ROOT_ABS"
+fi
 
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
@@ -58,8 +66,13 @@ fi
 
 mkdir -p "$CLAUDE_DIR"
 
-# Use ${CLAUDE_PLUGIN_ROOT} with absolute fallback so the path survives plugin upgrades.
-STATUSLINE_COMMAND="bash \${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT_ABS}/runtime/scripts/statusline-collector.sh"
+# 安装前备份已有 settings 文件
+if [ -f "$SETTINGS_FILE" ]; then
+  cp "$SETTINGS_FILE" "${SETTINGS_FILE}.bak"
+fi
+
+# 使用 ${CLAUDE_PLUGIN_ROOT} 运行时变量 + 绝对路径 fallback，确保跨版本可用
+STATUSLINE_COMMAND="bash \${CLAUDE_PLUGIN_ROOT:-$RESOLVED_PLUGIN_ROOT}/runtime/scripts/statusline-collector.sh"
 
 python3 - "$SETTINGS_FILE" "$STATUSLINE_COMMAND" <<'PY'
 import json
@@ -91,6 +104,16 @@ data["statusLine"] = {
 
 settings_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 PY
+
+# 写入后验证 JSON 格式正确
+if ! python3 -m json.tool "$SETTINGS_FILE" >/dev/null 2>&1; then
+  echo "ERROR: generated settings file is not valid JSON: $SETTINGS_FILE" >&2
+  # 如果有备份，恢复
+  if [ -f "${SETTINGS_FILE}.bak" ]; then
+    mv "${SETTINGS_FILE}.bak" "$SETTINGS_FILE"
+  fi
+  exit 1
+fi
 
 # Local scope should remain untracked when inside a git repository.
 if [ "$SCOPE" = "local" ] && git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
