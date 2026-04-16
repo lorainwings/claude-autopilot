@@ -41,20 +41,11 @@ statusline_configured() {
   local file="$1"
   [ -f "$file" ] || return 1
   python3 -c "
-import json, sys, os, re
+import json, sys
 try:
     d = json.loads(open(sys.argv[1]).read())
     sl = d.get('statusLine')
     if sl and isinstance(sl, dict) and sl.get('command'):
-        cmd = sl['command']
-        # If command uses \${CLAUDE_PLUGIN_ROOT}, trust it (resolved at runtime).
-        if '\${CLAUDE_PLUGIN_ROOT' in cmd or '\$CLAUDE_PLUGIN_ROOT' in cmd:
-            sys.exit(0)
-        # Extract .sh script path(s) and verify existence.
-        paths = re.findall(r'(?:^|\s)(/.+?\.sh)', cmd)
-        for p in paths:
-            if not os.path.isfile(p):
-                sys.exit(1)  # stale path — trigger re-install
         sys.exit(0)
     sys.exit(1)
 except Exception:
