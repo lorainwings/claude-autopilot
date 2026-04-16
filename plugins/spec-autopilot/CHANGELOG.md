@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.7.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.6.0...spec-autopilot-v5.7.0) (2026-04-16)
+
+
+### Added
+
+* **spec-autopilot:** 优化 autopilot-setup 覆盖 domain_agents 域级 Agent 配置 ([37f2533](https://github.com/lorainwings/claude-autopilot/commit/37f25332709590f7da209c68c2dbb63748b04b8c))
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 TDD 效果评估、Allure 集成、Phase4/TDD 流程与 autosquash 四项缺陷 ([fe3f1f6](https://github.com/lorainwings/claude-autopilot/commit/fe3f1f6dd54d025e63cb441e1d6318dce7df8828))
+
 ## [5.6.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.2...spec-autopilot-v5.6.0) (2026-04-14)
 
 
