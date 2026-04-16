@@ -132,7 +132,7 @@ data = {
     'retries': int(sys.argv[4])
 }
 print(json.dumps(data, ensure_ascii=False, indent=2))
-" "$installed" "$timestamp" "$issues" "$retries" > "$log_dir/statusline-install.json" 2>/dev/null || true
+" "$installed" "$timestamp" "$issues" "$retries" >"$log_dir/statusline-install.json" 2>/dev/null || true
 }
 
 # --- 检查命令是否包含运行时 env var（仅 Claude Code 运行时解析）---
@@ -148,8 +148,8 @@ if statusline_configured "$LOCAL_SETTINGS" ||
   statusline_configured "$USER_SETTINGS"; then
   # env var 格式路径只能在 Claude Code 运行时解析，跳过 stale 检测
   if has_envvar_format "$LOCAL_SETTINGS" ||
-     has_envvar_format "$PROJECT_SETTINGS" ||
-     has_envvar_format "$USER_SETTINGS"; then
+    has_envvar_format "$PROJECT_SETTINGS" ||
+    has_envvar_format "$USER_SETTINGS"; then
     exit 0
   fi
   # 即使已配置，运行健康检查确认非 stale
