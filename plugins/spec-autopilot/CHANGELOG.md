@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.7.0...spec-autopilot-v5.8.0) (2026-04-16)
+
+
+### Added
+
+* **spec-autopilot:** GUI 可观测性增强 — 新面板、事件系统扩展、代码审查修复 ([d9242bf](https://github.com/lorainwings/claude-autopilot/commit/d9242bf0fb919a1b571b6ac91b9cdf9f1e35cfd0))
+
 ## [5.7.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.6.0...spec-autopilot-v5.7.0) (2026-04-16)
 
 
