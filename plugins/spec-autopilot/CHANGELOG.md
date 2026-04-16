@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.8.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.8.0...spec-autopilot-v5.8.1) (2026-04-16)
+
+
+### Fixed
+
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([52c96ae](https://github.com/lorainwings/claude-autopilot/commit/52c96ae77953d3c455add28aeaecf114e3b38e0a))
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([29e3b8c](https://github.com/lorainwings/claude-autopilot/commit/29e3b8c47ad4f5b38d6b35a2e8bd54bd81c2dc47))
+* **spec-autopilot:** statusline_configured 移除路径验证，修复 CI stale 检测 ([14cccdf](https://github.com/lorainwings/claude-autopilot/commit/14cccdf7afbc848abd45bb8fc6c512e7a68bc993))
+
 ## [5.8.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.7.0...spec-autopilot-v5.8.0) (2026-04-16)
 
 
