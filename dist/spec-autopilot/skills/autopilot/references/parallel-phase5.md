@@ -261,6 +261,11 @@ for each agent in sorted(agents, key=task_number):
   # 合并前发射 task running 事件
   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-task-progress.sh "task-{N}-{slug}" running {N} {total} {mode}')
 
+  # L2 per-task TDD 验证（仅 tdd_mode 时）
+  IF tdd_mode:
+    l2_result = Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/verify-parallel-tdd-l2.sh --worktree-path <wt-path> --test-command "{test_command}" --task-checkpoint <cp-path>')
+    IF l2_result.status == "blocked": skip merge, degrade to serial for this task
+
   git merge --no-ff autopilot-task-{N} -m "autopilot: task {N} - {title}"
   if conflict and conflict_files > 3: rollback group worktree, degrade to serial
   if conflict and conflict_files <= 3: AskUserQuestion show conflicts

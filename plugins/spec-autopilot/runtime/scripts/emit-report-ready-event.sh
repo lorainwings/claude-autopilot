@@ -6,6 +6,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
 
 CHANGES_DIR="${1:?用法: emit-report-ready-event.sh <changes_dir> <change_name> <mode> <session_id>}"
 CHANGE_NAME="${2:?缺少 change_name}"
@@ -125,6 +126,11 @@ mkdir -p "$PROJECT_EVENTS_DIR" 2>/dev/null || true
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 EVENT_ID="report-ready-$(date +%s%N 2>/dev/null || date +%s)"
 
+# Resolve dynamic sequence / total_phases / phase_label
+SEQUENCE=$(next_event_sequence "$PROJECT_ROOT")
+TOTAL_PHASES=$(get_total_phases "$MODE")
+PHASE_LABEL=$(get_phase_label 6)
+
 EVENT_JSON=$(jq -n -c \
   --arg type "report_ready" \
   --argjson phase 6 \
@@ -133,6 +139,9 @@ EVENT_JSON=$(jq -n -c \
   --arg change_name "$CHANGE_NAME" \
   --arg session_id "$SESSION_ID" \
   --arg event_id "$EVENT_ID" \
+  --argjson sequence "$SEQUENCE" \
+  --arg phase_label "$PHASE_LABEL" \
+  --argjson total_phases "$TOTAL_PHASES" \
   --argjson payload "$PAYLOAD" \
   '{
     type: $type,
@@ -142,9 +151,9 @@ EVENT_JSON=$(jq -n -c \
     change_name: $change_name,
     session_id: $session_id,
     event_id: $event_id,
-    sequence: 0,
-    phase_label: "测试报告",
-    total_phases: 8,
+    sequence: $sequence,
+    phase_label: $phase_label,
+    total_phases: $total_phases,
     payload: $payload
   }')
 

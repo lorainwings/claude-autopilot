@@ -8,6 +8,8 @@ import { memo } from "react";
 import { useStore } from "../store";
 import type { ReportState, TddAuditSummary } from "../store";
 
+import { Tooltip } from "./Tooltip";
+
 // --- 通过率进度条 ---
 function PassRateBar({ total, passed, failed }: { total: number; passed: number; failed: number }) {
   const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
@@ -69,25 +71,33 @@ function TddAuditSection({ audit }: { audit: TddAuditSummary }) {
       <div className="grid grid-cols-4 gap-1 text-center">
         <div>
           <div className="text-[12px] font-bold font-mono text-cyan">{audit.cycle_count}</div>
-          <div className="text-[8px] font-mono text-text-muted">CYCLE</div>
+          <Tooltip text="TDD 红-绿-重构循环总数">
+            <div className="text-[8px] font-mono text-text-muted">CYCLE</div>
+          </Tooltip>
         </div>
         <div>
           <div className={`text-[12px] font-bold font-mono ${audit.red_violations > 0 ? "text-rose" : "text-emerald"}`}>
             {audit.red_violations}
           </div>
-          <div className="text-[8px] font-mono text-text-muted">RED违规</div>
+          <Tooltip text="正常值: violations=0, RED 阶段测试必须失败">
+            <div className="text-[8px] font-mono text-text-muted">RED违规</div>
+          </Tooltip>
         </div>
         <div>
           <div className={`text-[12px] font-bold font-mono ${audit.green_violations > 0 ? "text-rose" : "text-emerald"}`}>
             {audit.green_violations}
           </div>
-          <div className="text-[8px] font-mono text-text-muted">GREEN违规</div>
+          <Tooltip text="正常值: violations=0, GREEN 阶段测试必须通过">
+            <div className="text-[8px] font-mono text-text-muted">GREEN违规</div>
+          </Tooltip>
         </div>
         <div>
           <div className={`text-[12px] font-bold font-mono ${audit.refactor_rollbacks > 0 ? "text-amber" : "text-emerald"}`}>
             {audit.refactor_rollbacks}
           </div>
-          <div className="text-[8px] font-mono text-text-muted">回滚</div>
+          <Tooltip text="正常值: rollbacks 应 < cycles/3">
+            <div className="text-[8px] font-mono text-text-muted">回滚</div>
+          </Tooltip>
         </div>
       </div>
     </div>

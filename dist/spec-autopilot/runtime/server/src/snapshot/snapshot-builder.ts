@@ -77,6 +77,26 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
   const hookEvents = normalizeHookRecords(rawHooks, sessionId, phaseLookup, { changeName: context.changeName, mode: context.mode });
   const statusEvents = normalizeStatusRecords(rawStatus, sessionId, phaseLookup, { changeName: context.changeName, mode: context.mode });
   const transcriptDescriptors = collectTranscriptDescriptors(rawHooks, rawStatus);
+
+  // D3: 从 .active-agent-session-{key} marker 文件读取当前活跃 agent_id，
+  // 为缺少 agentId 的 agent 类型 descriptor 补充关联
+  const agentMarkerPath = join(configProjectRoot || process.cwd(), "logs", `.active-agent-session-${sessionKey}`);
+  let fallbackAgentId: string | undefined;
+  if (existsSync(agentMarkerPath)) {
+    try {
+      fallbackAgentId = readFileSync(agentMarkerPath, "utf-8").trim() || undefined;
+    } catch {
+      // 读取失败忽略
+    }
+  }
+  if (fallbackAgentId) {
+    for (const desc of transcriptDescriptors) {
+      if (desc.kind === "agent" && !desc.agentId) {
+        desc.agentId = fallbackAgentId;
+      }
+    }
+  }
+
   const transcriptEvents = await parseTranscriptEvents(transcriptDescriptors, sessionId, phaseLookup, { changeName: context.changeName, mode: context.mode }).catch(() => []);
 
   const events = sortAndFinalize([...legacyEvents, ...hookEvents, ...statusEvents, ...transcriptEvents]);

@@ -14,6 +14,7 @@ import { ParallelKanban } from "./components/ParallelKanban";
 import { TelemetryDashboard } from "./components/TelemetryDashboard";
 import { LogWorkbench } from "./components/LogWorkbench";
 import { ReportCard } from "./components/ReportCard";
+import { PhaseResultsTable } from "./components/PhaseResultsTable";
 import type { ModelRoutingState } from "./store";
 
 declare const __PLUGIN_VERSION__: string;
@@ -277,10 +278,13 @@ export function App() {
                 {activeView === "orchestration" ? (
                   <>
                     {/* v7.0: 编排视图 — PhasePipelineOverview + ReportCard + Kanban */}
-                    <div className="h-[50%] overflow-auto">
+                    <div className="h-[40%] overflow-auto">
                       <ParallelKanban />
                     </div>
-                    <div className="h-[50%] overflow-auto p-4 space-y-3">
+                    <div className="h-[20%] overflow-auto p-4">
+                      <PhaseResultsTable />
+                    </div>
+                    <div className="h-[40%] overflow-auto p-4 space-y-3">
                       <ReportCard />
                     </div>
                   </>

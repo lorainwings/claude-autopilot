@@ -23,6 +23,8 @@ const STATUS_CONFIG = {
   passed: { label: "通过", color: "text-emerald", bgColor: "bg-deep", dot: false },
   failed: { label: "失败", color: "text-rose", bgColor: "bg-deep", dot: false },
   retrying: { label: "重试中", color: "text-amber", bgColor: "bg-deep", dot: false },
+  ready: { label: "就绪", color: "text-cyan", bgColor: "bg-deep", dot: false },
+  blocked: { label: "阻断", color: "text-rose", bgColor: "bg-deep", dot: false },
 } as const;
 
 const AGENT_STATUS_BADGE: Record<AgentInfo["status"], { icon: string; color: string; label: string }> = {

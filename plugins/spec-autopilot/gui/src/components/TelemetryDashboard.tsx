@@ -9,6 +9,8 @@ import { useState, useEffect, useMemo, memo } from "react";
 import { useStore, selectPhaseDurations, selectTotalElapsedMs, selectGateStats, selectActivePhaseIndices } from "../store";
 import type { ModelRoutingState, ServerHealth, ParallelPlanSummary } from "../store";
 
+import { Tooltip } from "./Tooltip";
+
 function formatDuration(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);
@@ -283,7 +285,15 @@ const ModelRoutingCard = memo(function ModelRoutingCard({
           </div>
           <div className="flex justify-between gap-3">
             <span className="text-text-muted shrink-0">请求层级</span>
-            <span className="text-text-bright truncate">{routing.requested_tier ?? "--"} / {routing.requested_effort ?? "--"}</span>
+            <span className="text-text-bright truncate">
+              <Tooltip text="fast=Haiku, standard=Sonnet, deep=Opus">
+                <span>{routing.requested_tier ?? "--"}</span>
+              </Tooltip>
+              {" / "}
+              <Tooltip text="low=快速响应, medium=平衡, high=深度思考">
+                <span>{routing.requested_effort ?? "--"}</span>
+              </Tooltip>
+            </span>
           </div>
           <div className="flex justify-between gap-3">
             <span className="text-text-muted shrink-0">实际模型</span>

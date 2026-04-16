@@ -43,7 +43,7 @@ export interface ParallelPlanSummary {
 interface TaskProgress {
   task_name: string;
   phase: number;
-  status: "running" | "passed" | "failed" | "retrying";
+  status: "running" | "passed" | "failed" | "retrying" | "ready" | "blocked";
   tdd_step?: "red" | "green" | "refactor";
   retry_count?: number;
   task_index: number;
@@ -53,7 +53,7 @@ interface TaskProgress {
 
 interface TaskProgressPayload {
   task_name: string;
-  status: "running" | "passed" | "failed" | "retrying";
+  status: "running" | "passed" | "failed" | "retrying" | "ready" | "blocked";
   tdd_step?: "red" | "green" | "refactor";
   retry_count?: number;
   task_index: number;
@@ -133,6 +133,38 @@ export interface TddAuditSummary {
   green_commands: string[];
 }
 
+export interface SubStepInfo {
+  step_id: string;
+  step_label: string;
+  step_index: number;
+  total_steps: number;
+}
+
+export interface GateStep {
+  step_index: number;
+  step_name: string;
+  step_result: "pass" | "fail" | "skip";
+  step_detail?: string;
+  phase: number;
+  timestamp: string;
+}
+
+export interface ReviewFinding {
+  severity: "critical" | "high" | "medium" | "low";
+  file: string;
+  line?: number;
+  message: string;
+  blocking: boolean;
+}
+
+export interface RequirementPacket {
+  goal: string;
+  scope: string[];
+  non_goals: string[];
+  constraints: string[];
+  requirement_type: string;
+}
+
 /** 编排概览状态 (v7.0 统一控制面) */
 export interface OrchestrationOverview {
   /** 目标摘要（从 session_start 或 phase_start payload 推断） */
@@ -151,6 +183,14 @@ export interface OrchestrationOverview {
   challengeAgentsActivated: string[];
   /** v7.1: 标记 phase_end 事件是否已提供清晰度指标（区分"未赋值"和"显式 null/[]"） */
   _phase1ClarityFromEvent: boolean;
+  /** v7.2: sub-step 结构化信息 */
+  currentSubStepInfo: SubStepInfo | null;
+  /** v7.2: gate 步骤详情 */
+  gateSteps: GateStep[];
+  /** v7.2: 代码审查发现 */
+  reviewFindings: ReviewFinding[];
+  /** v7.2: 需求包详情 */
+  requirementPacket: RequirementPacket | null;
   /** compact 风险等级 */
   contextBudget: { percent: number; risk: "low" | "medium" | "high" } | null;
   /** archive readiness */
@@ -449,6 +489,10 @@ const DEFAULT_ORCHESTRATION: OrchestrationOverview = {
   discussionRounds: null,
   challengeAgentsActivated: [],
   _phase1ClarityFromEvent: false,
+  currentSubStepInfo: null,
+  gateSteps: [],
+  reviewFindings: [],
+  requirementPacket: null,
   contextBudget: null,
   archiveReadiness: null,
   recoverySource: null,
@@ -696,6 +740,64 @@ export const useStore = create<AppState>((set) => ({
             orchestration.currentSubStep = p.sub_step;
           }
         }
+        // v7.2: sub_step 结构化事件
+        if (event.type === "sub_step") {
+          const p = event.payload as Record<string, unknown>;
+          orchestration.currentSubStepInfo = {
+            step_id: String(p.step_id ?? ""),
+            step_label: String(p.step_label ?? ""),
+            step_index: Number(p.step_index ?? 0),
+            total_steps: Number(p.total_steps ?? 0),
+          };
+          orchestration.currentSubStep = String(p.step_label ?? p.step_id ?? "");
+        }
+        // v7.2: gate_step 事件
+        if (event.type === "gate_step") {
+          const p = event.payload as Record<string, unknown>;
+          const step: GateStep = {
+            step_index: Number(p.step_index ?? 0),
+            step_name: String(p.step_name ?? ""),
+            step_result: (p.step_result as GateStep["step_result"]) ?? "pass",
+            step_detail: typeof p.step_detail === "string" ? p.step_detail : undefined,
+            phase: event.phase,
+            timestamp: event.timestamp,
+          };
+          // 同 phase 同 step_index 替换旧条目
+          const existing = orchestration.gateSteps.findIndex(
+            (s) => s.phase === step.phase && s.step_index === step.step_index
+          );
+          if (existing >= 0) {
+            orchestration.gateSteps = [...orchestration.gateSteps];
+            orchestration.gateSteps[existing] = step;
+          } else {
+            orchestration.gateSteps = [...orchestration.gateSteps, step];
+          }
+        }
+        // v7.2: parallel_task_ready / parallel_task_blocked
+        if (event.type === "parallel_task_ready" || event.type === "parallel_task_blocked") {
+          const p = event.payload as Record<string, unknown>;
+          const taskName = String(p.task_name ?? "");
+          const newStatus = event.type === "parallel_task_ready" ? "ready" as const : "blocked" as const;
+          let found = false;
+          for (const [key, tp] of newTaskProgress) {
+            if (tp.task_name === taskName) {
+              newTaskProgress.set(key, { ...tp, status: newStatus as TaskProgress["status"] });
+              found = true;
+            }
+          }
+          if (!found) {
+            const taskIndex = typeof p.task_index === "number" ? p.task_index : newTaskProgress.size;
+            const taskTotal = typeof p.task_total === "number" ? p.task_total : 0;
+            newTaskProgress.set(taskName, {
+              task_name: taskName,
+              phase: event.phase,
+              status: newStatus,
+              task_index: taskIndex,
+              task_total: taskTotal,
+              timestamp: event.timestamp,
+            });
+          }
+        }
         if (event.type === "gate_block") {
           const p = event.payload as Record<string, unknown>;
           orchestration.gateFrontierReason = typeof p.reason === "string"
@@ -712,6 +814,17 @@ export const useStore = create<AppState>((set) => ({
           const p = event.payload as Record<string, unknown>;
           if (typeof p.requirement_packet_hash === "string") {
             orchestration.requirementPacketHash = p.requirement_packet_hash;
+          }
+          // v7.2: 提取需求包详情
+          if (p.requirement_packet && typeof p.requirement_packet === "object") {
+            const rp = p.requirement_packet as Record<string, unknown>;
+            orchestration.requirementPacket = {
+              goal: String(rp.goal ?? ""),
+              scope: Array.isArray(rp.scope) ? (rp.scope as string[]) : [],
+              non_goals: Array.isArray(rp.non_goals) ? (rp.non_goals as string[]) : [],
+              constraints: Array.isArray(rp.constraints) ? (rp.constraints as string[]) : [],
+              requirement_type: String(rp.requirement_type ?? "unknown"),
+            };
           }
           // v7.1: 从 phase_end 事件直接提取清晰度系统指标
           // 仅当 payload 包含 v7.1 字段键时才标记事件已提供——区分"旧协议无字段"和"新协议显式 null/[]"
@@ -743,6 +856,21 @@ export const useStore = create<AppState>((set) => ({
             reviewGatePassed: Boolean(p.review_gate_passed),
             ready: Boolean(p.ready),
           };
+        }
+
+        // v7.2: 从 phase_end (phase 6.5 或含 review_findings) 提取代码审查发现
+        if (event.type === "phase_end") {
+          const p = event.payload as Record<string, unknown>;
+          if (Array.isArray(p.review_findings) || event.phase === 6.5) {
+            const findings = Array.isArray(p.review_findings) ? p.review_findings : [];
+            orchestration.reviewFindings = (findings as Array<Record<string, unknown>>).map((f) => ({
+              severity: (f.severity as ReviewFinding["severity"]) ?? "medium",
+              file: String(f.file ?? ""),
+              line: typeof f.line === "number" ? f.line : undefined,
+              message: String(f.message ?? ""),
+              blocking: Boolean(f.blocking),
+            }));
+          }
         }
 
         // v7.0: 报告就绪事件 (工作包 D)

@@ -3,13 +3,15 @@ import { VirtualTerminal } from "./VirtualTerminal";
 import { TranscriptPanel } from "./TranscriptPanel";
 import { ToolTracePanel } from "./ToolTracePanel";
 import { RawInspectorPanel } from "./RawInspectorPanel";
+import { DispatchAuditPanel } from "./DispatchAuditPanel";
 
-type TabKey = "events" | "transcript" | "tools" | "raw";
+type TabKey = "events" | "transcript" | "tools" | "raw" | "dispatch";
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "events", label: "事件流" },
   { key: "transcript", label: "正文" },
   { key: "tools", label: "工具" },
+  { key: "dispatch", label: "调度" },
   { key: "raw", label: "原始" },
 ];
 
@@ -43,6 +45,7 @@ export function LogWorkbench() {
         {activeTab === "events" && <VirtualTerminal />}
         {activeTab === "transcript" && <TranscriptPanel />}
         {activeTab === "tools" && <ToolTracePanel />}
+        {activeTab === "dispatch" && <DispatchAuditPanel />}
         {activeTab === "raw" && <RawInspectorPanel />}
       </div>
     </section>

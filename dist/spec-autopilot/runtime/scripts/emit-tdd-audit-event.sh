@@ -5,6 +5,9 @@
 # Phase 5 完成后调用，收集 TDD RED-GREEN-REFACTOR 审计摘要
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_common.sh"
+
 CHANGES_DIR="${1:?用法: emit-tdd-audit-event.sh <changes_dir> <change_name> <mode> <session_id>}"
 CHANGE_NAME="${2:?缺少 change_name}"
 MODE="${3:?缺少 mode}"
@@ -91,6 +94,12 @@ PAYLOAD=$(jq -n \
 EVENTS_FILE="$CHANGES_DIR/$CHANGE_NAME/logs/events.jsonl"
 mkdir -p "$(dirname "$EVENTS_FILE")"
 
+# Resolve project root for sequence counter
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(cd "$CHANGES_DIR/../.." 2>/dev/null && pwd || pwd)}"
+SEQUENCE=$(next_event_sequence "$PROJECT_ROOT")
+TOTAL_PHASES=$(get_total_phases "$MODE")
+PHASE_LABEL=$(get_phase_label 5)
+
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 EVENT_ID="tdd-audit-$(date +%s%N 2>/dev/null || date +%s)"
 
@@ -102,6 +111,9 @@ jq -n -c \
   --arg change_name "$CHANGE_NAME" \
   --arg session_id "$SESSION_ID" \
   --arg event_id "$EVENT_ID" \
+  --argjson sequence "$SEQUENCE" \
+  --arg phase_label "$PHASE_LABEL" \
+  --argjson total_phases "$TOTAL_PHASES" \
   --argjson payload "$PAYLOAD" \
   '{
     type: $type,
@@ -111,9 +123,9 @@ jq -n -c \
     change_name: $change_name,
     session_id: $session_id,
     event_id: $event_id,
-    sequence: 0,
-    phase_label: "代码实施",
-    total_phases: 8,
+    sequence: $sequence,
+    phase_label: $phase_label,
+    total_phases: $total_phases,
     payload: $payload
   }' >>"$EVENTS_FILE"
 

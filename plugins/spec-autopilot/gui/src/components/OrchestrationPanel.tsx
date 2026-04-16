@@ -14,6 +14,10 @@ import type {
   OrchestrationOverview,
   RecoverySource,
 } from "../store";
+import { RequirementPacketPanel } from "./RequirementPacketPanel";
+import { ReviewFindingsPanel } from "./ReviewFindingsPanel";
+import { GateStepsVisualization } from "./GateStepsVisualization";
+import { Tooltip } from "./Tooltip";
 
 const PHASE_LABELS: Record<number, string> = {
   0: "环境初始化",
@@ -125,6 +129,19 @@ const GoalPhaseSection = memo(function GoalPhaseSection({
           Sub-step: {orchestration.currentSubStep}
         </div>
       )}
+      {orchestration.currentSubStepInfo && orchestration.currentSubStepInfo.total_steps > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-cyan transition-all duration-300"
+              style={{ width: `${Math.round(((orchestration.currentSubStepInfo.step_index + 1) / orchestration.currentSubStepInfo.total_steps) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[9px] font-mono text-text-muted">
+            {orchestration.currentSubStepInfo.step_index + 1}/{orchestration.currentSubStepInfo.total_steps}
+          </span>
+        </div>
+      )}
     </div>
   );
 });
@@ -133,9 +150,13 @@ const GoalPhaseSection = memo(function GoalPhaseSection({
 const GateSection = memo(function GateSection({
   gateStats,
   gateFrontierReason,
+  gateSteps,
+  currentPhase,
 }: {
   gateStats: { passed: number; blocked: number; pending: number };
   gateFrontierReason: string | null;
+  gateSteps: import("../store").GateStep[];
+  currentPhase: number | null;
 }) {
   const hasBlock = gateFrontierReason !== null;
 
@@ -169,6 +190,11 @@ const GateSection = memo(function GateSection({
               {gateStats.pending} 待定
             </span>
           )}
+        </div>
+      )}
+      {currentPhase !== null && gateSteps.length > 0 && (
+        <div className="mt-1">
+          <GateStepsVisualization gateSteps={gateSteps} phase={currentPhase} />
         </div>
       )}
     </div>
@@ -375,7 +401,9 @@ const ContextBudgetSection = memo(function ContextBudgetSection({
           ></div>
         </div>
         <span className={`text-[10px] font-mono font-bold ${riskColor}`}>
-          {budget.percent}%
+          <Tooltip text="low(< 50%) / medium(50-75%) / high(75-90%) / critical(> 90%)">
+            {budget.percent}%
+          </Tooltip>
         </span>
       </div>
     </div>
@@ -529,6 +557,8 @@ export const OrchestrationPanel = memo(function OrchestrationPanel() {
       <GateSection
         gateStats={gateStats}
         gateFrontierReason={orchestration.gateFrontierReason}
+        gateSteps={orchestration.gateSteps}
+        currentPhase={currentPhase}
       />
 
       {/* Agent 概览 */}
@@ -549,19 +579,21 @@ export const OrchestrationPanel = memo(function OrchestrationPanel() {
       {/* 归档准备 */}
       <ArchiveSection archiveReadiness={orchestration.archiveReadiness} />
 
+      {/* v7.2: 代码审查发现 (Phase 6.5+) */}
+      {(currentPhase !== null && currentPhase >= 6) && (
+        <ReviewFindingsPanel />
+      )}
+
       {/* 服务健康 */}
       <HealthSection health={serverHealth} />
 
       {/* 决策状态 */}
       <DecisionSection lifecycle={decisionLifecycle} />
 
-      {/* Requirement Packet Hash */}
-      {orchestration.requirementPacketHash && (
-        <div className="px-3 py-2 border-b border-border">
-          <SectionHeader title="需求包" dotColor="bg-cyan" />
-          <div className="text-[9px] font-mono text-text-muted truncate">
-            {orchestration.requirementPacketHash}
-          </div>
+      {/* Requirement Packet Hash + 可展开详情 */}
+      {(orchestration.requirementPacketHash || orchestration.requirementPacket) && (
+        <div className="border-b border-border">
+          <RequirementPacketPanel />
         </div>
       )}
 
@@ -576,9 +608,11 @@ export const OrchestrationPanel = memo(function OrchestrationPanel() {
                 style={{ width: `${Math.round(orchestration.clarityScore * 100)}%` }}
               />
             </div>
-            <span className="text-[9px] font-mono text-text-muted">
-              {Math.round(orchestration.clarityScore * 100)}%
-            </span>
+            <Tooltip text="0-100%（原始 0-1 映射），< 70% 为风险区，< 50% 将触发额外澄清轮次">
+              <span className="text-[9px] font-mono text-text-muted">
+                {Math.round(orchestration.clarityScore * 100)}%
+              </span>
+            </Tooltip>
           </div>
           {orchestration.discussionRounds != null && (
             <div className="text-[9px] text-text-muted mt-0.5">
