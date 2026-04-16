@@ -42,6 +42,8 @@ strict:
   model_strategy: "quality_max"  # 质量优先模型路由
   phases.implementation.tdd_mode: true
   phases.implementation.tdd_refactor: true
+  phases.implementation.parallel.enabled: true       # Strict 默认启用并行
+  phases.implementation.parallel.domain_agents_strategy: "recommended"  # 自动安装推荐域 Agent
   phases.reporting.coverage_target: 80
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
@@ -59,6 +61,8 @@ moderate:
   default_mode: "full"
   model_strategy: "balanced"     # 平衡模型路由
   phases.implementation.tdd_mode: false
+  phases.implementation.parallel.enabled: false      # Moderate 默认不启用并行
+  phases.implementation.parallel.domain_agents_strategy: "ask"  # 提示用户选择
   phases.reporting.coverage_target: 60
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
@@ -76,6 +80,8 @@ relaxed:
   default_mode: "minimal"
   model_strategy: "cost_optimized"  # 省钱优先模型路由
   phases.implementation.tdd_mode: false
+  phases.implementation.parallel.enabled: false      # Relaxed 默认不启用并行
+  phases.implementation.parallel.domain_agents_strategy: "skip"  # 跳过域 Agent 配置
   phases.reporting.coverage_target: 40
   phases.reporting.zero_skip_required: false
   phases.code_review.enabled: false
@@ -89,16 +95,39 @@ relaxed:
   gates.archive_auto_on_readiness: true
 ```
 
+### domain_agents_strategy 预设行为
+
+`domain_agents_strategy` 是 Wizard 内部指令（不写入 config YAML），控制 Step 5.3.5 域级 Agent 配置流程：
+
+```
+IF domain_agents_strategy == "recommended":
+  → Step 5.3.5 自动安装推荐域 Agent（不弹出 AskUserQuestion）
+  → 等效于用户选择 "安装推荐域 Agent"
+  → 适用场景: Strict 预设，最大化质量
+
+IF domain_agents_strategy == "ask":
+  → Step 5.3.5 正常执行 AskUserQuestion 引导
+  → 用户可选择: 安装推荐 / 统一 Agent / 自定义 / 跳过
+  → 适用场景: Moderate 预设，平衡灵活性
+
+IF domain_agents_strategy == "skip":
+  → Step 5.3.5 输出 "跳过域 Agent 配置（Relaxed 模式）"
+  → 所有 domain_agents 保持 general-purpose
+  → 适用场景: Relaxed 预设，快速原型
+```
+
 ## Wizard 完成后输出
 
 ```
 ✓ autopilot 配置已生成: .claude/autopilot.config.yaml
   预设: {preset_name} | 模式: {default_mode} | TDD: {on/off}
   Agent: {agent_summary} | 模型策略: {model_strategy}
+  域 Agent: {domain_agents_count} 个域已配置 | 并行: {parallel_enabled}
   测试套件: {N} 个 | 服务: {N} 个
 
   快速开始: 输入 /autopilot <需求描述>
   调整 Agent: /autopilot-agents [install|list|swap|recommend]
+  调整域 Agent: /autopilot-agents swap <domain_prefix/> <agent_name>
   调整模型: /autopilot-models [cost|balanced|quality]
   调整配置: 编辑 .claude/autopilot.config.yaml
 ```

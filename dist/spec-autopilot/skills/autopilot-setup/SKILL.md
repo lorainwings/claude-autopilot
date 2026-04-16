@@ -83,10 +83,34 @@ IF playwright_login.steps 为空 且检测到 Playwright:
 ## Agent 与模型引导
 
 **执行前读取**: `references/setup-agent-model-guide.md`（Agent 安装引导 + 模型路由引导）
+**执行前读取**: `references/setup-domain-agent-guide.md`（域级 Agent 推荐映射表 + 安装引导）
 
 ### Step 5.3: Agent 安装引导
 
 始终通过 AskUserQuestion 引导用户安装专业 Agent。详见 `references/setup-agent-model-guide.md`。
+
+### Step 5.3.5: 域级 Agent 配置引导
+
+基于 Step 1 检测到的项目结构（project_structure.backend_dir / frontend_dir / node_dir）以及扩展目录扫描，引导用户配置 `implementation.parallel.domain_agents` 的域级 Agent 映射。详见 `references/setup-domain-agent-guide.md`。
+
+```
+IF Wizard 预设的 domain_agents_strategy == "skip":
+  → 输出 "跳过域 Agent 配置（Relaxed 模式）"
+  → 继续后续步骤
+
+ELIF 检测到至少一个目录域（backend_dir/frontend_dir/node_dir 非空，或扩展扫描发现额外目录）:
+  IF domain_agents_strategy == "recommended":
+    → 自动安装推荐域 Agent（不弹 AskUserQuestion）
+  ELSE:
+    → 按 references/setup-domain-agent-guide.md Section D 的标准交互流程引导
+  → 安装选定的 VoltAgent/OMC 域级 Agent 到 .claude/agents/
+  → 更新 config domain_agents 映射
+
+ELSE:
+  → 输出 "未检测到多域项目结构，跳过域级 Agent 配置"
+```
+
+> 域级 Agent 配置是可选步骤，跳过不影响 autopilot 功能。未配置时使用 default_agent (fallback)。
 
 ### Step 5.4: 模型路由引导
 

@@ -61,11 +61,21 @@ harness_collector_installed() {
   [ -f "$file" ] || return 1
   python3 -c '
 import json
+import os
+import re
 import sys
 try:
     data = json.loads(open(sys.argv[1], encoding="utf-8").read())
     cmd = str(data.get("statusLine", {}).get("command", ""))
     if "statusline-collector.sh" in cmd and "parallel-harness" in cmd:
+        # If command uses ${CLAUDE_PLUGIN_ROOT}, trust it (resolved at runtime).
+        if "${CLAUDE_PLUGIN_ROOT" in cmd or "$CLAUDE_PLUGIN_ROOT" in cmd:
+            raise SystemExit(0)
+        # Extract .sh script path(s) and verify existence.
+        paths = re.findall(r"(?:^|\s)(/.+?\.sh)", cmd)
+        for p in paths:
+            if not os.path.isfile(p):
+                raise SystemExit(1)  # stale path — trigger re-install
         raise SystemExit(0)
 except SystemExit:
     raise

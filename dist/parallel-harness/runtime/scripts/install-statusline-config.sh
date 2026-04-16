@@ -41,6 +41,11 @@ COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
   exit 1
 }
 
+# Resolve plugin root (two levels up from runtime/scripts/) for version-resilient path.
+# Uses $CLAUDE_PLUGIN_ROOT at runtime (set by Claude Code for plugins) with absolute fallback.
+PLUGIN_ROOT_ABS="$(cd "$SCRIPT_DIR/../.." && pwd)"
+COLLECTOR_CMD="\${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT_ABS}/runtime/scripts/statusline-collector.sh"
+
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
   SETTINGS_FILE="$CLAUDE_DIR/settings.json"
@@ -55,14 +60,15 @@ fi
 
 mkdir -p "$CLAUDE_DIR"
 
-# Build statusLine command directly — no bridge script needed.
+# Build statusLine command — use ${CLAUDE_PLUGIN_ROOT} with absolute fallback
+# so the path survives plugin upgrades.
 if [ -n "$CHAIN_WITH" ]; then
   # Chain: run harness collector then pass through to the original statusLine command.
   # Both receive stdin (Claude statusLine JSON) and their stdout is concatenated.
   CHAIN_WITH_SAFE=$(printf '%s' "$CHAIN_WITH" | sed "s/'/'\\\\''/g")
-  STATUSLINE_COMMAND="bash -c 'INPUT=\$(cat); HARNESS_OUT=\$(printf \"%s\" \"\$INPUT\" | bash \"$COLLECTOR_SCRIPT\" 2>/dev/null || echo \"[harness] ready\"); PREV_OUT=\$(printf \"%s\" \"\$INPUT\" | bash -c '\"'\"'$CHAIN_WITH_SAFE'\"'\"' 2>/dev/null || true); if [ -n \"\$PREV_OUT\" ]; then printf \"%s | %s\" \"\$PREV_OUT\" \"\$HARNESS_OUT\"; else printf \"%s\" \"\$HARNESS_OUT\"; fi'"
+  STATUSLINE_COMMAND="bash -c 'INPUT=\$(cat); HARNESS_OUT=\$(printf \"%s\" \"\$INPUT\" | bash \"$COLLECTOR_CMD\" 2>/dev/null || echo \"[harness] ready\"); PREV_OUT=\$(printf \"%s\" \"\$INPUT\" | bash -c '\"'\"'$CHAIN_WITH_SAFE'\"'\"' 2>/dev/null || true); if [ -n \"\$PREV_OUT\" ]; then printf \"%s | %s\" \"\$PREV_OUT\" \"\$HARNESS_OUT\"; else printf \"%s\" \"\$HARNESS_OUT\"; fi'"
 else
-  STATUSLINE_COMMAND="bash $COLLECTOR_SCRIPT"
+  STATUSLINE_COMMAND="bash $COLLECTOR_CMD"
 fi
 
 python3 - "$SETTINGS_FILE" "$STATUSLINE_COMMAND" <<'PY'

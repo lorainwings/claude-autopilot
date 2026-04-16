@@ -34,6 +34,7 @@ fi
 SETTINGS_CONTENT=$(cat "$SETTINGS_FILE" 2>/dev/null || true)
 assert_contains "settings contain statusLine key" "$SETTINGS_CONTENT" '"statusLine"'
 assert_contains "settings contain collector command" "$SETTINGS_CONTENT" "statusline-collector.sh"
+assert_contains "settings use CLAUDE_PLUGIN_ROOT env var" "$SETTINGS_CONTENT" 'CLAUDE_PLUGIN_ROOT'
 
 assert_file_exists "git exclude exists" "$EXCLUDE_FILE"
 EXCLUDE_CONTENT=$(cat "$EXCLUDE_FILE" 2>/dev/null || true)

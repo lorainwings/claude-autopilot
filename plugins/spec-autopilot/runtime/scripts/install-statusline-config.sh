@@ -40,6 +40,10 @@ COLLECTOR_SCRIPT="$SCRIPT_DIR/statusline-collector.sh"
   exit 1
 }
 
+# Resolve plugin root (two levels up from runtime/scripts/) for version-resilient path.
+# Uses $CLAUDE_PLUGIN_ROOT at runtime (set by Claude Code for plugins) with absolute fallback.
+PLUGIN_ROOT_ABS="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 if [ "$SCOPE" = "user" ]; then
   CLAUDE_DIR="${HOME}/.claude"
   SETTINGS_FILE="$CLAUDE_DIR/settings.json"
@@ -54,8 +58,8 @@ fi
 
 mkdir -p "$CLAUDE_DIR"
 
-# Write collector path directly into settings — no bridge script needed.
-STATUSLINE_COMMAND="bash $COLLECTOR_SCRIPT"
+# Use ${CLAUDE_PLUGIN_ROOT} with absolute fallback so the path survives plugin upgrades.
+STATUSLINE_COMMAND="bash \${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT_ABS}/runtime/scripts/statusline-collector.sh"
 
 python3 - "$SETTINGS_FILE" "$STATUSLINE_COMMAND" <<'PY'
 import json
