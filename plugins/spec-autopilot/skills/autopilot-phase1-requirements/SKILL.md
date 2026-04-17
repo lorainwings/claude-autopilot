@@ -36,9 +36,9 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    按复杂度路由结果自适应派发（不再固定三路同时）：
 
    ```
-   ┌─ Auto-Scan (general-purpose agent) → Steering Documents         ← 始终执行
-   ├─ 技术调研 (general-purpose agent) → research-findings.md        ← 中/高复杂度
-   └─ 联网搜索 (general-purpose) → web-research-findings.md  ← 高复杂度 + 规则判定
+   ┌─ Auto-Scan (config.phases.requirements.agent) → Steering Documents         ← 始终执行
+   ├─ 技术调研 (config.phases.requirements.research.agent) → research-findings.md        ← 中/高复杂度
+   └─ 联网搜索 (config.phases.requirements.research.agent) → web-research-findings.md  ← 高复杂度 + 规则判定
    ```
 
    **联网搜索决策**：默认执行搜索（`search_policy.default: search`），仅当任务**同时满足所有跳过条件**时才跳过：

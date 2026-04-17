@@ -33,7 +33,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 前台 Task 读取所有 checkpoint 并生成汇总（上下文保护增强）：
 
 ```
-Task(subagent_type: "general-purpose", prompt: "
+Task(subagent_type: config.phases.archive.agent, prompt: "
   读取 openspec/changes/<name>/context/phase-results/ 下所有 JSON checkpoint 文件。
   读取 Phase 6 checkpoint（phase-6-report.json）提取 report_format、report_path、suite_results。
   读取 Phase 5 task checkpoints（phase5-tasks/task-*.json）提取 test_driven_evidence 字段（如存在）。
@@ -65,7 +65,7 @@ Task(subagent_type: "general-purpose", prompt: "
 
 ### Step 1.6: 知识提取（后台子 Agent）
 
-- 派发后台 Agent：`Task(subagent_type: "general-purpose", run_in_background: true)`
+- 派发后台 Agent：`Task(subagent_type: config.phases.archive.agent, run_in_background: true)`
 - Agent 任务：读取 `references/knowledge-accumulation.md` → 遍历 phase-results → 提取知识 → 写入 `openspec/.autopilot-knowledge.json`
 - 主线程同时继续执行步骤 2，不阻塞
 - 在步骤 3 archive-readiness 检查前等待完成，展示：「已提取 N 条知识（M 条 pitfall，K 条 decision）」

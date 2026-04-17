@@ -31,7 +31,7 @@ ROUTING_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/resolve-model-routing.
 
 ```
 Task(
-  subagent_type: "pr-review-toolkit:code-reviewer",
+  subagent_type: config.phases.code_review.agent,
   model: "{selected_model}",
   run_in_background: true,
   prompt: "你是代码审查专家。审查以下代码变更：
