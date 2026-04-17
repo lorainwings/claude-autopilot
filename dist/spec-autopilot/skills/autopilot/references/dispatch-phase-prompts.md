@@ -203,7 +203,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
 
 ## Phase 6（测试报告）
 
-- Agent: general-purpose（推荐安装 OMC "qa-tester" Agent）
+- Agent: config.phases.reporting.agent（默认 "general-purpose"; 推荐安装 OMC "qa-tester" Agent）
 - 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
 - 可选覆盖：config.phases.reporting.instruction_files（非空时注入）

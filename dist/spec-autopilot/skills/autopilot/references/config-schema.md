@@ -102,6 +102,7 @@ phases:
       max_agents: 8          # 最大并行域数（建议 3-8，上限 10）
       dependency_analysis: true
       domain_detection: "auto"   # auto: 自动发现未配置的顶级目录 | explicit: 仅用 domain_agents
+      review_agent: "general-purpose"   # 批量 Review Agent（Phase 5 review + parallel-dispatch review）
       default_agent: "general-purpose"  # 未匹配域的 fallback Agent
       domain_agents:             # 路径前缀 → Agent 映射（最长前缀匹配，每域 1 Agent）
         "backend/":
@@ -120,6 +121,7 @@ phases:
         # "apps/ios/":               { agent: "mobile-developer" }
         # "packages/":               { agent: "fullstack-developer" }
   reporting:
+    agent: "general-purpose"    # 推荐安装 OMC "qa-tester" Agent（/autopilot-agents install）
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom
     report_commands:
@@ -130,12 +132,15 @@ phases:
     zero_skip_required: true
   code_review:
     enabled: true              # Phase 6.5 代码审查（默认启用）
+    agent: "pr-review-toolkit:code-reviewer"  # 代码审查 Agent（/autopilot-agents install 可替换）
     auto_fix_minor: false      # 是否自动修复 minor findings
     block_on_critical: true    # critical findings 时是否要求用户显式确认（true: 展示 findings 并要求用户选择忽略/修复/暂停；false: 跳过检查直接自动归档）
     skip_patterns:             # 跳过审查的文件模式
       - "*.md"
       - "*.json"
       - "openspec/**"
+  archive:
+    agent: "general-purpose"    # Phase 7 归档/知识提取 Agent
 
 test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
@@ -330,6 +335,7 @@ phases 内必须的 key:
   - phases.testing.gate.min_test_count_per_type (number, >= 1)
   - phases.testing.gate.required_test_types (array, non-empty)
   - phases.implementation.serial_task.max_retries_per_task (number, >= 1)
+  - phases.reporting.agent (string)
   - phases.reporting.coverage_target (number, 0-100)
   - phases.reporting.zero_skip_required (boolean)
 

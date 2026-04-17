@@ -23,7 +23,7 @@ tri_path_parallel:
     type: "background"
     condition: "config.phases.code_review.enabled"
     model_routing: "resolve-model-routing.sh phase=6 critical=true"  # 强制 deep/opus
-    agent: "general-purpose"
+    agent: config.phases.code_review.agent  # 默认 "pr-review-toolkit:code-reviewer"
     prompt_source: "references/phase6-code-review.md"
     no_phase_marker: true  # 不含 autopilot-phase 标记，Hook 直接放行
 
@@ -44,7 +44,7 @@ tri_path_parallel:
 
 ```markdown
 {for each suite in config.test_suites}
-Task(subagent_type: "qa-expert", run_in_background: true,
+Task(subagent_type: config.phases.reporting.agent, run_in_background: true,
   prompt: "<!-- autopilot-phase:6 -->
   你是 autopilot Phase 6 的并行测试执行子 Agent（{suite_name} 专项）。
 

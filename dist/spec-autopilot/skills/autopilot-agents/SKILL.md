@@ -193,9 +193,14 @@ ELSE:
 读取 .claude/autopilot.config.yaml
 更新以下字段:
   phases.requirements.agent: "{selected_phase1_agent}"
+  phases.requirements.research.agent: "{selected_phase1_research_agent}"
   phases.openspec.agent: "{selected_phase2_agent}"
   phases.testing.agent: "{selected_phase4_agent}"
   phases.implementation.parallel.default_agent: "{selected_phase5_agent}"
+  phases.implementation.review_agent: "{selected_phase5_review_agent}"
+  phases.reporting.agent: "{selected_phase6_agent}"
+  phases.code_review.agent: "{selected_phase6_review_agent}"
+  phases.archive.agent: "{selected_phase7_agent}"
 
   # 域级 Agent 配置写入（Step 2.5 选定的域 Agent）
   IF 用户在 Step 2.5 选择了域级 Agent:
@@ -248,12 +253,15 @@ Phase → config key 映射:
 
 ```
 phase1 → phases.requirements.agent
+phase1-research → phases.requirements.research.agent
 phase2 → phases.openspec.agent
 phase3 → phases.openspec.agent (共享 Phase 2)
 phase4 → phases.testing.agent
 phase5 → phases.implementation.parallel.default_agent
-phase6 → phases.testing.agent (共享 Phase 4)
-phase7 → (主线程执行，不配置 agent)
+phase5-review → phases.implementation.review_agent
+phase6 → phases.reporting.agent
+phase6-review → phases.code_review.agent
+phase7 → phases.archive.agent
 ```
 
 #### 域 Agent 热交换
