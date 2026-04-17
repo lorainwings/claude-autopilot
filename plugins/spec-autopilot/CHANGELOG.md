@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.9.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.0...spec-autopilot-v5.9.1) (2026-04-17)
+
+
+### Changed
+
+* **spec-autopilot:** 全量清理编排流程中的硬编码 Agent 名 ([82ffb7a](https://github.com/lorainwings/claude-autopilot/commit/82ffb7a14bf6d2d3aa9dfaa2209407241f97739e))
+
 ## [5.9.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.8.1...spec-autopilot-v5.9.0) (2026-04-16)
 
 
