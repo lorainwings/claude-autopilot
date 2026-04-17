@@ -1,6 +1,6 @@
 {
   "name": "spec-autopilot",
-  "version": "5.8.0",
+  "version": "5.9.0",
   "description": "Spec-driven autopilot with banned-pattern/assertion-quality L2 hooks, sad-path quantification, requirement routing intelligence, event bus API, batch scheduler concurrency engine, 3-layer gate system, TDD deterministic RED-GREEN-REFACTOR cycle, and comprehensive quality assurance pipeline",
   "author": {
     "name": "vibeflow-team"
