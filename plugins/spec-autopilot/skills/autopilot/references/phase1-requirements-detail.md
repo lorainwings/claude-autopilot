@@ -360,7 +360,7 @@ Write 完成后返回 JSON 信封（禁止在信封中包含调研全文）：
 1. 将调研详情 Write 到 `openspec/changes/<name>/context/research-findings.md`
 2. 返回 JSON 信封（仅摘要，禁止包含调研全文）
 
-> **上下文保护原则**：调研全文仅存在于文件中，由 business-analyst 和后续 Phase 子 Agent 直接 Read。主线程仅消费信封中的结构化摘要。
+> **上下文保护原则**：调研全文仅存在于文件中，由需求分析 Agent 和后续 Phase 子 Agent 直接 Read。主线程仅消费信封中的结构化摘要。
 
 ### 返回格式（JSON 信封）
 
@@ -494,7 +494,7 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 
 如果 Research Agent 被跳过（research_status: "skipped"），默认 complexity = `"medium"`。
 
-## 1.5 Business-Analyst 完整 Prompt 模板（上下文隔离修订）
+## 1.5 需求分析 Agent 完整 Prompt 模板（上下文隔离修订）
 
 ```
 你是 autopilot Phase 1 的需求分析 Agent。
@@ -607,7 +607,7 @@ FOR q IN ba_envelope.open_questions:
 
 > **返回值校验**: 主线程必须检查返回非空，且包含 `decision_points` 和 `requirements_summary`。如果返回为空或格式异常，应重新 dispatch 并在 prompt 中明确要求结构化输出。此 Task 不含 autopilot-phase 标记（设计预期），不受 Hook 门禁校验。
 
-> **上下文保护**：Phase 1 所有子 Agent（调研三路 + business-analyst）
+> **上下文保护**：Phase 1 所有子 Agent（调研三路 + 需求分析 Agent）
 > 均使用 `run_in_background: true`，主线程仅消费 JSON 信封摘要。
 > 全文由子 Agent 自行 Write，后续阶段子 Agent 直接 Read。
 

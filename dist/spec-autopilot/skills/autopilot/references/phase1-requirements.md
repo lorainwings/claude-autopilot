@@ -220,11 +220,11 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 ## 1.5 需求分析（增强版）
 
-> **上下文保护**：business-analyst 使用 `run_in_background: true`，自行 Write 完整分析，主线程仅消费信封。
+> **上下文保护**：需求分析 Agent（config.phases.requirements.agent）使用 `run_in_background: true`，自行 Write 完整分析，主线程仅消费信封。
 
 调用 Task(subagent_type: config.phases.requirements.agent, run_in_background: true) 分析需求，注入 Steering Context + 调研结论。
 
-→ 详见 `phase1-requirements-detail.md`（Business-Analyst 完整 Prompt 模板）
+→ 详见 `phase1-requirements-detail.md`（需求分析 Agent 完整 Prompt 模板）
 
 ## 1.5.5 结构化决策协议（Decision Protocol）
 

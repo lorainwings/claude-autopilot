@@ -8,7 +8,7 @@
 # Detection: Only processes Task calls whose prompt contains
 #            <!-- autopilot-phase:1 -->. All other Task calls exit 0 immediately.
 #
-# NOTE (by design): Phase 1 的 research/business-analyst Task 不含 autopilot-phase
+# NOTE (by design): Phase 1 的 research 与需求分析 Task（config.phases.requirements.agent）不含 autopilot-phase
 #   标记（见 autopilot-dispatch SKILL.md），因此该 Hook 仅在主线程直接使用含
 #   Phase 1 标记的 Task 时触发。当前设计下 Phase 1 走主线程交互模式，
 #   决策格式由主线程自身保证。此 Hook 作为额外防线存在。

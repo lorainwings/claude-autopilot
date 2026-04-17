@@ -18,7 +18,7 @@ echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"ta
 # Task file required by fail-closed Phase 6 gate
 echo "- [x] task 1" > "$TMPDIR_47a/openspec/changes/test-47a/tasks.md"
 exit_code=0
-OUT47a=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47a\"}" \
+OUT47a=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47a\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "47a: full Phase 6 with Phase 5 ok → exit 0" 0 $exit_code
 assert_not_contains "47a: full Phase 6 → no deny" "$OUT47a" "deny"
@@ -34,7 +34,7 @@ echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"ta
 mkdir -p "$TMPDIR_47b/openspec/changes/test-47b/context"
 echo "- [x] task 1" > "$TMPDIR_47b/openspec/changes/test-47b/context/phase5-task-breakdown.md"
 exit_code=0
-OUT47b=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47b\"}" \
+OUT47b=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47b\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "47b: lite Phase 6 with Phase 5 ok → exit 0" 0 $exit_code
 assert_not_contains "47b: lite Phase 6 → no deny" "$OUT47b" "deny"
@@ -47,7 +47,7 @@ echo '{"change":"test-47c","mode":"minimal"}' > "$TMPDIR_47c/openspec/changes/.a
 echo '{"status":"ok","summary":"Impl done","zero_skip_check":{"passed":true},"tasks_completed":"3/3","test_results_path":"r.json"}' \
   > "$TMPDIR_47c/openspec/changes/test-47c/context/phase-results/phase-5-implement.json"
 exit_code=0
-OUT47c=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$TMPDIR_47c\"}" \
+OUT47c=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$TMPDIR_47c\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "47c: minimal Phase 6 → exit 0" 0 $exit_code
 assert_contains "47c: minimal Phase 6 → deny" "$OUT47c" "deny"

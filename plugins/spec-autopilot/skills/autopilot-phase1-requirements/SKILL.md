@@ -57,7 +57,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    > **Agent 事件**: Hook `auto-emit-agent-complete.sh` 自动为每个完成的 autopilot Task 发射 `agent_complete` 事件，无需手动调用。
    - 验证文件存在：`Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")`
    - 从各 Agent 返回的 JSON 信封提取：`decision_points`（决策点）、`tech_constraints`（技术约束）、`complexity`（复杂度评估）
-   - 文件全文由后续子 Agent（business-analyst、Phase 2-6）直接 Read，不经过主线程
+   - 文件全文由后续子 Agent（需求分析 Agent、Phase 2-6）直接 Read，不经过主线程
    产出文件列表（子 Agent 自行写入）：
    - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（Auto-Scan）
    - `context/research-findings.md`（技术调研）
@@ -74,14 +74,14 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    ```
 
 5. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
-6. Task 调度 business-analyst 分析需求（`run_in_background: true`）：
+6. Task 调度需求分析 Agent（`config.phases.requirements.agent`，默认 general-purpose；可通过 `/autopilot-agents install` 安装专业 Agent）分析需求（`run_in_background: true`）：
    > **Agent 事件**: Hook 自动发射 agent_dispatch/complete，无需手动调用。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 ba_dispatched in_progress')
    - 子 Agent 自行 Read context/ 全部文件，将完整分析 Write 到 `context/requirements-analysis.md`
    - 等待 Claude Code 自动完成通知
    - 从 JSON 信封提取：`decision_points`、`requirements_summary`、`open_questions`
    - 主线程**不读取** `requirements-analysis.md` 全文
-5.5. **主动讨论协议** — 基于信封中的 `decision_points` + business-analyst 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
+5.5. **主动讨论协议** — 基于信封中的 `decision_points` + 需求分析 Agent（`config.phases.requirements.agent`）产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
 7. **多轮决策 LOOP**（弹性收敛重构） — 以混合清晰度评分（规则×0.6 + AI×0.4）作为退出条件，而非硬性轮数上限。Medium/Large 遵循一次一问原则。挑战代理在第 4/6/8 轮自动激活视角转换（反面论证/简化/本体论）。停滞检测在连续 2 轮波动 ≤5% 时干预。安全阀: soft=8轮提醒, hard=15轮上限。`min_qa_rounds` 保留为下限。
    **执行前读取**: `autopilot/references/phase1-clarity-scoring.md` + `autopilot/references/phase1-challenge-agents.md`
 

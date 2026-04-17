@@ -97,7 +97,7 @@ Phase 1 Auto-Scan（1.2 节）完成后，自动注入相关历史知识：
    - [decision] {summary}: {detail} (from: {change})
    - [pattern] {summary}: {detail} (reused {reuse_count} times)
 
-6. 注入 business-analyst Agent prompt 的「已知坑点」节
+6. 注入需求分析 Agent（config.phases.requirements.agent）prompt 的「已知坑点」节
 
 7. 匹配到的 entries 的 reuse_count += 1（延迟写回）
 ```

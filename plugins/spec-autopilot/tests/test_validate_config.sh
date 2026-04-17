@@ -20,9 +20,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
@@ -60,7 +60,7 @@ cat > "$CONFIG_TEST_DIR/partial/.claude/autopilot.config.yaml" << 'YAML'
 version: "1.0"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
 YAML
 
 output=$(bash "$SCRIPT_DIR/validate-config.sh" "$CONFIG_TEST_DIR/partial" 2>/dev/null)
@@ -93,9 +93,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
@@ -131,9 +131,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]
@@ -173,9 +173,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, visual]
@@ -204,9 +204,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]
@@ -313,9 +313,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]
@@ -341,9 +341,9 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]
@@ -375,12 +375,12 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
     research:
       enabled: true
       agent: "Explore"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]
@@ -426,12 +426,12 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
     research:
       enabled: true
       agent: "explore"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]
@@ -465,12 +465,12 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
     research:
       enabled: true
       agent: "general-purpose"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]

@@ -223,11 +223,11 @@ services:
 
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"    # Default safe fallback. Run /autopilot-agents install to swap in recommended agents (analyst / business-analyst).
     min_qa_rounds: 1
     mode: "structured"           # structured | socratic
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"    # Default. Recommended: qa-expert / test-engineer (install via /autopilot-agents install).
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]

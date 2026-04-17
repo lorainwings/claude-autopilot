@@ -19,7 +19,7 @@ echo "- [x] task 1" > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase5-
 
 # 38a. Lite mode: Phase 5 → Phase 6 allowed
 exit_code=0
-output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$LITE_TEST_DIR\"}" \
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$LITE_TEST_DIR\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Lite: Phase 5 ok → Phase 6 allow (exit 0)" 0 $exit_code
 assert_not_contains "Lite: Phase 6 no deny" "$output" "deny"

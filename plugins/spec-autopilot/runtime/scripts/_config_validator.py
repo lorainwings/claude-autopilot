@@ -384,7 +384,7 @@ def validate(config_path):
             'Change to "general-purpose" in .claude/autopilot.config.yaml'
         )
 
-    # Soft warning: non-builtin agent types (e.g. "business-analyst", "qa-expert")
+    # Soft warning: non-builtin agent types (any custom agent installed via /autopilot-agents)
     # are valid if a matching .claude/agents/{name}.md exists. Since the validator
     # only reads the YAML (not the filesystem), we emit an informational warning
     # guiding the user to install the custom agent via /autopilot-agents.

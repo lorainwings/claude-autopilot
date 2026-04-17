@@ -131,11 +131,11 @@ services:
     health_url: "http://localhost:8080/health"
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"
     research:
       agent: "Explore"
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit]

@@ -8,7 +8,7 @@
 ```yaml
 parallel_tasks:
   - name: "unit-tests"
-    agent: "backend-developer"
+    agent: config.phases.testing.agent  # 默认 "general-purpose"; 推荐安装 "qa-expert"
     domain: "backend"
     test_type: "unit"
   - name: "api-tests"
@@ -20,7 +20,7 @@ parallel_tasks:
     domain: "e2e"
     test_type: "e2e"
   - name: "ui-tests"
-    agent: "frontend-developer"
+    agent: config.phases.testing.agent  # 默认 "general-purpose"; 推荐安装 "qa-expert"
     domain: "frontend"
     test_type: "ui"
 ```

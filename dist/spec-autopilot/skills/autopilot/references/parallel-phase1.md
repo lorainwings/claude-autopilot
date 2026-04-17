@@ -40,9 +40,9 @@ parallel_tasks:
 ```
 
 > **禁止**：在信封的 summary 或其他字段中返回调研全文。全文必须 Write 到 output_file。
-> **主线程仅消费信封**，不 Read 产出文件。产出文件由 business-analyst 和 Phase 2-6 子 Agent 直接 Read。
+> **主线程仅消费信封**，不 Read 产出文件。产出文件由需求分析 Agent（config.phases.requirements.agent）和 Phase 2-6 子 Agent 直接 Read。
 
-汇合后: 主线程从信封提取 decision_points + tech_constraints → 注入到 business-analyst 的 dispatch prompt
+汇合后: 主线程从信封提取 decision_points + tech_constraints → 注入到 需求分析 Agent 的 dispatch prompt
 
 ## Phase 1 并行调度模板
 
@@ -78,10 +78,10 @@ Task(subagent_type: config.phases.requirements.research.agent, run_in_background
 {end if}
 ```
 
-等待全部完成 → 主线程**仅从各 Agent 返回的 JSON 信封**提取 `decision_points`、`tech_constraints`、`complexity`、`key_files` 等结构化字段 → 将这些**信封摘要**（而非正文）注入到 business-analyst 的 dispatch prompt。
+等待全部完成 → 主线程**仅从各 Agent 返回的 JSON 信封**提取 `decision_points`、`tech_constraints`、`complexity`、`key_files` 等结构化字段 → 将这些**信封摘要**（而非正文）注入到 需求分析 Agent 的 dispatch prompt。
 
 > **上下文隔离红线**：主线程**禁止** `Read(research-findings.md)` 或 `Read(web-research-findings.md)` 获取调研全文。
-> 全文由 business-analyst 子 Agent 在自己的执行环境中直接 Read。
+> 全文由需求分析 Agent 在自己的执行环境中直接 Read。
 > 主线程仅消费信封中的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）。
 > 主线程仅通过 `Bash("test -s {output_file} && echo ok")` 验证产出文件存在性。
 
