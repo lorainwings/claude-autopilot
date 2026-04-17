@@ -200,7 +200,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 > **后台执行约束**：子 Agent 必须 `run_in_background: true`，主线程仅消费 JSON 信封。
 
-调用 Task(subagent_type = "general-purpose", run_in_background: true) 并行技术调研。此 Task 不含 `autopilot-phase` 标记。
+调用 Task(subagent_type: config.phases.requirements.research.agent, run_in_background: true) 并行技术调研。此 Task 不含 `autopilot-phase` 标记。
 
 → 详见 `phase1-requirements-detail.md`（Research Agent Prompt 模板、调研深度配置）
 
@@ -222,7 +222,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 > **上下文保护**：business-analyst 使用 `run_in_background: true`，自行 Write 完整分析，主线程仅消费信封。
 
-调用 Task(subagent_type = "business-analyst", run_in_background: true) 分析需求，注入 Steering Context + 调研结论。
+调用 Task(subagent_type: config.phases.requirements.agent, run_in_background: true) 分析需求，注入 Steering Context + 调研结论。
 
 → 详见 `phase1-requirements-detail.md`（Business-Analyst 完整 Prompt 模板）
 

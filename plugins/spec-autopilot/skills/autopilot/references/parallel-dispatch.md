@@ -274,7 +274,7 @@ for each agent in sorted(agents, key=task_number):
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: config.phases.implementation.review_agent,
   prompt: "审查以下变更的规范符合性和代码质量:
   
   {for each agent in group}

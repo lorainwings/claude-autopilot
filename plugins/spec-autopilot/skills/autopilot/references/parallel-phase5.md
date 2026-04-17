@@ -16,7 +16,7 @@ parallel_config:
   review_after: true                      # 每组完成后批量 review
 
   domain_detection: "auto"                 # auto: 自动发现域 | explicit: 仅用配置的前缀
-  default_agent: "general-purpose"          # 未匹配任何前缀的默认 Agent
+  default_agent: config.phases.implementation.parallel.default_agent  # 默认 "general-purpose"
   domain_agents:                            # 路径前缀 → Agent 映射（每域严格 1 Agent）
     "backend/":                             # 匹配 backend/ 下所有文件
       agent: "backend-developer"
@@ -282,7 +282,7 @@ for each agent in sorted(agents, key=task_number):
 
 ```markdown
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: config.phases.implementation.review_agent,
   prompt: "审查以下变更的规范符合性和代码质量:
 
   {for each agent in group}

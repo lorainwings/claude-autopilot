@@ -20,7 +20,7 @@ Phase 5→6 Gate 通过后，主线程**与 Phase 6 测试执行和 Phase 6.5 �
 scan_agents = []
 for scan in config.async_quality_scans:
   agent = Task(
-    subagent_type: "general-purpose",
+    subagent_type: scan.agent,
     run_in_background: true,
     prompt: "<!-- autopilot-quality-scan:{scan.name} -->
       1. 检查工具: {scan.check_command}

@@ -11,7 +11,7 @@
 派发**前台 Task**（非后台）处理 Allure 预览验证/兜底：
 
 ```
-Task(subagent_type: "general-purpose", prompt: "
+Task(subagent_type: config.phases.archive.agent, prompt: "
   你是 Allure 预览服务验证子 Agent。按以下步骤执行：
 
   ## Step 1: 检查已有服务

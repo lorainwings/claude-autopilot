@@ -8,15 +8,15 @@
 ```yaml
 parallel_tasks:
   - name: "auto-scan"
-    agent: "general-purpose"
+    agent: config.phases.requirements.agent  # 默认 "general-purpose"
     prompt_template: "分析项目结构和现有代码模式..."
     merge_strategy: "none"
   - name: "tech-research"
-    agent: "general-purpose"
+    agent: config.phases.requirements.research.agent  # 默认 "general-purpose"
     prompt_template: "分析与需求相关的代码、依赖兼容性..."
     merge_strategy: "none"
   - name: "web-search"
-    agent: "general-purpose"
+    agent: config.phases.requirements.research.agent  # 默认 "general-purpose"
     prompt_template: "联网搜索最佳实践和竞品方案..."
     merge_strategy: "none"
     condition: "search_policy.default: search — 规则判定跳过时不派发此 Agent"
@@ -50,7 +50,7 @@ parallel_tasks:
 
 ```markdown
 # Task 1: Auto-Scan（general-purpose agent）
-Task(subagent_type: "general-purpose", run_in_background: true,
+Task(subagent_type: config.phases.requirements.agent, run_in_background: true,
   prompt: "分析项目结构，生成 Steering Documents:
   - project-context.md（技术栈、目录结构）
   - existing-patterns.md（现有代码模式）
@@ -59,7 +59,7 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 )
 
 # Task 2: 技术调研（general-purpose agent）
-Task(subagent_type: "general-purpose", run_in_background: true,
+Task(subagent_type: config.phases.requirements.research.agent, run_in_background: true,
   prompt: "分析与需求相关的代码:
   需求: {RAW_REQUIREMENT}
   重点: 影响范围、依赖兼容性、技术可行性
@@ -68,7 +68,7 @@ Task(subagent_type: "general-purpose", run_in_background: true,
 
 # Task 3: 联网搜索（条件派发）
 {if config.phases.requirements.web_search.enabled}
-Task(subagent_type: "general-purpose", run_in_background: true,
+Task(subagent_type: config.phases.requirements.research.agent, run_in_background: true,
   prompt: "联网搜索与需求相关的最佳实践:
   需求: {RAW_REQUIREMENT}
   搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
