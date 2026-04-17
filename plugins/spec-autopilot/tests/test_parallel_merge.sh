@@ -43,7 +43,7 @@ echo "{\"change\":\"test-change\",\"anchor_sha\":\"$ANCHOR_SHA\"}" > "$ANCHOR_TE
 # 注意：必须用 printf + 单引号避免 bash 解释 JSON 转义（如 \n, \"）
 mk_merge_input() {
   local cwd="$1"
-  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5 impl","subagent_type":"backend-developer"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Foo.java\"]}","cwd":"'"$cwd"'"}'
+  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5 impl","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Foo.java\"]}","cwd":"'"$cwd"'"}'
 }
 
 # 39a. 有效 anchor_sha → diff 覆盖锚定点之后全部 commit → 检测到 scope 外文件
@@ -99,7 +99,7 @@ mkdir -p "$SCOPE_TEST_DIR/.claude"
 mkdir -p "$SCOPE_TEST_DIR/openspec/changes/scope-test/context/phase-results"
 echo "{\"change\":\"scope-test\",\"anchor_sha\":\"$SCOPE_ANCHOR\"}" > "$SCOPE_TEST_DIR/openspec/changes/.autopilot-active"
 mk_scope_input() {
-  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5","subagent_type":"backend-developer"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Bar.java\"]}","cwd":"'"$1"'"}'
+  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Bar.java\"]}","cwd":"'"$1"'"}'
 }
 exit_code=0
 output=$(mk_scope_input "$SCOPE_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?

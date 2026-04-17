@@ -223,11 +223,11 @@ services:
 
 phases:
   requirements:
-    agent: "business-analyst"
+    agent: "general-purpose"    # 默认安全兜底。运行 /autopilot-agents install 可安装推荐 Agent（analyst / business-analyst）。
     min_qa_rounds: 1
     mode: "structured"           # structured | socratic
   testing:
-    agent: "qa-expert"
+    agent: "general-purpose"    # 默认值。推荐：qa-expert / test-engineer（通过 /autopilot-agents install 安装）。
     gate:
       min_test_count_per_type: 5
       required_test_types: [unit, api, e2e, ui]

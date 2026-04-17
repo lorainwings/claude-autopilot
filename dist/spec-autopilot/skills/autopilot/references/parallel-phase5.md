@@ -19,19 +19,19 @@ parallel_config:
   default_agent: config.phases.implementation.parallel.default_agent  # 默认 "general-purpose"
   domain_agents:                            # 路径前缀 → Agent 映射（每域严格 1 Agent）
     "backend/":                             # 匹配 backend/ 下所有文件
-      agent: "backend-developer"
+      agent: config.phases.implementation.parallel.domain_agents["backend/"].agent  # 示例默认值；可由用户通过 setup/swap 配置
       max_tasks_per_batch: 10
     "frontend/":                            # 匹配 frontend/ 下所有文件
-      agent: "frontend-developer"
+      agent: config.phases.implementation.parallel.domain_agents["frontend/"].agent
       max_tasks_per_batch: 10
     "node/":                                # 匹配 node/ 下所有文件
-      agent: "fullstack-developer"
+      agent: config.phases.implementation.parallel.domain_agents["node/"].agent
       max_tasks_per_batch: 10
     # 用户可自由扩展任意路径前缀：
     # "android/":
-    #   agent: "mobile-developer"
+    #   agent: config.phases.implementation.parallel.domain_agents["mobile/"].agent  # 示例
     # "packages/core/":
-    #   agent: "backend-developer"
+    #   agent: config.phases.implementation.parallel.domain_agents["packages/"].agent  # 示例
 
   cross_cutting_strategy: "serial_after_parallel"
   max_parallel_domains: 8                 # 最多 8 个域同时并行
@@ -140,7 +140,7 @@ for task in unmatched:
 if len(domain_tasks) > max_agents:
     # 相同 Agent 的域合并为 1 个逻辑域
     # 例: payment/(backend-dev) + notification/(backend-dev)
-    #   → 1 个 backend-developer Agent 处理 2 个域的所有 task
+    #   → 1 个同类型 Agent 批量处理 2 个域的所有 task
     domain_tasks = coalesce_same_agent_domains(domain_tasks, max_agents)
 
 # 为每个逻辑域生成 owned_files（域内所有 task 文件的并集）

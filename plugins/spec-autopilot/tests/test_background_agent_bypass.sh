@@ -15,7 +15,7 @@ setup_autopilot_fixture
 TMPDIR_BG=$(mktemp -d)
 mkdir -p "$TMPDIR_BG/openspec/changes/test-bg/context/phase-results"
 echo '{"change_name":"test-bg","pid":'"$$"',"started":"2026-01-01T00:00:00Z"}' > "$TMPDIR_BG/openspec/changes/.autopilot-active"
-BG_STDIN='{"tool_name":"Agent","tool_input":{"prompt":"<!-- autopilot-phase:5 --> implement task","run_in_background":true,"agent":"fullstack-developer"},"tool_response":"Running in background","cwd":"'"$TMPDIR_BG"'"}'
+BG_STDIN='{"tool_name":"Agent","tool_input":{"prompt":"<!-- autopilot-phase:5 --> implement task","run_in_background":true,"agent":"general-purpose"},"tool_response":"Running in background","cwd":"'"$TMPDIR_BG"'"}'
 
 # 45a: validate-json-envelope bypasses background agent
 OUT45a=$(echo "$BG_STDIN" | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)

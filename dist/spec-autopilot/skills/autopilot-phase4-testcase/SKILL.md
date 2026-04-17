@@ -37,7 +37,7 @@ TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 
 **执行位置**: Task 子 Agent
 
-- Agent: `config.phases.testing.agent`（默认 qa-expert）
+- Agent: `config.phases.testing.agent`（默认 general-purpose；推荐安装 qa-expert / test-engineer）
 - Model Tier: deep / opus
 - **必须使用 `run_in_background: true`**：测试用例生成不需要交互，主线程等待完成通知后验证 gate 即可
 - 项目上下文从 config.project_context + config.test_suites + Phase 1 Steering Documents 自动注入

@@ -120,7 +120,7 @@ if config...domain_detection == "auto":
 if len(domain_tasks) > config...max_agents:
     # 将使用相同 Agent 的域合并为逻辑组
     # 例如: payment/(backend-dev) + notification/(backend-dev) + gateway/(backend-dev)
-    #     → 合并为 1 个 backend-developer Agent 处理 3 个域
+    #     → 合并为 1 个同类型 Agent 批量处理 3 个域
     agent_groups = group_by(domain_tasks, key=get_agent)
     merged = {}
     for agent, groups in agent_groups:
@@ -137,7 +137,7 @@ if len(domain_tasks) > config...max_agents:
 > **祖先冲突检测**：Task 跨 `services/auth/` 和 `services/payment/` 时，
 > 不会被 auto 发现为 `services/`（因为 `services/` 有已配置的子前缀）。
 > **同 Agent 合并**：使用相同 Agent 类型的域自动合并，减少并行数，
-> 例如 3 个 backend-developer 域 → 1 个 Agent 批量处理。
+> 例如 3 个使用同一 Agent 类型的域 → 1 个 Agent 批量处理（如 3 个 backend 域）。
 
 ## 并行派发模板
 

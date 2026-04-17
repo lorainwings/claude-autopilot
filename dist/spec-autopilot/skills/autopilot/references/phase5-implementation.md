@@ -144,7 +144,7 @@
 > 默认配置为 `backend/`、`frontend/`、`node/`，可自由添加任意路径前缀。
 >
 > **溢出策略**：当域数超过 `max_agents`（默认 8）时，自动将使用相同 Agent 的域
-> 合并为一个逻辑域。例如 3 个 `backend-developer` 域合并为 1 个 Agent 批量处理。
+> 合并为一个逻辑域。例如 3 个使用同一 Agent 类型的域合并为 1 个 Agent 批量处理。
 > 合并后仍超标 → 将 auto 发现的域降级到 cross_cutting 串行执行。
 
 #### 所有权强制执行

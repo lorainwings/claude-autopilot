@@ -24,7 +24,7 @@ assert_not_contains "Minimal: Phase 7 no deny" "$output" "deny"
 
 # 37b. Minimal mode: Phase 6 dispatch → should be denied
 exit_code=0
-output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"qa-expert\"},\"cwd\":\"$MIN_TEST_DIR\"}" \
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:6 -->\\nPhase 6\",\"subagent_type\":\"general-purpose\"},\"cwd\":\"$MIN_TEST_DIR\"}" \
   | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Minimal: Phase 6 dispatch → exit 0" 0 $exit_code
 assert_contains "Minimal: Phase 6 dispatch → deny" "$output" "deny"
