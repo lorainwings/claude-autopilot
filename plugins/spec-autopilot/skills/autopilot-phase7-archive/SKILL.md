@@ -28,6 +28,29 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 **进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 summary_dispatched in_progress')`
 
+### Step 0.5: 主动学习 — Episodes 写入与候选晋升扫描（Sprint 升级新增）
+
+归档前，对本次 autopilot 全部 phase 写入 episode 并触发 L2/L3 学习：
+
+```bash
+# 1) 为 Phase 1-6 每个 phase 写 episode（status/mode 由脚本从 checkpoint JSON 自动解析）
+for N in 1 2 3 4 5 6; do
+  CKPT=$(ls openspec/changes/{change_name}/context/phase-results/phase-${N}-*.json 2>/dev/null | head -1)
+  [ -n "$CKPT" ] && bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-episode-write.sh \
+    --phase phase${N} --checkpoint "$CKPT" --version {version} || true
+done
+
+# 2) 触发 L2 聚合 + L3 候选晋升扫描
+Skill(spec-autopilot:autopilot-learn)
+
+# 3) 候选晋升扫描产物：docs/learned/candidates/*.md（待人工/下一轮 gate 审阅）
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-promote-candidate.sh \
+  --episodes-root docs/reports \
+  --out-dir docs/learned/candidates || true
+```
+
+不阻断归档流程（学习失败 stderr 提示但 exit 0）。详见 `skills/autopilot-learn/SKILL.md`。
+
 ### Step 1: 派发汇总子 Agent
 
 前台 Task 读取所有 checkpoint 并生成汇总（上下文保护增强）：

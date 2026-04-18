@@ -2,6 +2,8 @@
 # test_background_agent_bypass.sh — Section 45: Background agent bypass
 # NOTE: Some cases test deprecated scripts (anti-rationalization-check, code-constraint-check)
 #       retained during the compatibility window.
+# TODO(compat-window): revisit 2026-10 — 如果 anti-rationalization-check / code-constraint-check
+#   在兼容窗口结束后被移除，请同步清理 45c / 45d 两个 case。
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"

@@ -27,6 +27,15 @@ fi
 bash "$SCRIPT_DIR/save-phase-context.sh" 1 full '{"summary":"Requirements analyzed","decisions":["Use REST API","PostgreSQL DB"],"constraints":["Max 100ms latency"],"artifacts":["phase-1-requirements.json"]}' 2>/dev/null
 EXIT_CODE=$?
 assert_exit "4b. write context snapshot → exit 0" 0 "$EXIT_CODE"
+# 4b'. 内容校验：snapshot 目录应被创建
+SNAPSHOT_DIR_EARLY="$CHANGE_DIR/context/phase-context-snapshots"
+if [ -d "$SNAPSHOT_DIR_EARLY" ]; then
+  green "  PASS: 4b'. snapshot directory created after write"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4b'. snapshot directory not created"
+  FAIL=$((FAIL + 1))
+fi
 
 # 4c. Verify snapshot file exists
 SNAPSHOT_DIR="$CHANGE_DIR/context/phase-context-snapshots"
@@ -62,11 +71,28 @@ else
   red "  FAIL: 4e. snapshot missing decisions content"
   FAIL=$((FAIL + 1))
 fi
+# 4e'. 内容校验：同时包含 constraints 和 artifacts payload
+if [ -f "$SNAPSHOT_FILE" ] && grep -q "100ms latency" "$SNAPSHOT_FILE" && grep -q "phase-1-requirements.json" "$SNAPSHOT_FILE"; then
+  green "  PASS: 4e'. snapshot contains constraints + artifacts payload"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4e'. snapshot missing constraints or artifacts payload"
+  FAIL=$((FAIL + 1))
+fi
 
 # 4f. Empty phase arg exits 0 gracefully
 bash "$SCRIPT_DIR/save-phase-context.sh" 2>/dev/null
 EXIT_CODE=$?
 assert_exit "4f. empty args → exit 0" 0 "$EXIT_CODE"
+# 4f'. 内容校验：empty args 不应创建伪造 snapshot 文件（仅应保留 4b 写出的 phase-1）
+snapshot_count=$(find "$SNAPSHOT_DIR" -maxdepth 1 -name 'phase-*-context.md' 2>/dev/null | wc -l | tr -d '[:space:]')
+if [ "$snapshot_count" = "1" ]; then
+  green "  PASS: 4f'. empty args did NOT create extra snapshot file (count=$snapshot_count)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 4f'. unexpected snapshot count after empty args (expected 1, got $snapshot_count)"
+  FAIL=$((FAIL + 1))
+fi
 
 # 4g. reinject-state-after-compact.sh syntax check
 if bash -n "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null; then

@@ -117,6 +117,26 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 > **必要性**: Phase 0/1 此前未接入 Event Bus，导致 GUI 在 Phase 2 之前无任何数据。此步骤确保 `events.jsonl` 在 GUI 服务器启动后立即创建，且 Phase 0 生命周期事件对 GUI 可见。
 
+### Step 4.6: 注入历史教训（Sprint 升级新增 — 主动学习 Phase 0 入口）
+
+Banner 渲染完成后、dispatch Phase 1 之前，读取 `autopilot-lessons` 语料，把 top-3 与当前需求相似的历史教训注入后续 dispatch prompt。
+
+> **Recovery 跳过**：若本次为崩溃恢复（即将在后续步骤中被设定 `recovery_phase > 0`），且 `.autopilot-lessons.json` 已存在，则**跳过本步骤**避免重复 IO 与覆盖。判定方式：检测 lock 文件中是否含历史 anchor_sha + episode 文件存在 → skip。
+
+```bash
+LESSONS_FILE="$(pwd)/openspec/changes/.autopilot-lessons.json"
+if [ ! -f "$LESSONS_FILE" ]; then
+  LESSONS_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-inject-top-lessons.sh \
+    --raw-requirement "$ARGUMENTS" \
+    --episodes-root "$(pwd)/docs/reports" \
+    --top 3 2>/dev/null || echo "[]")
+  # 结果写入 openspec/changes/.autopilot-lessons.json，供 autopilot-dispatch 在构造子 Agent prompt 时读取并以 "历史教训" 区块注入
+  echo "$LESSONS_JSON" > "$LESSONS_FILE"
+fi
+```
+
+空语料（首次运行或无历史 episode）返回 `[]`，不阻断流程。详见 `skills/autopilot-learn/SKILL.md`。
+
 ### Step 5: 检查必需插件
 
 读取 `.claude/settings.json` 的 `enabledPlugins` → 仅检查 `spec-autopilot` 是否已启用。不列出、不评判其他无关插件（忽略 enabledPlugins 中的其余条目）。

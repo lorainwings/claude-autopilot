@@ -32,6 +32,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
      - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
 3. **并行调研** → 读取 `autopilot/references/parallel-phase1.md` 并行配置。
    > **Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
+   > **Sub-Agent 名称硬解析协议（强制）**: 派发前必须将 `config.phases.requirements.agent` / `.research.agent` 等模板变量替换为实际已注册 Agent 名（不得留 `{{...}}` 或 `config.phases.` 字面量），并调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验；失败立即返回 blocked 信封。详见 `skills/autopilot-dispatch/SKILL.md` 之 "Sub-Agent 名称硬解析"。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
    按复杂度路由结果自适应派发（不再固定三路同时）：
 

@@ -1,0 +1,41 @@
+rubric_version: 1
+phase: 5
+requirement_type: feat
+description: |
+  Phase 5 (Implementation) 风险扫描 rubric — Critic Agent 对实现产物做对抗性评分。
+checks:
+  - check_id: P5-FEAT-001
+    description: 所有新增公共函数必须有对应单元测试
+    severity: block
+    evidence_required: true
+    evidence_format: "测试文件:行号"
+  - check_id: P5-FEAT-002
+    description: 实现中禁止出现 TODO/FIXME/XXX 等未完成标记
+    severity: block
+    evidence_required: true
+    evidence_format: "源文件:行号"
+  - check_id: P5-FEAT-003
+    description: 错误路径必须有显式处理 (禁止裸 try/except pass 或忽略 err)
+    severity: block
+    evidence_required: true
+    evidence_format: "源文件:行号"
+  - check_id: P5-FEAT-004
+    description: 新增对外 API 必须有类型注解或类型签名
+    severity: warn
+    evidence_required: true
+    evidence_format: "源文件:符号名"
+  - check_id: P5-FEAT-005
+    description: 不得引入硬编码的密钥/口令/绝对路径
+    severity: block
+    evidence_required: true
+    evidence_format: "源文件:行号"
+  - check_id: P5-FEAT-006
+    description: 所有新增依赖必须在 manifest 中声明 (package.json/pyproject.toml)
+    severity: warn
+    evidence_required: true
+    evidence_format: "manifest 文件:依赖名"
+  - check_id: P5-FEAT-007
+    description: 关键状态变更必须发出 event (符合 event-bus-api 协议)
+    severity: warn
+    evidence_required: false
+    evidence_format: "源文件:emit 调用位置"

@@ -1,0 +1,36 @@
+rubric_version: 1
+phase: 6
+requirement_type: feat
+description: |
+  Phase 6 (Test Report + Code Review + Quality Scan) rubric — Critic Agent 校验三路并行产出的完整性。
+checks:
+  - check_id: P6-FEAT-001
+    description: 必须产出 testing-report.json 且 status=passed
+    severity: block
+    evidence_required: true
+    evidence_format: "context/testing-report.json:status"
+  - check_id: P6-FEAT-002
+    description: code-review-report.json 不得包含 severity=block 项
+    severity: block
+    evidence_required: true
+    evidence_format: "context/code-review-report.json:findings[]"
+  - check_id: P6-FEAT-003
+    description: quality-scan-report.json 必须覆盖 security + lint + type 三类
+    severity: block
+    evidence_required: true
+    evidence_format: "context/quality-scan-report.json:scans"
+  - check_id: P6-FEAT-004
+    description: 必须存在 Allure 报告产物或显式 fallback 说明
+    severity: warn
+    evidence_required: true
+    evidence_format: "allure-results/ or fallback note"
+  - check_id: P6-FEAT-005
+    description: 测试覆盖率不得低于 baseline (默认 80%)
+    severity: warn
+    evidence_required: true
+    evidence_format: "coverage 报告:百分比"
+  - check_id: P6-FEAT-006
+    description: red-team report (Phase 5.5 产出) 中所有 reproducer 必须已被 GREEN
+    severity: block
+    evidence_required: true
+    evidence_format: "context/redteam-report.json:reproducers[]"

@@ -129,6 +129,23 @@ if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]
   SUBAGENT_TYPE="${BASH_REMATCH[1]}"
 fi
 
+# --- Guard: Phase ≥ 2 禁止使用 Explore 承担业务 phase ---
+# 根因：Phase 1 Auto-Scan 允许 general-purpose / Explore（调研性质），
+# 但 Phase 2-7 必须使用显式已注册 agent；若 LLM 从 description 启发式选择 Explore
+# 将导致预设 agent 身份丢失。通过 stdout JSON 发 block（退出码仍为 0）。
+if [ "$SUBAGENT_TYPE" = "Explore" ] && [ -n "$PHASE" ] && [ "$PHASE" -ge 2 ]; then
+  printf '{"decision":"block","reason":"Phase %s 禁止使用 subagent_type=Explore 承担业务阶段任务（仅 Phase 1 Auto-Scan 例外）。请在 dispatch 模板中显式替换占位符为已注册 agent 名（详见 skills/autopilot-dispatch/SKILL.md 的 Sub-Agent 名称硬解析协议）。"}\n' "$PHASE"
+  exit 0
+fi
+
+# --- Guard: 检测 prompt 中残留的未解析占位符 (config.phases.X.agent / {{...}}) ---
+# 若 prompt 内出现 `subagent_type: config.phases.` 或 `subagent_type: {{...}}` 类文本
+# 说明 dispatch 未执行模板硬解析，必须 fail-fast。
+if echo "$STDIN_DATA" | grep -qE 'subagent_type[[:space:]]*:[[:space:]]*(config\.phases\.|\{\{)'; then
+  printf '{"decision":"block","reason":"检测到 dispatch prompt 中残留未解析的 subagent_type 占位符（config.phases.* 或 {{...}}）。派发前必须用实际已注册 agent 名替换占位符（详见 skills/autopilot-dispatch/SKILL.md 的 Sub-Agent 名称硬解析协议）。"}\n'
+  exit 0
+fi
+
 # --- Extract owned_files / owned_artifacts from prompt (governance WS-E) ---
 OWNED_ARTIFACTS="[]"
 if command -v python3 &>/dev/null; then

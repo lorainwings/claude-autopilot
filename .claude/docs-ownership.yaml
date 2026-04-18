@@ -1,0 +1,37 @@
+# .claude/docs-ownership.yaml
+#
+# 项目级 ownership fallback 映射（激活配置）。
+#
+# 本文件由以下模板复制而来：
+#   cp plugins/spec-autopilot/skills/autopilot-docs-sync/references/docs-ownership.yaml.example \
+#      .claude/docs-ownership.yaml
+# 随后根据项目实际映射补充条目。
+#
+# 详见：plugins/spec-autopilot/skills/autopilot-docs-sync/references/ownership-config.md
+
+mappings:
+  # 1) 单文件映射：detect-doc-drift 的设计与使用文档
+  - code: plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh
+    docs:
+      - docs/plans/engineering-auto-sync/01-design.md
+      - plugins/spec-autopilot/skills/autopilot-docs-sync/SKILL.md
+
+  # 2) 单文件映射：engineering-sync-gate 汇总脚本
+  - code: plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh
+    docs:
+      - docs/plans/engineering-auto-sync/02-rollout.md
+
+  # 3) 单文件映射：agent registry 校验
+  - code: plugins/spec-autopilot/runtime/scripts/validate-agent-registry.sh
+    docs:
+      - plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md
+
+  # 4) Glob 映射：Phase 系列 SKILL.md 共享同一张总览
+  - code_glob: plugins/spec-autopilot/skills/autopilot-phase*/SKILL.md
+    docs:
+      - plugins/spec-autopilot/README.md
+
+  # 5) Glob 映射：所有 emit-* 脚本统一归属事件总线 API 文档
+  - code_glob: plugins/spec-autopilot/runtime/scripts/emit-*.sh
+    docs:
+      - plugins/spec-autopilot/skills/autopilot/references/event-bus-api.md

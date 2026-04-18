@@ -158,4 +158,18 @@ TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试
 
 autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.passed === true`、任务清单中所有任务标记为 `[x]`
 
+### Phase 5.5：Red Team 对抗相位（Sprint 升级新增）
+
+Phase 5 全部 task 完成后、进入 Phase 6 之前，**必须**派发独立 Critic Sub-Agent 执行 Red Team 对抗：
+
+```
+Skill(spec-autopilot:autopilot-phase5.5-redteam)
+  → 输入：Phase 5 产出的代码 + tests/ 目录
+  → 输出：openspec/changes/{change_name}/context/redteam-report.json
+         + tests/generated/redteam-*.sh（5 类反例：边界输入 / 并发竞态 / 状态污染 / 依赖回归 / 向后不兼容）
+  → 评估每个 reproducer 当前 status（red/green/不适用）
+```
+
+**门禁约束**：`redteam-report.json.summary.blocking_reproducers > 0` 且任一 reproducer.status != "green" → Phase 6 入口阻断，回流到 Phase 5 修复（通过 `prior_risks[]` 注入下一轮 dispatch）。详见 `skills/autopilot-phase5.5-redteam/SKILL.md`。
+
 **dispatch skill 执行时自行读取**: `autopilot/references/phase5-implementation.md` + `autopilot/references/parallel-phase5.md` + `autopilot/references/mode-routing-table.md`

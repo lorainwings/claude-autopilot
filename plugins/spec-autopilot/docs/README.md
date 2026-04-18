@@ -98,7 +98,7 @@
 | [stability-audit.md](reports/v5.0/stability-audit.md) | Stability audit |
 | [performance-benchmark.md](reports/v5.0/performance-benchmark.md) | Performance benchmark |
 | [phase1-benchmark.md](reports/v5.0/phase1-benchmark.md) | Phase 1 benchmark |
-| [competitive-analysis.md](reports/v5.0/competitive-analysis.md) | Competitive analysis |
+| [competitive-analysis.md](reports/v4.2/competitive-analysis.md) | Competitive analysis |
 | [gui-interaction-audit.md](reports/v5.0/gui-interaction-audit.md) | GUI interaction audit |
 | [holistic-simulation-benchmark.md](reports/v5.0/holistic-simulation-benchmark.md) | Holistic simulation benchmark |
 

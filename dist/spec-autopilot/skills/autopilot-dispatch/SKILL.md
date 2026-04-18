@@ -30,6 +30,67 @@ user-invocable: false
 > JSON 信封契约、阶段额外字段、状态解析规则、结构化标记等公共定义详见：`autopilot/references/protocol.md`。
 > 以下仅包含 dispatch 专属的模板和指令。
 
+## Sub-Agent 名称硬解析协议（P0 安全红线）
+
+> **根因背景**：若 dispatch 模板中 `subagent_type` 字段出现 `config.phases.requirements.agent` 这类字面量占位符，
+> LLM 在解读 Task 调用时会**忽略**该字面量（无法识别为有效 agent 名），转而**从 `description` 启发式推断**，
+> 结果倾向于选择内置 `Explore` / `general-purpose`，导致项目预设的专业 Agent 身份**完全丢失**。
+> 症状示例：日志显示 `3 background agents launched ├─ Explore (...) ├─ Explore (...) └─ Agent (...)`。
+
+### 硬规则（派发前必须满足）
+
+1. **派发前必须完成模板变量替换**：主线程在调用 `Task(subagent_type: ...)` 之前，**必须**从 `autopilot.config.yaml` 读取 `config.phases[phase].agent` / `config.phases[phase].research.agent` 的实际值，并用该字符串替换模板中的 `{{RESOLVED_AGENT_NAME}}` 等占位符。
+2. **必须通过注册表校验**：替换后的 agent 名必须先经过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验：
+   - exit 0：合法（已注册自定义 agent 或内置 `general-purpose` / `Explore` / `Plan`）→ 可派发
+   - exit 1：未注册 / 残留占位符（`{{`、`config.`、`config.phases.`）/ 空值 → **立即 fail-fast**，返回 `{"status":"blocked","summary":"agent 名称校验失败：<stderr>"}`
+3. **严禁字面量 dispatch**：禁止在任何 `Task(...)` 调用中直接写出 `subagent_type: config.phases.X.Y` 或 `subagent_type: {{...}}`。`subagent_type` 必须为**字符串字面量**，且为已注册 agent 名。
+4. **PostToolUse hook 兜底**：`auto-emit-agent-dispatch.sh` 作为最后防线，检测到以下情形会通过 stdout 发 `{"decision":"block",...}` JSON：
+   - Phase ≥ 2 且 `subagent_type=Explore`（Phase 1 Auto-Scan 例外）
+   - prompt 中残留 `subagent_type: config.phases.` 或 `subagent_type: {{`
+
+### 业务 Phase 显式字符串禁令
+
+| Phase | 允许的 subagent_type | 禁止的 subagent_type |
+|-------|--------------------|--------------------|
+| 1（Auto-Scan / 调研 / 搜索） | 已注册 agent（推荐）、`general-purpose`（兜底）、`Explore`（调研性质，允许） | 字面量 `config.phases.*` / `{{...}}` |
+| 2-7（含 `autopilot-phase:N` 标记） | 必须为已注册 agent 或 `general-purpose`（仅在 config 显式兜底时） | `Explore`（LLM 启发式降级的信号）、`config.phases.*` / `{{...}}` 字面量 |
+
+> **为什么 Phase 2-7 禁止 `Explore`**：`Explore` 是只读调研 agent，无法承担 OpenSpec 创建、FF 生成、测试设计、代码实施、报告生成等写操作。Phase 2-7 出现 `Explore` 必然是 dispatch 未解析模板 → LLM 启发式降级的结果，必须硬阻断。
+
+### 派发前校验伪码
+
+```bash
+# 1. 读取 config
+AGENT_NAME=$(read_config_value "$PROJECT_ROOT" "phases.requirements.agent" "general-purpose")
+
+# 2. 校验（fail-fast）
+if ! bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/validate-agent-registry.sh" "$AGENT_NAME"; then
+  # stderr 已打印错误；主线程构造 blocked 信封
+  return_envelope '{"status":"blocked","summary":"agent registry validation failed"}'
+  exit 0
+fi
+
+# 3. 收集历史教训 + 前一阶段风险（Sprint 升级新增）
+LESSONS=$(cat "$PROJECT_ROOT/openspec/changes/.autopilot-lessons.json" 2>/dev/null || echo "[]")
+PRIOR_RISKS=$(bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/feedback-loop-inject.sh" \
+  --change-root "$CHANGE_DIR" --phase "$((PHASE - 1))" 2>/dev/null || echo "[]")
+
+# 4. 构造 Task（字符串字面量 + 注入 prior_risks + lessons）
+Task(subagent_type: "$AGENT_NAME", prompt: "...含 prior_risks / lessons 注入...")
+```
+
+### Task Envelope 扩展字段（Sprint 升级新增）
+
+子 Agent 构造的 prompt 与其应返回的 JSON 信封需在现有契约基础上支持下列**可选**字段：
+
+| 字段 | 方向 | 用途 |
+|------|------|------|
+| `prior_risks[]` | prompt 注入 | 上一阶段 `risk-report-phase{N-1}.json` 中 severity ≥ warn 的条目，由 `runtime/scripts/feedback-loop-inject.sh` 生成 |
+| `lessons[]` | prompt 注入 | Phase 0 收集的 top-3 历史教训（`.autopilot-lessons.json`），字段 `{lesson_id, title, severity, injection_text}` |
+| `red_team_reproducers[]` | envelope 返回 | Phase 5.5 Critic Agent 返回的反例列表（文件 + 测试名） |
+
+未启用 Sprint 升级能力时，以上字段不出现即可，保持向后兼容。
+
 ## 显式路径注入模板
 
 dispatch 子 Agent 时按以下优先级构造项目上下文：

@@ -1,0 +1,31 @@
+rubric_version: 1
+phase: 5
+requirement_type: bugfix
+description: |
+  Phase 5 风险扫描 rubric — bugfix 路径专用，强调回归测试与最小修改面。
+checks:
+  - check_id: P5-BUG-001
+    description: 必须存在一个失败转通过的回归测试 (TDD RED→GREEN 痕迹)
+    severity: block
+    evidence_required: true
+    evidence_format: "测试文件:行号 + commit/log 引用"
+  - check_id: P5-BUG-002
+    description: 修复 diff 必须最小化 (禁止顺手 refactor 无关代码)
+    severity: warn
+    evidence_required: true
+    evidence_format: "git diff 统计 / 文件路径"
+  - check_id: P5-BUG-003
+    description: 必须更新或追加 regression-vault 条目
+    severity: block
+    evidence_required: true
+    evidence_format: "docs/regression-vault/<entry>.md"
+  - check_id: P5-BUG-004
+    description: 不得在修复中引入新的 TODO/FIXME
+    severity: block
+    evidence_required: true
+    evidence_format: "源文件:行号"
+  - check_id: P5-BUG-005
+    description: 必须验证至少一个相邻路径未受副作用 (smoke 测试或显式说明)
+    severity: warn
+    evidence_required: true
+    evidence_format: "测试名 / 说明位置"

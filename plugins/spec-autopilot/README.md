@@ -269,11 +269,26 @@ test_suites:
 |-------|-----------|---------|
 | `autopilot` | Yes | Main 8-phase orchestrator (runs in main thread) |
 | `autopilot-setup` | Yes | Auto-detect tech stack, generate config |
-| `autopilot-dispatch` | No | Sub-Agent dispatch with JSON envelope contract |
-| `autopilot-gate` | No | 8-step checklist + special gates + checkpoint R/W + semantic/brownfield validation |
-| `autopilot-phase0` | No | Environment check + config loading + crash recovery + lock file |
-| `autopilot-phase7` | No | Summary display + archive + git autosquash + mode-aware Summary Box |
+| `autopilot-dispatch` | No | Sub-Agent dispatch with JSON envelope contract + hard-resolve Sub-Agent names |
+| `autopilot-gate` | No | 8-step checklist + special gates + checkpoint R/W + semantic/brownfield validation + Step 0 risk pre-check |
+| `autopilot-phase0` | No | Environment check + config loading + crash recovery + lock file + lesson injection |
+| `autopilot-phase1` | No | Requirements understanding, multi-round clarification, parallel research dispatch |
+| `autopilot-phase2-3-openspec` | No | OpenSpec creation + Fast-Forward artifact generation |
+| `autopilot-phase4-testcase` | No | Test case design (TDD override + parallel grouping) |
+| `autopilot-phase5-implement` | No | Implementation orchestration (parallel/serial/TDD) + L2 verification |
+| `autopilot-phase5.5-redteam` | No | Red Team adversarial phase between Phase 5 and Phase 6 (5 破坏类别反例) |
+| `autopilot-phase6-report` | No | Test report generation with tri-path parallel execution |
+| `autopilot-phase7` | No | Summary display + archive + git autosquash + episode write |
 | `autopilot-recovery` | No | Crash recovery via checkpoint scanning + anchor_sha validation |
+| `autopilot-agents` | Yes | Discover, install, configure community AI agents for phases |
+| `autopilot-models` | Yes | Configure per-phase AI model routing strategy |
+| `autopilot-risk-scanner` | No | Critic Agent 按 rubric 打分输出 risk-report（挂每 gate 前） |
+| `autopilot-learn` | No | Phase 7 后 episodes 聚类 + L3 候选晋升扫描 |
+| `autopilot-docs-sync` | No | pre-commit 文档漂移检测，输出 .cache/spec-autopilot/drift-candidates.json |
+| `autopilot-test-audit` | Yes | 按需测试过期候选扫描，输出 .cache/spec-autopilot/test-rot-candidates.json |
+| `autopilot-docs-fix` | Yes | 消费 drift 候选生成可 git-apply patch / manual suggestion.md |
+| `autopilot-test-fix` | Yes | 消费 test-rot 候选生成 sed patch / manual suggestion.md |
+| `autopilot-test-health` | Yes | 测试有效性量化：变异测试采样 + 健康度评分 |
 
 ### Hook Scripts
 

@@ -1,0 +1,12 @@
+# 漂移忽略列表样例 (Drift Ignore Sample)
+# 格式: 每行一条规则，支持以下模式
+#   1. 路径前缀: plugins/spec-autopilot/skills/autopilot-models/
+#   2. rule_id 排除: rule_id:R1
+#   3. 组合: rule_id:R1 path:plugins/spec-autopilot/skills/autopilot-recovery/SKILL.md
+# 以 # 开头的行为注释，空行被忽略
+
+# 示例 1: 跳过特定 skill 的 README 同步检查
+# rule_id:R1 path:plugins/spec-autopilot/skills/autopilot-internal/SKILL.md
+
+# 示例 2: 跳过某条规则全部触发
+# rule_id:R3

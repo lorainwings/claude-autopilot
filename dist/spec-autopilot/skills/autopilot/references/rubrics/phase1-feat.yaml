@@ -1,0 +1,37 @@
+rubric_version: 1
+phase: 1
+requirement_type: feat
+description: |
+  Phase 1 (Requirements) 风险扫描 rubric — 针对 feat 类需求。
+  对应 Critic Agent 在 gate 前预检需求理解的完整性与可执行性。
+checks:
+  - check_id: P1-FEAT-001
+    description: 需求包必须包含明确可验证的验收标准 (Acceptance Criteria)
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:字段路径"
+  - check_id: P1-FEAT-002
+    description: 必须列出至少 1 个非功能性约束 (性能/安全/兼容)
+    severity: warn
+    evidence_required: true
+    evidence_format: "requirement-packet.json:non_functional[]"
+  - check_id: P1-FEAT-003
+    description: 必须明确列出受影响的现有模块/文件清单
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:affected_files[]"
+  - check_id: P1-FEAT-004
+    description: 必须识别至少 1 个边界场景或 edge case
+    severity: warn
+    evidence_required: true
+    evidence_format: "requirement-packet.json:edge_cases[]"
+  - check_id: P1-FEAT-005
+    description: 必须声明对外契约变更 (API/CLI/事件) 或显式声明无变更
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:contract_changes"
+  - check_id: P1-FEAT-006
+    description: 决策日志必须记录所有 multi-round clarification 的最终结论
+    severity: warn
+    evidence_required: false
+    evidence_format: "decision-log 文件路径"
