@@ -124,6 +124,36 @@ ELSE:
 
 根据检测到的技术栈推荐 Claude Code LSP 插件。详见 `references/setup-lsp-recommendation.md`。
 
+### Step 5.6: Agent 工具权限自动适配（必须执行）
+
+**问题背景**: 社区 Agent（如 OMC `analyst`、`code-reviewer`、`explore` 等）frontmatter 常含 `disallowedTools: Write, Edit`，但 autopilot 各 Phase 大多需要写盘权限。若直接拉来用，子 Agent 在 Phase 1/2/4/5/7 会无法写产物，触发 L2 阻断或交付物缺失。
+
+**适配协议（确定性、幂等）**:
+
+```
+Bash('python3 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/adapt-agent-tools.py --project-root "$(pwd)"')
+```
+
+脚本行为：
+
+1. 读取 `.claude/autopilot.config.yaml` 中所有 `phases.*.agent`（含 `parallel.default_agent`、`parallel.domain_agents.*.agent`、`research.agent`、`review_agent`、`code_review.agent`）。
+2. 对每个 (phase, agent) 二元组，按内置 `PHASE_REQUIRED_TOOLS` 矩阵计算 `disallowedTools ∩ required_tools`。
+3. 冲突非空时，**fork** 源 agent 文件到 `.claude/agents/{name}.md`，剥离冲突项；写入 HTML 注释标记 fork 来源与原因；不修改 marketplace 源文件。
+4. 已 fork 或无冲突 → 跳过；幂等可重复执行。
+5. 输出结构化 JSON（`forked` / `would_fork` / `already_forked` / `ok` / `missing` 计数与详情），由主线程渲染摘要给用户。
+
+**展示给用户**:
+
+```
+✓ Agent 工具权限适配完成
+  - 已 fork 适配: {forked} 个
+  - 未冲突保留: {ok} 个
+  - 未找到源文件: {missing} 个 → 请检查 agent 是否已安装
+适配产物: .claude/agents/*.md
+```
+
+> **设计意图**：消除"agent 想写但被 disallowedTools 挡住"导致的运行期 L2 失败。fork 而非原地修改，保持 marketplace agent 干净，可随时 `rm .claude/agents/{name}.md` 回退。
+
 ## Step 6: Schema 验证
 
 **读取规则**: `autopilot/references/config-schema.md`（Schema 验证规则章节）

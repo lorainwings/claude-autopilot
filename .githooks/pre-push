@@ -12,6 +12,13 @@ if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
   exit 0
 fi
 
+# ── 0. 分支必须与 origin/main 同步（规范化提交流程闸口）──
+# 任何 feature/fix/refactor 分支推送前必须包含 origin/main 最新 commit，
+# 否则 PR 合入时会产生不必要的 merge conflict / CI 失效
+if ! bash "$REPO_ROOT/scripts/check-branch-synced.sh"; then
+  exit 1
+fi
+
 # ── 1. dist 内容一致性 (对比已提交状态，排除工作树 WIP 干扰) ──
 echo "🔍 Pre-push: checking dist freshness..."
 

@@ -29,10 +29,13 @@ EXPECTED_VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_ROOT/.
 # Check if existing gui-dist has matching version (skip rebuild if already synced)
 gui_version_matches() {
   [ -d "$GUI_DIST_DIR" ] || return 1
-  [ -f "$GUI_DIST_DIR/assets/index.js" ] || return 1
   [ -n "$EXPECTED_VERSION" ] || return 1
-  # Search for the version string in the built JS bundle
-  grep -q "\"$EXPECTED_VERSION\"" "$GUI_DIST_DIR/assets/index.js" 2>/dev/null
+  # Vite 产物使用 [hash] 文件名，glob 查找入口 bundle
+  local entry
+  entry=$(ls -1 "$GUI_DIST_DIR"/assets/index*.js 2>/dev/null | head -n1)
+  [ -n "$entry" ] && [ -f "$entry" ] || return 1
+  # GUI 运行时版本以 /api/info 为准；此处 grep 的 "X.Y.Z" 仅为烘焙 fallback 的同步信号
+  grep -q "\"$EXPECTED_VERSION\"" "$entry" 2>/dev/null
 }
 
 try_build_gui() {

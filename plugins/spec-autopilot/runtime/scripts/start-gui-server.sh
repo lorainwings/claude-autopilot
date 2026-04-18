@@ -188,11 +188,14 @@ start_server() {
   mkdir -p "$LOGS_DIR"
 
   # Start server as daemon (detached, logs to files)
+  # 完全脱离父 shell: </dev/null 关闭 stdin (避免 EOF/HUP) + disown 移出 job table
+  # (避免父 Claude Code CLI 退出时把 SIGHUP/SIGTERM 级联到 bun 子进程导致静默死亡)
   AUTOPILOT_HTTP_PORT="$HTTP_PORT" AUTOPILOT_WS_PORT="$WS_PORT" \
     nohup bun run "$server_script" --project-root "$PROJECT_ROOT" --no-open \
-    >>"$SERVER_LOG" 2>>"$SERVER_ERR_LOG" &
+    </dev/null >>"$SERVER_LOG" 2>>"$SERVER_ERR_LOG" &
 
   local server_pid=$!
+  disown "$server_pid" 2>/dev/null || true
   write_pid "$server_pid"
 
   if [ "$wait_for_health" != "true" ]; then
