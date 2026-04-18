@@ -80,14 +80,11 @@ export function ParallelKanban() {
   const { taskProgress, agentMap, events, parallelPlan, currentPhase, mode } = useStore();
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
 
-  if (taskProgress.size === 0 && agentMap.size === 0) {
-    return <PhasePipelineOverview events={events} currentPhase={currentPhase} mode={mode} />;
-  }
-
   // v5.8: 按 phase 分组任务
+  // 注意：所有 hooks 必须在条件 return 之前调用，避免 React error #310
   const tasksByPhase = useMemo(() => {
-    const groups = new Map<number, typeof allTasks>();
     const allTasks = Array.from(taskProgress.values());
+    const groups = new Map<number, typeof allTasks>();
     for (const t of allTasks) {
       const phase = t.phase;
       if (!groups.has(phase)) groups.set(phase, []);
@@ -100,16 +97,6 @@ export function ParallelKanban() {
     // 按 phase 编号排序返回
     return Array.from(groups.entries()).sort(([a], [b]) => a - b);
   }, [taskProgress]);
-
-  const allTasks = Array.from(taskProgress.values());
-  const agents = Array.from(agentMap.values());
-  const passedCount = allTasks.filter((t) => t.status === "passed").length;
-
-  // 优先使用 parallelPlan 状态判断并行模式（比推断更准确）
-  const isParallelFromPlan = parallelPlan.updated_at !== null && parallelPlan.scheduler_decision === "batch_parallel";
-  const isParallel = isParallelFromPlan || allTasks.some((t) => t.task_total > 1);
-  const hasTdd = allTasks.some((t) => t.tdd_step !== undefined);
-  const hasAgents = agents.length > 0;
 
   // Memoize per-agent tool counts and events to avoid O(agents * events) per render
   const agentToolData = useMemo(() => {
@@ -126,6 +113,20 @@ export function ParallelKanban() {
     }
     return { counts, eventsMap };
   }, [events]);
+
+  if (taskProgress.size === 0 && agentMap.size === 0) {
+    return <PhasePipelineOverview events={events} currentPhase={currentPhase} mode={mode} />;
+  }
+
+  const allTasks = Array.from(taskProgress.values());
+  const agents = Array.from(agentMap.values());
+  const passedCount = allTasks.filter((t) => t.status === "passed").length;
+
+  // 优先使用 parallelPlan 状态判断并行模式（比推断更准确）
+  const isParallelFromPlan = parallelPlan.updated_at !== null && parallelPlan.scheduler_decision === "batch_parallel";
+  const isParallel = isParallelFromPlan || allTasks.some((t) => t.task_total > 1);
+  const hasTdd = allTasks.some((t) => t.tdd_step !== undefined);
+  const hasAgents = agents.length > 0;
 
   return (
     <section className="h-full border-b border-border flex flex-col p-4 bg-abyss/50 overflow-hidden">
