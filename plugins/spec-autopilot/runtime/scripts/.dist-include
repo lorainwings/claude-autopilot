@@ -100,3 +100,8 @@ learn-promote-candidate.sh
 # ── Risk Scanner & Phase 5.5 Red Team (C1-C5 主动防御体系) ──
 risk-scan-gate.sh
 feedback-loop-inject.sh
+
+# ── Engineering auto-sync (静态文档漂移 + 测试过期检测，warn-only) ──
+detect-doc-drift.sh
+detect-test-rot.sh
+engineering-sync-gate.sh

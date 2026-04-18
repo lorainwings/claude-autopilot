@@ -62,5 +62,15 @@
 9. **Review findings fail-closed**: Phase 6.5 code review 中 `blocking: true` 的 findings 硬阻断 Phase 7 归档
 10. **Sub-Agent 名称硬解析（P0 红线）**: `subagent_type` 必须为字符串字面量且为已注册 agent 名。禁止 `config.phases.X.Y` / `{{...}}` 等字面量占位符。派发前必须调用 `runtime/scripts/validate-agent-registry.sh`；PostToolUse hook (`auto-emit-agent-dispatch.sh`) 兜底阻断 Phase 2-7 使用 `Explore` 或残留占位符的情形。详见 `skills/autopilot-dispatch/SKILL.md` § Sub-Agent 名称硬解析协议
 
+## 工程自动化纪律（engineering-sync-gate）
+
+`.githooks/pre-commit` Part 1.5 会调用 `runtime/scripts/engineering-sync-gate.sh` 做**静态**文档漂移 + 测试过期检测：
+
+1. **默认 warn-only**：首次引入不破坏任何流程，仅生成 `.drift-candidates.json` / `.test-rot-candidates.json` / `.engineering-sync-report.json`
+2. **启用硬阻断**：在 `autopilot.config.yaml` 设置 `engineering_auto_sync.enabled: true` 后，命中即 pre-commit exit 1
+3. **误报抑制**：根目录 `.drift-ignore` 支持 `rule_id:Rxx [path:...]` 语法
+4. **人工触发**：`autopilot-test-audit` 为 user-invocable（`/autopilot-test-audit`），用于按需审计；`autopilot-docs-sync` 仅 orchestrator 内部使用
+5. **禁止自动删除测试**：所有候选均需人工 review 后才做 DELETE/UPDATE 动作
+
 
 

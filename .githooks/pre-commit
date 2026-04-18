@@ -99,6 +99,24 @@ if [ -n "$STAGED" ]; then
 fi
 
 # ============================================
+# Part 1.5: Engineering Auto-Sync (warn-only by default)
+# ============================================
+# 静态检测文档漂移 + 测试过期候选，只生成 .drift-candidates.json 等候选清单，
+# 不修改源码。默认 warn（exit 0），仅当 autopilot.config.yaml
+# 的 engineering_auto_sync.enabled: true 时聚合门 block。
+ENG_SYNC_GATE="plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh"
+if [ -x "$ENG_SYNC_GATE" ]; then
+  _SA_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' | tr '\n' ' ' || true)
+  _SA_DELETED=$(git diff --cached --name-only --diff-filter=D | grep -E '^plugins/spec-autopilot/' | tr '\n' ' ' || true)
+  if [ -n "$_SA_STAGED" ] || [ -n "$_SA_DELETED" ]; then
+    if ! bash "$ENG_SYNC_GATE" --changed-files "$_SA_STAGED" --deleted-files "$_SA_DELETED"; then
+      echo "⛔ Engineering auto-sync gate: hard-block (engineering_auto_sync.enabled=true)"
+      exit 1
+    fi
+  fi
+fi
+
+# ============================================
 # Part 2: Documentation & Version Consistency (read-only)
 # ============================================
 # Strategy (keepachangelog best practice):
