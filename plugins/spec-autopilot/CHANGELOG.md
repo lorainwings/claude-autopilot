@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.10.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.1...spec-autopilot-v5.10.0) (2026-04-18)
+
+
+### Added
+
+* **spec-autopilot:** engineering auto-sync — static doc drift & test rot detection ([74d44c0](https://github.com/lorainwings/claude-autopilot/commit/74d44c03b0b24e730a4f9b1c86d9b2dd9048a002))
+* **spec-autopilot:** round 2 — anchors, fix-skills, audit cleanup, mutation testing ([c35ed36](https://github.com/lorainwings/claude-autopilot/commit/c35ed36db0ab9b6059d21f985ae0926ec0120adf))
+* **spec-autopilot:** sprint auto-upgrade — fix Phase 1 dispatch bug, add risk scanning & active learning ([4e22602](https://github.com/lorainwings/claude-autopilot/commit/4e226022a2278fbba5802935611478630829c24d))
+
+
+### Changed
+
+* **repo:** 治理仓库根目录污染、拆分 CLAUDE.md、修复乱码与冗余清理 ([74d3972](https://github.com/lorainwings/claude-autopilot/commit/74d3972c1c26e29a1d90c0886ec1b5231cb9a789))
+
 ## [5.9.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.0...spec-autopilot-v5.9.1) (2026-04-17)
 
 
