@@ -8,19 +8,25 @@
 ```yaml
 parallel_tasks:
   - name: "auto-scan"
-    agent: config.phases.requirements.agent  # 默认 "general-purpose"
+    agent: config.phases.requirements.agent  # 由 setup SKILL 写入用户选择的已安装 agent
     prompt_template: "分析项目结构和现有代码模式..."
     merge_strategy: "none"
   - name: "tech-research"
-    agent: config.phases.requirements.research.agent  # 默认 "general-purpose"
+    agent: config.phases.requirements.research.agent  # 由 setup SKILL 写入用户选择的已安装 agent
     prompt_template: "分析与需求相关的代码、依赖兼容性..."
     merge_strategy: "none"
   - name: "web-search"
-    agent: config.phases.requirements.research.agent  # 默认 "general-purpose"
+    agent: config.phases.requirements.research.agent
     prompt_template: "联网搜索最佳实践和竞品方案..."
     merge_strategy: "none"
     condition: "search_policy.default: search — 规则判定跳过时不派发此 Agent"
 ```
+
+> **配置驱动纪律（不硬编码 agent 名）**：
+> - `phases.requirements.agent` / `phases.requirements.research.agent` 的具体取值由 setup SKILL 期间用户从已安装 agent 列表中选择并写入；本文档不预设具体名称。
+> - 运行时 `runtime/scripts/auto-emit-agent-dispatch.sh` 会读取 config，校验 dispatch 的 `subagent_type` 与配置一致；不一致即硬阻断，不允许偏离配置。
+> - 配置缺失或字段为空时同样硬阻断，并提示运行 `/autopilot-setup`。
+> - `_config_validator.py` 仍硬阻断 `Explore`（只读，无 Write 权限）。
 
 **子 Agent 自写入约束**：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。
 
@@ -50,9 +56,14 @@ parallel_tasks:
 
 > **Sub-Agent 名称硬解析（必须在派发前执行）**：
 > 下述模板中的 `{{RESOLVED_AGENT_NAME}}` / `{{RESOLVED_RESEARCH_AGENT_NAME}}` **必须**由主线程在构造 Task 参数前用实际已注册 agent 名替换
-> （从 `autopilot.config.yaml` 的 `config.phases.requirements.agent` / `config.phases.requirements.research.agent` 读取；未配置时使用默认值 `general-purpose`）。
+> （从 `autopilot.config.yaml` 的 `config.phases.requirements.agent` / `config.phases.requirements.research.agent` 读取；setup SKILL 期间已强制写入，未配置即派发是 bug）。
 > 替换后必须通过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验（exit 0 方可派发，exit 1 即 fail-fast 返回 blocked）。
 > 禁止将 `config.phases.xxx.agent` 字面量直接作为 `subagent_type` 传入 Task —— LLM 看到字面量后会从 description 启发式选择 `Explore` / `general-purpose`，导致预设 agent 身份丢失。
+>
+> **配置一致性硬阻断（运行时校验）**：
+> 1. 配置层：`_config_validator.py` 硬阻断 `phases.requirements.research.agent == "Explore"`（enum_error）
+> 2. 运行时：`auto-emit-agent-dispatch.sh` 读取 config 中的 `phases.requirements.agent` / `.research.agent`，当 prompt 引用 `research-findings.md` / `web-research-findings.md` / `project-context.md` 等输出路径时，校验 `subagent_type` 必须**完全等于**配置值；不一致、为空、或 config 缺失即 stdout JSON block
+> Explore 为只读 agent，无 Write 权限，无法产出调研报告；即使 Auto-Scan 任务也必须使用配置指定的 agent。
 
 ```markdown
 # Task 1: Auto-Scan（解析后的 agent 名，Phase 1 Auto-Scan 允许 general-purpose）

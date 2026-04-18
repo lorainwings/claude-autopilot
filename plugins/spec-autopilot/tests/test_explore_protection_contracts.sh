@@ -65,21 +65,27 @@ done
 # ────────────────────────────────────────
 echo "--- Layer 3: dispatch forced fallback contracts ---"
 
-# L3a. dispatch-phase-prompts.md mentions Explore fallback
-line=$(grep -i 'explore.*general-purpose\|Explore.*降级\|Explore.*forbidden' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3a. dispatch mentions Explore→general-purpose fallback" "$line" "general-purpose"
+# ────────────────────────────────────────
+# Layer 3 contracts: dispatch hard-block (was: forced fallback, upgraded to runtime hook block)
+# ────────────────────────────────────────
+echo "--- Layer 3: dispatch hard-block contracts ---"
 
-# L3b. dispatch mentions case-insensitive check
-line=$(grep -E '大小写|case.insensitive|不区分大小写' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3b. dispatch specifies case-insensitive check" "$line" "大小写"
+# L3a. dispatch-phase-prompts.md mentions runtime hook block via auto-emit-agent-dispatch.sh
+line=$(grep -E 'auto-emit-agent-dispatch\.sh' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3a. dispatch mentions runtime hook block" "$line" "auto-emit-agent-dispatch.sh"
 
-# L3c. dispatch mentions "强制降级" or "forced" semantics
-line=$(grep -E '强制降级|forced to' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3c. dispatch has forced fallback semantics" "$line" "强制降级"
+# L3b. dispatch mentions both _config_validator.py and runtime hook (defense-in-depth)
+line=$(grep -E '_config_validator\.py' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3b. dispatch mentions config validator layer" "$line" "_config_validator.py"
 
-# L3d. dispatch mentions this is a defense layer (defense-in-depth context)
-line=$(grep -E 'fail-closed|最后一层' "$DISPATCH_REF" | head -1 || true)
-assert_contains "L3d. dispatch mentions defense-in-depth context" "$line" "fail-closed"
+# L3c. dispatch mentions config-driven enforcement (not hardcoded agent name)
+line=$(grep -E 'autopilot\.config\.yaml|完全一致|配置一致' "$DISPATCH_REF" | head -1 || true)
+assert_contains "L3c. dispatch mentions config-driven runtime check" "$line" "autopilot.config.yaml"
+
+# L3d. runtime hook script reads config (not hardcoded agent name)
+HOOK_SCRIPT="$SCRIPT_DIR/auto-emit-agent-dispatch.sh"
+line=$(grep -E 'read_config_value|autopilot\.config\.yaml' "$HOOK_SCRIPT" | head -1 || true)
+assert_contains "L3d. runtime hook reads config" "$line" "config"
 
 # ────────────────────────────────────────
 # Layer 1 contracts: validator produces enum_errors (not cross_ref_warnings)

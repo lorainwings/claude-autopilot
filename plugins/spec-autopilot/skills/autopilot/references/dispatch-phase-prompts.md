@@ -4,11 +4,11 @@
 
 ## Phase 1（技术调研 — 主线程调度，不含 autopilot-phase 标记）
 
-- Agent: config.phases.requirements.research.agent（默认 general-purpose）
-- **运行时防御性降级（必须执行）**：在构造 Task 调用之前，**必须**对 `research.agent` 的值做大小写不敏感检查：
-  - 若值为 `"Explore"`（包括 `"explore"`, `"EXPLORE"` 等任何大小写形式）→ **强制降级**为 `"general-purpose"`，并输出一行警告：`⚠ research.agent="Explore" is forbidden (read-only), forced to "general-purpose"`
-  - 理由：Explore agent 是只读的，无法 Write 调研产出文件（research-findings.md / web-research-findings.md），会违反子 Agent 自写入约束
-  - 这是最后一层 fail-closed 防御（Phase 0 的 enum_errors 校验为第一层，SKILL.md 硬阻断为第二层）。即使前两层被绕过（如手动跳过 Phase 0），此处仍确保 subagent_type 不为 Explore
+- Agent: config.phases.requirements.research.agent（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
+- **运行时双层硬阻断（必须执行）**：
+  1. `runtime/scripts/_config_validator.py` 在 Phase 0 校验 `phases.requirements.research.agent != "Explore"`（enum_error → valid=false）
+  2. `runtime/scripts/auto-emit-agent-dispatch.sh` 在 PreToolUse 读取 `autopilot.config.yaml`，校验 Phase 1 调研/Auto-Scan 任务的 `subagent_type` 与 config 中对应字段**完全一致**；config 缺失、字段为空、subagent_type 缺失或与配置不符 → stdout JSON block
+  - 理由：运行时禁止偏离 setup 期间写入的 agent 配置；Explore 只读，无法 Write 调研产出文件，违反子 Agent 自写入约束
 - 条件：`config.phases.requirements.research.enabled === true`
 - 任务：分析与需求相关的现有代码、依赖兼容性、技术可行性
 - Prompt 必须注入：RAW_REQUIREMENT + Steering Documents 路径
@@ -18,7 +18,7 @@
 
 ## Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）
 
-- Agent: config.phases.requirements.agent（默认 general-purpose; 推荐安装 OMC "analyst" Agent）
+- Agent: config.phases.requirements.agent（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
 - 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
 - Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents 路径（供 BA 自行 Read）+ 调研信封摘要（decision_points + tech_constraints + complexity）
 - **上下文隔离红线**：主线程**禁止**读取 `research-findings.md` 或 `web-research-findings.md` 正文内容。

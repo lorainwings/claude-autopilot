@@ -112,6 +112,109 @@ rm -f "$REPO_ROOT/logs/.event_sequence" 2>/dev/null || true
 rmdir "$REPO_ROOT/logs/.event_sequence.lk" 2>/dev/null || true
 rmdir "$REPO_ROOT/logs" 2>/dev/null || true
 
+# ────────────────────────────────────────
+# Phase 1 research pre-marker guards (config-driven)
+# ─────────────────���──────────────────────
+echo "--- Phase 1 research pre-marker guards (config-driven) ---"
+
+# Setup temp project root with autopilot.config.yaml
+TMP_PROJECT=$(mktemp -d)
+trap 'rm -rf "$TMP_PROJECT"' EXIT
+mkdir -p "$TMP_PROJECT/.claude" "$TMP_PROJECT/openspec/changes"
+cat > "$TMP_PROJECT/.claude/autopilot.config.yaml" <<'YAML'
+phases:
+  requirements:
+    agent: "my-analyst"
+    research:
+      agent: "my-researcher"
+YAML
+echo '{"change":"test","pid":"99999"}' > "$TMP_PROJECT/openspec/changes/.autopilot-active"
+
+# 2a. dispatch agent matches config → 放行
+MATCH_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-researcher","description":"tech research","prompt":"调研 输出: openspec/changes/foo/context/research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$MATCH_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"'; then
+  red "  FAIL: 2a. matched agent should not be blocked, got: $OUT"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 2a. dispatch=my-researcher matches config → 放行"
+  PASS=$((PASS + 1))
+fi
+
+# 2b. dispatch agent != config → block（运行时禁止偏离）
+MISMATCH_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"Explore","description":"tech research","prompt":"调研 输出: research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$MISMATCH_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'my-researcher'; then
+  green "  PASS: 2b. dispatch=Explore != config=my-researcher → block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2b. expected mismatch block, got: $OUT"
+  FAIL=$((FAIL + 1))
+fi
+
+# 2c. 缺失 subagent_type + research 模式 → block
+MISSING_JSON='{"tool_name":"Task","tool_input":{"description":"research","prompt":"输出到 research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$MISSING_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'subagent_type'; then
+  green "  PASS: 2c. missing subagent_type → block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2c. expected block, got: $OUT"
+  FAIL=$((FAIL + 1))
+fi
+
+# 2d. Auto-Scan 任务（project-context.md）使用 phases.requirements.agent
+SCAN_OK_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-analyst","description":"auto scan","prompt":"分析项目结构 输出 project-context.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$SCAN_OK_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"'; then
+  red "  FAIL: 2d. Auto-Scan with matching agent should pass, got: $OUT"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 2d. Auto-Scan dispatch=my-analyst matches phases.requirements.agent → 放行"
+  PASS=$((PASS + 1))
+fi
+
+# 2e. Auto-Scan dispatch != requirements.agent → block
+SCAN_BAD_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"Explore","description":"auto scan","prompt":"分析项目结构 输出 existing-patterns.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$SCAN_BAD_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'my-analyst'; then
+  green "  PASS: 2e. Auto-Scan dispatch=Explore != config=my-analyst → block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2e. expected block, got: $OUT"
+  FAIL=$((FAIL + 1))
+fi
+
+# 2f. config 缺失字段 → block 并提示运行 setup
+TMP_NOCONFIG=$(mktemp -d)
+mkdir -p "$TMP_NOCONFIG/.claude" "$TMP_NOCONFIG/openspec/changes"
+cat > "$TMP_NOCONFIG/.claude/autopilot.config.yaml" <<'YAML'
+phases:
+  requirements: {}
+YAML
+echo '{"change":"test","pid":"99999"}' > "$TMP_NOCONFIG/openspec/changes/.autopilot-active"
+NOCONFIG_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"foo","description":"research","prompt":"输出 research-findings.md"},"cwd":"'"$TMP_NOCONFIG"'"}'
+OUT=$(echo "$NOCONFIG_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'autopilot-setup'; then
+  green "  PASS: 2f. config 字段为空 → block 提示 setup"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2f. expected block with setup hint, got: $OUT"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$TMP_NOCONFIG"
+
+# 2g. 普通 prompt（无 research/scan 输出路径）→ guard 不介入
+NORMAL_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"Explore","description":"normal","prompt":"分析代码"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$NORMAL_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"'; then
+  red "  FAIL: 2g. unrelated prompt should not be blocked by Phase 1 guard, got: $OUT"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 2g. unrelated prompt → guard 不介入"
+  PASS=$((PASS + 1))
+fi
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

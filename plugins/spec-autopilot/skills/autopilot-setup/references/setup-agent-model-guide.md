@@ -3,28 +3,59 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 5.3（Agent 安装引导）和 Step 5.4（模型路由引导）。
 
-## Step 5.3: Agent 安装引导
+## Step 5.3: Agent 安装引导（必须配置 Phase 1 关键字段）
 
-检查 `.claude/agents/` 是否已安装 autopilot 推荐的专业 Agent。
+检查 `.claude/agents/` 是否存在可用于 Phase 1 的 agent，并强制写入 `phases.requirements.agent` / `phases.requirements.research.agent`。setup 结束时这两个字段不得为空，否则 fail-fast。
 
-**始终执行 AskUserQuestion**，不静默跳过：
+### 核心规则（配置驱动，不硬编码 agent 名）
+
+- **不预设默认 agent**：本指南不指定任何特定 agent 名作为默认值。用户从已安装的 agent 中选择。
+- **必须写入 config**：setup 完成后 `phases.requirements.agent` 与 `phases.requirements.research.agent` 必须有非空、非 `Explore` 的值。
+- **运行时强一致**：`runtime/scripts/auto-emit-agent-dispatch.sh` 读取此 config 并校验 dispatch 的 `subagent_type` 必须完全等于配置值，偏离即硬阻断。
+
+### 执行流程
 
 ```
-IF .claude/agents/ 下存在 analyst.md / executor.md / code-reviewer.md 等:
-  → 输出 "✓ 已检测到 {N} 个专业 Agent"
-  → AskUserQuestion: "已检测到专业 Agent。是否需要更新或安装其他 Agent？"
-  → 选项:
-    - "保持当前 Agent (Recommended)" → 跳过
-    - "更新/安装 Agent" → 调用 Skill("spec-autopilot:autopilot-agents" "install")
+# 1. 扫描已安装 agent
+installed = ls .claude/agents/*.md (项目级) ∪ ls ~/.claude/agents/*.md (用户级)
+# 排除内置 Explore（只读无 Write 权限，_config_validator 硬阻断）
+candidates = installed \ {Explore}
 
-ELSE:
-  AskUserQuestion: "autopilot 支持安装专业 Agent 以提升各阶段效果。是否安装？"
-  选项:
-  - "安装推荐 Agent (Recommended)" → 调用 Skill("spec-autopilot:autopilot-agents" "install")
-  - "跳过，稍后手动安装" → 继续后续步骤
+# 2. 分支
+IF candidates 为空:
+  → 输出："✗ 未检测到可用于 Phase 1 的已安装 agent"
+  → AskUserQuestion: "Phase 1 需要至少一个具备 Write 权限的 agent，是否现在安装？"
+    选项:
+    - "安装推荐 Agent" → 调用 Skill("spec-autopilot:autopilot-agents" "install")，回到第 1 步重新扫描
+    - "退出 setup" → fail-fast exit 1
+
+ELIF candidates.size == 1:
+  → selected_agent = candidates[0]
+  → 输出："✓ 将使用已安装的 agent: {selected_agent}"
+
+ELSE (多个候选):
+  → AskUserQuestion: "选择 Phase 1 使用的 agent（用于需求分析 + 技术调研 + 联网搜索）："
+    选项: candidates 列表（按名称排序；展示来源与评分）
+  → selected_agent = 用户选择
+
+# 3. 写入 config（必须）
+config.phases.requirements.agent = selected_agent
+config.phases.requirements.research.agent = selected_agent
+
+# 4. 二次验证
+IF config.phases.requirements.agent ∈ {"", "Explore"}:
+  → setup fail-fast: "phases.requirements.agent 无效"
+  → exit 1
+IF config.phases.requirements.research.agent ∈ {"", "Explore"}:
+  → setup fail-fast: "phases.requirements.research.agent 无效"
+  → exit 1
 ```
 
-> Agent 安装是可选步骤，跳过不影响 autopilot 功能。未安装专业 Agent 时使用内置 general-purpose。
+### 说明
+
+- 用户可在 setup 后通过重新运行 `/autopilot-setup` 或 `/autopilot-agents swap` 变更配置；变更会被运行时立即采纳。
+- `phases.requirements.agent` 和 `phases.requirements.research.agent` **可以不同**（如分析用 `planner`，调研用 `analyst`），但运行时校验 dispatch 必须与各自字段完全一致。
+- 若 Step 5.3.5（域级 agent）/ Step 6（Schema 校验）检测到其他阶段同样缺失 agent，执行相同的"扫描 → 选择 → 写入"流程。
 
 ## Step 5.3.5: 域级 Agent 配置引导
 
