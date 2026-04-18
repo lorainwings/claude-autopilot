@@ -46,11 +46,17 @@ parallel_tasks:
 
 ## Phase 1 并行调度模板
 
-主线程同时派发 2-3 个 Task（不含 autopilot-phase 标记，不受 Hook 校验）：
+主线程同时派发 2-3 个 Task（不含 autopilot-phase 标记，不受 Hook 校验）。
+
+> **Sub-Agent 名称硬解析（必须在派发前执行）**：
+> 下述模板中的 `{{RESOLVED_AGENT_NAME}}` / `{{RESOLVED_RESEARCH_AGENT_NAME}}` **必须**由主线程在构造 Task 参数前用实际已注册 agent 名替换
+> （从 `autopilot.config.yaml` 的 `config.phases.requirements.agent` / `config.phases.requirements.research.agent` 读取；未配置时使用默认值 `general-purpose`）。
+> 替换后必须通过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验（exit 0 方可派发，exit 1 即 fail-fast 返回 blocked）。
+> 禁止将 `config.phases.xxx.agent` 字面量直接作为 `subagent_type` 传入 Task —— LLM 看到字面量后会从 description 启发式选择 `Explore` / `general-purpose`，导致预设 agent 身份丢失。
 
 ```markdown
-# Task 1: Auto-Scan（general-purpose agent）
-Task(subagent_type: config.phases.requirements.agent, run_in_background: true,
+# Task 1: Auto-Scan（解析后的 agent 名，Phase 1 Auto-Scan 允许 general-purpose）
+Task(subagent_type: "{{RESOLVED_AGENT_NAME}}", run_in_background: true,
   prompt: "分析项目结构，生成 Steering Documents:
   - project-context.md（技术栈、目录结构）
   - existing-patterns.md（现有代码模式）
@@ -58,8 +64,8 @@ Task(subagent_type: config.phases.requirements.agent, run_in_background: true,
   输出到: openspec/changes/{change_name}/context/"
 )
 
-# Task 2: 技术调研（general-purpose agent）
-Task(subagent_type: config.phases.requirements.research.agent, run_in_background: true,
+# Task 2: 技术调研（解析后的 research agent 名）
+Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT_NAME}}", run_in_background: true,
   prompt: "分析与需求相关的代码:
   需求: {RAW_REQUIREMENT}
   重点: 影响范围、依赖兼容性、技术可行性
@@ -68,12 +74,12 @@ Task(subagent_type: config.phases.requirements.research.agent, run_in_background
 
 # Task 3: 联网搜索（条件派发）
 {if config.phases.requirements.web_search.enabled}
-Task(subagent_type: config.phases.requirements.research.agent, run_in_background: true,
+Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT_NAME}}", run_in_background: true,
   prompt: "联网搜索与需求相关的最佳实践:
   需求: {RAW_REQUIREMENT}
   搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
   输出结构化结果到: openspec/changes/{change_name}/context/web-research-findings.md
-  注意: 输出到独立文件 web-research-findings.md，不要修改 research-findings.md"
+  注意: 输出到���立文件 web-research-findings.md，不要修改 research-findings.md"
 )
 {end if}
 ```

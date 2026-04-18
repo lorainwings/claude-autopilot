@@ -1,0 +1,32 @@
+rubric_version: 1
+phase: 1
+requirement_type: bugfix
+description: |
+  Phase 1 风险扫描 rubric — 针对 bugfix 类需求。
+  Critic Agent 校验缺陷复现路径与根因假设的完备性。
+checks:
+  - check_id: P1-BUG-001
+    description: 必须包含可执行的最小复现步骤 (MRE)
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:reproducer_steps[]"
+  - check_id: P1-BUG-002
+    description: 必须记录预期行为 vs 实际行为对比
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:expected vs actual"
+  - check_id: P1-BUG-003
+    description: 必须列出至少 1 个根因假设 (root_cause_hypothesis)
+    severity: warn
+    evidence_required: true
+    evidence_format: "requirement-packet.json:root_cause_hypothesis[]"
+  - check_id: P1-BUG-004
+    description: 必须标注影响范围 (回归风险半径)
+    severity: warn
+    evidence_required: true
+    evidence_format: "requirement-packet.json:blast_radius"
+  - check_id: P1-BUG-005
+    description: 必须声明此 bug 是否需要新的回归测试入库 regression-vault
+    severity: block
+    evidence_required: true
+    evidence_format: "requirement-packet.json:regression_vault_required"

@@ -1,0 +1,31 @@
+rubric_version: 1
+phase: 3
+requirement_type: feat
+description: |
+  Phase 3 (OpenSpec Fast-Forward 制品产出) rubric — 校验 spec/tasks/design 文档质量。
+checks:
+  - check_id: P3-FEAT-001
+    description: tasks.md 必须存在且任务原子化 (单任务 ≤ 1 个文件主语)
+    severity: block
+    evidence_required: true
+    evidence_format: "openspec/changes/<name>/tasks.md:行号"
+  - check_id: P3-FEAT-002
+    description: spec.md 必须包含 SHALL/MUST 规范化语句
+    severity: block
+    evidence_required: true
+    evidence_format: "openspec/changes/<name>/spec.md:行号"
+  - check_id: P3-FEAT-003
+    description: design.md 必须列出至少 1 个被拒绝的备选方案 (Alternatives Considered)
+    severity: warn
+    evidence_required: true
+    evidence_format: "openspec/changes/<name>/design.md:章节标题"
+  - check_id: P3-FEAT-004
+    description: 必须显式标注变更对 brownfield 现有约束的影响
+    severity: warn
+    evidence_required: false
+    evidence_format: "design.md:Impact 章节"
+  - check_id: P3-FEAT-005
+    description: tasks.md 必须有可验证的 Done 标准
+    severity: block
+    evidence_required: true
+    evidence_format: "tasks.md:Done Criteria 列"

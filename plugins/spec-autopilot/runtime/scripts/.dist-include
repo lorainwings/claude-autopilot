@@ -67,6 +67,7 @@ verify-test-driven-l2.sh
 write-phase-progress.sh
 validate-requirement-packet.sh
 validate-openspec-artifacts.sh
+validate-agent-registry.sh
 
 # ── Dispatch 治理与 fixup 校验 (工作包 H + J) ──
 generate-dispatch-plan.sh
@@ -89,3 +90,13 @@ write-edit-constraint-check.sh
 
 # ── GUI server 运行时入口 ──
 # autopilot-server.ts 已迁移至 server/，由 build-dist.sh 回填到 dist/scripts/
+
+# ── Active learning (L1/L2/L3) ──
+learn-episode-write.sh
+learn-episode-schema-validate.sh
+learn-inject-top-lessons.sh
+learn-promote-candidate.sh
+
+# ── Risk Scanner & Phase 5.5 Red Team (C1-C5 主动防御体系) ──
+risk-scan-gate.sh
+feedback-loop-inject.sh

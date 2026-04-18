@@ -67,6 +67,9 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | `spec-autopilot:autopilot-phase5-implement` | Phase 5 实施编排（路径选择 + L2 验证） |
 | `spec-autopilot:autopilot-phase6-report` | Phase 6 测试报告与三路并行 |
 | `spec-autopilot:autopilot-phase7-archive` | Phase 7 汇总 + 归档 |
+| `spec-autopilot:autopilot-risk-scanner` | 每 gate 前 Critic Agent 按 rubric 打分输出风险报告（Sprint 升级新增） |
+| `spec-autopilot:autopilot-phase5.5-redteam` | Phase 5↔6 之间 Red Team 对抗相位（Sprint 升级新增） |
+| `spec-autopilot:autopilot-learn` | Phase 7 后汇聚 episodes → 聚类 → 候选晋升（Sprint 升级新增） |
 | `spec-autopilot:autopilot-recovery` | 崩溃恢复协议 |
 | `spec-autopilot:autopilot-gate` | 阶段门禁验证 + 检查点读写管理 |
 | `spec-autopilot:autopilot-dispatch` | 子 Agent 调度构造 |
@@ -90,6 +93,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | 3 | Task 子 Agent | OpenSpec 快进生成制品 |
 | 4 | Task 子 Agent | 测试用例设计（full 模式强制；TDD 模式下由 Phase 5 吸收，标记 `skipped_tdd`） |
 | 5 | Task 子 Agent | 串行/并行 循环实施 |
+| 5.5 | Task 子 Agent (Critic) | **Red Team 对抗相位**（Sprint 升级新增）：枚举 5 类破坏并产出 reproducer，追加至 `tests/generated/redteam-*.sh`。详见 Skill(`spec-autopilot:autopilot-phase5.5-redteam`) |
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | Skill(`autopilot-phase7-archive`) | 汇总展示 + **Archive Readiness 自动**归档 |
 

@@ -60,6 +60,7 @@
 7. **Phase 1 上下文隔离**: 主线程禁止 Read 调研/BA 正文工件（research-findings.md、web-research-findings.md、requirements-analysis.md），仅消费 JSON 信封中的结构化字段
 8. **Dispatch 审计**: dispatch 记录必须包含 selection_reason、resolved_priority、owned_artifacts，由 post-task-validator 验证
 9. **Review findings fail-closed**: Phase 6.5 code review 中 `blocking: true` 的 findings 硬阻断 Phase 7 归档
+10. **Sub-Agent 名称硬解析（P0 红线）**: `subagent_type` 必须为字符串字面量且为已注册 agent 名。禁止 `config.phases.X.Y` / `{{...}}` 等字面量占位符。派发前必须调用 `runtime/scripts/validate-agent-registry.sh`；PostToolUse hook (`auto-emit-agent-dispatch.sh`) 兜底阻断 Phase 2-7 使用 `Explore` 或残留占位符的情形。详见 `skills/autopilot-dispatch/SKILL.md` § Sub-Agent 名称硬解析协议
 
 
 
