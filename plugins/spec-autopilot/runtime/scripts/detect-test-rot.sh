@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # detect-test-rot.sh — 测试过期静态检测器（候选清单生成器）
+# CODE-REF: docs/plans/engineering-auto-sync/test-audit.md
 #
 # 设计原则：
 #   - 静态检测（grep / regex），不依赖 LLM

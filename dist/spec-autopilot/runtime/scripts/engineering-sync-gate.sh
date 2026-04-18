@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # engineering-sync-gate.sh — 工程化自动同步聚合入口
+# CODE-REF: docs/plans/engineering-auto-sync/02-rollout.md
 #
 # 职责：
 #   - 并行调用 detect-doc-drift.sh + detect-test-rot.sh
@@ -57,15 +58,23 @@ DOC_OUT=$(AUTOPILOT_PROJECT_ROOT="$PROJECT_ROOT" \
   "$SCRIPT_DIR/detect-doc-drift.sh" --changed-files "$CHANGED_FILES" 2>&1 || true)
 ROT_OUT=$(AUTOPILOT_PROJECT_ROOT="$PROJECT_ROOT" \
   "$SCRIPT_DIR/detect-test-rot.sh" --changed-files "$CHANGED_FILES" --deleted-files "$DELETED_FILES" 2>&1 || true)
+ANCHOR_OUT=""
+if [ -x "$SCRIPT_DIR/detect-anchor-drift.sh" ]; then
+  ANCHOR_OUT=$(AUTOPILOT_PROJECT_ROOT="$PROJECT_ROOT" \
+    "$SCRIPT_DIR/detect-anchor-drift.sh" --changed-files "$CHANGED_FILES" --deleted-files "$DELETED_FILES" 2>&1 || true)
+fi
 
 DOC_COUNT=$(echo "$DOC_OUT" | grep -oE 'DRIFT_CANDIDATES=[0-9]+' | head -1 | sed 's/DRIFT_CANDIDATES=//')
 ROT_COUNT=$(echo "$ROT_OUT" | grep -oE 'ROT_CANDIDATES=[0-9]+' | head -1 | sed 's/ROT_CANDIDATES=//')
+ANCHOR_COUNT=$(echo "$ANCHOR_OUT" | grep -oE 'ANCHOR_DRIFT_CANDIDATES=[0-9]+' | head -1 | sed 's/ANCHOR_DRIFT_CANDIDATES=//')
 DOC_COUNT="${DOC_COUNT:-0}"
 ROT_COUNT="${ROT_COUNT:-0}"
+ANCHOR_COUNT="${ANCHOR_COUNT:-0}"
 
 # --- 聚合报告 ---
 DRIFT_FILE="$PROJECT_ROOT/.drift-candidates.json"
 ROT_FILE="$PROJECT_ROOT/.test-rot-candidates.json"
+ANCHOR_FILE="$PROJECT_ROOT/.anchor-drift-candidates.json"
 
 python3 -c "
 import json, os
@@ -75,8 +84,9 @@ report = {
   'enabled': $([ "$ENABLED" = "true" ] && echo "True" || echo "False"),
   'doc_drift': {'count': $DOC_COUNT, 'candidates': []},
   'test_rot': {'count': $ROT_COUNT, 'candidates': []},
+  'anchor_drift': {'count': $ANCHOR_COUNT, 'candidates': []},
 }
-for key, path in [('doc_drift', '$DRIFT_FILE'), ('test_rot', '$ROT_FILE')]:
+for key, path in [('doc_drift', '$DRIFT_FILE'), ('test_rot', '$ROT_FILE'), ('anchor_drift', '$ANCHOR_FILE')]:
     if os.path.exists(path):
         try:
             with open(path) as f:
@@ -88,10 +98,11 @@ with open('$REPORT_FILE', 'w') as f:
     json.dump(report, f, indent=2)
 "
 
-TOTAL=$((DOC_COUNT + ROT_COUNT))
+TOTAL=$((DOC_COUNT + ROT_COUNT + ANCHOR_COUNT))
 echo "ENGINEERING_SYNC_MODE=$MODE"
 echo "DRIFT_CANDIDATES=$DOC_COUNT"
 echo "ROT_CANDIDATES=$ROT_COUNT"
+echo "ANCHOR_DRIFT_CANDIDATES=$ANCHOR_COUNT"
 echo "TOTAL_CANDIDATES=$TOTAL"
 
 if [ "$MODE" = "block" ] && [ "$TOTAL" -gt 0 ]; then

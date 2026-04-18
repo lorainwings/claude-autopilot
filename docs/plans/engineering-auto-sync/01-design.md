@@ -1,5 +1,7 @@
 # 设计决策 — R 推荐 vs I 落地 diff
 
+<!-- CODE-OWNED-BY: plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh -->
+
 > 本轮实现相对 Agent R 的调研建议做了**选择性收敛**（优先确定性、放弃语义锚点），下面逐项对照说明。
 
 ## 1. R 推荐 vs I 实际实现对照表

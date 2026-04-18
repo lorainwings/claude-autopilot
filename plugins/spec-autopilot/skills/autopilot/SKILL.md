@@ -72,6 +72,9 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | `spec-autopilot:autopilot-learn` | Phase 7 后汇聚 episodes → 聚类 → 候选晋升（Sprint 升级新增） |
 | `spec-autopilot:autopilot-docs-sync` | pre-commit 触发的文档漂移检测，输出 `.drift-candidates.json`（工程自动化新增） |
 | `spec-autopilot:autopilot-test-audit` | 按需人工触发的测试过期候选扫描，输出 `.test-rot-candidates.json`（工程自动化新增） |
+| `spec-autopilot:autopilot-docs-fix` | 消费 drift 候选生成可 git-apply patch / manual suggestion.md（user-invocable） |
+| `spec-autopilot:autopilot-test-fix` | 消费 test-rot 候选生成 sed patch / manual suggestion.md（user-invocable） |
+| `spec-autopilot:autopilot-test-health` | 测试有效性量化：变异测试采样 + 健康度评分（user-invocable，建议 weekly sweep） |
 | `spec-autopilot:autopilot-recovery` | 崩溃恢复协议 |
 | `spec-autopilot:autopilot-gate` | 阶段门禁验证 + 检查点读写管理 |
 | `spec-autopilot:autopilot-dispatch` | 子 Agent 调度构造 |

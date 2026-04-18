@@ -269,11 +269,26 @@ test_suites:
 |-------|--------|------|
 | `autopilot` | 是 | 主 8 阶段编排器（在主线程运行） |
 | `autopilot-setup` | 是 | 自动检测技术栈，生成配置 |
-| `autopilot-dispatch` | 否 | 子 Agent 分发，含 JSON 信封契约 |
-| `autopilot-gate` | 否 | 8 步清单 + 特殊门禁 + 检查点读写 + 语义/棕地验证 |
-| `autopilot-phase0` | 否 | 环境检查 + 配置加载 + 崩溃恢复 + 锁文件 |
-| `autopilot-phase7` | 否 | 摘要展示 + 归档 + git autosquash + 模式感知 Summary Box |
+| `autopilot-dispatch` | 否 | 子 Agent 分发，含 JSON 信封契约 + Sub-Agent 名称硬解析 |
+| `autopilot-gate` | 否 | 8 步清单 + 特殊门禁 + 检查点读写 + 语义/棕地验证 + Step 0 风险预检 |
+| `autopilot-phase0` | 否 | 环境检查 + 配置加载 + 崩溃恢复 + ��文件 + 历史教训注入 |
+| `autopilot-phase1` | 否 | 需求理解 + 多轮澄清 + 并行调研派发 |
+| `autopilot-phase2-3-openspec` | 否 | OpenSpec 创建 + Fast-Forward 制品生成 |
+| `autopilot-phase4-testcase` | 否 | 测试用例设计（TDD 覆盖 + 并行分组） |
+| `autopilot-phase5-implement` | 否 | 实施编排（并行/串行/TDD）+ L2 验证 |
+| `autopilot-phase5.5-redteam` | 否 | Phase 5 与 Phase 6 之间的 Red Team 对抗相位（5 破坏类别反例） |
+| `autopilot-phase6-report` | 否 | 三路并行测试报告生成 |
+| `autopilot-phase7` | 否 | 摘要展示 + 归档 + git autosquash + episode 写入 |
 | `autopilot-recovery` | 否 | 通过检查点扫描进行崩溃恢复 + anchor_sha 验证 |
+| `autopilot-agents` | 是 | 发现、安装、配置社区 AI Agent 分派各 Phase |
+| `autopilot-models` | 是 | 按 Phase 配置 AI 模型路由策略 |
+| `autopilot-risk-scanner` | 否 | Critic Agent 按 rubric 打分输出 risk-report（挂每 gate 前） |
+| `autopilot-learn` | 否 | Phase 7 后 episodes 聚类 + L3 候选晋升扫描 |
+| `autopilot-docs-sync` | 否 | pre-commit 文档漂移检测，输出 .drift-candidates.json |
+| `autopilot-test-audit` | 是 | 按需测试过期候选扫描，输出 .test-rot-candidates.json |
+| `autopilot-docs-fix` | 是 | 消费 drift 候选生成可 git-apply patch / manual suggestion.md |
+| `autopilot-test-fix` | 是 | 消费 test-rot 候选生成 sed patch / manual suggestion.md |
+| `autopilot-test-health` | 是 | 测试有效性量化：变异测试采样 + 健康度评分 |
 
 ### Hook 脚本
 

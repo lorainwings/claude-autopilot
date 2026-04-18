@@ -105,3 +105,16 @@ feedback-loop-inject.sh
 detect-doc-drift.sh
 detect-test-rot.sh
 engineering-sync-gate.sh
+
+# ── Ownership anchors (双向锚点 + R6/R7/R8 漂移) ──
+scan-code-ref-anchors.sh
+detect-anchor-drift.sh
+
+# ── Engineering auto-fix (候选 → patch 生成 + 人工 confirm 应用) ──
+generate-doc-fix-patch.sh
+generate-test-fix-patch.sh
+apply-fix-patch.sh
+
+# ── Test health quantification (mutation + static health score, weekly sweep) ──
+test-mutation-sample.sh
+test-health-score.sh

@@ -1,5 +1,7 @@
 # 测试用例全量审计报告（2026-04-18）
 
+<!-- CODE-OWNED-BY: plugins/spec-autopilot/runtime/scripts/detect-test-rot.sh -->
+
 > 来源：Agent A 全量静态审计，基于 `bash tests/run_all.sh` 基线 1698 pass / 121 files。审计时间 2026-04-18。
 
 ## 总览

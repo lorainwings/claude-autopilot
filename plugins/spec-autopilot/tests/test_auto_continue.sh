@@ -14,6 +14,8 @@ setup_autopilot_fixture
 
 # --- 1. autopilot-setup 预设: 所有预设 after_phase_1 = false ---
 # v9.2: 预设模板已迁移到 references/setup-wizard.md（SKILL 拆分）
+# TODO(compat-window): revisit 2026-10 — references/setup-wizard.md 已稳定存在；
+#   如确认不再需要回退到 SKILL.md，可以精简 fallback 分支。
 INIT_WIZARD_REF="$SKILL_DIR/autopilot-setup/references/setup-wizard.md"
 if [ -f "$INIT_WIZARD_REF" ]; then
   init_content=$(cat "$INIT_WIZARD_REF")

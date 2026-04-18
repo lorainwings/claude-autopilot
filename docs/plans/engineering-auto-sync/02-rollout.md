@@ -1,5 +1,7 @@
 # 落地路径 — pre-commit 接入 / .drift-ignore / 人工触发
 
+<!-- CODE-OWNED-BY: plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh -->
+
 > 本文档说明如何激活工程化自动同步能力、如何写 `.drift-ignore`、以及两个 Skill 的人工触发用法。
 
 ## 1. 配置节

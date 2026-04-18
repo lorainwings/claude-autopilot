@@ -40,11 +40,27 @@ assert_exit "1d. complete empty stdin → exit 0" 0 "$RESULT"
 NON_AUTOPILOT_JSON='{"tool_name":"Task","tool_input":{"prompt":"Do something normal","description":"normal task"},"cwd":"'"$REPO_ROOT"'"}'
 RESULT=$(echo "$NON_AUTOPILOT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
 assert_exit "1e. dispatch non-autopilot Task → exit 0" 0 "$RESULT"
+# 1e'. 内容校验：non-autopilot Task 不应生成 .active-agent-id（hook 跳过）
+if [ ! -f "$REPO_ROOT/logs/.active-agent-id" ]; then
+  green "  PASS: 1e'. non-autopilot Task did NOT create .active-agent-id (skipped correctly)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 1e'. non-autopilot Task unexpectedly created .active-agent-id"
+  FAIL=$((FAIL + 1))
+fi
 
 # 1f. dispatch hook exits 0 for checkpoint-writer Task
 CHECKPOINT_JSON='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 --> <!-- checkpoint-writer --> write checkpoint","description":"checkpoint writer"},"cwd":"'"$REPO_ROOT"'"}'
 RESULT=$(echo "$CHECKPOINT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
 assert_exit "1f. dispatch checkpoint-writer → exit 0 (skipped)" 0 "$RESULT"
+# 1f'. 内容校验：checkpoint-writer 也应被跳过，不写 .active-agent-id
+if [ ! -f "$REPO_ROOT/logs/.active-agent-id" ]; then
+  green "  PASS: 1f'. checkpoint-writer Task did NOT create .active-agent-id (skipped correctly)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 1f'. checkpoint-writer Task unexpectedly created .active-agent-id"
+  FAIL=$((FAIL + 1))
+fi
 
 # 1g. dispatch hook processes valid autopilot Task
 VALID_JSON='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 --> Generate OpenSpec","description":"OpenSpec generation"},"cwd":"'"$REPO_ROOT"'"}'
@@ -52,6 +68,15 @@ VALID_JSON='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 -
 mkdir -p "$REPO_ROOT/logs" 2>/dev/null || true
 RESULT=$(echo "$VALID_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
 assert_exit "1g. dispatch valid autopilot Task → exit 0" 0 "$RESULT"
+# 1g'. 内容校验：events.jsonl 应包含 agent dispatch 相关事件并带 phase 字段
+EVENTS_FILE="$REPO_ROOT/logs/events.jsonl"
+if [ -f "$EVENTS_FILE" ] && grep -q "agent" "$EVENTS_FILE" && grep -q '"phase"' "$EVENTS_FILE"; then
+  green "  PASS: 1g'. events.jsonl contains agent event with phase field"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 1g'. events.jsonl missing agent event or phase field (file=$EVENTS_FILE)"
+  FAIL=$((FAIL + 1))
+fi
 
 # 1h. Verify .active-agent-id file was written
 if [ -f "$REPO_ROOT/logs/.active-agent-id" ]; then

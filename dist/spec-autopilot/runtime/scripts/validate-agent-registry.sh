@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # validate-agent-registry.sh
+# CODE-REF: plugins/spec-autopilot/skills/autopilot-dispatch/SKILL.md
 # Purpose: 校验 Sub-Agent 名称是否合法（已注册自定义 agent ∪ 内置 agent）
 #          并检测输入中是否残留未解析的模板占位符（{{...}}, config.*, config.phases.*）
 #

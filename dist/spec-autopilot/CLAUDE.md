@@ -72,5 +72,20 @@
 4. **人工触发**：`autopilot-test-audit` 为 user-invocable（`/autopilot-test-audit`），用于按需审计；`autopilot-docs-sync` 仅 orchestrator 内部使用
 5. **禁止自动删除测试**：所有候选均需人工 review 后才做 DELETE/UPDATE 动作
 
+### 候选-修复闭环（Round 2 新增）
+
+- **锚点机制**：双向 ownership `# CODE-REF:` / `<!-- CODE-OWNED-BY: -->`，规范见 `skills/autopilot-docs-sync/references/anchor-syntax.md`；配置 fallback 在 `.claude/docs-ownership.yaml`（模板在 `.claude/docs-ownership.yaml.example`）
+- **R6/R7/R8 锚点漂移**：`runtime/scripts/detect-anchor-drift.sh` 独立运行，输出 `.anchor-drift-candidates.json`
+- **候选修复 Skill**：`/autopilot-docs-fix scan|apply` 与 `/autopilot-test-fix scan|apply` 消费候选清单生成可 `git apply --check` 通过的 patch；apply 走 `git stash push -u` + `git apply --check` 失败则 `git stash pop` 回滚；manual patch 默认拒绝需 `--force-manual`
+- **严禁在 CI / pre-commit 中自动调用 apply-fix-patch.sh**
+
+### 测试健康度纪律（Round 2 新增）
+
+- `/autopilot-test-health score|mutate|all` 为 user-invocable（不挂 phase 流程，建议 weekly sweep）
+- 指标：`assertion_density` / `weak_ratio` / `duplicate_ratio` / `age_distribution` / `kill_rate`（若 `.mutation-report.json` 存在）
+- 阈值：`autopilot.config.yaml` 之 `test_health.thresholds`（overall 默认 60，assertion_density 默认 2.0，weak_ratio_max 默认 0.3）
+- 违反阈值时 stdout 输出 `HEALTH_BELOW_THRESHOLD=1` 但 exit 0（评分工具不阻断提交）
+- 变异测试安全约束：开始前 git working tree 必须干净（否则 exit 2）；结束时 git status 必须与开始一致；使用确定性 `cksum` 哈希采样（禁止 `$RANDOM`）
+
 
 

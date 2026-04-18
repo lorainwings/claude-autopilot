@@ -90,13 +90,29 @@ fi
 
 # 11e. save-state script exits 0 with no changes dir
 exit_code=0
-bash "$SCRIPT_DIR/save-state-before-compact.sh" </dev/null >/dev/null 2>&1 || exit_code=$?
+save_output=$(bash "$SCRIPT_DIR/save-state-before-compact.sh" </dev/null 2>&1) || exit_code=$?
 assert_exit "save-state no changes → exit 0" 0 $exit_code
+# 11e'. 内容校验：no changes dir 时输出不应包含错误关键字（grace fallthrough）
+if ! grep -qiE 'error|fatal|traceback|blocked' <<< "$save_output"; then
+  green "  PASS: 11e'. save-state no-changes output is clean (no error keywords)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 11e'. save-state output contains unexpected error keywords: $save_output"
+  FAIL=$((FAIL + 1))
+fi
 
 # 11f. reinject-state script exits 0 with no state file
 exit_code=0
 output=$(cd /tmp && bash "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null) || exit_code=$?
 assert_exit "reinject-state no state file → exit 0" 0 $exit_code
+# 11f'. 内容校验：无 state 文件时不应注入虚假上下文（输出为空或不含 phase reinject 关键字）
+if ! grep -qiE 'autopilot.*resumed|next_phase|reinject' <<< "$output"; then
+  green "  PASS: 11f'. reinject-state output does NOT inject fake context when state missing"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 11f'. reinject-state unexpectedly produced reinject content: $output"
+  FAIL=$((FAIL + 1))
+fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
