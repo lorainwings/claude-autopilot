@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.11.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.1...spec-autopilot-v5.11.0) (2026-04-18)
+
+
+### Added
+
+* **spec-autopilot:** Phase 1 agent 配置驱动校验（运行时不可偏离 config） ([97fa870](https://github.com/lorainwings/claude-autopilot/commit/97fa87089ff4a2e4a493c8cc4447f6ec7734f878))
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 GUI React error [#310](https://github.com/lorainwings/claude-autopilot/issues/310)（ParallelKanban hooks 顺序违规） ([e4393cd](https://github.com/lorainwings/claude-autopilot/commit/e4393cd7ffd19d76ec95dc7ea0facb9dccb8c6d8))
+
 ## [5.10.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.0...spec-autopilot-v5.10.1) (2026-04-18)
 
 
