@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.10.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.0...spec-autopilot-v5.10.1) (2026-04-18)
+
+
+### Fixed
+
+* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([b72a10f](https://github.com/lorainwings/claude-autopilot/commit/b72a10f79b06c680ef7dc65b91559e4def025316))
+* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([61a9895](https://github.com/lorainwings/claude-autopilot/commit/61a9895d3965ad03c3c39c89a2d774af97a99046))
+* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fb2e62f](https://github.com/lorainwings/claude-autopilot/commit/fb2e62f4bde4c2b48b508de212cdafea7cd994df))
+* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fe7f384](https://github.com/lorainwings/claude-autopilot/commit/fe7f3849711d0d633bc697d395a2ada03caf02df))
+
 ## [5.10.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.1...spec-autopilot-v5.10.0) (2026-04-18)
 
 
