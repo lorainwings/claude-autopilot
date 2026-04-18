@@ -59,6 +59,7 @@ start-gui-server.sh
 statusline-collector.sh
 stop-gui-on-session-end.sh
 adapt-agent-tools.py
+collect-summary-urls.sh
 tdd-refactor-rollback.sh
 validate-config.sh
 validate-decision-format.sh

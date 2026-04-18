@@ -3,69 +3,33 @@
 > 本文件由 `autopilot-phase7-archive/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含确定性地址收集、Summary Box 模板和渲染规则。
 
-## 确定性地址收集（从磁盘读取，不依赖上下文变量）
+## 确定性地址收集（自愈 + 单脚本）
 
-Summary Box 渲染前，通过**单次 Bash 脚本**从磁盘文件确定性读取所有关键地址：
+Summary Box 渲染前，通过 `collect-summary-urls.sh` 一次性确定性获取所有地址。**核心防御**：脚本内含 Allure 自愈逻辑——若 `allure-preview.json` 缺失 / PID 死亡 / URL 不通，自动调用 `start-allure-serve.sh` 兜底，避免上游 AI 步骤被跳过时 Allure 行渲染为 `unavailable`。
 
 ```bash
-Bash('
-  CHANGE_DIR="openspec/changes/{change_name}"
-  CONTEXT_DIR="${CHANGE_DIR}/context"
-
-  # 1. Allure 预览地址（从 allure-preview.json 读取，Step 2.5 子 Agent 已写入）
-  ALLURE_URL=""
-  ALLURE_PID=""
-  if [ -f "${CONTEXT_DIR}/allure-preview.json" ]; then
-    ALLURE_URL=$(python3 -c "import json; print(json.load(open(\"${CONTEXT_DIR}/allure-preview.json\")).get(\"url\",\"\"))" 2>/dev/null || echo "")
-    ALLURE_PID=$(python3 -c "import json; print(json.load(open(\"${CONTEXT_DIR}/allure-preview.json\")).get(\"pid\",\"\"))" 2>/dev/null || echo "")
-  fi
-
-  # 2. GUI 大盘地址（从 GUI 服务器 PID + 配置端口推导）
-  GUI_URL=""
-  GUI_PORT=$(python3 -c "
-import yaml
-try:
-    cfg = yaml.safe_load(open(\".claude/autopilot.config.yaml\"))
-    print(cfg.get(\"gui\",{}).get(\"port\", 9527))
-except: print(9527)
-  " 2>/dev/null || echo 9527)
-  if [ -f "logs/.gui-server.pid" ]; then
-    GUI_PID_VAL=$(cat "logs/.gui-server.pid" 2>/dev/null || echo "")
-    if [ -n "$GUI_PID_VAL" ] && kill -0 "$GUI_PID_VAL" 2>/dev/null; then
-      GUI_URL="http://localhost:${GUI_PORT}"
-    fi
-  fi
-
-  # 3. 服务健康检查地址（从配置读取）
-  SERVICES=$(python3 -c "
-import yaml, json
-try:
-    cfg = yaml.safe_load(open(\".claude/autopilot.config.yaml\"))
-    svcs = cfg.get(\"services\", {})
-    for name, url in svcs.items():
-        if isinstance(url, str): print(f\"{name}: {url}\")
-except: pass
-  " 2>/dev/null || true)
-
-  # 输出 JSON 供主线程解析
-  python3 -c "
-import json, sys
-result = {
-    \"allure_url\": \"${ALLURE_URL}\",
-    \"allure_pid\": \"${ALLURE_PID}\",
-    \"gui_url\": \"${GUI_URL}\",
-    \"services\": {}
-}
-for line in \"\"\"${SERVICES}\"\"\".strip().splitlines():
-    if \": \" in line:
-        k, v = line.split(\": \", 1)
-        result[\"services\"][k.strip()] = v.strip()
-print(json.dumps(result))
-  " 2>/dev/null || echo "{}"
-')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/collect-summary-urls.sh "openspec/changes/{change_name}" 4040')
 ```
 
-从 Bash 输出解析 JSON，获取 `allure_url`、`gui_url`、`services` 字典。这些值**全部来自磁盘文件**，不依赖主线程上下文中是否持有变量。
+输出单行 JSON：
+
+```json
+{
+  "allure_url": "http://localhost:4041",
+  "allure_pid": "12345",
+  "gui_url":    "http://localhost:9527",
+  "services":   {"backend": "http://localhost:8080/health"}
+}
+```
+
+字段语义：
+
+- `allure_url` — 自愈后的 Allure 报告地址（自愈失败为空字符串）
+- `allure_pid` — Allure 服务 PID（用于 Step 9 输出停止命令）
+- `gui_url` — GUI 大盘地址（PID 文件 + 端口监听双重校验）
+- `services` — `autopilot.config.yaml` 的 `services` 字典中所有 string 类型条目
+
+> **设计意图**：消除原内联 bash 三处独立读取 `allure-preview.json` 的不一致行为，并把"自愈"从 AI Task（Step 2.5）下沉为脚本副作用，确保 Summary Box 始终拿到最新可用的 URL。
 
 ## Summary Box 模板
 
