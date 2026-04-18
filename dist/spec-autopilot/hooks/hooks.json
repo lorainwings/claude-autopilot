@@ -198,6 +198,11 @@
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/capture-hook-event.sh SessionEnd",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/stop-gui-on-session-end.sh",
+            "timeout": 5
           }
         ]
       }

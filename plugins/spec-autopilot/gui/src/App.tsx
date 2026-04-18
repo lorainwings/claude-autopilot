@@ -98,12 +98,24 @@ export function App() {
   const [telemetryOpen, setTelemetryOpen] = useState(false);
   // v7.0: 主窗口默认显示 orchestration 视图，diagnostics 为二级面板
   const [activeView, setActiveView] = useState<"orchestration" | "diagnostics">("orchestration");
+  // 运行时版本（以 /api/info 为权威来源，消除构建期烘焙漂移）
+  const [liveVersion, setLiveVersion] = useState<string>(__PLUGIN_VERSION__);
 
   useEffect(() => {
     let cancelled = false;
     let connectionTimer: ReturnType<typeof setInterval> | null = null;
     let httpTimer: ReturnType<typeof setInterval> | null = null;
     let unsubs: Array<() => void> = [];
+
+    // 运行时拉取权威版本（以 plugin.json 为准，绕过构建烘焙 + 浏览器缓存）
+    fetch("/api/info", { signal: AbortSignal.timeout(3000) })
+      .then((r) => r.json())
+      .then((info) => {
+        if (!cancelled && typeof info?.version === "string" && info.version) {
+          setLiveVersion(info.version);
+        }
+      })
+      .catch(() => { /* 保持烘焙 fallback */ });
 
     // 异步初始化：先拿 wsPort，再创建 bridge + 订阅
     resolveWsUrl().then((wsUrl) => {
@@ -176,7 +188,7 @@ export function App() {
           <div className="flex items-center space-x-2">
             <span className="text-cyan text-xl">{"\u2B21"}</span>
             <h1 className="font-display font-bold text-sm tracking-widest text-text-bright uppercase">
-              Autopilot <span className="text-cyan">v{__PLUGIN_VERSION__}</span>
+              Autopilot <span className="text-cyan">v{liveVersion}</span>
             </h1>
           </div>
           <div className="h-4 w-px bg-border"></div>

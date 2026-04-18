@@ -119,9 +119,13 @@ argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
     1. 检查 OMC marketplace 是否已添加
     2. Bash('claude plugin marketplace add Yeachan-Heo/oh-my-claudecode') [若未添加]
     3. 通过 plugin install 安装，或直接复制 Agent 文件到 .claude/agents/
-    4. Phase 1 适配: fork analyst.md 移除 disallowedTools 中的 Write
-       (Phase 1 需要 Write 调研产出文件)
-    5. 更新 .claude/autopilot.config.yaml 各 phase 的 agent 字段
+    4. 更新 .claude/autopilot.config.yaml 各 phase 的 agent 字段
+    5. **工具权限适配（必须）**: 运行
+       Bash('python3 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/adapt-agent-tools.py --project-root "$(pwd)"')
+       自动检测所有 phase→agent 的 `disallowedTools` 与所需工具的冲突，
+       对冲突 agent fork 到 .claude/agents/{name}.md 并剥离冲突项（如
+       analyst/explore 的 Write/Edit、code-reviewer 用于域 agent 时等）。
+       幂等、可重复执行；源 marketplace agent 保持不变。
 
 - "按阶段选择 Agent" →
     逐 Phase 展示推荐 + 备选，用户每阶段可选
@@ -246,7 +250,10 @@ Step 2: 检查 .claude/agents/{agent}.md 是否存在
   都不是 → 提示安装对应 Agent
 Step 3: 读取 .claude/autopilot.config.yaml
 Step 4: 更新对应 phase 的 agent 字段
-Step 5: 输出新映射
+Step 5: 工具权限适配（必须）
+  Bash('python3 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/adapt-agent-tools.py --project-root "$(pwd)"')
+  → 对新交换进来的 agent 执行 disallowedTools 冲突检测 + 自动 fork
+Step 6: 输出新映射
 ```
 
 Phase → config key 映射:

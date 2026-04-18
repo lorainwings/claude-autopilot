@@ -57,6 +57,8 @@ save-phase-context.sh
 start-allure-serve.sh
 start-gui-server.sh
 statusline-collector.sh
+stop-gui-on-session-end.sh
+adapt-agent-tools.py
 tdd-refactor-rollback.sh
 validate-config.sh
 validate-decision-format.sh
