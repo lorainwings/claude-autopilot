@@ -29,6 +29,10 @@ jobs:
       - name: Verify python3
         run: python3 --version
 
+      - name: Install Python test dependencies
+        # PyYAML 用于 test_risk_scanner.sh；macos-latest 不预装。
+        run: python3 -m pip install --user --break-system-packages pyyaml || python3 -m pip install --user pyyaml
+
       - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies

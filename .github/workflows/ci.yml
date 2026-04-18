@@ -173,6 +173,11 @@ jobs:
       - name: Verify python3
         run: python3 --version
 
+      - name: Install Python test dependencies
+        # PyYAML 用于 test_risk_scanner.sh 校验 rubric YAML 结构。
+        # ubuntu-latest 预装 PyYAML，macos-latest 不含；统一安装确保跨平台一致。
+        run: python3 -m pip install --user --break-system-packages pyyaml || python3 -m pip install --user pyyaml
+
       - uses: oven-sh/setup-bun@v2
 
       - name: Install GUI dependencies
