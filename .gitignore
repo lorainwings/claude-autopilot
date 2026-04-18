@@ -78,3 +78,8 @@ plugins/parallel-harness/BUILD_MANIFEST.json
 .drift-candidates.json
 .test-rot-candidates.json
 .engineering-sync-report.json
+.anchor-drift-candidates.json
+.docs-fix-patches/
+.tests-fix-patches/
+.mutation-report.json
+.test-health-report.json
