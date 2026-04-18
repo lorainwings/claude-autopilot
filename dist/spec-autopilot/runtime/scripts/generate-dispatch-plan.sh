@@ -24,6 +24,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
+print_usage() {
+  cat >&2 <<'USAGE'
+Usage:
+  generate-dispatch-plan.sh <project_root> <change_name> <requested_agent> \
+    [phase] [owned_files_json] [validators_json] [model_routing_json]
+
+用途: 生成 per-agent 的 dispatch-plan.json (单个 Sub-Agent 派发审计记录)。
+
+⚠️  这不是并行调度器。如需生成 Phase 5 并行 batch 计划，请改用:
+    runtime/scripts/generate-parallel-plan.sh  (读 stdin/文件 JSON → parallel_plan.json)
+USAGE
+}
+
+case "${1:-}" in
+  -h | --help | help)
+    print_usage
+    exit 0
+    ;;
+esac
+
 PROJECT_ROOT="${1:-$(resolve_project_root)}"
 CHANGE_NAME="${2:-}"
 REQUESTED_AGENT="${3:-}"
@@ -34,12 +54,15 @@ MODEL_ROUTING="${7:-{}}"
 
 # --- 参数校验 ---
 if [ -z "$CHANGE_NAME" ]; then
-  echo "ERROR: 缺少 change_name 参数" >&2
+  echo "ERROR: 缺少 change_name 参数 (位置参数 2)" >&2
+  echo "提示: 若想生成 Phase 5 并行 batch 计划，请改用 generate-parallel-plan.sh" >&2
+  print_usage
   exit 1
 fi
 
 if [ -z "$REQUESTED_AGENT" ]; then
-  echo "ERROR: 缺少 requested_agent 参数" >&2
+  echo "ERROR: 缺少 requested_agent 参数 (位置参数 3)" >&2
+  print_usage
   exit 1
 fi
 
