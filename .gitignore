@@ -73,3 +73,8 @@ plugins/parallel-harness/BUILD_MANIFEST.json
 # dist/parallel-harness/ 是插件市场产物，与 dist/spec-autopilot/ 一样需要跟踪
 !dist/parallel-harness/
 !dist/daily-report/
+
+# engineering auto-sync 运行时产物（候选清单与聚合报告）
+.drift-candidates.json
+.test-rot-candidates.json
+.engineering-sync-report.json
