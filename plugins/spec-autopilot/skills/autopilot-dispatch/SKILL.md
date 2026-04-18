@@ -40,7 +40,7 @@ user-invocable: false
 ### 硬规则（派发前必须满足）
 
 1. **派发前必须完成模板变量替换**：主线程在调用 `Task(subagent_type: ...)` 之前，**必须**从 `autopilot.config.yaml` 读取 `config.phases[phase].agent` / `config.phases[phase].research.agent` 的实际值，并用该字符串替换模板中的 `{{RESOLVED_AGENT_NAME}}` 等占位符。
-2. **必须通过注册表校验**：替换后的 agent 名必须先经过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验���
+2. **必须通过注册表校验**：替换后的 agent 名必须先经过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验：
    - exit 0：合法（已注册自定义 agent 或内置 `general-purpose` / `Explore` / `Plan`）→ 可派发
    - exit 1：未注册 / 残留占位符（`{{`、`config.`、`config.phases.`）/ 空值 → **立即 fail-fast**，返回 `{"status":"blocked","summary":"agent 名称校验失败：<stderr>"}`
 3. **严禁字面量 dispatch**：禁止在任何 `Task(...)` 调用中直接写出 `subagent_type: config.phases.X.Y` 或 `subagent_type: {{...}}`。`subagent_type` 必须为**字符串字面量**，且为已注册 agent 名。

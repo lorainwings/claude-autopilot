@@ -54,7 +54,7 @@ echo "# Sample v2" >"$TMP1/plugins/spec-autopilot/skills/sample/SKILL.md"
 OUT1=$(AUTOPILOT_PROJECT_ROOT="$TMP1" "$GATE" --changed-files "plugins/spec-autopilot/skills/sample/SKILL.md" 2>&1)
 RC1=$?
 assert_exit "1a. no config → exit 0 (soft)" 0 $RC1
-assert_file_exists "1b. report written" "$TMP1/.engineering-sync-report.json"
+assert_file_exists "1b. report written" "$TMP1/.cache/spec-autopilot/engineering-sync-report.json"
 rm -rf "$TMP1"
 
 # Case 2: disabled + drift → exit 0
@@ -93,8 +93,8 @@ write_config "$TMP5" "false"
 echo "# Sample v2" >"$TMP5/plugins/spec-autopilot/skills/sample/SKILL.md"
 "$GATE" --changed-files "plugins/spec-autopilot/skills/sample/SKILL.md" >/dev/null 2>&1 <<<"" || true
 AUTOPILOT_PROJECT_ROOT="$TMP5" "$GATE" --changed-files "plugins/spec-autopilot/skills/sample/SKILL.md" >/dev/null 2>&1 || true
-assert_file_contains "5a. report has doc_drift section" "$TMP5/.engineering-sync-report.json" "doc_drift"
-assert_file_contains "5b. report has test_rot section" "$TMP5/.engineering-sync-report.json" "test_rot"
+assert_file_contains "5a. report has doc_drift section" "$TMP5/.cache/spec-autopilot/engineering-sync-report.json" "doc_drift"
+assert_file_contains "5b. report has test_rot section" "$TMP5/.cache/spec-autopilot/engineering-sync-report.json" "test_rot"
 rm -rf "$TMP5"
 
 echo

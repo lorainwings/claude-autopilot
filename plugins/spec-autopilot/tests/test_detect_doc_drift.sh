@@ -75,7 +75,7 @@ RC1=$?
 assert_exit "1a. R1 drift detected → exit 0 (warn-only)" 0 $RC1
 assert_contains "1b. summary line emitted" "$OUT1" "DRIFT_CANDIDATES="
 assert_contains "1c. mentions rule R1" "$OUT1" "R1"
-assert_file_exists "1d. .drift-candidates.json written" "$TMP1/.drift-candidates.json"
+assert_file_exists "1d. drift-candidates.json written" "$TMP1/.cache/spec-autopilot/drift-candidates.json"
 rm -rf "$TMP1"
 
 # Case 2: SKILL.md modified AND README modified

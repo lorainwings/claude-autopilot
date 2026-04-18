@@ -4,7 +4,7 @@
 
 ## 字段定义
 
-| 字段 | 类型 | 必填 | 说�� |
+| 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `version` | string | ✅ | schema 版本，当前固定 `"1.0"` |
 | `run_id` | string | ✅ | 单次 autopilot 运行的唯一 ID（通常复用 lockfile 中的 anchor_sha 或 UUID） |

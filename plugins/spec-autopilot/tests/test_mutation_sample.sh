@@ -62,8 +62,8 @@ OUT1=$(cd "$TMP1" && "$MUTATE" --targets "runtime/scripts/*.sh" --sample-size 5 
 RC1=$?
 assert_exit "1a. exit 0" 0 "$RC1"
 assert_contains "1b. summary 行" "$OUT1" "MUTATION_KILL_RATE="
-assert_file_exists "1c. 报告文件生成" "$TMP1/.mutation-report.json"
-KR1=$(python3 -c "import json;print(json.load(open('$TMP1/.mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
+assert_file_exists "1c. 报告文件生成" "$TMP1/.cache/spec-autopilot/mutation-report.json"
+KR1=$(python3 -c "import json;print(json.load(open('$TMP1/.cache/spec-autopilot/mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
 if [ -n "$KR1" ] && python3 -c "import sys;sys.exit(0 if float('$KR1')>=0.99 else 1)" 2>/dev/null; then
   green "  PASS: 1d. kill_rate ≈ 1.0 (=$KR1)"
   PASS=$((PASS + 1))
@@ -79,7 +79,7 @@ OUT2=$(cd "$TMP2" && "$MUTATE" --targets "runtime/scripts/*.sh" --sample-size 5 
 RC2=$?
 assert_exit "2a. exit 0" 0 "$RC2"
 assert_contains "2b. SURVIVORS 行" "$OUT2" "SURVIVORS="
-KR2=$(python3 -c "import json;print(json.load(open('$TMP2/.mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
+KR2=$(python3 -c "import json;print(json.load(open('$TMP2/.cache/spec-autopilot/mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
 if [ "$KR2" = "0.0" ] || [ "$KR2" = "0" ]; then
   green "  PASS: 2c. kill_rate = 0 (=$KR2)"
   PASS=$((PASS + 1))
@@ -125,7 +125,7 @@ EOF
 OUT4=$(cd "$TMP4" && "$MUTATE" --targets "runtime/scripts/*.sh" --sample-size 5 --timeout-per-mutant 2 2>&1 || true)
 RC4=$?
 assert_exit "4a. exit 0" 0 "$RC4"
-TIMEOUT_IN_REPORT=$(python3 -c "import json;d=json.load(open('$TMP4/.mutation-report.json'));print(any(m['status']=='timeout' for t in d['targets'] for m in t['mutants']))" 2>/dev/null || echo False)
+TIMEOUT_IN_REPORT=$(python3 -c "import json;d=json.load(open('$TMP4/.cache/spec-autopilot/mutation-report.json'));print(any(m['status']=='timeout' for t in d['targets'] for m in t['mutants']))" 2>/dev/null || echo False)
 if [ "$TIMEOUT_IN_REPORT" = "True" ]; then
   green "  PASS: 4b. 报告中含 timeout 状态"
   PASS=$((PASS + 1))
@@ -153,7 +153,7 @@ TMP6=$(setup_repo mix)
 OUT6=$(cd "$TMP6" && "$MUTATE" --targets "runtime/scripts/*.sh" --sample-size 5 --timeout-per-mutant 15 2>&1)
 RC6=$?
 assert_exit "6a. exit 0" 0 "$RC6"
-KR6=$(python3 -c "import json;print(json.load(open('$TMP6/.mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
+KR6=$(python3 -c "import json;print(json.load(open('$TMP6/.cache/spec-autopilot/mutation-report.json'))['overall_kill_rate'])" 2>/dev/null || echo "")
 # 混合：期望 kill_rate 在 (0, 1) 之间
 if [ -n "$KR6" ] && python3 -c "import sys;v=float('$KR6');sys.exit(0 if 0.0<v<1.0 else 1)" 2>/dev/null; then
   green "  PASS: 6b. 混合 kill_rate 在 (0,1) 之间 (=$KR6)"

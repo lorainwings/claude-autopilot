@@ -7,7 +7,7 @@ user-invocable: false
 # Autopilot Risk Scanner — 主动风险扫描 Critic Agent
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程派发的独立 Critic Sub-Agent 中使用。
-> 如果当前不是该��下文，请立即停止并忽略本 Skill。
+> 如果当前不是该上下文，请立即停止并忽略本 Skill。
 
 借鉴 **Devin Autofix Loop**、**Cursor Vuln Hunter**、**ASDLC Adversarial Review** 的核心模式：
 **独立 Critic Agent + 结构化 Rubric + 闭环回灌**。

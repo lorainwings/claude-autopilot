@@ -284,8 +284,8 @@ test_suites:
 | `autopilot-models` | Yes | Configure per-phase AI model routing strategy |
 | `autopilot-risk-scanner` | No | Critic Agent 按 rubric 打分输出 risk-report（挂每 gate 前） |
 | `autopilot-learn` | No | Phase 7 后 episodes 聚类 + L3 候选晋升扫描 |
-| `autopilot-docs-sync` | No | pre-commit 文档漂移检测，输出 .drift-candidates.json |
-| `autopilot-test-audit` | Yes | 按需测试过期候选扫描，输出 .test-rot-candidates.json |
+| `autopilot-docs-sync` | No | pre-commit 文档漂移检测，输出 .cache/spec-autopilot/drift-candidates.json |
+| `autopilot-test-audit` | Yes | 按需测试过期候选扫描，输出 .cache/spec-autopilot/test-rot-candidates.json |
 | `autopilot-docs-fix` | Yes | 消费 drift 候选生成可 git-apply patch / manual suggestion.md |
 | `autopilot-test-fix` | Yes | 消费 test-rot 候选生成 sed patch / manual suggestion.md |
 | `autopilot-test-health` | Yes | 测试有效性量化：变异测试采样 + 健康度评分 |

@@ -21,8 +21,8 @@ argument-hint: "[score|mutate|all] — 默认 all"
 
 | 模式 | 含义 | 输出 |
 |------|------|------|
-| `mutate` | 仅跑变异测试 | `.mutation-report.json` |
-| `score` | 仅跑静态健康度评分（含读入已有 mutation 结果） | `.test-health-report.json` |
+| `mutate` | 仅跑变异测试 | `.cache/spec-autopilot/mutation-report.json` |
+| `score` | 仅跑静态健康度评分（含读入已有 mutation 结果） | `.cache/spec-autopilot/test-health-report.json` |
 | `all`（默认） | 先 mutate 再 score | 两份报告 |
 
 ## 执行步骤
@@ -47,7 +47,7 @@ bash plugins/spec-autopilot/runtime/scripts/test-mutation-sample.sh \
 ```
 
 输出：
-- `.mutation-report.json`（含 targets / overall_kill_rate / survivors）
+- `.cache/spec-autopilot/mutation-report.json`（含 targets / overall_kill_rate / survivors）
 - stdout: `MUTATION_KILL_RATE=0.XX SURVIVORS=N`
 
 ### Step 3: 执行静态评分（score / all）
@@ -59,7 +59,7 @@ bash plugins/spec-autopilot/runtime/scripts/test-health-score.sh \
 ```
 
 输出：
-- `.test-health-report.json`
+- `.cache/spec-autopilot/test-health-report.json`
 - stdout: `HEALTH_SCORE=X` 与可选 `HEALTH_BELOW_THRESHOLD=1`
 
 ### Step 4: 总结

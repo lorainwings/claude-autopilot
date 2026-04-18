@@ -21,8 +21,14 @@
 
 set -uo pipefail
 
+# 探测 PROJECT_ROOT 与缓存目录（兼容非 git 场景，回落 cwd）
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+HEALTH_REPORT_FILE="$CACHE_DIR/test-health-report.json"
+
 TESTS_DIR="plugins/spec-autopilot/tests"
-MUTATION_REPORT=".mutation-report.json"
+MUTATION_REPORT="$CACHE_DIR/mutation-report.json"
 THRESHOLD=60
 
 while [ $# -gt 0 ]; do
@@ -47,7 +53,7 @@ done
 
 write_empty_report() {
   local msg="$1"
-  cat >.test-health-report.json <<EOF
+  cat >"$HEALTH_REPORT_FILE" <<EOF
 {
   "overall_score": 0,
   "metrics": {
@@ -85,6 +91,7 @@ fi
 export TEST_HEALTH_MUTATION_REPORT="$MUTATION_REPORT"
 export TEST_HEALTH_FILES_LIST="$FILES_TMP"
 export TEST_HEALTH_THRESHOLD="$THRESHOLD"
+export TEST_HEALTH_REPORT_FILE="$HEALTH_REPORT_FILE"
 
 python3 <<'PYEOF'
 import json
@@ -97,6 +104,7 @@ import time
 files_list = os.environ["TEST_HEALTH_FILES_LIST"]
 mutation_report = os.environ.get("TEST_HEALTH_MUTATION_REPORT", ".mutation-report.json")
 threshold = float(os.environ.get("TEST_HEALTH_THRESHOLD", "60"))
+report_file = os.environ.get("TEST_HEALTH_REPORT_FILE", ".test-health-report.json")
 
 with open(files_list) as f:
     files = [line.strip() for line in f if line.strip()]
@@ -243,7 +251,7 @@ report = {
     "top_weak": top_weak,
 }
 
-with open(".test-health-report.json", "w") as fh:
+with open(report_file, "w") as fh:
     json.dump(report, fh, indent=2)
 
 print(f"HEALTH_SCORE={overall}")

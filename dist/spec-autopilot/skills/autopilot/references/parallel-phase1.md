@@ -79,7 +79,7 @@ Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT_NAME}}", run_in_background: true,
   需求: {RAW_REQUIREMENT}
   搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
   输出结构化结果到: openspec/changes/{change_name}/context/web-research-findings.md
-  注意: 输出到���立文件 web-research-findings.md，不要修改 research-findings.md"
+  注意: 输出到独立文件 web-research-findings.md，不要修改 research-findings.md"
 )
 {end if}
 ```

@@ -54,9 +54,9 @@ TMP1=$(setup_workspace mixed)
 OUT1=$(cd "$TMP1" && "$HEALTH" --tests-dir tests 2>&1)
 RC1=$?
 assert_exit "1a. exit 0" 0 "$RC1"
-assert_file_exists "1b. 报告生成" "$TMP1/.test-health-report.json"
-WEAK1=$(python3 -c "import json;d=json.load(open('$TMP1/.test-health-report.json'));print(d['metrics']['weak_ratio'])" 2>/dev/null || echo "")
-DUP1=$(python3 -c "import json;d=json.load(open('$TMP1/.test-health-report.json'));print(d['metrics']['duplicate_ratio'])" 2>/dev/null || echo "")
+assert_file_exists "1b. 报告生成" "$TMP1/.cache/spec-autopilot/test-health-report.json"
+WEAK1=$(python3 -c "import json;d=json.load(open('$TMP1/.cache/spec-autopilot/test-health-report.json'));print(d['metrics']['weak_ratio'])" 2>/dev/null || echo "")
+DUP1=$(python3 -c "import json;d=json.load(open('$TMP1/.cache/spec-autopilot/test-health-report.json'));print(d['metrics']['duplicate_ratio'])" 2>/dev/null || echo "")
 if [ -n "$WEAK1" ] && python3 -c "import sys;v=float('$WEAK1');sys.exit(0 if v>0 else 1)" 2>/dev/null; then
   green "  PASS: 1c. weak_ratio > 0 (=$WEAK1)"
   PASS=$((PASS + 1))
@@ -76,7 +76,7 @@ rm -rf "$TMP1"
 # Case 2: 缺失 mutation-report.json → kill_rate = null
 TMP2=$(setup_workspace mixed)
 (cd "$TMP2" && "$HEALTH" --tests-dir tests >/dev/null 2>&1)
-KR2=$(python3 -c "import json;d=json.load(open('$TMP2/.test-health-report.json'));print(d['metrics'].get('kill_rate'))" 2>/dev/null || echo "")
+KR2=$(python3 -c "import json;d=json.load(open('$TMP2/.cache/spec-autopilot/test-health-report.json'));print(d['metrics'].get('kill_rate'))" 2>/dev/null || echo "")
 if [ "$KR2" = "None" ] || [ -z "$KR2" ]; then
   green "  PASS: 2. kill_rate 为 null (=$KR2)"
   PASS=$((PASS + 1))
@@ -88,12 +88,13 @@ rm -rf "$TMP2"
 
 # Case 3: 存在 mutation-report.json → overall_score 综合
 TMP3=$(setup_workspace mixed)
-cat >"$TMP3/.mutation-report.json" <<'EOF'
+mkdir -p "$TMP3/.cache/spec-autopilot"
+cat >"$TMP3/.cache/spec-autopilot/mutation-report.json" <<'EOF'
 {"overall_kill_rate": 0.8, "survivors": [], "targets": []}
 EOF
 (cd "$TMP3" && "$HEALTH" --tests-dir tests >/dev/null 2>&1)
-KR3=$(python3 -c "import json;d=json.load(open('$TMP3/.test-health-report.json'));print(d['metrics']['kill_rate'])" 2>/dev/null || echo "")
-SC3=$(python3 -c "import json;d=json.load(open('$TMP3/.test-health-report.json'));print(d['overall_score'])" 2>/dev/null || echo "")
+KR3=$(python3 -c "import json;d=json.load(open('$TMP3/.cache/spec-autopilot/test-health-report.json'));print(d['metrics']['kill_rate'])" 2>/dev/null || echo "")
+SC3=$(python3 -c "import json;d=json.load(open('$TMP3/.cache/spec-autopilot/test-health-report.json'));print(d['overall_score'])" 2>/dev/null || echo "")
 assert_contains "3a. kill_rate 读入 (=0.8)" "$KR3" "0.8"
 if [ -n "$SC3" ] && python3 -c "import sys;v=float('$SC3');sys.exit(0 if 0<=v<=100 else 1)" 2>/dev/null; then
   green "  PASS: 3b. overall_score 在 [0,100] (=$SC3)"
@@ -119,7 +120,7 @@ RC5=$?
 # 允许 exit 0（产出报告含 0 分），但必须有清晰提示
 assert_exit "5a. exit 0 (工具不阻断)" 0 "$RC5"
 assert_contains "5b. 空目录提示" "$OUT5" "empty"
-SC5=$(python3 -c "import json;d=json.load(open('$TMP5/.test-health-report.json'));print(d['overall_score'])" 2>/dev/null || echo "")
+SC5=$(python3 -c "import json;d=json.load(open('$TMP5/.cache/spec-autopilot/test-health-report.json'));print(d['overall_score'])" 2>/dev/null || echo "")
 assert_contains "5c. overall_score = 0" "$SC5" "0"
 rm -rf "$TMP5"
 

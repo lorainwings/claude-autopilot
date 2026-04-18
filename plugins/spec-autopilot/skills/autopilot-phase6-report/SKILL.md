@@ -27,7 +27,7 @@ autopilot-gate 额外验证：
 
 - 并行测试执行按 `config.test_suites` 分套件派发（详见 `autopilot/references/parallel-phase6.md`）
 - Agent: `config.phases.reporting.agent`（默认 general-purpose；推荐安装 qa-tester / qa-expert）
-- 测试命令从 config.test_suites 动态读取（全量运行所有 suite���
+- 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
 - 可选覆盖：config.phases.reporting.instruction_files（非空时注入）
 

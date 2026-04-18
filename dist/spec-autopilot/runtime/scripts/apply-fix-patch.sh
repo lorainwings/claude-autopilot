@@ -61,10 +61,11 @@ while [ $# -gt 0 ]; do
 done
 
 PROJECT_ROOT=$(resolve_project_root)
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
 
 if [ -z "$INDEX" ]; then
   # 默认按存在性查找
-  for cand in "$PROJECT_ROOT/.docs-fix-patches/INDEX.json" "$PROJECT_ROOT/.tests-fix-patches/INDEX.json"; do
+  for cand in "$CACHE_DIR/docs-fix-patches/INDEX.json" "$CACHE_DIR/tests-fix-patches/INDEX.json"; do
     [ -f "$cand" ] && INDEX="$cand" && break
   done
 fi

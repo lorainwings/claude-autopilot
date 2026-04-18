@@ -20,6 +20,13 @@ SA_SCRIPTS="$SA_DIR/runtime/scripts"
 SA_PYPROJECT="$SA_DIR/pyproject.toml"
 FAILED=0
 
+# ── 缓存目录统一收敛到 .cache/ ──
+# 避免 .mypy_cache / .ruff_cache 污染仓库根
+CACHE_ROOT="${CACHE_ROOT:-$(pwd)/.cache}"
+RUFF_CACHE_DIR="$CACHE_ROOT/ruff"
+MYPY_CACHE_DIR="$CACHE_ROOT/mypy"
+mkdir -p "$RUFF_CACHE_DIR" "$MYPY_CACHE_DIR"
+
 # ── 工具检查 helper ──
 _require_tool() {
   local tool="$1"
@@ -74,7 +81,7 @@ fi
 if [ -n "$PY_FILES" ]; then
   echo "── ruff check ──"
   if _require_tool ruff "pip install ruff"; then
-    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff check --config "$SA_PYPROJECT" || FAILED=1
+    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff check --config "$SA_PYPROJECT" --cache-dir "$RUFF_CACHE_DIR" || FAILED=1
   fi
 fi
 
@@ -82,7 +89,7 @@ fi
 if [ -n "$PY_FILES" ]; then
   echo "── ruff format ──"
   if _require_tool ruff "pip install ruff"; then
-    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff format --check --config "$SA_PYPROJECT" || FAILED=1
+    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 ruff format --check --config "$SA_PYPROJECT" --cache-dir "$RUFF_CACHE_DIR" || FAILED=1
   fi
 fi
 
@@ -90,7 +97,7 @@ fi
 if [ -n "$PY_FILES" ]; then
   echo "── mypy ──"
   if _require_tool mypy "pip install mypy"; then
-    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 mypy --config-file "$SA_PYPROJECT" || FAILED=1
+    echo "$PY_FILES" | tr '\n' '\0' | xargs -0 mypy --config-file "$SA_PYPROJECT" --cache-dir "$MYPY_CACHE_DIR" || FAILED=1
   fi
 fi
 

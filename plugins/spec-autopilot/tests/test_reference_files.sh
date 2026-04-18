@@ -2,7 +2,7 @@
 # TEST_LAYER: contract
 # test_reference_files.sh — Reference directory contract
 #   合并自:
-#     - �� Section 30 (v3.2.0 reference files existence): 本文件原内容
+#     - 旧 Section 30 (v3.2.0 reference files existence): 本文件原内容
 #     - 旧 Section 15 (references/ directory structure): 已迁入 "Section A: directory structure"
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

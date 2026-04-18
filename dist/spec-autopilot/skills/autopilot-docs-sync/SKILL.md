@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-sync
-description: "[ONLY for autopilot orchestrator] Static documentation drift detector. Generates candidate list (.drift-candidates.json) when SKILL.md / runtime scripts / CLAUDE.md changes are not mirrored in README, .dist-include or root plugin tables. Does NOT auto-modify; review the candidates manually."
+description: "[ONLY for autopilot orchestrator] Static documentation drift detector. Generates candidate list (.cache/spec-autopilot/drift-candidates.json) when SKILL.md / runtime scripts / CLAUDE.md changes are not mirrored in README, .dist-include or root plugin tables. Does NOT auto-modify; review the candidates manually."
 user-invocable: false
 ---
 
@@ -17,7 +17,7 @@ user-invocable: false
 
 ## 触发入口
 
-- `pre-commit` hook（建议在 dist rebuild ���后调用 `engineering-sync-gate.sh`）
+- `pre-commit` hook（建议在 dist rebuild 之后调用 `engineering-sync-gate.sh`）
 - 手动：`bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh --changed-files "<files>"`
 
 ## 检测规则
@@ -32,7 +32,7 @@ user-invocable: false
 
 ## 产物
 
-- `<project_root>/.drift-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`
+- `<project_root>/.cache/spec-autopilot/drift-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`（自 v5.9 迁移至 `.cache/spec-autopilot/`）
 
 ## 忽略机制
 

@@ -1,8 +1,8 @@
-# .claude/docs-ownership.yaml.example
+# .claude/docs-ownership.yaml
 #
-# 项目级 ownership fallback 映射模板。
+# 项目级 ownership fallback 映射（激活配置）。
 #
-# 实际部署位置（需用户手动复制，sandbox 限制 agent 直写 .claude/）：
+# 本文件由以下模板复制而来：
 #   cp plugins/spec-autopilot/skills/autopilot-docs-sync/references/docs-ownership.yaml.example \
 #      .claude/docs-ownership.yaml
 # 随后根据项目实际映射补充条目。

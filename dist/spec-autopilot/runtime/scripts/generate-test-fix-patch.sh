@@ -21,8 +21,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
 PROJECT_ROOT=$(resolve_project_root)
-CANDIDATES_FILE="$PROJECT_ROOT/.test-rot-candidates.json"
-OUTPUT_DIR="$PROJECT_ROOT/.tests-fix-patches"
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+CANDIDATES_FILE="$CACHE_DIR/test-rot-candidates.json"
+OUTPUT_DIR="$CACHE_DIR/tests-fix-patches"
 
 while [ $# -gt 0 ]; do
   case "$1" in

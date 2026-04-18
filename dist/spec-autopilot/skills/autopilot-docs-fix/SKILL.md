@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-fix
-description: "消费 .drift-candidates.json 生成可应用的文档漂移修复 patch。确定性优先（R2 新脚本自动 patch），其余规则生成 .suggestion.md。绝不自动应用，由 apply-fix-patch.sh 在 git stash 保护下由人工触发。触发: '/autopilot-docs-fix scan', '修复文档漂移', 'apply doc fix'。"
+description: "消费 .cache/spec-autopilot/drift-candidates.json 生成可应用的文档漂移修复 patch。确定性优先（R2 新脚本自动 patch），其余规则生成 .suggestion.md。绝不自动应用，由 apply-fix-patch.sh 在 git stash 保护下由人工触发。触发: '/autopilot-docs-fix scan', '修复文档漂移', 'apply doc fix'。"
 user-invocable: true
 ---
 
@@ -8,11 +8,11 @@ user-invocable: true
 
 ## 用途
 
-- 消费 `autopilot-docs-sync` 产出的 `.drift-candidates.json`
+- 消费 `autopilot-docs-sync` 产出的 `.cache/spec-autopilot/drift-candidates.json`
 - 将候选转换为两类产物：
   - **auto patch** (`<id>.patch`)：可直接 `git apply` 的 unified diff（确定性）
   - **manual suggestion** (`<id>.<rule>.suggestion.md`)：人工评审模板（含推荐修改说明）
-- **绝不自动应用**：产物位于 `<project>/.docs-fix-patches/`，需通过 `apply-fix-patch.sh` 在 `git stash` 保护下手动触发
+- **绝不自动应用**：产物位于 `<project>/.cache/spec-autopilot/docs-fix-patches/`（自 v5.9 迁移至 `.cache/spec-autopilot/`），需通过 `apply-fix-patch.sh` 在 `git stash` 保护下手动触发
 
 ## 触发入口
 
@@ -22,7 +22,7 @@ user-invocable: true
 
 ## 前置依赖
 
-若 `.drift-candidates.json` 不存在，提示先执行：
+若 `.cache/spec-autopilot/drift-candidates.json` 不存在，提示先执行：
 
 ```bash
 bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
@@ -47,8 +47,8 @@ bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
 
 ```bash
 bash plugins/spec-autopilot/runtime/scripts/generate-doc-fix-patch.sh \
-  --candidates-file .drift-candidates.json \
-  --output-dir .docs-fix-patches/
+  --candidates-file .cache/spec-autopilot/drift-candidates.json \
+  --output-dir .cache/spec-autopilot/docs-fix-patches/
 ```
 
 ### 应用（人工 confirm 后）
@@ -56,17 +56,17 @@ bash plugins/spec-autopilot/runtime/scripts/generate-doc-fix-patch.sh \
 ```bash
 # 单个
 bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
-  --index .docs-fix-patches/INDEX.json \
+  --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --patch-id <id>
 
 # 批量 auto
 bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
-  --index .docs-fix-patches/INDEX.json \
+  --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --all
 
 # 演练
 bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
-  --index .docs-fix-patches/INDEX.json \
+  --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --patch-id <id> --dry-run
 ```
 
@@ -79,7 +79,7 @@ bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
 
 ## 产物索引
 
-`.docs-fix-patches/INDEX.json`：
+`.cache/spec-autopilot/docs-fix-patches/INDEX.json`：
 
 ```json
 {
@@ -88,7 +88,7 @@ bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
      "target":"plugins/spec-autopilot/runtime/scripts/.dist-include",
      "apply_cmd":"git apply docfix-001-r2-abc12345.patch"}
   ],
-  "source": ".drift-candidates.json"
+  "source": ".cache/spec-autopilot/drift-candidates.json"
 }
 ```
 

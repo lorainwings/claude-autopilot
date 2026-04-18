@@ -43,7 +43,20 @@ while [ $# -gt 0 ]; do
 done
 
 PROJECT_ROOT=$(resolve_project_root)
-REPORT_FILE="$PROJECT_ROOT/.engineering-sync-report.json"
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+
+# Cleanup legacy root-level artifacts (one-time migration)
+rm -f "$PROJECT_ROOT/.drift-candidates.json" \
+  "$PROJECT_ROOT/.test-rot-candidates.json" \
+  "$PROJECT_ROOT/.anchor-drift-candidates.json" \
+  "$PROJECT_ROOT/.engineering-sync-report.json" \
+  "$PROJECT_ROOT/.mutation-report.json" \
+  "$PROJECT_ROOT/.test-health-report.json" 2>/dev/null || true
+rm -rf "$PROJECT_ROOT/.docs-fix-patches" \
+  "$PROJECT_ROOT/.tests-fix-patches" 2>/dev/null || true
+
+REPORT_FILE="$CACHE_DIR/engineering-sync-report.json"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # --- 读 config ---
@@ -72,9 +85,9 @@ ROT_COUNT="${ROT_COUNT:-0}"
 ANCHOR_COUNT="${ANCHOR_COUNT:-0}"
 
 # --- 聚合报告 ---
-DRIFT_FILE="$PROJECT_ROOT/.drift-candidates.json"
-ROT_FILE="$PROJECT_ROOT/.test-rot-candidates.json"
-ANCHOR_FILE="$PROJECT_ROOT/.anchor-drift-candidates.json"
+DRIFT_FILE="$CACHE_DIR/drift-candidates.json"
+ROT_FILE="$CACHE_DIR/test-rot-candidates.json"
+ANCHOR_FILE="$CACHE_DIR/anchor-drift-candidates.json"
 
 python3 -c "
 import json, os

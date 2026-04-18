@@ -28,6 +28,12 @@
 
 set -uo pipefail
 
+# 探测 PROJECT_ROOT 与缓存目录（兼容非 git 场景，回落 cwd）
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+REPORT_FILE="$CACHE_DIR/mutation-report.json"
+
 TARGETS_GLOB="plugins/spec-autopilot/runtime/scripts/*.sh"
 SAMPLE_SIZE=5
 TIMEOUT=30
@@ -224,7 +230,7 @@ trap "rm -f '$REPORT'" EXIT
 # 获取目标
 TARGETS_RAW=$(select_targets "$TARGETS_GLOB" "$SAMPLE_SIZE")
 if [ -z "$TARGETS_RAW" ]; then
-  printf '{"targets":[],"overall_kill_rate":0.0,"survivors":[]}\n' >.mutation-report.json
+  printf '{"targets":[],"overall_kill_rate":0.0,"survivors":[]}\n' >"$REPORT_FILE"
   echo "MUTATION_KILL_RATE=0.00 SURVIVORS=0"
   exit 0
 fi
@@ -330,14 +336,14 @@ report = {
   'total_mutants': $TOTAL_MUTANTS,
   'killed_mutants': $KILLED_MUTANTS
 }
-with open('.mutation-report.json','w') as f:
+with open('$REPORT_FILE','w') as f:
   json.dump(report, f, indent=2)
 "
 
 # 最终干净校验
 if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-  # 仅允许 .mutation-report.json 为 untracked
-  if git status --porcelain | grep -v '\.mutation-report\.json' | grep -q .; then
+  # 仅允许缓存目录变化为 untracked
+  if git status --porcelain | grep -v '\.cache/spec-autopilot/' | grep -q .; then
     echo "WARN: git tree not clean after run" >&2
   fi
 fi

@@ -11,7 +11,7 @@
 | 触发分层 | L1 post-commit + L2 pre-push + L3 CI 三层（`research.md:27-31`） | 单层 pre-commit，由 `engineering-sync-gate.sh` 聚合 | 已收敛为单层（成本/收益权衡） |
 | Ownership 映射 | `.claude/docs-ownership.yaml` + `<!-- CODE-REF: path#symbol -->` 锚点（`research.md:39-48`） | `autopilot-docs-sync/references/ownership-mapping.md` 静态表 + 基于文件路径 glob 的启发式命中（见 `autopilot-docs-sync/SKILL.md:25-32` 的 R1-R5 规则） | **命中方向，未实现锚点**，标为 P1 |
 | Drift 检测 | R/regex + 静态 anchor 校验 + README 版本对比（`research.md:47-50`） | R1-R5 共 5 规则，基于 grep + 路径模式；version 对比暂未纳入 | 命中主线，版本对比留 P1 |
-| AI fallback | 生成 patch 到 `.claude/candidates/docs/` 但不自动 commit（`research.md:52-55`） | 本轮**完全不接 LLM**，候选清单存 `.drift-candidates.json` 由人工 / Skill 修复 | 暂未实现，标为 P1 |
+| AI fallback | 生成 patch 到 `.claude/candidates/docs/` 但不自动 commit（`research.md:52-55`） | 本轮**完全不接 LLM**，候选清单存 `.cache/spec-autopilot/drift-candidates.json` 由人工 / Skill 修复 | 暂未实现，标为 P1 |
 | 测试审计 S1 静态 | ripgrep 比对 orphan 引用 + `# @covers` 约定（`research.md:62-64`） | R1 (deleted script refs) + R4 (weak assertion) + R5 (duplicate case) 三条；`@covers` 约定未强制推行 | 命中 S1 核心，`@covers` 待下一轮 |
 | 测试审计 S2 语义 | `# @rationale` 注释 + 相似度阈值（`research.md:63-64`） | 未实现 | P2（需自学习闭环） |
 | 测试审计 S3 变异 | 周 sweep 跑 mutmut 风格变异（`research.md:65`） | 未实现 | P2 |
@@ -45,13 +45,13 @@
 
 按 `research.md:82-83` 的建议：
 
-- `.engineering-sync-report.json` 中的 `doc_drift.candidates` / `test_rot.candidates` 可作为 **failure_pattern** 输入喂给 `autopilot-learn` 的 episodes 库。
+- `.cache/spec-autopilot/engineering-sync-report.json` 中的 `doc_drift.candidates` / `test_rot.candidates` 可作为 **failure_pattern** 输入喂给 `autopilot-learn` 的 episodes 库。
 - 例：某 `skills/autopilot-phaseX/SKILL.md` 频繁触发 R1 而 README 始终滞后，episodes 可积累"该 SKILL 改动后必同步 README § 某章节"的 rationale，为未来 Phase 4 测试设计提供反例。
-- 接入方式：autopilot-learn 读取 `.engineering-sync-report.json`（只读），不修改本轮产物格式。
+- 接入方式：autopilot-learn 读取 `.cache/spec-autopilot/engineering-sync-report.json`（只读），不修改本轮产物格式。
 
 ## 4. 与 autopilot-gate 协同（关键：保持解耦）
 
 - **触发时机**：pre-commit hook 内（参见 02-rollout），**不嵌入** `autopilot` 8-step gate。
 - **理由**：8-step gate 面向 Phase 级 AI 行为判定，本能力面向物理层文件一致性，两者关注点不同；若挂进 gate，会在 Phase 1/2/3 频繁误报（需求/spec 阶段尚无代码修改）。
-- **产物隔离**：`.engineering-sync-report.json` 与 `phase-results/checkpoint-*.json` 互不引用，防止循环依赖。
+- **产物隔离**：`.cache/spec-autopilot/engineering-sync-report.json` 与 `phase-results/checkpoint-*.json` 互不引用，防止循环依赖。
 - **退出码契约**：三个检测脚本退出码恒为 0（`detect-doc-drift.sh`、`detect-test-rot.sh`），决策权集中在 `engineering-sync-gate.sh:48-101`，保证 gate 外部可预测。

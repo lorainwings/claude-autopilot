@@ -41,7 +41,9 @@ while [ $# -gt 0 ]; do
 done
 
 PROJECT_ROOT=$(resolve_project_root)
-OUTPUT_FILE="$PROJECT_ROOT/.drift-candidates.json"
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+OUTPUT_FILE="$CACHE_DIR/drift-candidates.json"
 IGNORE_FILE="$PROJECT_ROOT/.drift-ignore"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 

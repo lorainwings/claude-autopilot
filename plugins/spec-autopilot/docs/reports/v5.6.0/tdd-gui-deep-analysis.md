@@ -17,7 +17,7 @@ TDD 模式下的测试证据分为三个层次：
 |------|----------------|----------------|
 | **L2 逐步验证** | 主线程在每个 RED/GREEN/REFACTOR 步骤执行 `Bash(test_command)`，结果确定性 | 仅 post-merge 一次全量测试（L2），per-task RED/GREEN 由 domain agent 自报（L1） |
 | **TDD Cycle 结构化数据** | 每个 task checkpoint 含 `tdd_cycle.red/green/refactor`，含 `exit_code`、`assertion_message`、`output_tail` | 同样有此结构，但数据来自 agent 自报，可被伪造 |
-| **Allure 测试数据** | Phase 5 每步测试��果写入 `allure-results/tdd/{red,green,refactor}/` | 类似，但依赖 agent 正确注入 Allure 参数 |
+| **Allure 测试数据** | Phase 5 每步测试结果写入 `allure-results/tdd/{red,green,refactor}/` | 类似，但依赖 agent 正确注入 Allure 参数 |
 | **Phase 6 完整报告** | Phase 6 **强制完整重跑**所有测试套件（忽略 smart-skip），生成最终 Allure 报告 | 同上 |
 
 **关键发现**：Phase 6 的 Step A2.6 会强制全量重跑测试并生成 Allure 报告，这部分是确定性的。但 TDD 过程中的 per-task RED→GREEN 转换证据：

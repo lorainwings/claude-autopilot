@@ -94,4 +94,4 @@ bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
   --changed-files "$(git diff --cached --name-only | tr '\n' ' ')"
 ```
 
-产物：根目录 `.drift-candidates.json` / `.test-rot-candidates.json` / `.engineering-sync-report.json`。建议提交前 review 后再决定是否启用 `enabled: true` 硬阻断。
+产物：`.cache/spec-autopilot/drift-candidates.json` / `.cache/spec-autopilot/test-rot-candidates.json` / `.cache/spec-autopilot/engineering-sync-report.json`（自 v5.9 迁移至 `.cache/spec-autopilot/`）。建议提交前 review 后再决定是否启用 `enabled: true` 硬阻断。

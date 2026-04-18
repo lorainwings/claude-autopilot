@@ -46,7 +46,9 @@ while [ $# -gt 0 ]; do
 done
 
 PROJECT_ROOT=$(resolve_project_root)
-OUTPUT_FILE="$PROJECT_ROOT/.test-rot-candidates.json"
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+OUTPUT_FILE="$CACHE_DIR/test-rot-candidates.json"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 TESTS_DIR="$PROJECT_ROOT/plugins/spec-autopilot/tests"
 

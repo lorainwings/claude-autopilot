@@ -11,7 +11,7 @@
 ## 目标
 
 1. **静态优先**：纯 grep / regex 实现，秒级出结果，CI 友好。
-2. **候选清单制**：只生成 `.drift-candidates.json` / `.test-rot-candidates.json` / `.engineering-sync-report.json`，**禁止自动修改源码**。
+2. **候选清单制**：只生成 `.cache/spec-autopilot/drift-candidates.json` / `.cache/spec-autopilot/test-rot-candidates.json` / `.cache/spec-autopilot/engineering-sync-report.json`（自 v5.9 迁移至 `.cache/spec-autopilot/`），**禁止自动修改源码**。
 3. **人工 confirm**：修复动作走 Skill (`/autopilot-docs-sync`、`/autopilot-test-audit`) 或人工 review。
 4. **向后兼容**：默认 warn-only，不破坏现有 8-step gate 流程，不影响 release-please。
 
@@ -21,7 +21,7 @@
 |------|------|------|
 | `autopilot-docs-sync` Skill | `plugins/spec-autopilot/skills/autopilot-docs-sync/SKILL.md` | 文档漂移检测 5 规则 (R1-R5)，含 ownership-mapping 参考 |
 | `autopilot-test-audit` Skill | `plugins/spec-autopilot/skills/autopilot-test-audit/SKILL.md` | 测试腐烂检测 4 规则 (R1/R3/R4/R5)，user-invocable |
-| `engineering-sync-gate.sh` 聚合入口 | `plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh` | 并行调用两检测器 → 聚合 `.engineering-sync-report.json` → warn/block 双模式 |
+| `engineering-sync-gate.sh` 聚合入口 | `plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh` | 并行调用两检测器 → 聚合 `.cache/spec-autopilot/engineering-sync-report.json` → warn/block 双模式 |
 
 辅以 3 套测试 41 case 全 PASS、`.drift-ignore` 忽略机制、配套 fixtures。
 
@@ -35,12 +35,12 @@
 
 ```
                  ┌──────────────────────┐
- source change → │  engineering-sync-   │ ── parallel ─┬─→ detect-doc-drift.sh ─→ .drift-candidates.json
- (staged files)  │       gate.sh        │              └─→ detect-test-rot.sh   ─→ .test-rot-candidates.json
+ source change → │  engineering-sync-   │ ── parallel ─┬─→ detect-doc-drift.sh ─→ .cache/spec-autopilot/drift-candidates.json
+ (staged files)  │       gate.sh        │              └─→ detect-test-rot.sh   ─→ .cache/spec-autopilot/test-rot-candidates.json
                  └──────────┬───────────┘
                             │ aggregate
                             ▼
-                 .engineering-sync-report.json
+                 .cache/spec-autopilot/engineering-sync-report.json
                             │
             ┌───────────────┴───────────────┐
             ▼                               ▼

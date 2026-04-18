@@ -308,7 +308,7 @@ tdd_allure_command 构造规则:
   1. tdd_test_command 非空且已包含 --alluredir → 直接使用
   2. tdd_test_command 非空但不含 allure 参数 → 追加 allure_args
   3. test_suites[].allure_args 非空 → 使用 suite 级 allure_args
-  4. 以���均无 → 按框架默认追加:
+  4. 以上均无 → 按框架默认追加:
      - pytest:      追加 --alluredir=$ALLURE_RESULTS_DIR
      - playwright:  设置环境变量 ALLURE_RESULTS_DIR=$ALLURE_RESULTS_DIR
      - jest:        追加 --reporters=allure-jest --testEnvironment=allure-jest/node

@@ -74,8 +74,8 @@
 
 ### 候选-修复闭环（Round 2 新增）
 
-- **锚点机制**：双向 ownership `# CODE-REF:` / `<!-- CODE-OWNED-BY: -->`，规范见 `skills/autopilot-docs-sync/references/anchor-syntax.md`；配置 fallback 在 `.claude/docs-ownership.yaml`（模板在 `.claude/docs-ownership.yaml.example`）
-- **R6/R7/R8 锚点漂移**：`runtime/scripts/detect-anchor-drift.sh` 独立运行，输出 `.anchor-drift-candidates.json`
+- **锚点机制**：双向 ownership `# CODE-REF:` / `<!-- CODE-OWNED-BY: -->`，规范见 `skills/autopilot-docs-sync/references/anchor-syntax.md`；配置 fallback 在 `.claude/docs-ownership.yaml`（模板见 `skills/autopilot-docs-sync/references/docs-ownership.yaml.example`）
+- **R6/R7/R8 锚点漂移**：`runtime/scripts/detect-anchor-drift.sh` 独立运行，输出 `.cache/spec-autopilot/anchor-drift-candidates.json`
 - **候选修复 Skill**：`/autopilot-docs-fix scan|apply` 与 `/autopilot-test-fix scan|apply` 消费候选清单生成可 `git apply --check` 通过的 patch；apply 走 `git stash push -u` + `git apply --check` 失败则 `git stash pop` 回滚；manual patch 默认拒绝需 `--force-manual`
 - **严禁在 CI / pre-commit 中自动调用 apply-fix-patch.sh**
 

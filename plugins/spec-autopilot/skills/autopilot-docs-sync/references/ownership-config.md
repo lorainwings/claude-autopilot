@@ -4,7 +4,7 @@
 
 ## 1. 文件位置
 
-仓库根目录 `.claude/docs-ownership.yaml`。模板见 `.claude/docs-ownership.yaml.example`。
+仓库根目录 `.claude/docs-ownership.yaml`。模板见 `plugins/spec-autopilot/skills/autopilot-docs-sync/references/docs-ownership.yaml.example`。
 
 ## 2. 顶层 schema
 
@@ -55,4 +55,4 @@ mappings:
 ## 6. 校验
 
 `scan-code-ref-anchors.sh` 解析失败时退出码仍为 0，但会向 stderr 打印 `WARN: invalid yaml`，
-并将 `mappings` 视为���。这样不会意外阻断 pre-commit。
+并将 `mappings` 视为空。这样不会意外阻断 pre-commit。

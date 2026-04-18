@@ -98,7 +98,7 @@
 | [stability-audit.md](reports/v5.0/stability-audit.md) | 稳定性审计 |
 | [performance-benchmark.md](reports/v5.0/performance-benchmark.md) | 性能基准 |
 | [phase1-benchmark.md](reports/v5.0/phase1-benchmark.md) | Phase 1 基准 |
-| [competitive-analysis.md](reports/v5.0/competitive-analysis.md) | 竞品分析 |
+| [competitive-analysis.md](reports/v4.2/competitive-analysis.md) | 竞品分析 |
 | [gui-interaction-audit.md](reports/v5.0/gui-interaction-audit.md) | GUI 交互审计 |
 | [holistic-simulation-benchmark.md](reports/v5.0/holistic-simulation-benchmark.md) | 全局仿真基准 |
 

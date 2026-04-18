@@ -1,6 +1,9 @@
 [tool.ruff]
 target-version = "py39"
 line-length = 120
+# 缓存目录默认重定向到仓库根 .cache/ruff（避免污染仓库根的 .ruff_cache）
+# CLI 调用时 scripts/run-spec-autopilot-lint.sh 会显式 --cache-dir 覆盖此值
+cache-dir = "../../.cache/ruff"
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
@@ -12,3 +15,6 @@ warn_unused_configs = true
 ignore_missing_imports = true
 disallow_untyped_defs = false
 disable_error_code = ["import-untyped"]
+# 缓存目录默认重定向到仓库根 .cache/mypy（避免污染仓库根的 .mypy_cache）
+# CLI 调用时 scripts/run-spec-autopilot-lint.sh 会显式 --cache-dir 覆盖此值
+cache_dir = "../../.cache/mypy"

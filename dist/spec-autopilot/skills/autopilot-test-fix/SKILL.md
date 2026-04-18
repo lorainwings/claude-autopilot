@@ -1,6 +1,6 @@
 ---
 name: autopilot-test-fix
-description: "消费 .test-rot-candidates.json 生成测试过期修复 patch / suggestion。R1 (orphan 引用) 优先生成确定性 sed-style patch，其余规则生成 .suggestion.md（含弱断言补强模板）。绝不直接修改 tests/*.sh，由 apply-fix-patch.sh 在 git stash 保护下人工触发。触发: '/autopilot-test-fix scan', '修复测试腐烂'。"
+description: "消费 .cache/spec-autopilot/test-rot-candidates.json 生成测试过期修复 patch / suggestion。R1 (orphan 引用) 优先生成确定性 sed-style patch，其余规则生成 .suggestion.md（含弱断言补强模板）。绝不直接修改 tests/*.sh，由 apply-fix-patch.sh 在 git stash 保护下人工触发。触发: '/autopilot-test-fix scan', '修复测试腐烂'。"
 user-invocable: true
 ---
 
@@ -8,8 +8,8 @@ user-invocable: true
 
 ## 用途
 
-- 消费 `autopilot-test-audit` 产出的 `.test-rot-candidates.json`
-- 输出位置：`<project>/.tests-fix-patches/`（**绝不写入 `tests/*.sh`**）
+- 消费 `autopilot-test-audit` 产出的 `.cache/spec-autopilot/test-rot-candidates.json`
+- 输出位置：`<project>/.cache/spec-autopilot/tests-fix-patches/`（**绝不写入 `tests/*.sh`**，自 v5.9 迁移至 `.cache/spec-autopilot/`）
 - 修复动作分类：
   - **R1**（删除脚本仍被引用）：尝试生成确定性 patch 移除引用行；上下文复杂时退化为 suggestion
   - **R3 / R4 / R5**：生成 `.suggestion.md`（R5 附弱断言补强模板）
@@ -21,7 +21,7 @@ user-invocable: true
 
 ## 前置依赖
 
-若 `.test-rot-candidates.json` 不存在，提示先执行：
+若 `.cache/spec-autopilot/test-rot-candidates.json` 不存在，提示先执行：
 
 ```bash
 bash plugins/spec-autopilot/runtime/scripts/detect-test-rot.sh \
@@ -44,12 +44,12 @@ bash plugins/spec-autopilot/runtime/scripts/detect-test-rot.sh \
 ```bash
 # 扫描生成
 bash plugins/spec-autopilot/runtime/scripts/generate-test-fix-patch.sh \
-  --candidates-file .test-rot-candidates.json \
-  --output-dir .tests-fix-patches/
+  --candidates-file .cache/spec-autopilot/test-rot-candidates.json \
+  --output-dir .cache/spec-autopilot/tests-fix-patches/
 
 # 应用 (manual 需 --force-manual)
 bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
-  --index .tests-fix-patches/INDEX.json \
+  --index .cache/spec-autopilot/tests-fix-patches/INDEX.json \
   --patch-id <id> [--force-manual]
 ```
 

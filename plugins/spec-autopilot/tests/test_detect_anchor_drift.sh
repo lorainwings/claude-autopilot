@@ -45,7 +45,7 @@ OUT1=$(AUTOPILOT_PROJECT_ROOT="$TMP1" "$DRIFT" 2>&1 || true)
 RC1=$?
 assert_exit "1a. R6 → exit 0" 0 $RC1
 assert_contains "1b. R6 fired" "$OUT1" "R6"
-assert_file_exists "1c. candidates file" "$TMP1/.anchor-drift-candidates.json"
+assert_file_exists "1c. candidates file" "$TMP1/.cache/spec-autopilot/anchor-drift-candidates.json"
 rm -rf "$TMP1"
 
 # ---------- Case 2: R7 doc points to missing code ----------

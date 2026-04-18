@@ -4,7 +4,7 @@
 
 1. **确定性优先**：能机械生成的 patch 一律用代码生成（unified diff），不依赖 LLM
 2. **LLM 仅生成建议**：含语义判断的修改（README 文案、版本标识）写为 `.suggestion.md` 供人工评审
-3. **绝不自动应用**：所有产物落盘到 `.docs-fix-patches/`，由 `apply-fix-patch.sh` 在 git stash 保护下应用
+3. **绝不自动应用**：所有产物落盘到 `.cache/spec-autopilot/docs-fix-patches/`，由 `apply-fix-patch.sh` 在 git stash 保护下应用
 
 ## 规则映射
 
@@ -25,7 +25,7 @@
 - 给出 README 推荐修改章节定位
 - 不生成 patch（README 文案由人撰写）
 
-### R3 — CLAUDE.md 改�� (MANUAL)
+### R3 — CLAUDE.md 改动 (MANUAL)
 
 提示：检查 `target_file`（README）顶部版本徽章 / banner 是否仍准确。
 

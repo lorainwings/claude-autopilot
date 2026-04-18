@@ -10,6 +10,9 @@ __pycache__/
 *.egg
 *.egg-info/
 build/
+# 注意：.mypy_cache/ .ruff_cache/ .pytest_cache/ 等已通过 --cache-dir / pyproject 配置
+# 重定向到 .cache/ 统一目录（见底部 .cache/）；保留下列规则作为兜底，防御部分工具
+# 在用户本地仍生成根目录缓存（如直接执行 mypy/ruff 不带配置时）
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -37,6 +40,7 @@ pnpm-lock.yaml
 *.swo
 *~
 .DS_Store
+Thumbs.db
 
 # Logs
 logs/
@@ -74,12 +78,5 @@ plugins/parallel-harness/BUILD_MANIFEST.json
 !dist/parallel-harness/
 !dist/daily-report/
 
-# engineering auto-sync 运行时产物（候选清单与聚合报告）
-.drift-candidates.json
-.test-rot-candidates.json
-.engineering-sync-report.json
-.anchor-drift-candidates.json
-.docs-fix-patches/
-.tests-fix-patches/
-.mutation-report.json
-.test-health-report.json
+# spec-autopilot 运行时临时产物（候选清单、聚合报告、patch、mutation/health 报告）
+.cache/

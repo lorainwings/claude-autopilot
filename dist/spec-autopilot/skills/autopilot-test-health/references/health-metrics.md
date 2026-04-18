@@ -48,7 +48,7 @@
 
 ### 5. kill_rate (权重 30%，仅当 mutation report 存在)
 
-**定义**：来自 `.mutation-report.json` 的 `overall_kill_rate`
+**定义**：来自 `.cache/spec-autopilot/mutation-report.json` 的 `overall_kill_rate`
 
 **判读**：
 - ≥ 0.8 → 测试有效性强

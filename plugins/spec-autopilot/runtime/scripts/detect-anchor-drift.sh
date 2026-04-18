@@ -44,7 +44,9 @@ while [ $# -gt 0 ]; do
 done
 
 PROJECT_ROOT=$(resolve_project_root)
-OUTPUT_FILE="$PROJECT_ROOT/.anchor-drift-candidates.json"
+CACHE_DIR="${PROJECT_ROOT}/.cache/spec-autopilot"
+mkdir -p "$CACHE_DIR"
+OUTPUT_FILE="$CACHE_DIR/anchor-drift-candidates.json"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 SCAN="$SCRIPT_DIR/scan-code-ref-anchors.sh"
 

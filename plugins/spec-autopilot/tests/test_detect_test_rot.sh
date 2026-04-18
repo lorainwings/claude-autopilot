@@ -53,7 +53,7 @@ RC1=$?
 assert_exit "1a. R1 detected → exit 0" 0 $RC1
 assert_contains "1b. summary line" "$OUT1" "ROT_CANDIDATES="
 assert_contains "1c. mentions foo-runner" "$OUT1" "foo-runner"
-assert_file_exists "1d. .test-rot-candidates.json written" "$TMP1/.test-rot-candidates.json"
+assert_file_exists "1d. test-rot-candidates.json written" "$TMP1/.cache/spec-autopilot/test-rot-candidates.json"
 rm -rf "$TMP1"
 
 # Case 2: no references → no rot
@@ -96,7 +96,7 @@ assert_exit "4a. R5 duplicate → exit 0" 0 $RC4
 assert_contains "4b. mentions R5" "$OUT4" "R5"
 rm -rf "$TMP4"
 
-# Case 5: hook file modified �� R3 info
+# Case 5: hook file modified → R3 info
 TMP5=$(setup_repo)
 echo "#!/usr/bin/env bash" >"$TMP5/plugins/spec-autopilot/hooks/sample-hook.sh"
 OUT5=$(AUTOPILOT_PROJECT_ROOT="$TMP5" "$DETECT" --changed-files "plugins/spec-autopilot/hooks/sample-hook.sh" 2>&1 || true)

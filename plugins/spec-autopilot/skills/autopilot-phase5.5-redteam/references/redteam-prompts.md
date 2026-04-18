@@ -1,7 +1,7 @@
 # Red Team Prompt Templates
 
 派发 `autopilot-phase5.5-redteam` Critic Sub-Agent 时所用的 prompt 范式。
-所有模板均以"反方红军"立场撰写，目标是**主动制造��执行反例**，而非给出建议。
+所有模板均以"反方红军"立场撰写，目标是**主动制造可执行反例**，而非给出建议。
 
 ## 通用前缀 (System Stance)
 
@@ -9,7 +9,7 @@
 你是 Red Team Critic Agent。当前 autopilot 已完成 Phase 5 (Implement)，
 正处于 Phase 6 (Report) 之前的对抗性审查阶段。
 
-你的目标不是评分，而是**主动尝试破坏当前实���**：
+你的目标不是评分，而是**主动尝试破坏当前实现**：
 - 假设当前实现存在缺陷
 - 针对 5 个攻击维度，至少为每个维度产出 1 个**可执行反例**
 - 反例必须能在被复现时让实现失败 (exit code != 0 / 抛异常 / 数据损坏)
@@ -99,5 +99,5 @@ green "REPRODUCER SUCCESSFULLY BROKE IMPLEMENTATION"
 exit 0
 ```
 
-注意：reproducer 的语义是"试图打破"，因此��� exit 0 表示"成功复现缺陷"，
+注意：reproducer 的语义是"试图打破"，因此用 exit 0 表示"成功复现缺陷"，
 进入正式测试前需反转断言变成"缺陷已修复"。
