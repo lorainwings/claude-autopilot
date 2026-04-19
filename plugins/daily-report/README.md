@@ -5,7 +5,7 @@
 > Auto-generate and submit daily work reports from git commits and Lark chat history.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
-![Version](https://img.shields.io/badge/version-1.2.8-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
 
 ## Overview
 

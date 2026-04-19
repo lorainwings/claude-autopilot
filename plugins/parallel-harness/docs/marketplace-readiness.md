@@ -2,7 +2,7 @@
 
 # parallel-harness Marketplace Readiness
 
-> Version: v1.8.2 (GA) | Last updated: 2026-04-09
+> Version: v1.9.0 (GA) | Last updated: 2026-04-09
 
 ## Current Status
 

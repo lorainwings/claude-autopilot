@@ -2,7 +2,7 @@
 
 # parallel-harness Security and Compliance
 
-> Version: v1.8.2 (GA) | Target Audience: Security Engineers, Compliance Auditors
+> Version: v1.9.0 (GA) | Target Audience: Security Engineers, Compliance Auditors
 
 ## Security Architecture Overview
 
