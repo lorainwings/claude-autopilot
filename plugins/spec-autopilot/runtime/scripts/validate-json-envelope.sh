@@ -98,13 +98,20 @@ if 'next_ready' not in found_json:
     print('INFO: JSON envelope missing optional field: next_ready', file=sys.stderr)
 
 # 7) Phase-specific field validation (warn on stderr, block on critical missing)
-phase_match = re.search(r'autopilot-phase:(\d+)', prompt)
-phase_num = int(phase_match.group(1)) if phase_match else 0
+# 支持整数和小数 Phase（如 5.5 Red Team）
+phase_match = re.search(r'autopilot-phase:(\d+(?:\.\d+)?)', prompt)
+phase_raw = phase_match.group(1) if phase_match else '0'
+try:
+    phase_float = float(phase_raw)
+except ValueError:
+    phase_float = 0.0
+phase_num = int(phase_float) if phase_float == int(phase_float) else phase_float
 
 # Required fields: block if missing (core gate dependencies)
 phase_required = {
     4: ['test_counts', 'dry_run_results', 'test_pyramid', 'change_coverage'],
     5: ['test_results_path', 'tasks_completed', 'zero_skip_check'],
+    5.5: ['redteam'],
     6: ['pass_rate', 'report_path', 'report_format'],
 }
 
@@ -128,9 +135,49 @@ if phase_num in phase_required:
 if phase_num == 5 and found_json.get('status') == 'ok':
     zsc = found_json.get('zero_skip_check', {})
     if isinstance(zsc, dict) and zsc.get('passed') is not True:
+        _zsc_passed = zsc.get('passed', 'missing')
         print(json.dumps({
             'decision': 'block',
-            'reason': f'Phase 5 status is "ok" but zero_skip_check.passed is not true (got: {zsc.get("passed", "missing")}). All tests must pass with zero skips before proceeding.'
+            'reason': f'Phase 5 status is ok but zero_skip_check.passed is not true (got: {_zsc_passed}). All tests must pass with zero skips before proceeding.'
+        }))
+        sys.exit(0)
+
+# Phase 5.5 special: redteam 子字段语义校验
+if phase_num == 5.5:
+    rt = found_json.get('redteam', {})
+    if not isinstance(rt, dict):
+        print(json.dumps({
+            'decision': 'block',
+            'reason': 'Phase 5.5 envelope redteam field must be an object.'
+        }))
+        sys.exit(0)
+    total = rt.get('total_reproducers')
+    blocking = rt.get('blocking_reproducers')
+    rec = rt.get('recommendation')
+    if not isinstance(total, int) or total < 0:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 5.5 redteam.total_reproducers must be non-negative integer (got: {total!r}).'
+        }))
+        sys.exit(0)
+    if not isinstance(blocking, int) or blocking < 0 or blocking > total:
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 5.5 redteam.blocking_reproducers must be 0 <= blocking <= total_reproducers (got: {blocking!r}, total: {total!r}).'
+        }))
+        sys.exit(0)
+    if rec not in ('proceed_to_phase6', 'block_until_fixed'):
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 5.5 redteam.recommendation must be one of [proceed_to_phase6, block_until_fixed] (got: {rec!r}).'
+        }))
+        sys.exit(0)
+    # 一致性：blocking>0 必须 recommendation=block_until_fixed 且 status=blocked
+    if blocking > 0 and (rec != 'block_until_fixed' or found_json.get('status') != 'blocked'):
+        _rt_status = found_json.get('status')
+        print(json.dumps({
+            'decision': 'block',
+            'reason': f'Phase 5.5 inconsistent: blocking_reproducers={blocking} requires recommendation=block_until_fixed and status=blocked (got rec={rec!r}, status={_rt_status!r}).'
         }))
         sys.exit(0)
 

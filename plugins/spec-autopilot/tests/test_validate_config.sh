@@ -497,6 +497,183 @@ fi
 # Verify no Explore-related error
 assert_not_contains "21l. general-purpose → no Explore error" "$output" "Explore"
 
+# 21m. Phase 1 三路独立 agent 字段：auto_scan.agent="Explore" → HARD BLOCK
+mkdir -p "$XREF_TEST_DIR/autoscan_explore/.claude"
+cat > "$XREF_TEST_DIR/autoscan_explore/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+    auto_scan:
+      enabled: true
+      agent: "Explore"
+    research:
+      enabled: true
+      agent: "general-purpose"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/autoscan_explore" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21m. auto_scan.agent=Explore → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21m. auto_scan.agent=Explore → expected valid=false, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "21m. error cites auto_scan.agent" "$output" "auto_scan.agent"
+
+# 21n. web_search.agent="Explore" → HARD BLOCK
+mkdir -p "$XREF_TEST_DIR/websearch_explore/.claude"
+cat > "$XREF_TEST_DIR/websearch_explore/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+    research:
+      enabled: true
+      agent: "general-purpose"
+      web_search:
+        enabled: true
+        agent: "Explore"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/websearch_explore" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21n. web_search.agent=Explore → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21n. web_search.agent=Explore → expected valid=false, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "21n. error cites web_search.agent" "$output" "web_search.agent"
+
+# 21o. redteam.agent="Explore" → HARD BLOCK (Phase 5.5 Red Team 需 Write 反例)
+mkdir -p "$XREF_TEST_DIR/redteam_explore/.claude"
+cat > "$XREF_TEST_DIR/redteam_explore/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+    research:
+      enabled: true
+      agent: "general-purpose"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+  redteam:
+    enabled: true
+    agent: "Explore"
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/redteam_explore" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "False" ] || [ "$valid" = "false" ]; then
+  green "  PASS: 21o. redteam.agent=Explore → valid=false"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21o. redteam.agent=Explore → expected valid=false, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+assert_contains "21o. error cites redteam.agent" "$output" "redteam.agent"
+
+# 21p. 三路 + redteam 全部合法值 → valid=true (happy path)
+mkdir -p "$XREF_TEST_DIR/threepaths_ok/.claude"
+cat > "$XREF_TEST_DIR/threepaths_ok/.claude/autopilot.config.yaml" << 'YAML'
+version: "1.0"
+services:
+  backend:
+    health_url: "http://localhost:8080/health"
+phases:
+  requirements:
+    agent: "general-purpose"
+    auto_scan:
+      enabled: true
+      agent: "general-purpose"
+    research:
+      enabled: true
+      agent: "general-purpose"
+      web_search:
+        enabled: true
+        agent: "general-purpose"
+  testing:
+    agent: "general-purpose"
+    gate:
+      min_test_count_per_type: 5
+      required_test_types: [unit]
+  implementation:
+    serial_task:
+      max_retries_per_task: 3
+  reporting:
+    coverage_target: 80
+    zero_skip_required: true
+  redteam:
+    enabled: true
+    agent: "general-purpose"
+test_suites:
+  unit:
+    command: "npm test"
+YAML
+
+output=$(bash "$SCRIPT_DIR/validate-config.sh" "$XREF_TEST_DIR/threepaths_ok" 2>/dev/null)
+valid=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid',''))" 2>/dev/null || echo "")
+if [ "$valid" = "True" ] || [ "$valid" = "true" ]; then
+  green "  PASS: 21p. 三路+redteam 合法 → valid=true"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 21p. 三路合法 → expected valid=true, got '$valid'"
+  FAIL=$((FAIL + 1))
+fi
+
 rm -rf "$XREF_TEST_DIR"
 
 teardown_autopilot_fixture

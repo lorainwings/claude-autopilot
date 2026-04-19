@@ -19,7 +19,7 @@ services:
 
 phases:
   requirements:
-    agent: "general-purpose"    # 推荐安装 OMC "analyst" Agent（/autopilot-agents install）
+    agent: "general-purpose"    # [必填] 需求分析（BA）Agent。三路并行调研的 Agent 在 auto_scan/research/web_search 各自字段独立配置。推荐 OMC "analyst"。
     min_qa_rounds: 1
     max_rounds: 15             # 硬性安全阀：讨论最大轮数（强制结束）
     soft_warning_rounds: 8     # 软性提醒轮次：提示用户当前清晰度
@@ -39,12 +39,14 @@ phases:
     auto_scan:
       enabled: true
       max_depth: 2
+      agent: ""                  # [必填] 代码库扫描 Agent；setup 强制写入。推荐 OMC "explore" (fork 加 Write)。禁止 Explore / 空值。
     research:
       enabled: true
-      agent: "general-purpose"
+      agent: ""                  # [必填] 技术兼容性分析 Agent；setup 强制写入。推荐 OMC "architect"。禁止 Explore / 空值。
       web_search:
         enabled: true            # 默认 true（默认搜索），规则引擎判定跳过
         max_queries: 5           # 最大搜索次数
+        agent: ""                # [必填] 联网搜索 Agent；setup 强制写入。推荐 VoltAgent "search-specialist" (fork 加 Write)。禁止 Explore / 空值。
         search_policy:
           default: search        # search | skip — 默认搜索，跳过是例外
           skip_keywords:         # 需求含这些关键词时允许跳过（需全部满足 skip_when_ALL_true）
@@ -141,6 +143,9 @@ phases:
       - "openspec/**"
   archive:
     agent: "general-purpose"    # Phase 7 归档/知识提取 Agent
+  redteam:                       # Phase 5.5 Red Team Critic
+    enabled: true               # 是否启用 Phase 5.5（默认 true）
+    agent: "general-purpose"    # Phase 5.5 Critic Agent；推荐 OMC "code-reviewer" 或 Anthropic 官方 "red-team-critic"。禁止 Explore / 空值。
 
 test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）

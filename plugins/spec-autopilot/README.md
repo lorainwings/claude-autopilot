@@ -223,7 +223,16 @@ services:
 
 phases:
   requirements:
-    agent: "general-purpose"    # Default safe fallback. Run /autopilot-agents install to swap in recommended agents (analyst / business-analyst).
+    agent: "general-purpose"    # BA agent; recommended: OMC "analyst"
+    auto_scan:
+      enabled: true
+      agent: "general-purpose"  # Codebase scanner; recommended: OMC "explore" (forked +Write)
+    research:
+      enabled: true
+      agent: "general-purpose"  # Tech compatibility analyst; recommended: OMC "architect"
+      web_search:
+        enabled: true
+        agent: "general-purpose"  # Web searcher; recommended: VoltAgent "search-specialist" (forked +Write)
     min_qa_rounds: 1
     mode: "structured"           # structured | socratic
   testing:
@@ -240,6 +249,9 @@ phases:
     format: "allure"
     coverage_target: 80
     zero_skip_required: true
+  redteam:
+    enabled: true               # Phase 5.5 Red Team Critic
+    agent: "general-purpose"    # Recommended: OMC "code-reviewer"
 
 test_pyramid:
   min_unit_pct: 50

@@ -130,6 +130,10 @@ REQUIRED_NESTED = [
     "phases.reporting.coverage_target",
     "phases.reporting.zero_skip_required",
 ]
+# 三路调研 + redteam + archive 的 agent 字段不强制 required（向后兼容旧 config）
+# 但 setup wizard 强制写入这 4 个字段；运行时 auto-emit-agent-dispatch.sh 会按
+# 实际派发场景按需阻断（缺字段 → block，不一致 → block）。
+# 这里只做类型校验 + Explore 硬阻断（在下方 cross_ref 段）。
 
 RECOMMENDED = ["test_pyramid", "gates", "context_management", "project_context", "model_routing"]
 
@@ -150,8 +154,12 @@ TYPE_RULES = {
     "phases.requirements.one_question_per_round": bool,
     "phases.requirements.auto_scan.enabled": bool,
     "phases.requirements.auto_scan.max_depth": (int, float),
+    "phases.requirements.auto_scan.agent": str,
     "phases.requirements.research.enabled": bool,
     "phases.requirements.research.agent": str,
+    "phases.requirements.research.web_search.enabled": bool,
+    "phases.requirements.research.web_search.max_queries": (int, float),
+    "phases.requirements.research.web_search.agent": str,
     "phases.requirements.complexity_routing.enabled": bool,
     "phases.requirements.complexity_routing.thresholds.small": (int, float),
     "phases.requirements.complexity_routing.thresholds.medium": (int, float),
@@ -370,19 +378,26 @@ def validate(config_path):
     if tdd_mode is True:
         cross_ref_warnings.append("tdd_mode=true: TDD cycle only active in full execution mode")
 
-    # HARD BLOCK: research.agent="Explore" is deprecated and breaks runtime.
-    # Explore agents are read-only and cannot Write research output files,
-    # violating the v3.3.0 self-write constraint. Upgraded users with old
-    # config MUST migrate before Phase 0 can complete. This is a hard error
-    # (enum_errors → valid=false), NOT a warning — do not downgrade.
-    research_agent = get_value(yaml_data, "phases.requirements.research.agent")
-    if isinstance(research_agent, str) and research_agent.lower() == "explore":
-        enum_errors.append(
-            'phases.requirements.research.agent: "Explore" is forbidden '
-            "(read-only agents cannot write research output files, causing "
-            "Phase 1 dispatch failure). "
-            'Change to "general-purpose" in .claude/autopilot.config.yaml'
-        )
+    # HARD BLOCK: Phase 1 三路调研 agent 不得为 "Explore"（只读无 Write 权限，
+    # 会导致无法产出 context/*.md / research-findings.md / web-research-findings.md，
+    # Phase 1 dispatch 必然失败）。同样阻断 Phase 5.5 redteam.agent="Explore"
+    # （reproducer 需 Write 到 tests/generated/）。
+    explore_forbidden_fields = [
+        "phases.requirements.agent",
+        "phases.requirements.auto_scan.agent",
+        "phases.requirements.research.agent",
+        "phases.requirements.research.web_search.agent",
+        "phases.redteam.agent",
+    ]
+    for ef in explore_forbidden_fields:
+        ef_val = get_value(yaml_data, ef)
+        if isinstance(ef_val, str) and ef_val.lower() == "explore":
+            enum_errors.append(
+                f'{ef}: "Explore" is forbidden '
+                "(read-only agents cannot write required artifacts). "
+                f"Install a Write-capable agent via /autopilot-agents and set {ef}, "
+                'or fall back to "general-purpose" in .claude/autopilot.config.yaml.'
+            )
 
     # Soft warning: non-builtin agent types (any custom agent installed via /autopilot-agents)
     # are valid if a matching .claude/agents/{name}.md exists. Since the validator
@@ -397,16 +412,24 @@ def validate(config_path):
     }
     agent_fields = [
         "phases.requirements.agent",
+        "phases.requirements.auto_scan.agent",
         "phases.requirements.research.agent",
+        "phases.requirements.research.web_search.agent",
         "phases.openspec.agent",
         "phases.testing.agent",
         "phases.implementation.parallel.default_agent",
+        "phases.implementation.parallel.review_agent",
+        "phases.implementation.review_agent",
+        "phases.reporting.agent",
+        "phases.code_review.agent",
+        "phases.archive.agent",
+        "phases.redteam.agent",
     ]
     for field in agent_fields:
         agent_val = get_value(yaml_data, field)
         if isinstance(agent_val, str) and agent_val and agent_val not in KNOWN_BUILTIN_AGENTS:
             # Skip the Explore check (already handled as enum_error above)
-            if field == "phases.requirements.research.agent" and agent_val.lower() == "explore":
+            if field in explore_forbidden_fields and agent_val.lower() == "explore":
                 continue
             cross_ref_warnings.append(
                 f'{field}: "{agent_val}" is not a built-in Claude Code agent type. '

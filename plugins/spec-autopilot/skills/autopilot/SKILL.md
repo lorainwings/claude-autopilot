@@ -98,7 +98,7 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | 3 | Task 子 Agent | OpenSpec 快进生成制品 |
 | 4 | Task 子 Agent | 测试用例设计（full 模式强制；TDD 模式下由 Phase 5 吸收，标记 `skipped_tdd`） |
 | 5 | Task 子 Agent | 串行/并行 循环实施 |
-| 5.5 | Task 子 Agent (Critic) | **Red Team 对抗相位**（Sprint 升级新增）：枚举 5 类破坏并产出 reproducer，追加至 `tests/generated/redteam-*.sh`。详见 Skill(`spec-autopilot:autopilot-phase5.5-redteam`) |
+| 5.5 | Task 子 Agent (Critic, 前台派发) | **Red Team 对抗相位**：枚举 5 类破坏并产出 reproducer，追加至 `tests/generated/redteam-*.sh`。Agent 来源：`config.phases.redteam.agent`（setup 强制写入，禁 Explore）。详见 Skill(`spec-autopilot:autopilot-phase5.5-redteam`) |
 | 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
 | 7 | Skill(`autopilot-phase7-archive`) | 汇总展示 + **Archive Readiness 自动**归档 |
 

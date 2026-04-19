@@ -8,25 +8,28 @@
 ```yaml
 parallel_tasks:
   - name: "auto-scan"
-    agent: config.phases.requirements.agent  # 由 setup SKILL 写入用户选择的已安装 agent
+    agent: config.phases.requirements.auto_scan.agent  # setup SKILL 强制写入的代码库扫描 Agent（推荐 OMC explore forked）
     prompt_template: "分析项目结构和现有代码模式..."
     merge_strategy: "none"
   - name: "tech-research"
-    agent: config.phases.requirements.research.agent  # 由 setup SKILL 写入用户选择的已安装 agent
+    agent: config.phases.requirements.research.agent   # setup SKILL 强制写入的技术兼容性分析 Agent（推荐 OMC architect）
     prompt_template: "分析与需求相关的代码、依赖兼容性..."
     merge_strategy: "none"
   - name: "web-search"
-    agent: config.phases.requirements.research.agent
+    agent: config.phases.requirements.research.web_search.agent  # setup SKILL 强制写入的联网搜索 Agent（推荐 VoltAgent search-specialist forked）
     prompt_template: "联网搜索最佳实践和竞品方案..."
     merge_strategy: "none"
     condition: "search_policy.default: search — 规则判定跳过时不派发此 Agent"
 ```
 
-> **配置驱动纪律（不硬编码 agent 名）**：
-> - `phases.requirements.agent` / `phases.requirements.research.agent` 的具体取值由 setup SKILL 期间用户从已安装 agent 列表中选择并写入；本文档不预设具体名称。
-> - 运行时 `runtime/scripts/auto-emit-agent-dispatch.sh` 会读取 config，校验 dispatch 的 `subagent_type` 与配置一致；不一致即硬阻断，不允许偏离配置。
-> - 配置缺失或字段为空时同样硬阻断，并提示运行 `/autopilot-setup`。
-> - `_config_validator.py` 仍硬阻断 `Explore`（只读，无 Write 权限）。
+> **配置驱动纪律（三路独立解析，不硬编码 agent 名）**：
+> - 三路 agent 字段 `phases.requirements.auto_scan.agent` / `phases.requirements.research.agent` / `phases.requirements.research.web_search.agent` 必须在 setup SKILL 期间由用户分别从已安装 agent 列表中选择并写入；本文档不预设具体名称。
+> - 运行时 `runtime/scripts/auto-emit-agent-dispatch.sh` 按**输出文件路径**路由校验：
+>   - prompt 引用 `project-context.md` / `existing-patterns.md` / `tech-constraints.md` → 校验 `subagent_type == auto_scan.agent`
+>   - prompt 引用 `research-findings.md`（不含 web 前缀） → 校验 `subagent_type == research.agent`
+>   - prompt 引用 `web-research-findings.md` → 校验 `subagent_type == web_search.agent`
+> - 不一致、为空、或配置缺失即硬阻断，不允许偏离配置。
+> - `_config_validator.py` 硬阻断上述三个字段值为 `Explore`（只读，无 Write 权限）。
 
 **子 Agent 自写入约束**：每个调研 Agent 必须自行 Write 产出到指定路径，返回 JSON 信封仅包含摘要。
 
@@ -54,20 +57,24 @@ parallel_tasks:
 
 主线程同时派发 2-3 个 Task（不含 autopilot-phase 标记，不受 Hook 校验）。
 
-> **Sub-Agent 名称硬解析（必须在派发前执行）**：
-> 下述模板中的 `{{RESOLVED_AGENT_NAME}}` / `{{RESOLVED_RESEARCH_AGENT_NAME}}` **必须**由主线程在构造 Task 参数前用实际已注册 agent 名替换
-> （从 `autopilot.config.yaml` 的 `config.phases.requirements.agent` / `config.phases.requirements.research.agent` 读取；setup SKILL 期间已强制写入，未配置即派发是 bug）。
-> 替换后必须通过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验（exit 0 方可派发，exit 1 即 fail-fast 返回 blocked）。
+> **Sub-Agent 名称硬解析（三路独立，必须在派发前执行）**：
+> 下述模板中的 `{{RESOLVED_AUTOSCAN_AGENT}}` / `{{RESOLVED_RESEARCH_AGENT}}` / `{{RESOLVED_WEBSEARCH_AGENT}}` **必须**由主线程在构造 Task 参数前用实际已注册 agent 名替换
+> （从 `autopilot.config.yaml` 的 `phases.requirements.auto_scan.agent` / `.research.agent` / `.research.web_search.agent` 读取；setup SKILL 期间已强制写入，未配置即派发是 bug）。
+> 每路解析后各自通过 `runtime/scripts/validate-agent-registry.sh <agent_name>` 校验（exit 0 方可派发，exit 1 即 fail-fast 返回 blocked）。
 > 禁止将 `config.phases.xxx.agent` 字面量直接作为 `subagent_type` 传入 Task —— LLM 看到字面量后会从 description 启发式选择 `Explore` / `general-purpose`，导致预设 agent 身份丢失。
 >
-> **配置一致性硬阻断（运行时校验）**：
-> 1. 配置层：`_config_validator.py` 硬阻断 `phases.requirements.research.agent == "Explore"`（enum_error）
-> 2. 运行时：`auto-emit-agent-dispatch.sh` 读取 config 中的 `phases.requirements.agent` / `.research.agent`，当 prompt 引用 `research-findings.md` / `web-research-findings.md` / `project-context.md` 等输出路径时，校验 `subagent_type` 必须**完全等于**配置值；不一致、为空、或 config 缺失即 stdout JSON block
+> **配置一致性硬阻断（运行时按文件路径路由）**：
+> 1. 配置层：`_config_validator.py` 硬阻断上述三个字段值为 `"Explore"`（enum_error）
+> 2. 运行时：`auto-emit-agent-dispatch.sh` 读取 config，按 prompt 引用的**输出文件路径**精确路由：
+>    - 引用 `project-context.md` / `existing-patterns.md` / `tech-constraints.md` → `subagent_type` 必须完全等于 `auto_scan.agent`
+>    - 引用 `research-findings.md`（不含 web 前缀） → 必须完全等于 `research.agent`
+>    - 引用 `web-research-findings.md` → 必须完全等于 `research.web_search.agent`
+>    不一致、为空、或 config 缺失即 stdout JSON block
 > Explore 为只读 agent，无 Write 权限，无法产出调研报告；即使 Auto-Scan 任务也必须使用配置指定的 agent。
 
 ```markdown
-# Task 1: Auto-Scan（解析后的 agent 名，Phase 1 Auto-Scan 允许 general-purpose）
-Task(subagent_type: "{{RESOLVED_AGENT_NAME}}", run_in_background: true,
+# Task 1: Auto-Scan（解析后的 auto_scan.agent 名）
+Task(subagent_type: "{{RESOLVED_AUTOSCAN_AGENT}}", run_in_background: true,
   prompt: "分析项目结构，生成 Steering Documents:
   - project-context.md（技术栈、目录结构）
   - existing-patterns.md（现有代码模式）
@@ -75,20 +82,20 @@ Task(subagent_type: "{{RESOLVED_AGENT_NAME}}", run_in_background: true,
   输出到: openspec/changes/{change_name}/context/"
 )
 
-# Task 2: 技术调研（解析后的 research agent 名）
-Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT_NAME}}", run_in_background: true,
+# Task 2: 技术调研（解析后的 research.agent 名）
+Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT}}", run_in_background: true,
   prompt: "分析与需求相关的代码:
   需求: {RAW_REQUIREMENT}
   重点: 影响范围、依赖兼容性、技术可行性
   输出到: openspec/changes/{change_name}/context/research-findings.md"
 )
 
-# Task 3: 联网搜索（条件派发）
-{if config.phases.requirements.web_search.enabled}
-Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT_NAME}}", run_in_background: true,
+# Task 3: 联网搜索（条件派发，解析后的 web_search.agent 名）
+{if config.phases.requirements.research.web_search.enabled}
+Task(subagent_type: "{{RESOLVED_WEBSEARCH_AGENT}}", run_in_background: true,
   prompt: "联网搜索与需求相关的最佳实践:
   需求: {RAW_REQUIREMENT}
-  搜索不超过 {config.phases.requirements.web_search.max_queries} 个查询
+  搜索不超过 {config.phases.requirements.research.web_search.max_queries} 个查询
   输出结构化结果到: openspec/changes/{change_name}/context/web-research-findings.md
   注意: 输出到独立文件 web-research-findings.md，不要修改 research-findings.md"
 )
