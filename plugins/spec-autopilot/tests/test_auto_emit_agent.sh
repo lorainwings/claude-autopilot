@@ -125,8 +125,12 @@ cat > "$TMP_PROJECT/.claude/autopilot.config.yaml" <<'YAML'
 phases:
   requirements:
     agent: "my-analyst"
+    auto_scan:
+      agent: "my-scanner"
     research:
       agent: "my-researcher"
+      web_search:
+        agent: "my-websearcher"
 YAML
 echo '{"change":"test","pid":"99999"}' > "$TMP_PROJECT/openspec/changes/.autopilot-active"
 
@@ -163,26 +167,59 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 2d. Auto-Scan 任务（project-context.md）使用 phases.requirements.agent
-SCAN_OK_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-analyst","description":"auto scan","prompt":"分析项目结构 输出 project-context.md"},"cwd":"'"$TMP_PROJECT"'"}'
+# 2d. Auto-Scan 任务（project-context.md）使用 phases.requirements.auto_scan.agent
+SCAN_OK_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-scanner","description":"auto scan","prompt":"分析项目结构 输出 project-context.md"},"cwd":"'"$TMP_PROJECT"'"}'
 OUT=$(echo "$SCAN_OK_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
 if echo "$OUT" | grep -q '"decision":"block"'; then
   red "  FAIL: 2d. Auto-Scan with matching agent should pass, got: $OUT"
   FAIL=$((FAIL + 1))
 else
-  green "  PASS: 2d. Auto-Scan dispatch=my-analyst matches phases.requirements.agent → 放行"
+  green "  PASS: 2d. Auto-Scan dispatch=my-scanner matches auto_scan.agent → 放行"
   PASS=$((PASS + 1))
 fi
 
-# 2e. Auto-Scan dispatch != requirements.agent → block
-SCAN_BAD_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"Explore","description":"auto scan","prompt":"分析项目结构 输出 existing-patterns.md"},"cwd":"'"$TMP_PROJECT"'"}'
+# 2e. Auto-Scan dispatch != auto_scan.agent → block (即使等于 BA agent 也不行)
+SCAN_BAD_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-analyst","description":"auto scan","prompt":"分析项目结构 输出 existing-patterns.md"},"cwd":"'"$TMP_PROJECT"'"}'
 OUT=$(echo "$SCAN_BAD_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
-if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'my-analyst'; then
-  green "  PASS: 2e. Auto-Scan dispatch=Explore != config=my-analyst → block"
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'my-scanner'; then
+  green "  PASS: 2e. Auto-Scan dispatch=my-analyst != auto_scan.agent=my-scanner → block"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 2e. expected block, got: $OUT"
   FAIL=$((FAIL + 1))
+fi
+
+# 2g. web-research-findings.md 必须用 web_search.agent（不能用 research.agent）
+WEB_OK_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-websearcher","description":"web search","prompt":"联网搜索 输出 web-research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$WEB_OK_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"'; then
+  red "  FAIL: 2g. web search with matching agent should pass, got: $OUT"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 2g. web-search dispatch=my-websearcher matches web_search.agent → 放行"
+  PASS=$((PASS + 1))
+fi
+
+# 2h. web-research-findings.md 用 research.agent → block（三路必须独立）
+WEB_BAD_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-researcher","description":"web search","prompt":"联网搜索 输出 web-research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$WEB_BAD_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'my-websearcher'; then
+  green "  PASS: 2h. web-search dispatch=my-researcher (tech research agent) → block (三路独立)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 2h. expected mismatch block (web_search.agent != research.agent), got: $OUT"
+  FAIL=$((FAIL + 1))
+fi
+
+# 2i. research-findings.md (无 web 前缀) 必须用 research.agent
+RES_OK_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-researcher","description":"tech research","prompt":"调研 输出: openspec/changes/foo/context/research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
+OUT=$(echo "$RES_OK_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
+if echo "$OUT" | grep -q '"decision":"block"'; then
+  red "  FAIL: 2i. tech research with matching agent should pass, got: $OUT"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 2i. research-findings.md → research.agent 正确路由"
+  PASS=$((PASS + 1))
 fi
 
 # 2f. config 缺失字段 → block 并提示运行 setup

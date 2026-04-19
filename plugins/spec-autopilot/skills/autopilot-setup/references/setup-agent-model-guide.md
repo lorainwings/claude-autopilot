@@ -3,15 +3,28 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 5.3（Agent 安装引导）和 Step 5.4（模型路由引导）。
 
-## Step 5.3: Agent 安装引导（必须配置 Phase 1 关键字段）
+## Step 5.3: Agent 安装引导（必须配置 Phase 1 三路 + BA Agent 关键字段）
 
-检查 `.claude/agents/` 是否存在可用于 Phase 1 的 agent，并强制写入 `phases.requirements.agent` / `phases.requirements.research.agent`。setup 结束时这两个字段不得为空，否则 fail-fast。
+检查 `.claude/agents/` 是否存在可用于 Phase 1 的 agent，并强制写入 4 个字段：
+
+| 字段 | 用途 | 推荐预设 |
+|------|------|---------|
+| `phases.requirements.agent` | 需求分析（BA） | OMC `analyst` |
+| `phases.requirements.auto_scan.agent` | 代码库扫描 | OMC `explore` (forked +Write) |
+| `phases.requirements.research.agent` | 技术兼容性分析 | OMC `architect` |
+| `phases.requirements.research.web_search.agent` | 联网搜索 | VoltAgent `search-specialist` (forked +Write) |
+
+setup 结束时这四个字段不得为空，**任一为 `Explore` 即 fail-fast**（Explore 无 Write 权限，无法产出对应工件；联网搜索字段额外要求 WebSearch 工具）。
 
 ### 核心规则（配置驱动，不硬编码 agent 名）
 
-- **不预设默认 agent**：本指南不指定任何特定 agent 名作为默认值。用户从已安装的 agent 中选择。
-- **必须写入 config**：setup 完成后 `phases.requirements.agent` 与 `phases.requirements.research.agent` 必须有非空、非 `Explore` 的值。
-- **运行时强一致**：`runtime/scripts/auto-emit-agent-dispatch.sh` 读取此 config 并校验 dispatch 的 `subagent_type` 必须完全等于配置值，偏离即硬阻断。
+- **不预设默认 agent**：本指南不强制写入特定 agent 名，用户从已安装的 agent 中选择；推荐表仅作展示。
+- **必须分别写入 config**：四个字段每个都需独立选择（允许选同一个 agent，但运行时按文件路径精确路由）。
+- **运行时强一致**：`runtime/scripts/auto-emit-agent-dispatch.sh` 按 prompt 引用的输出文件路径路由：
+  - `project-context.md` / `existing-patterns.md` / `tech-constraints.md` → 校验等于 `auto_scan.agent`
+  - `research-findings.md`（不含 web 前缀） → 校验等于 `research.agent`
+  - `web-research-findings.md` → 校验等于 `research.web_search.agent`
+  偏离即硬阻断。
 
 ### 执行流程
 
@@ -21,7 +34,7 @@ installed = ls .claude/agents/*.md (项目级) ∪ ls ~/.claude/agents/*.md (用
 # 排除内置 Explore（只读无 Write 权限，_config_validator 硬阻断）
 candidates = installed \ {Explore}
 
-# 2. 分支
+# 2. 候选为空 → 引导安装
 IF candidates 为空:
   → 输出："✗ 未检测到可用于 Phase 1 的已安装 agent"
   → AskUserQuestion: "Phase 1 需要至少一个具备 Write 权限的 agent，是否现在安装？"
@@ -29,32 +42,40 @@ IF candidates 为空:
     - "安装推荐 Agent" → 调用 Skill("spec-autopilot:autopilot-agents" "install")，回到第 1 步重新扫描
     - "退出 setup" → fail-fast exit 1
 
-ELIF candidates.size == 1:
-  → selected_agent = candidates[0]
-  → 输出："✓ 将使用已安装的 agent: {selected_agent}"
+# 3. 三路 + BA 共四次 AskUserQuestion，分别选择
+FOR field IN [
+  ("phases.requirements.agent",                        "需求分析（BA）",        "OMC analyst"),
+  ("phases.requirements.auto_scan.agent",              "代码库扫描",            "OMC explore (forked)"),
+  ("phases.requirements.research.agent",               "技术兼容性分析",        "OMC architect"),
+  ("phases.requirements.research.web_search.agent",    "联网搜索（需 WebSearch）", "VoltAgent search-specialist (forked)"),
+]:
+  IF candidates.size == 1:
+    → 自动写入 candidates[0]
+    → 输出："✓ {field}: {selected_agent}"
+  ELSE:
+    → AskUserQuestion: "选择 {role} 使用的 agent：" 选项=候选列表（推荐预设标 Recommended 排首位）
+    → 写入用户选择
+  → 写入 config 对应字段
 
-ELSE (多个候选):
-  → AskUserQuestion: "选择 Phase 1 使用的 agent（用于需求分析 + 技术调研 + 联网搜索）："
-    选项: candidates 列表（按名称排序；展示来源与评分）
-  → selected_agent = 用户选择
+# 4. 二次验证（四个字段任一为空或为 Explore → fail-fast）
+FOR field IN 上述四字段:
+  IF config.<field> ∈ {"", "Explore"}:
+    → setup fail-fast: "{field} 无效：必须为已安装的非 Explore agent"
+    → exit 1
 
-# 3. 写入 config（必须）
-config.phases.requirements.agent = selected_agent
-config.phases.requirements.research.agent = selected_agent
-
-# 4. 二次验证
-IF config.phases.requirements.agent ∈ {"", "Explore"}:
-  → setup fail-fast: "phases.requirements.agent 无效"
-  → exit 1
-IF config.phases.requirements.research.agent ∈ {"", "Explore"}:
-  → setup fail-fast: "phases.requirements.research.agent 无效"
-  → exit 1
+# 5. 联网搜索字段额外校验：所选 agent frontmatter 必须包含 WebSearch + WebFetch
+ws_agent = config.phases.requirements.research.web_search.agent
+IF ws_agent ∉ BUILTIN_AGENTS:
+  agent_md = .claude/agents/{ws_agent}.md
+  IF "WebSearch" 不在 frontmatter.tools 且 不在 frontmatter.allowedTools:
+    → 输出 warning："{ws_agent} 未声明 WebSearch 工具，将无法联网搜索；建议改用 search-specialist 或为该 agent fork 加上 WebSearch"
+    → 不阻断（用户可能有自定义 agent）
 ```
 
 ### 说明
 
-- 用户可在 setup 后通过重新运行 `/autopilot-setup` 或 `/autopilot-agents swap` 变更配置；变更会被运行时立即采纳。
-- `phases.requirements.agent` 和 `phases.requirements.research.agent` **可以不同**（如分析用 `planner`，调研用 `analyst`），但运行时校验 dispatch 必须与各自字段完全一致。
+- 用户可在 setup 后通过重新运行 `/autopilot-setup` 或 `/autopilot-agents swap phase1-autoscan|phase1-research|phase1-websearch <agent>` 变更配置。
+- 三路 agent 字段 + BA agent 字段**互相独立**，可以四个字段全选同一个 agent（如同一个全能 agent），但运行时仍按 dispatch 路径精确校验。
 - 若 Step 5.3.5（域级 agent）/ Step 6（Schema 校验）检测到其他阶段同样缺失 agent，执行相同的"扫描 → 选择 → 写入"流程。
 
 ## Step 5.3.5: 域级 Agent 配置引导

@@ -92,6 +92,31 @@ output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":
 assert_exit "Phase 6 empty artifacts → exit 0" 0 $exit_code
 assert_contains "Phase 6 empty artifacts → block" "$output" "block"
 
+# 3n. Phase 5.5 缺 redteam 字段 → should block
+exit_code=0
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5.5 -->\nRed Team"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Done\",\"artifacts\":[\"context/redteam-report.json\"]}"}') || exit_code=$?
+assert_exit "Phase 5.5 missing redteam → exit 0" 0 $exit_code
+assert_contains "Phase 5.5 missing redteam → block" "$output" "block"
+assert_contains "Phase 5.5 missing redteam → mention redteam" "$output" "redteam"
+
+# 3o. Phase 5.5 redteam.recommendation 非法枚举 → should block
+exit_code=0
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5.5 -->\nRed Team"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"OK\",\"artifacts\":[\"context/redteam-report.json\"],\"redteam\":{\"total_reproducers\":3,\"blocking_reproducers\":0,\"recommendation\":\"yolo\"}}"}') || exit_code=$?
+assert_exit "Phase 5.5 bad recommendation → exit 0" 0 $exit_code
+assert_contains "Phase 5.5 bad recommendation → block" "$output" "recommendation"
+
+# 3p. Phase 5.5 一致性失败：blocking>0 但 status=ok → should block
+exit_code=0
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5.5 -->\nRed Team"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"Bug\",\"artifacts\":[\"x\"],\"redteam\":{\"total_reproducers\":3,\"blocking_reproducers\":2,\"recommendation\":\"proceed_to_phase6\"}}"}') || exit_code=$?
+assert_exit "Phase 5.5 inconsistency → exit 0" 0 $exit_code
+assert_contains "Phase 5.5 inconsistency → block" "$output" "block"
+
+# 3q. Phase 5.5 happy path：blocking=0 + proceed → should pass
+exit_code=0
+output=$(run_validator '{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"<!-- autopilot-phase:5.5 -->\nRed Team"},"tool_response":"Result: {\"status\":\"ok\",\"summary\":\"5 reproducers, 0 blocking\",\"artifacts\":[\"context/redteam-report.json\"],\"redteam\":{\"total_reproducers\":5,\"blocking_reproducers\":0,\"recommendation\":\"proceed_to_phase6\"}}"}') || exit_code=$?
+assert_exit "Phase 5.5 happy → exit 0" 0 $exit_code
+assert_not_contains "Phase 5.5 happy → no block" "$output" "block"
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0

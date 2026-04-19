@@ -44,10 +44,12 @@ strict:
   phases.implementation.tdd_refactor: true
   phases.implementation.parallel.enabled: true       # Strict 默认启用并行
   phases.implementation.parallel.domain_agents_strategy: "recommended"  # 自动安装推荐域 Agent
+  phase1_agent_strategy: "recommended"               # Step 5.3 自动应用三路推荐预设
   phases.reporting.coverage_target: 80
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
   phases.code_review.block_on_critical: true
+  phases.redteam.enabled: true
   test_pyramid.min_unit_pct: 50
   test_pyramid.max_e2e_pct: 20
   test_pyramid.min_total_cases: 20
@@ -63,10 +65,12 @@ moderate:
   phases.implementation.tdd_mode: false
   phases.implementation.parallel.enabled: false      # Moderate 默认不启用并行
   phases.implementation.parallel.domain_agents_strategy: "ask"  # 提示用户选择
+  phase1_agent_strategy: "ask"                       # Step 5.3 弹 AskUserQuestion 让用户三路各自选
   phases.reporting.coverage_target: 60
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
   phases.code_review.block_on_critical: false
+  phases.redteam.enabled: true
   test_pyramid.min_unit_pct: 30
   test_pyramid.max_e2e_pct: 40
   test_pyramid.min_total_cases: 10
@@ -82,10 +86,12 @@ relaxed:
   phases.implementation.tdd_mode: false
   phases.implementation.parallel.enabled: false      # Relaxed 默认不启用并行
   phases.implementation.parallel.domain_agents_strategy: "skip"  # 跳过域 Agent 配置
+  phase1_agent_strategy: "fallback_general_purpose"  # Step 5.3 四字段全填 general-purpose（仍须用户确认）
   phases.reporting.coverage_target: 40
   phases.reporting.zero_skip_required: false
   phases.code_review.enabled: false
   phases.code_review.block_on_critical: false
+  phases.redteam.enabled: false
   test_pyramid.min_unit_pct: 20
   test_pyramid.max_e2e_pct: 60
   test_pyramid.min_total_cases: 5
@@ -93,6 +99,34 @@ relaxed:
   gates.user_confirmation.after_phase_3: false
   gates.auto_continue_after_requirement: true
   gates.archive_auto_on_readiness: true
+```
+
+### phase1_agent_strategy 预设行为
+
+`phase1_agent_strategy` 是 Wizard 内部指令（不写入 config YAML），控制 Step 5.3 四字段（BA + 三路调研）配置流程：
+
+```
+推荐预设映射：
+  phases.requirements.agent                     → OMC analyst
+  phases.requirements.auto_scan.agent           → OMC explore (forked +Write)
+  phases.requirements.research.agent            → OMC architect
+  phases.requirements.research.web_search.agent → VoltAgent search-specialist (forked +Write)
+
+IF phase1_agent_strategy == "recommended":
+  → Step 5.3 检测 .claude/agents/ 中是否已安装推荐 agent
+  → 若全部已安装：直接写入四字段，输出摘要，不弹 AskUserQuestion
+  → 若有缺失：自动调用 /autopilot-agents install 安装推荐 agent + 自动 fork，完成后写入四字段
+  → 适用场景: Strict 预设
+
+IF phase1_agent_strategy == "ask":
+  → Step 5.3 标准流程：四字段各自弹 AskUserQuestion 让用户选择
+  → 推荐预设标 Recommended 排首位
+  → 适用场景: Moderate 预设
+
+IF phase1_agent_strategy == "fallback_general_purpose":
+  → Step 5.3 输出推荐清单供参考，四字段默认选 general-purpose（仍需用户显式确认）
+  → 不自动安装社区 agent，保持最小依赖
+  → 适用场景: Relaxed 预设（快速原型）
 ```
 
 ### domain_agents_strategy 预设行为

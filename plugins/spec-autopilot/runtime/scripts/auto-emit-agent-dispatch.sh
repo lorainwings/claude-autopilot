@@ -36,14 +36,17 @@ if [ -z "$PROJECT_ROOT_QUICK" ]; then
   PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
-# --- Pre-marker Guard: Phase 1 调研任务必须匹配 autopilot.config.yaml 中的 agent 配置 ---
-# 设计意图（配置驱动，不硬编码 agent 名）：
-#   1. setup SKILL 期间用户选择已安装的 agent 写入 phases.requirements.agent / .research.agent
-#   2. 此处运行时校验：派发的 subagent_type 必须与 config 中的对应字段完全一致
-#   3. config 缺失/未配置 → 阻断并提示运行 setup
-#   4. 派发任务通过 prompt 中的输出文件路径识别归属字段：
-#      - research-findings.md / web-research-findings.md → phases.requirements.research.agent
-#      - project-context.md / existing-patterns.md / tech-constraints.md → phases.requirements.agent
+# --- Pre-marker Guard: Phase 1 三路调研任务必须匹配 autopilot.config.yaml 中独立 agent 配置 ---
+# 设计意图（配置驱动 + 三路独立解析，不硬编码 agent 名）：
+#   1. setup SKILL 期间用户分别选择已安装的 agent 写入：
+#      - phases.requirements.auto_scan.agent              (Auto-Scan)
+#      - phases.requirements.research.agent               (技术调研)
+#      - phases.requirements.research.web_search.agent    (联网搜索)
+#   2. 此处运行时按 prompt 引用的输出文件路径精确路由，校验 subagent_type 与对应字段一致：
+#      - prompt 引用 web-research-findings.md → web_search.agent
+#      - prompt 引用 research-findings.md（不含 web 前缀） → research.agent
+#      - prompt 引用 project-context.md / existing-patterns.md / tech-constraints.md → auto_scan.agent
+#   3. config 缺失/字段未配置/subagent_type 不一致 → 阻断
 _PRE_SUBAGENT=""
 _PRE_HAS_FIELD=false
 if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]]; then
@@ -51,14 +54,18 @@ if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]]
   _PRE_HAS_FIELD=true
 fi
 
-# 识别 Phase 1 任务类型并查询期望的 config key
+# 按文件路径精确路由（最具体的匹配优先）
 _EXPECTED_KEY=""
 _TASK_KIND=""
-if echo "$STDIN_DATA" | grep -qE '(research-findings|web-research-findings)\.md'; then
+if echo "$STDIN_DATA" | grep -q 'web-research-findings\.md'; then
+  _EXPECTED_KEY="phases.requirements.research.web_search.agent"
+  _TASK_KIND="联网搜索"
+elif echo "$STDIN_DATA" | grep -qE '(^|[^-])research-findings\.md'; then
+  # 严格匹配 research-findings.md 但不含 web- 前缀
   _EXPECTED_KEY="phases.requirements.research.agent"
-  _TASK_KIND="技术调研/联网搜索"
+  _TASK_KIND="技术调研"
 elif echo "$STDIN_DATA" | grep -qE '(project-context|existing-patterns|tech-constraints)\.md'; then
-  _EXPECTED_KEY="phases.requirements.agent"
+  _EXPECTED_KEY="phases.requirements.auto_scan.agent"
   _TASK_KIND="Auto-Scan"
 fi
 
@@ -73,7 +80,7 @@ if [ -n "$_EXPECTED_KEY" ]; then
   _EXPECTED_AGENT=$(read_config_value "$PROJECT_ROOT_QUICK" "$_EXPECTED_KEY" "")
   # 3. 配置项为空 → 阻断
   if [ -z "$_EXPECTED_AGENT" ]; then
-    printf '{"decision":"block","reason":"Phase 1 %s 任务派发失败：autopilot.config.yaml 中 %s 未配置。请运行 `/autopilot-setup` 选择已安装的 agent 写入此字段。"}\n' "$_TASK_KIND" "$_EXPECTED_KEY"
+    printf '{"decision":"block","reason":"Phase 1 %s 任务派发失败：autopilot.config.yaml 中 %s 未配置。请运行 `/autopilot-setup` 选择已安装的 agent 写入此字段（三路 agent 必须分别独立配置）。"}\n' "$_TASK_KIND" "$_EXPECTED_KEY"
     exit 0
   fi
   # 4. subagent_type 缺失 → 阻断
@@ -83,7 +90,7 @@ if [ -n "$_EXPECTED_KEY" ]; then
   fi
   # 5. 派发名与 config 不一致 → 阻断
   if [ "$_PRE_SUBAGENT" != "$_EXPECTED_AGENT" ]; then
-    printf '{"decision":"block","reason":"Phase 1 %s 任务的 subagent_type=\\"%s\\" 与 autopilot.config.yaml 中 %s=\\"%s\\" 不一致。运行时禁止偏离配置；如需修改 agent 请通过 `/autopilot-setup` 重新配置，或在 dispatch 模板中正确解析 config 字段。"}\n' "$_TASK_KIND" "$_PRE_SUBAGENT" "$_EXPECTED_KEY" "$_EXPECTED_AGENT"
+    printf '{"decision":"block","reason":"Phase 1 %s 任务的 subagent_type=\\"%s\\" 与 autopilot.config.yaml 中 %s=\\"%s\\" 不一致。运行时禁止偏离配置；如需修改 agent 请通过 `/autopilot-setup` 重新配置，或在 dispatch 模板中正确解析 config 字段（三路 agent 字段相互独立，不可混用）。"}\n' "$_TASK_KIND" "$_PRE_SUBAGENT" "$_EXPECTED_KEY" "$_EXPECTED_AGENT"
     exit 0
   fi
 fi

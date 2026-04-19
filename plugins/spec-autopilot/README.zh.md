@@ -223,7 +223,16 @@ services:
 
 phases:
   requirements:
-    agent: "general-purpose"    # 默认安全兜底。运行 /autopilot-agents install 可安装推荐 Agent（analyst / business-analyst）。
+    agent: "general-purpose"    # 需求分析（BA） Agent；推荐 OMC analyst
+    auto_scan:
+      enabled: true
+      agent: "general-purpose"  # 代码库扫描 Agent；推荐 OMC "explore" (forked +Write)
+    research:
+      enabled: true
+      agent: "general-purpose"  # 技术兼容性分析 Agent；推荐 OMC "architect"
+      web_search:
+        enabled: true
+        agent: "general-purpose"  # 联网搜索 Agent；推荐 VoltAgent "search-specialist" (forked +Write)
     min_qa_rounds: 1
     mode: "structured"           # structured | socratic
   testing:
@@ -240,6 +249,9 @@ phases:
     format: "allure"
     coverage_target: 80
     zero_skip_required: true
+  redteam:
+    enabled: true               # Phase 5.5 Red Team Critic
+    agent: "general-purpose"    # 推荐 OMC "code-reviewer"
 
 test_pyramid:
   min_unit_pct: 50

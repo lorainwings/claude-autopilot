@@ -57,16 +57,22 @@ except (json.JSONDecodeError, ValueError) as e:
     sys.exit(0)
 
 prompt = data.get("tool_input", {}).get("prompt", "")
-phase_match = re.search(r"<!--\s*autopilot-phase:(\d+)\s*-->", prompt)
+# 支持整数和小数 phase（如 5.5 Red Team）
+phase_match = re.search(r"<!--\s*autopilot-phase:(\d+(?:\.\d+)?)\s*-->", prompt)
 if not phase_match:
     # Fallback: AUTOPILOT_PHASE_ID env var
     env_phase = os.environ.get("AUTOPILOT_PHASE_ID", "")
-    if env_phase.isdigit():
-        phase_num = int(env_phase)
-    else:
+    try:
+        phase_float = float(env_phase)
+        phase_num = int(phase_float) if phase_float == int(phase_float) else phase_float
+    except (ValueError, TypeError):
         sys.exit(0)
 else:
-    phase_num = int(phase_match.group(1))
+    try:
+        phase_float = float(phase_match.group(1))
+        phase_num = int(phase_float) if phase_float == int(phase_float) else phase_float
+    except ValueError:
+        sys.exit(0)
 output = _ep.normalize_tool_response(data)
 
 # --- Early exit: background agent launch (async_launched) ---
@@ -116,13 +122,14 @@ if "artifacts" not in envelope:
 if "next_ready" not in envelope:
     print("INFO: JSON envelope missing optional field: next_ready", file=sys.stderr)
 
-# Phase-specific required fields
-phase_required = {
+# Phase-specific required fields (key 类型可为 int 或 float，如 5.5 Red Team)
+phase_required: dict[float, list[str]] = {
     4: ["test_counts", "sad_path_counts", "dry_run_results", "test_pyramid", "change_coverage"],
     5: ["test_results_path", "tasks_completed", "zero_skip_check"],
+    5.5: ["redteam"],
     6: ["pass_rate", "report_path", "report_format"],
 }
-phase_recommended = {
+phase_recommended: dict[float, list[str]] = {
     4: ["test_traceability"],
     5: ["test_driven_evidence"],
     6: ["suite_results", "anomaly_alerts", "red_evidence", "sample_failure_excerpt"],
@@ -206,6 +213,32 @@ if phase_num == 5 and envelope.get("status") == "ok":
                 "WARNING: Phase 5 sub-agent test-driven evidence: GREEN not verified",
                 file=sys.stderr,
             )
+
+# Phase 5.5 special: redteam 子字段语义校验
+if phase_num == 5.5:
+    rt = envelope.get("redteam", {})
+    if not isinstance(rt, dict):
+        output_block('Phase 5.5 envelope "redteam" field must be an object.')
+    total = rt.get("total_reproducers")
+    blocking = rt.get("blocking_reproducers")
+    rec = rt.get("recommendation")
+    if not isinstance(total, int) or total < 0:
+        output_block(f"Phase 5.5 redteam.total_reproducers must be non-negative integer (got: {total!r}).")
+    if not isinstance(blocking, int) or blocking < 0 or blocking > total:
+        output_block(
+            f"Phase 5.5 redteam.blocking_reproducers must be 0 <= blocking <= total_reproducers "
+            f"(got: {blocking!r}, total: {total!r})."
+        )
+    if rec not in ("proceed_to_phase6", "block_until_fixed"):
+        output_block(
+            f"Phase 5.5 redteam.recommendation must be one of [proceed_to_phase6, block_until_fixed] (got: {rec!r})."
+        )
+    if blocking > 0 and (rec != "block_until_fixed" or envelope.get("status") != "blocked"):
+        output_block(
+            f"Phase 5.5 inconsistent: blocking_reproducers={blocking} requires "
+            f"recommendation=block_until_fixed and status=blocked "
+            f"(got rec={rec!r}, status={envelope.get('status')!r})."
+        )
 
 if phase_num in phase_recommended:
     missing_rec = [f for f in phase_recommended[phase_num] if f not in envelope]

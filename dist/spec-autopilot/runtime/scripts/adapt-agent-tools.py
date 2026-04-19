@@ -36,16 +36,22 @@ from typing import Any
 # 参考 skills/autopilot-*/SKILL.md 中各 phase 的工具使用记录
 PHASE_REQUIRED_TOOLS: dict[str, set[str]] = {
     "phases.requirements.agent": {"Read", "Write", "Edit", "Bash", "Grep", "Glob"},
-    "phases.requirements.research.agent": {"Read", "Write", "Grep", "Glob", "WebFetch", "WebSearch"},
+    # 三路独立调研 agent 各自的工具集
+    "phases.requirements.auto_scan.agent": {"Read", "Write", "Bash", "Grep", "Glob"},
+    "phases.requirements.research.agent": {"Read", "Write", "Grep", "Glob", "Bash"},
+    "phases.requirements.research.web_search.agent": {"Read", "Write", "WebFetch", "WebSearch"},
     "phases.openspec.agent": {"Read", "Write", "Edit", "Bash"},
     "phases.ff.agent": {"Read", "Write", "Edit"},
     "phases.testing.agent": {"Read", "Write", "Edit", "Bash"},
     "phases.implementation.parallel.default_agent": {"Read", "Write", "Edit", "MultiEdit", "Bash", "Grep", "Glob"},
     # review_agent 默认只读即可，但若用户配置写权限 agent 也不强加限制
     "phases.implementation.review_agent": {"Read", "Grep", "Glob"},
+    "phases.implementation.parallel.review_agent": {"Read", "Grep", "Glob"},
     "phases.reporting.agent": {"Read", "Write", "Bash"},
     "phases.code_review.agent": {"Read", "Grep", "Glob"},
     "phases.archive.agent": {"Read", "Write", "Bash"},
+    # Phase 5.5 Red Team Critic：需 Write 反例文件 + Bash 运行 reproducer
+    "phases.redteam.agent": {"Read", "Write", "Edit", "Bash", "Grep", "Glob"},
 }
 
 # 并行 Phase 5 域 agent 与 default_agent 同权限

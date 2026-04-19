@@ -90,6 +90,59 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# ────────────────────────────────────────
+# Phase 6 advisory 路径白名单（post-task-validator.sh shell 层）
+# 设计意图：Phase 6 路径 B/C (code review / quality scan) 无 autopilot-phase marker，
+# 原先被 has_phase_marker 直接跳过，导致返回格式无 L2 校验。
+# 新机制：prompt 引用 code-review.json / quality-scan.json 等 advisory 产物时，
+# 强制轻量信封校验（status + summary + findings[]）。
+# ────────────────────────────────────────
+POST_HOOK="$SCRIPT_DIR/post-task-validator.sh"
+
+# 33k. advisory 路径 缺 status → block
+PAYLOAD_NO_STATUS='{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"执行代码审查，输出 code-review.json"},"tool_response":"{\"summary\":\"done\",\"findings\":[]}"}'
+result=$(echo "$PAYLOAD_NO_STATUS" | bash "$POST_HOOK" 2>/dev/null || true)
+if echo "$result" | grep -qE '"decision":\s*"block"' && echo "$result" | grep -q 'status'; then
+  green "  PASS: 33k. advisory 缺 status → block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 33k. advisory 缺 status 未阻断，got: $result"
+  FAIL=$((FAIL + 1))
+fi
+
+# 33l. advisory 路径 findings 非数组 → block
+PAYLOAD_BAD_FINDINGS='{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"执行 quality-scan.json"},"tool_response":"{\"status\":\"ok\",\"summary\":\"ok\",\"findings\":\"nope\"}"}'
+result=$(echo "$PAYLOAD_BAD_FINDINGS" | bash "$POST_HOOK" 2>/dev/null || true)
+if echo "$result" | grep -qE '"decision":\s*"block"' && echo "$result" | grep -q 'findings'; then
+  green "  PASS: 33l. advisory findings 非数组 → block"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 33l. advisory bad findings 未阻断，got: $result"
+  FAIL=$((FAIL + 1))
+fi
+
+# 33m. advisory 路径 happy path → 放行
+PAYLOAD_OK='{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"Code review 输出 code-review.json"},"tool_response":"{\"status\":\"ok\",\"summary\":\"0 blocking\",\"findings\":[]}"}'
+result=$(echo "$PAYLOAD_OK" | bash "$POST_HOOK" 2>/dev/null || true)
+if echo "$result" | grep -qE '"decision":\s*"block"'; then
+  red "  FAIL: 33m. advisory happy path 被误阻断，got: $result"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 33m. advisory happy path → 放行"
+  PASS=$((PASS + 1))
+fi
+
+# 33n. 非 advisory 且无 phase marker → 维持原有 bypass（不阻断）
+PAYLOAD_UNRELATED='{"tool_name":"Task","cwd":"'"$REPO_ROOT"'","tool_input":{"prompt":"做点普通工作"},"tool_response":"ok"}'
+result=$(echo "$PAYLOAD_UNRELATED" | bash "$POST_HOOK" 2>/dev/null || true)
+if echo "$result" | grep -qE '"decision":\s*"block"'; then
+  red "  FAIL: 33n. unrelated task 被误阻断，got: $result"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: 33n. unrelated task 保持 bypass"
+  PASS=$((PASS + 1))
+fi
+
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1; exit 0
