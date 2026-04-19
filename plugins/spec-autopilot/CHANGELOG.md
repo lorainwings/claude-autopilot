@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.12.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.11.0...spec-autopilot-v5.12.0) (2026-04-19)
+
+
+### Added
+
+* **spec-autopilot:** Phase 1 三路 agent 差异化预设 + Phase 5.5/6 信封强化 ([b427e45](https://github.com/lorainwings/claude-autopilot/commit/b427e45073de6026473f3c782553ed3023f3ef6c))
+* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/lorainwings/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
+
 ## [5.11.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.1...spec-autopilot-v5.11.0) (2026-04-18)
 
 

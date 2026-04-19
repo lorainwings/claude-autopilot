@@ -4,6 +4,13 @@ All notable changes to daily-report will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.8...daily-report-v1.3.0) (2026-04-19)
+
+
+### Added
+
+* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/lorainwings/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
+
 ## [1.2.8](https://github.com/lorainwings/claude-autopilot/compare/daily-report-v1.2.7...daily-report-v1.2.8) (2026-04-03)
 
 
