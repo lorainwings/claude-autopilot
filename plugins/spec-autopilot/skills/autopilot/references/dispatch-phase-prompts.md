@@ -16,6 +16,22 @@
 - 此 Task 不含 `autopilot-phase` 标记 → 不受 Hook 门禁校验（设计预期）
 - 失败两次后标记 `research_status: "skipped"`，不阻断流程
 
+## Phase 1（Synthesizer 仲裁 — 主线程串行调度，含 `<!-- autopilot-phase:1-synthesizer -->` 标记）
+
+- Agent: `config.phases.requirements.synthesizer.agent`（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
+- **派发时机**：必须在 ScanAgent + ResearchAgent 两路 background Task 完成且产出文件落盘之后，由主线程在新一条消息中**前台派发**（不可与前两路并行）
+- 任务：跨路冲突检测 + 语义去重 + 输出 `context/phase1-verdict.json`（schema: `runtime/schemas/synthesizer-verdict.schema.json`）
+- **Prompt 必须包含 `<!-- autopilot-phase:1-synthesizer -->` 标记**，便于 L2 Hook 按角色路由校验：
+  - `auto-emit-agent-dispatch.sh` 按标记 + 输出文件路径（`phase1-verdict.json`）双重校验：`subagent_type` 必须等于 `phases.requirements.synthesizer.agent`
+  - 任何 phase:1-scan / phase:1-research 任务都不得使用此 marker，反之亦然
+- Prompt 必须注入：
+  - 两路 envelope 的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）
+  - context/*.md 文件路径列表（供 SynthesizerAgent 自行 Read 全文，非主线程注入正文）
+  - 四要素契约（详见 `autopilot/references/parallel-phase1.md` SynthesizerAgent 章节）
+- Tool boundary: `allowed: [Read, Write, Bash]`，`forbidden: [WebSearch, WebFetch, Edit, Task]`
+- 返回：必须严格符合 `synthesizer-verdict.schema.json` 的 JSON 信封 + 落盘 `phase1-verdict.json`
+- 失败处理：单次失败重新 dispatch；连续 2 次失败 → 主线程降级为人工汇总（AskUserQuestion 列出两路 decision_points 由用户决策）
+
 ## Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）
 
 - Agent: config.phases.requirements.agent（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）

@@ -30,30 +30,45 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
      - 低复杂度（纯 bugfix/chore）→ 单路调研（Auto-Scan only）
      - 中复杂度 → 双路调研（Auto-Scan + 技术调研）
      - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
-3. **并行调研** → 读取 `autopilot/references/parallel-phase1.md` 并行配置。
+3. **并行调研 + 串行汇总（v6 三路拓扑）** → 读取 `autopilot/references/parallel-phase1.md` 并行配置 + SynthesizerAgent 四要素契约。
    > **Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
-   > **Sub-Agent 名称硬解析协议（强制，三路独立）**: 派发前必须将 `config.phases.requirements.auto_scan.agent` / `.research.agent` / `.research.web_search.agent` 三个模板变量分别替换为实际已注册 Agent 名（不得留 `{{...}}` 或 `config.phases.` 字面量），并各自调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验；任一失败立即返回 blocked 信封。详见 `skills/autopilot-dispatch/SKILL.md` 之 "Sub-Agent 名称硬解析"。
+   > **Sub-Agent 名称硬解析协议（强制，三路独立）**: 派发前必须将 `config.phases.requirements.auto_scan.agent` / `.research.agent` / `.synthesizer.agent` 三个字段分别替换为实际已注册 Agent 名（不得留 `{{...}}` 或 `config.phases.` 字面量），并各自调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验；任一失败立即返回 blocked 信封。详见 `skills/autopilot-dispatch/SKILL.md` 之 "Sub-Agent 名称硬解析"。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
-   按复杂度路由结果自适应派发（不再固定三路同时）：
+
+   **Step 1.2.1** 并行派发 ScanAgent + ResearchAgent，**同一条消息内**同时发起两个 `Task(run_in_background=true)`（按复杂度路由可降级为单路 ScanAgent，详见 parallel-phase1.md 成熟度路由）：
 
    ```
-   ┌─ Auto-Scan (config.phases.requirements.auto_scan.agent) → Steering Documents         ← 始终执行
-   ├─ 技术调研 (config.phases.requirements.research.agent) → research-findings.md          ← 中/高复杂度
-   └─ 联网搜索 (config.phases.requirements.research.web_search.agent) → web-research-findings.md  ← 高复杂度 + 规则判定
+   ┌─ ScanAgent (config.phases.requirements.auto_scan.agent) → Steering Documents      ← 始终执行
+   └─ ResearchAgent (config.phases.requirements.research.agent) → research-findings.md  ← maturity ∈ {partial, ambiguous} 时执行
    ```
+
+   **Step 1.2.2** 等待两路完成（Claude Code Hook 自动通知 `agent_complete`），主线程**仅消费 JSON 信封**：
+   - 验证产出文件存在：`Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")`
+   - 不 Read 任何调研正文（上下文隔离红线）
+
+   **Step 1.2.3** 串行派发 SynthesizerAgent（前台 Task，**不与前两路并行**），传入两路 envelope 摘要 + 产出文件路径：
+   - SynthesizerAgent 自行 Read context/*.md 全文
+   - 跨路冲突检测 + 语义去重 + ambiguities 标注
+   - Write `context/phase1-verdict.json`（schema: `runtime/schemas/synthesizer-verdict.schema.json`）
+
+   **Step 1.2.4** 主线程 `Read(openspec/changes/<name>/context/phase1-verdict.json)`（**仅 verdict，不读 raw 全文**）。
+
+   **Step 1.2.5** if `verdict.requires_human == true` OR `len(verdict.ambiguities) > 0` → 通过 AskUserQuestion 把每条 ambiguity 转换为决策卡片，收集用户澄清答复。
+
+   **Step 1.2.6** 进入 1.5 BA Agent 派发：BA Agent 输入 = `verdict.merged_decision_points + verdict.conflicts(resolution=adopted) + 用户澄清答复`（不再注入两路调研原始 envelope）。
 
    **联网搜索决策**：默认执行搜索（`search_policy.default: search`），仅当任务**同时满足所有跳过条件**时才跳过：
    - ✓ 纯内部代码变更（重构、bug 修复、样式微调）
    - ✓ 不引入新概念、新模式、新交互
    - ✓ 项目 `rules/` 或 `specs/` 已有明确规范覆盖
    - ✓ codebase 中已有同类实现可参照
-   判定由规则引擎执行（非 AI 自评），详见 `autopilot/references/phase1-requirements.md` 1.3.3 节。
-   **强制并行约束**：主线程**必须在同一条消息中**同时发起所有调研 Task（全部设置 `run_in_background: true`），然后等待 Claude Code 自动完成通知。
-   - ❌ **禁止**：逐个发起 Task，等前一个完成再发下一个
-   - ❌ **禁止**：使用前台 agent 逐个扫描
+   判定由规则引擎执行（非 AI 自评），详见 `autopilot/references/phase1-requirements.md` 1.3.3 节；联网调研以 ResearchAgent 子任务方式执行（depth=deep 时）。
+   **强制并行约束**：Step 1.2.1 中 ScanAgent + ResearchAgent **必须在同一条消息中**同时发起（全部 `run_in_background: true`）；SynthesizerAgent 仅在 Step 1.2.3 单独派发。
+   - ❌ **禁止**：逐个发起 ScanAgent / ResearchAgent，等前一个完成再发下一个
+   - ❌ **禁止**：将 SynthesizerAgent 与前两路一起派发（必须串行等待）
    - ❌ **禁止**：使用 TaskOutput 检查后台 Agent 进度（TaskOutput 仅适用于 Bash 后台命令）
-   - ✅ **正确**：在一条消息中包含 2-3 个 `Task(run_in_background: true)` 调用
-   优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 Auto-Scan 仅做增量
+   - ✅ **正确**：一条消息含 2 个 `Task(run_in_background: true)` 派发 ScanAgent + ResearchAgent；下一条消息含 1 个 `Task` 派发 SynthesizerAgent
+   优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 ScanAgent 仅做增量
 4. **汇合调研结果**（上下文保护增强）→ 子 Agent 自行 Write 产出文件 + 返回结构化 JSON 信封（含摘要和决策点），主线程**不读取全文**：
    > **Agent 事件**: Hook `auto-emit-agent-complete.sh` 自动为每个完成的 autopilot Task 发射 `agent_complete` 事件，无需手动调用。
    - 验证文件存在：`Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")`

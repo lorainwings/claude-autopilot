@@ -403,9 +403,67 @@ Based on research, the recommended technical approach is: ...
 - 如果返回为空或格式异常，重新 dispatch 并在 prompt 中明确要求 JSON 输出
 - 如果两次 dispatch 均失败，标记 `research_status: "skipped"`，继续流程（研究是增强而非阻断）
 
-## 1.4 复杂度评估完整规则
+## 1.3.5 SynthesizerAgent 串行汇总流程（v6 三路拓扑第三路）
 
-### 评估规则
+> 详细契约见 `parallel-phase1.md` 之 SynthesizerAgent 四要素契约。本节聚焦 detail 文档侧的执行细节与 verdict 消费规则。
+
+### 派发时机
+
+主线程在 ScanAgent + ResearchAgent 两路 background Task 完成、产出文件落盘并通过 `Bash("test -s ...")` 验证后，**才**派发 SynthesizerAgent（前台 Task），不可与前两路并行。
+
+### Prompt 注入清单
+
+```
+你是 autopilot Phase 1 的 SynthesizerAgent。
+
+## 两路前置 envelope 摘要（结构化）
+- ScanAgent 信封: {scan_envelope}
+- ResearchAgent 信封: {research_envelope}
+
+## 待 Read 全文（请自行 Read，主线程未注入正文）
+- openspec/changes/<name>/context/project-context.md
+- openspec/changes/<name>/context/existing-patterns.md
+- openspec/changes/<name>/context/tech-constraints.md
+- openspec/changes/<name>/context/research-findings.md
+
+## 任务
+1. 跨路冲突检测：对比两路 decision_points / tech_constraints
+2. 语义去重：相似 topic（语义相似度 > 0.8）合并为同一条
+3. 输出 verdict.json，schema: runtime/schemas/synthesizer-verdict.schema.json
+4. 当存在矛盾时，verdict.conflicts 必须非空
+5. 当存在无法在前序产物中解决的歧义时，向 verdict.ambiguities 追加
+   `[NEEDS CLARIFICATION: <问题描述>]` 字符串
+
+## 产出
+Write 到 openspec/changes/<name>/context/phase1-verdict.json。
+返回信封即为 verdict.json 内容（schema-aligned），禁止追加额外字段。
+```
+
+### verdict 消费规则（主线程）
+
+```
+verdict = Read("openspec/changes/<name>/context/phase1-verdict.json")
+
+# Gate 1: schema 校验（L2 Hook 已做，此处兜底）
+ASSERT verdict 满足 synthesizer-verdict.schema.json
+
+# Gate 2: 冲突 + 歧义 → 进入用户澄清
+IF verdict.requires_human OR len(verdict.ambiguities) > 0:
+    FOR ambiguity IN verdict.ambiguities:
+        AskUserQuestion(question=ambiguity)
+    APPEND user_clarifications
+
+# Gate 3: BA 注入（不再注入两路原始 envelope）
+ba_prompt_inputs = {
+    "merged_decision_points": verdict.merged_decision_points,
+    "adopted_resolutions": [c FOR c IN verdict.conflicts IF c.resolution == "adopted"],
+    "user_clarifications": user_clarifications,
+}
+```
+
+> **上下文隔离铁律延伸**：主线程 Read 的对象自此明确为 `phase1-verdict.json`（结构化），**不**回退到原始 `research-findings.md` / `project-context.md` 全文。verdict 是 BA 输入的唯一权威源。
+
+## 1.4 复杂度评估完整规则
 
 基于 Research Agent 返回的 `impact_analysis` 计算复杂度：
 
