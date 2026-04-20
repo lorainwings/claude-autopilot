@@ -126,8 +126,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 3c. partial 需求走双路
-if grep -q 'partial.*双路\|partial.*Auto-Scan.*技术调研\|partial.*定向' "$PHASE1_REQ" || grep -q 'partial.*Auto-Scan.*tech_research' "$PARALLEL_PHASE1"; then
+# 3c. partial 需求走双路（Task 18: 2D 矩阵 — partial 对应 research_depth=standard）
+if grep -q 'partial.*双路\|partial.*Auto-Scan.*技术调研\|partial.*定向\|partial.*standard' "$PHASE1_REQ" || grep -q 'partial.*Auto-Scan.*tech_research' "$PARALLEL_PHASE1"; then
   green "  PASS: 3c. partial 需求走双路调研"
   PASS=$((PASS + 1))
 else
@@ -135,8 +135,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 3d. ambiguous 需求走三路
-if grep -q 'ambiguous.*三路\|ambiguous.*全启动\|ambiguous.*Auto-Scan.*技术调研.*联网' "$PHASE1_REQ" || grep -q 'ambiguous.*三路' "$PARALLEL_PHASE1"; then
+# 3d. ambiguous 需求走三路（Task 18: 2D 矩阵 — ambiguous 对应 depth=deep + websearch_subtask）
+if grep -q 'ambiguous.*三路\|ambiguous.*全启动\|ambiguous.*Auto-Scan.*技术调研.*联网\|ambiguous.*deep.*true' "$PHASE1_REQ" || grep -q 'ambiguous.*三路' "$PARALLEL_PHASE1"; then
   green "  PASS: 3d. ambiguous 需求走三路调研"
   PASS=$((PASS + 1))
 else

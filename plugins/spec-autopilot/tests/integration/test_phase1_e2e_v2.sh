@@ -87,9 +87,9 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# phase1-requirements.md partial 路由必须 "auto_scan + tech_research"（双路）
+# phase1-requirements.md partial 路由必须包含 standard depth（Task 18: 2D 矩阵）
 assert_contains "phase1-requirements partial maturity dispatches scan + tech_research" \
-  "$PHASE1_BODY" "Auto-Scan + 定向技术调研"
+  "$PHASE1_BODY" "partial | brownfield | true | true | standard"
 
 # ---------------------------------------------------------------------------
 # (b) verdict.json 存在且 schema 通过

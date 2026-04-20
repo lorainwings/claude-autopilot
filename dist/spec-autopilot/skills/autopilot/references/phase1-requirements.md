@@ -37,13 +37,17 @@
 
 ## Step 1.1.5b 需求成熟度评估
 
-在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，决定调研方案：
+在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，并结合 `project_type`（greenfield / brownfield，由 Phase 0 探测）共同决定调研方案。
 
-| 成熟度 | 判定规则 | 调研方案 |
-|--------|---------|---------|
-| **clear** | flags == 0 且 RAW_REQUIREMENT 含具体组件 + 具体行为 + 验收条件 | 仅 Auto-Scan（轻量澄清） |
-| **partial** | flags == 1 或 (flags == 0 但缺乏验收标准) | Auto-Scan + 定向技术调研（双路） |
-| **ambiguous** | flags >= 2 | Auto-Scan + 技术调研 + 联网搜索（三路） |
+> **权威来源**: 调研方案由 `runtime/scripts/select-research-plan.sh --maturity <M> --project-type <T>` 输出的 JSON 决定，主线程根据 `scan` / `research` / `research_depth` / `websearch_subtask` 字段构造 Task 派发列表。**禁止在编排逻辑或文档中硬编码 maturity → 调研方案的映射**，新增维度只能通过修改该脚本完成。
+
+### 成熟度判定规则（确定性，非 AI 判断）
+
+| 成熟度 | 判定规则 |
+|--------|---------|
+| **clear** | flags == 0 且 RAW_REQUIREMENT 含具体组件 + 具体行为 + 验收条件 |
+| **partial** | flags == 1 或 (flags == 0 但缺乏验收标准) |
+| **ambiguous** | flags >= 2 |
 
 ```
 # 成熟度决策规则（确定性，非 AI 判断）
@@ -61,13 +65,34 @@ ELIF flags == 0:
         maturity = "partial"
 ```
 
-### 成熟度驱动的调研方案
+### 调研方案矩阵（maturity × project_type）
 
-- **clear**: 仅派发 Auto-Scan → 直接进入 BA 分析 → 快速完成 Phase 1
-- **partial**: 派发 Auto-Scan + 技术调研 → 联网搜索按搜索规则引擎决定
-- **ambiguous**: 先走定向澄清/预循环 → 再派发三路调研
+> 此表仅供人类阅读 / 评审使用；运行期以 `select-research-plan.sh` 输出为准。
 
-> **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研，partial 需求按需补充，ambiguous 需求才全面展开。
+| maturity | project_type | scan | research | research_depth | websearch_subtask | 说明 |
+|----------|--------------|------|----------|----------------|-------------------|------|
+| clear | greenfield | true | false | none | false | 仅 Auto-Scan，跳过 ResearchAgent |
+| clear | brownfield | true | false | none | false | Auto-Scan 追加 lite-regression 子任务（轻量回归扫描），仍不派发 ResearchAgent |
+| partial | greenfield | true | true | standard | false | Auto-Scan + ResearchAgent（标准深度，无 WebSearch） |
+| partial | brownfield | true | true | standard | false | 同上 |
+| ambiguous | greenfield | true | true | deep | true | Auto-Scan + ResearchAgent，开启 depth=deep WebSearch 子任务 |
+| ambiguous | brownfield | true | true | deep | true | 同上 |
+
+### 调用约定
+
+```bash
+PLAN_JSON=$(runtime/scripts/select-research-plan.sh \
+  --maturity "$MATURITY" --project-type "$PROJECT_TYPE")
+SCAN=$(jq -r '.scan' <<<"$PLAN_JSON")
+RESEARCH=$(jq -r '.research' <<<"$PLAN_JSON")
+RESEARCH_DEPTH=$(jq -r '.research_depth' <<<"$PLAN_JSON")
+WEBSEARCH=$(jq -r '.websearch_subtask' <<<"$PLAN_JSON")
+# → 主线程依据上述字段构造 Task 派发列表（Auto-Scan 必派；
+#    ResearchAgent 在 RESEARCH=true 时派发，prompt 携带 depth=$RESEARCH_DEPTH 与
+#    web_search 子任务开关 $WEBSEARCH）。
+```
+
+> **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研；clear+brownfield 通过 ScanAgent 内的 lite-regression 子任务获得回归保护；partial 需求按需补充；ambiguous 需求才全面展开（含 WebSearch）。
 
 ## Step 1.1.7 定向澄清预检
 

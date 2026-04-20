@@ -126,3 +126,6 @@ apply-fix-patch.sh
 # ── Test health quantification (mutation + static health score, weekly sweep) ──
 test-mutation-sample.sh
 test-health-score.sh
+
+# ── Phase 1 research plan matrix (maturity × project_type → plan envelope) ──
+select-research-plan.sh
