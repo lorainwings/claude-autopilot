@@ -185,6 +185,7 @@ fi
 echo "--- (c) requirement-packet.json validator ---"
 
 PACKET_FILE="$CONTEXT_DIR/requirement-packet.json"
+# 先写入不含 sha256 的 packet，再用 validator 相同的 canonical 算法计算真实 hash 并回填
 cat > "$PACKET_FILE" <<'EOF'
 {
   "change_name": "login-rate-limit",
@@ -207,15 +208,32 @@ cat > "$PACKET_FILE" <<'EOF'
     {"topic": "限流算法", "choice": "sliding window", "rationale": "对突发友好且实现成熟"}
   ],
   "open_questions_closed": true,
-  "needs_clarification": [],
-  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  "needs_clarification": []
 }
 EOF
+
+# 使用与 validate-requirement-packet.sh 完全一致的 canonical 算法计算 sha256，
+# 然后回填到 packet.json，确保 (c) 断言真实验证 hash 匹配。
+python3 - "$PACKET_FILE" <<'PYEOF'
+import json, hashlib, sys
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    packet = json.load(f)
+packet_for_hash = {k: v for k, v in packet.items() if k not in ('sha256', 'hash', 'packet_hash')}
+canonical = json.dumps(packet_for_hash, sort_keys=True, ensure_ascii=False)
+packet['sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(packet, f, ensure_ascii=False, indent=2)
+PYEOF
+
 assert_file_exists "requirement-packet.json fixture exists" "$PACKET_FILE"
 
 VAL_OUT=$(bash "$VALIDATOR_SCRIPT" "$PACKET_FILE" "$FIXTURE_DIR" 2>/dev/null || true)
 assert_not_contains "validator does NOT report sha256 格式无效" "$VAL_OUT" "格式无效"
 assert_not_contains "validator does NOT report blocked status"  "$VAL_OUT" "\"status\": \"blocked\""
+# 真正的 hash 一致性断言（修复先前假阳性：原 fixture 硬编码 0123... 导致 validator 输出 "sha256 不匹配" warning，
+# 但测试仅断言 blocked/格式无效 而 trivially 通过）
+assert_not_contains "validator does NOT warn sha256 不匹配"    "$VAL_OUT" "sha256 不匹配"
 
 # sha256 64 字符 hex 模式校验
 PACKET_SHA=$(jq -r '.sha256' "$PACKET_FILE")
