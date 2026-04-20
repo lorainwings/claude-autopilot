@@ -300,6 +300,184 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# ---------------------------------------------------------------------------
+# === Phase 1 Gate hardening cases (Task 13) ===
+#   覆盖 runtime/scripts/check-phase1-gate.sh 的三条硬阻断 + 通过路径:
+#     A: requirements.md 含未清零 [NEEDS CLARIFICATION:] → BLOCKED
+#     B: verdict.confidence < 阈值 (0.7)               → BLOCKED
+#     C: verdict.conflicts 含 resolution=irreconcilable → BLOCKED
+#     D: 全 clean (无标记/高置信/无 irreconcilable)     → PASSED
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Phase 1 Gate hardening cases (Task 13) ==="
+
+GATE_SCRIPT="$PLUGIN_ROOT/runtime/scripts/check-phase1-gate.sh"
+assert_file_exists "check-phase1-gate.sh present" "$GATE_SCRIPT"
+
+# 生成带合法 sha256 的 packet.json（复用与 (c) 相同的 canonical 算法）
+make_gate_packet() {
+  local target="$1"
+  cat > "$target" <<'PEOF'
+{
+  "change_name": "gate-fixture",
+  "discussion_rounds": 1,
+  "requirement_type": "feature",
+  "requirement_maturity": "partial",
+  "complexity": "small",
+  "goal": "fixture goal for gate hardening test",
+  "scope": ["x"],
+  "non_goals": ["y"],
+  "acceptance_criteria": [
+    {"text": "AC1", "testable": true}
+  ],
+  "risks": [],
+  "decisions": [],
+  "open_questions_closed": true,
+  "needs_clarification": []
+}
+PEOF
+  python3 - "$target" <<'PYEOF'
+import json, hashlib, sys
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    packet = json.load(f)
+packet_for_hash = {k: v for k, v in packet.items() if k not in ('sha256', 'hash', 'packet_hash')}
+canonical = json.dumps(packet_for_hash, sort_keys=True, ensure_ascii=False)
+packet['sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+with open(path, 'w', encoding='utf-8') as f:
+    json.dump(packet, f, ensure_ascii=False, indent=2)
+PYEOF
+}
+
+# --- Case A: requirements 残留 [NEEDS CLARIFICATION:] → BLOCKED ---
+CASE_A_DIR="$FIXTURE_DIR/case-a"
+mkdir -p "$CASE_A_DIR"
+cat > "$CASE_A_DIR/requirements.md" <<'EOF'
+# Requirements
+- 用户登录限流
+- [NEEDS CLARIFICATION: 是否支持管理员手动解锁?]
+EOF
+cat > "$CASE_A_DIR/verdict.json" <<'EOF'
+{
+  "coverage_ok": true,
+  "conflicts": [],
+  "confidence": 0.85,
+  "requires_human": false,
+  "ambiguities": [],
+  "rationale": "case-a: 高置信无冲突，仅 requirements 文档残留澄清标记",
+  "merged_decision_points": []
+}
+EOF
+make_gate_packet "$CASE_A_DIR/packet.json"
+A_OUT=$(bash "$GATE_SCRIPT" \
+  --requirements "$CASE_A_DIR/requirements.md" \
+  --verdict "$CASE_A_DIR/verdict.json" \
+  --packet "$CASE_A_DIR/packet.json" 2>&1)
+A_CODE=$?
+assert_exit       "case A: NEEDS CLARIFICATION 残留 → exit 1" 1 "$A_CODE"
+assert_contains   "case A: 报告 [NEEDS CLARIFICATION:] 残留" "$A_OUT" "NEEDS CLARIFICATION"
+
+# --- Case B: confidence=0.5 < 默认 0.7 → BLOCKED ---
+CASE_B_DIR="$FIXTURE_DIR/case-b"
+mkdir -p "$CASE_B_DIR"
+cat > "$CASE_B_DIR/requirements.md" <<'EOF'
+# Requirements
+- 用户登录限流（已澄清，无未决问题）
+EOF
+cat > "$CASE_B_DIR/verdict.json" <<'EOF'
+{
+  "coverage_ok": true,
+  "conflicts": [],
+  "confidence": 0.5,
+  "requires_human": false,
+  "ambiguities": [],
+  "rationale": "case-b: 低置信（0.5）触发阈值阻断的 fixture",
+  "merged_decision_points": []
+}
+EOF
+make_gate_packet "$CASE_B_DIR/packet.json"
+B_OUT=$(bash "$GATE_SCRIPT" \
+  --requirements "$CASE_B_DIR/requirements.md" \
+  --verdict "$CASE_B_DIR/verdict.json" \
+  --packet "$CASE_B_DIR/packet.json" 2>&1)
+B_CODE=$?
+assert_exit       "case B: confidence=0.5 < 0.7 → exit 1" 1 "$B_CODE"
+assert_contains   "case B: 报告 confidence 低于阈值"      "$B_OUT" "低于阈值"
+
+# --- Case C: conflicts 含 irreconcilable → BLOCKED ---
+CASE_C_DIR="$FIXTURE_DIR/case-c"
+mkdir -p "$CASE_C_DIR"
+cat > "$CASE_C_DIR/requirements.md" <<'EOF'
+# Requirements
+- 用户登录限流（已澄清）
+EOF
+cat > "$CASE_C_DIR/verdict.json" <<'EOF'
+{
+  "coverage_ok": true,
+  "conflicts": [
+    {
+      "topic": "存储选型",
+      "positions": [
+        {"source": "scan", "claim": "继续使用 Redis"},
+        {"source": "research", "claim": "改用 Memcached"}
+      ],
+      "resolution": "irreconcilable"
+    }
+  ],
+  "confidence": 0.85,
+  "requires_human": true,
+  "ambiguities": [],
+  "rationale": "case-c: scan 与 research 存储选型完全相反需用户裁决",
+  "merged_decision_points": []
+}
+EOF
+make_gate_packet "$CASE_C_DIR/packet.json"
+C_OUT=$(bash "$GATE_SCRIPT" \
+  --requirements "$CASE_C_DIR/requirements.md" \
+  --verdict "$CASE_C_DIR/verdict.json" \
+  --packet "$CASE_C_DIR/packet.json" 2>&1)
+C_CODE=$?
+assert_exit       "case C: irreconcilable conflict → exit 1" 1 "$C_CODE"
+assert_contains   "case C: 报告不可调和 conflict"           "$C_OUT" "irreconcilable"
+
+# --- Case D: 全部 clean → PASSED ---
+CASE_D_DIR="$FIXTURE_DIR/case-d"
+mkdir -p "$CASE_D_DIR"
+cat > "$CASE_D_DIR/requirements.md" <<'EOF'
+# Requirements
+- 用户登录限流（已澄清，无未决问题）
+- 锁定窗口与解除策略已确认
+EOF
+cat > "$CASE_D_DIR/verdict.json" <<'EOF'
+{
+  "coverage_ok": true,
+  "conflicts": [
+    {
+      "topic": "限流算法",
+      "positions": [
+        {"source": "scan", "claim": "sliding window"},
+        {"source": "research", "claim": "token bucket"}
+      ],
+      "resolution": "adopted",
+      "chosen": "sliding window"
+    }
+  ],
+  "confidence": 0.9,
+  "requires_human": false,
+  "ambiguities": [],
+  "rationale": "case-d: 高置信，仅含已 adopted 的冲突项，requirements 已清零",
+  "merged_decision_points": []
+}
+EOF
+make_gate_packet "$CASE_D_DIR/packet.json"
+D_OUT=$(bash "$GATE_SCRIPT" \
+  --requirements "$CASE_D_DIR/requirements.md" \
+  --verdict "$CASE_D_DIR/verdict.json" \
+  --packet "$CASE_D_DIR/packet.json" 2>&1)
+D_CODE=$?
+assert_exit       "case D: clean fixture → exit 0" 0 "$D_CODE"
+assert_contains   "case D: stdout 输出 PASSED"     "$D_OUT" "PASSED"
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1
