@@ -66,6 +66,23 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
    **Step 1.2.6** 进入 1.5 BA Agent 派发：BA Agent 输入 = `verdict.merged_decision_points + verdict.conflicts(resolution=adopted) + 用户澄清答复`（不再注入两路调研原始 envelope）。
 
+   **Step 1.2.7 早停 interrupt 协议（D11 单路 interrupt 早停）**：
+   主线程在 Step 1.2.2 wait 期间，**每完成一路 envelope 接收即立刻** `jq -e '.interrupt'` 解析；不得延迟到双路全部归集。两个 envelope schema (phase1-scan-envelope / phase1-research-envelope) 已新增可选字段 `interrupt: { severity: "blocker"|"warning", reason: string(>=5) }`。
+
+   - 当 `.interrupt.severity == "blocker"` 时：
+     1. **立即中断未完成路**：对所有仍在 `run_in_background: true` 状态的并行 Task abort（KillShell 后台任务句柄；若 Task tool 提供中断信号则优先使用其原生 abort）
+     2. **跳过 SynthesizerAgent 派发**：不进入 Step 1.2.3，不写 `phase1-verdict.json`
+     3. **直接 AskUserQuestion**：问题正文使用 `.interrupt.reason` 原文，选项至少包含：
+        - (a) 提供澄清后重启 Phase 1（重新派发 ScanAgent + ResearchAgent，携带新澄清入参）
+        - (b) 接受 blocker 并降级为 partial verdict
+        - (c) 中止流水线（exit Phase 1，写 abort checkpoint）
+     4. 若用户选 (b)：主线程合成最小 `phase1-verdict.json`，包含 `requires_human=true`、`confidence=0.0`、`ambiguities=["[NEEDS CLARIFICATION: " + interrupt.reason + "]"]`，并标注 `degraded_from_interrupt=true`，跳过 Step 1.2.3 直接进入 Step 1.2.4
+   - 当 `.interrupt.severity == "warning"` 时：**仅记录**到 SynthesizerAgent 输入 + 最终 `verdict.rationale`，**不中断流程**，不影响并行另一路继续执行
+   - **禁止行为**：
+     - ❌ **禁止**：忽略 interrupt 字段（不解析 / 不分流处理）
+     - ❌ **禁止**：blocker interrupt 收到后继续派发 SynthesizerAgent
+     - ❌ **禁止**：blocker interrupt 收到后等待另一路自然完成再处理（必须立即 Task abort）
+
    **联网搜索决策**：默认执行搜索（`search_policy.default: search`），仅当任务**同时满足所有跳过条件**时才跳过：
    - ✓ 纯内部代码变更（重构、bug 修复、样式微调）
    - ✓ 不引入新概念、新模式、新交互

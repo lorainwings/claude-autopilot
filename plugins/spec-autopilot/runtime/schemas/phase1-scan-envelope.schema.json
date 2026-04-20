@@ -81,6 +81,15 @@
       "minItems": 1,
       "items": { "type": "string" },
       "description": "Relative paths of full scan reports (typically context/project-context.md, context/existing-patterns.md, context/tech-constraints.md)."
+    },
+    "interrupt": {
+      "type": "object",
+      "description": "Set when ScanAgent self-detects a blocker/warning that should halt or alert the parallel cohort. blocker → main thread aborts other parallel tasks + AskUserQuestion. warning → logged only, does not abort.",
+      "required": ["severity", "reason"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["blocker", "warning"] },
+        "reason": { "type": "string", "minLength": 5 }
+      }
     }
   }
 }

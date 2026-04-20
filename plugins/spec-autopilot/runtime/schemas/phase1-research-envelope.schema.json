@@ -67,6 +67,15 @@
         },
         "skip_reason": { "type": "string" }
       }
+    },
+    "interrupt": {
+      "type": "object",
+      "description": "Set when ResearchAgent self-detects a blocker/warning that should halt or alert the parallel cohort. blocker → main thread aborts other parallel tasks + AskUserQuestion. warning → logged only, does not abort.",
+      "required": ["severity", "reason"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["blocker", "warning"] },
+        "reason": { "type": "string", "minLength": 5 }
+      }
     }
   }
 }
