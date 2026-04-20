@@ -102,6 +102,47 @@ assert_contains "SKILL.md BA consumes verdict.merged_decision_points" \
 assert_contains "dispatch-phase-prompts declares autopilot-phase:1-synthesizer marker" \
   "$DISPATCH_BODY" "autopilot-phase:1-synthesizer"
 
+# --- (g.1) BA section in dispatch-phase-prompts uses verdict.json as single source ---
+assert_contains "dispatch BA section references phase1-verdict.json as single source" \
+  "$DISPATCH_BODY" "phase1-verdict.json"
+assert_contains "dispatch BA section consumes verdict.merged_decision_points" \
+  "$DISPATCH_BODY" "verdict.merged_decision_points"
+# BA section must NOT instruct main thread to read web-research-findings.md
+if grep -E -q -- "Read\(.*web-research-findings\.md|web_research_envelope" "$DISPATCH_DOC"; then
+  red "  FAIL: dispatch BA section still references legacy web-research-findings envelope"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: dispatch BA section dropped legacy web-research-findings envelope wording"
+  PASS=$((PASS + 1))
+fi
+
+# --- (i) SKILL.md must drop legacy web-research-findings.md reference ---
+if grep -E -q -- "web-research-findings\.md" "$SKILL_DOC"; then
+  red "  FAIL: SKILL.md still references legacy web-research-findings.md (should be merged into ResearchAgent)"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: SKILL.md no longer references legacy web-research-findings.md"
+  PASS=$((PASS + 1))
+fi
+
+# --- (j) SKILL.md Step 5 / 5.5 must consume verdict.merged_decision_points ---
+if grep -c -- "verdict\.merged_decision_points" "$SKILL_DOC" | awk '{exit ($1 < 2)}'; then
+  green "  PASS: SKILL.md Step 5/5.5 reference verdict.merged_decision_points (>=2 occurrences)"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: SKILL.md Step 5/5.5 missing verdict.merged_decision_points wording"
+  FAIL=$((FAIL + 1))
+fi
+
+# --- (k) SKILL.md Step 1.2.2 must handle maturity=mature degradation ---
+if grep -E -q -- 'maturity.*!=.*"mature"|maturity == "mature"|mature 仅跑 ScanAgent' "$SKILL_DOC"; then
+  green "  PASS: SKILL.md handles maturity=mature degradation in research file check"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: SKILL.md Step 1.2.2 missing maturity=mature degradation branch"
+  FAIL=$((FAIL + 1))
+fi
+
 # --- (h) tool_boundary forbidden list prevents WebSearch / business Edit ---
 assert_contains "synthesizer forbids WebSearch" \
   "$PARALLEL_BODY" "WebSearch"

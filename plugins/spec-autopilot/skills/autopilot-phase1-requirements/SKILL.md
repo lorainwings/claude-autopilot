@@ -43,13 +43,22 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    ```
 
    **Step 1.2.2** 等待两路完成（Claude Code Hook 自动通知 `agent_complete`），主线程**仅消费 JSON 信封**：
-   - 验证产出文件存在：`Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")`
+   - 验证产出文件存在（按 maturity 条件分支）：
+     ```
+     if [[ "$maturity" != "mature" ]]; then
+       Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")
+     else
+       Bash("test -s context/project-context.md && echo ok")  # mature 仅跑 ScanAgent
+     fi
+     ```
    - 不 Read 任何调研正文（上下文隔离红线）
 
    **Step 1.2.3** 串行派发 SynthesizerAgent（前台 Task，**不与前两路并行**），传入两路 envelope 摘要 + 产出文件路径：
-   - SynthesizerAgent 自行 Read context/*.md 全文
-   - 跨路冲突检测 + 语义去重 + ambiguities 标注
-   - Write `context/phase1-verdict.json`（schema: `runtime/schemas/synthesizer-verdict.schema.json`）
+   - **退化分支（mature 单路）**：当 `maturity == "mature"` 仅派发了 ScanAgent 时，**跳过 SynthesizerAgent**，主线程直接消费 ScanAgent envelope 的 `decision_points` 作为后续 BA 输入；不写 `phase1-verdict.json`，Step 1.2.4-1.2.6 改为消费 ScanAgent envelope（`requires_human` / `ambiguities` 字段直接来自 ScanAgent envelope）
+   - **正常分支（partial / ambiguous）**：派发 SynthesizerAgent
+     - SynthesizerAgent 自行 Read context/*.md 全文
+     - 跨路冲突检测 + 语义去重 + ambiguities 标注
+     - Write `context/phase1-verdict.json`（schema: `runtime/schemas/synthesizer-verdict.schema.json`）
 
    **Step 1.2.4** 主线程 `Read(openspec/changes/<name>/context/phase1-verdict.json)`（**仅 verdict，不读 raw 全文**）。
 
@@ -69,35 +78,39 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    - ❌ **禁止**：使用 TaskOutput 检查后台 Agent 进度（TaskOutput 仅适用于 Bash 后台命令）
    - ✅ **正确**：一条消息含 2 个 `Task(run_in_background: true)` 派发 ScanAgent + ResearchAgent；下一条消息含 1 个 `Task` 派发 SynthesizerAgent
    优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 ScanAgent 仅做增量
-4. **汇合调研结果**（上下文保护增强）→ 子 Agent 自行 Write 产出文件 + 返回结构化 JSON 信封（含摘要和决策点），主线程**不读取全文**：
+4. **派发 Synthesizer 并汇合 verdict**（v6 串行汇总，唯一权威源）→ 子 Agent 自行 Write 产出文件 + 返回结构化 JSON 信封，主线程**不读取调研正文**：
    > **Agent 事件**: Hook `auto-emit-agent-complete.sh` 自动为每个完成的 autopilot Task 发射 `agent_complete` 事件，无需手动调用。
-   - 验证文件存在：`Bash("test -s context/project-context.md && test -s context/research-findings.md && echo ok")`
-   - 从各 Agent 返回的 JSON 信封提取：`decision_points`（决策点）、`tech_constraints`（技术约束）、`complexity`（复杂度评估）
-   - 文件全文由后续子 Agent（需求分析 Agent、Phase 2-6）直接 Read，不经过主线程
+   - 验证产出文件存在（按 maturity 分支，参见 Step 1.2.2）
+   - 派发 SynthesizerAgent 完成跨路冲突检测 + 语义去重 + ambiguities 标注（参见 Step 1.2.3）
+   - 主线程仅 Read `context/phase1-verdict.json`（**verdict.json 是 BA 输入的唯一权威源**），不再消费各路 envelope 的 `decision_points`
+   - 退化分支（maturity=mature）：跳过 Synthesizer，直接消费 ScanAgent envelope 字段（参见 Step 1.2.3 退化分支）
    产出文件列表（子 Agent 自行写入）：
-   - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（Auto-Scan）
-   - `context/research-findings.md`（技术调研）
-   - `context/web-research-findings.md`（联网搜索，默认执行，规则判定跳过时无此文件）
-   **中间 Checkpoint — 调研完成**: 三路调研汇合后立即写入中间态 checkpoint，防止崩溃丢失调研进度：
+   - `context/project-context.md` + `existing-patterns.md` + `tech-constraints.md`（ScanAgent）
+   - `context/research-findings.md`（ResearchAgent，已合并联网搜索；maturity=mature 时不产出）
+   - `context/phase1-verdict.json`（SynthesizerAgent，schema: `runtime/schemas/synthesizer-verdict.schema.json`；maturity=mature 时不产出）
+   **中间 Checkpoint — verdict 落盘后**: SynthesizerAgent 完成且 `phase1-verdict.json` 落盘后立即写入中间态 checkpoint，防止崩溃丢失汇合进度：
 
    ```
    Agent(run_in_background: true, prompt: "<!-- checkpoint-writer -->
      Write JSON to ${phase_results}/phase-1-interim.json:
-     {\"status\":\"in_progress\",\"stage\":\"research_complete\",
-      \"complexity\":\"...\",\"requirement_type\":\"...\",
-      \"decision_points_count\":N,\"timestamp\":\"ISO-8601\"}
-     Then: git add -A && git commit --fixup=$ANCHOR_SHA -m 'fixup! autopilot: Phase 1 interim (research)'")
+     {\"status\":\"in_progress\",\"stage\":\"verdict_complete\",
+      \"verdict_path\":\"context/phase1-verdict.json\",
+      \"merged_decision_points_count\":N,\"conflicts_count\":M,
+      \"ambiguities_count\":K,\"requires_human\":true|false,
+      \"timestamp\":\"ISO-8601\"}
+     Then: git add -A && git commit --fixup=$ANCHOR_SHA -m 'fixup! autopilot: Phase 1 interim (verdict)'")
    ```
 
-5. **复杂度评估与分路** → 基于信封中的 `complexity` 字段 + `decision_points` 数量自动分类为 small/medium/large，决定讨论深度
+5. **复杂度评估与分路** → 基于 `verdict.merged_decision_points` 数量 + ScanAgent envelope `complexity` 字段（mature 退化时直接消费 envelope `decision_points` 数量）自动分类为 small/medium/large，决定讨论深度
 6. Task 调度需求分析 Agent（`config.phases.requirements.agent`，默认 general-purpose；可通过 `/autopilot-agents install` 安装专业 Agent）分析需求（`run_in_background: true`）：
    > **Agent 事件**: Hook 自动发射 agent_dispatch/complete，无需手动调用。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 ba_dispatched in_progress')
+   - **BA 输入唯一权威源 = `verdict.merged_decision_points` + `verdict.conflicts(resolution=adopted)` + 用户澄清答复**（mature 退化时改为 ScanAgent envelope `decision_points` + 用户澄清答复）
    - 子 Agent 自行 Read context/ 全部文件，将完整分析 Write 到 `context/requirements-analysis.md`
    - 等待 Claude Code 自动完成通知
    - 从 JSON 信封提取：`decision_points`、`requirements_summary`、`open_questions`
    - 主线程**不读取** `requirements-analysis.md` 全文
-5.5. **主动讨论协议** — 基于信封中的 `decision_points` + 需求分析 Agent（`config.phases.requirements.agent`）产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
+5.5. **主动讨论协议** — 基于 `verdict.merged_decision_points`（mature 退化时为 ScanAgent envelope `decision_points`） + 需求分析 Agent（`config.phases.requirements.agent`）产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策
 7. **多轮决策 LOOP**（弹性收敛重构） — 以混合清晰度评分（规则×0.6 + AI×0.4）作为退出条件，而非硬性轮数上限。Medium/Large 遵循一次一问原则。挑战代理在第 4/6/8 轮自动激活视角转换（反面论证/简化/本体论）。停滞检测在连续 2 轮波动 ≤5% 时干预。安全阀: soft=8轮提醒, hard=15轮上限。`min_qa_rounds` 保留为下限。
    **执行前读取**: `autopilot/references/phase1-clarity-scoring.md` + `autopilot/references/phase1-challenge-agents.md`
 
