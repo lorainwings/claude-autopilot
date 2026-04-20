@@ -211,7 +211,7 @@ ELSE:
   phases.requirements.auto_scan.agent: "{selected_phase1_autoscan_agent}"
   phases.requirements.research.agent: "{selected_phase1_research_agent}"
   phases.requirements.research.web_search.agent: "{selected_phase1_websearch_agent}"
-  # Phase 1 Synthesizer（v6+ 新拓扑：专职汇总 auto_scan + research + BA）
+  # Phase 1 Synthesizer（专职汇总 auto_scan + research + BA）
   phases.requirements.synthesizer.agent: "{selected_phase1_synthesizer_agent}"
   # 推荐链：OMC "architect" > "Plan" > 用户自配（architect/judge 类，非 explore 类）
   # 选型约束：Synthesizer 负责结构化判断与冲突仲裁，必须选 architect/judge 类 agent；
@@ -284,8 +284,8 @@ Phase → config key 映射:
 phase1                → phases.requirements.agent (BA)
 phase1-autoscan       → phases.requirements.auto_scan.agent
 phase1-research       → phases.requirements.research.agent
-phase1-websearch      → phases.requirements.research.web_search.agent  # [DEPRECATED v6.0] 仅热交换旧 config 时使用
-phase1-synthesizer    → phases.requirements.synthesizer.agent  # [v6+ 新拓扑] 专职汇总者
+phase1-websearch      → phases.requirements.research.web_search.agent  # [DEPRECATED] 仅热交换旧 config 时使用
+phase1-synthesizer    → phases.requirements.synthesizer.agent  # 专职汇总者
 phase2 → phases.openspec.agent
 phase3 → phases.openspec.agent (共享 Phase 2)
 phase4 → phases.testing.agent

@@ -444,7 +444,7 @@ Report per-task: tdd_cycles: [{ task, red_verified, green_verified, refactor_ver
     → PASS: L2 后置验证通过，tdd_metrics 可信
 ```
 
-#### Per-Domain L2 Verification (v5.7)
+#### Per-Domain L2 Verification
 
 并行模式下，每个 domain agent 完成后、worktree 合并前，主线程执行 L2 验证：
 

@@ -99,7 +99,7 @@ Objective / Output Format / Tool Boundary / Task Boundary。详见
 
 设计依据：Anthropic Engineering — "How we built our multi-agent research system"
 指出，task-boundary 缺失是 "sub-agent 重复劳动" 的头号失败模式。本契约是
-Phase 1 v6 重设计的强制约束，参见 `docs/superpowers/plans/2026-04-20-phase1-redesign.md`。
+Phase 1 三路调研派发的强制约束。
 
 ## 显式路径注入模板
 

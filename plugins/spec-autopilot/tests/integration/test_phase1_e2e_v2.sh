@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # TEST_LAYER: integration
-# test_phase1_e2e_v2.sh — Phase 1 v2 架构端到端集成测试 (A 阶段 Task 8)
+# test_phase1_e2e_v2.sh — Phase 1 端到端集成测试
 #
-# 验证 Phase 1 重设计后的双路并行（scan + research）→ 串行汇总（synthesizer）
+# 验证 Phase 1 双路并行（scan + research）→ 串行汇总（synthesizer）
 # → PackagerAgent 合成 requirement-packet 的完整契约链路：
 #
 #   (a) 派发顺序契约 = scan ‖ research → synthesizer（先并行 scan+research，

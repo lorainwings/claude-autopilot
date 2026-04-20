@@ -8,7 +8,7 @@
 #   1. write-edit-constraint-check.sh  → Code constraint validation (Phase 5)
 #   2. banned-patterns-check.sh        → TODO/FIXME/HACK detection (Phase 4/5/6)
 #   3. assertion-quality-check.sh      → Tautological assertion detection (Phase 4/5/6)
-#   4. [v5.1] TDD phase isolation      → RED/GREEN file type enforcement (Phase 5 TDD)
+#   4. TDD phase isolation             → RED/GREEN file type enforcement (Phase 5 TDD)
 #
 # Output: PostToolUse decision: "block" on first violation found.
 # Performance: Single preamble + shared phase detection + sequential checks.
