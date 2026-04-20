@@ -172,7 +172,7 @@ fi
 
 # 4b. requirement-packet.json 包含必要字段
 PACKET_FIELDS_OK=true
-for field in requirement_type requirement_maturity complexity goal scope non_goals acceptance_criteria decisions open_questions_closed hash; do
+for field in requirement_type requirement_maturity complexity goal scope non_goals acceptance_criteria decisions open_questions_closed sha256; do
   if ! grep -q "\"$field\"" "$PHASE1_REQ"; then
     PACKET_FIELDS_OK=false
     red "  (missing packet field: $field in phase1-requirements.md)"

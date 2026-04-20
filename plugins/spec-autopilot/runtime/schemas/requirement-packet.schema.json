@@ -98,6 +98,33 @@
       "type": "string",
       "enum": ["small", "medium", "large"]
     },
+    "open_questions_closed": {
+      "description": "Closure state of open questions. boolean true means all closed; object form records closed/open items for audit.",
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "properties": {
+            "all_closed": { "type": "boolean" },
+            "closed_items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "question": { "type": "string" },
+                  "resolution": { "type": "string" },
+                  "round": { "type": "integer" }
+                }
+              }
+            },
+            "open_items": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
     "version": { "type": "string" },
     "timestamp": { "type": "string" }
   }

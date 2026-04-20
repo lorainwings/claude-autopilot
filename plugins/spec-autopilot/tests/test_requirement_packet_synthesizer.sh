@@ -176,6 +176,180 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# --- E. Validator contract: sha256 长度 + AC 结构 -----------------------------
+VALIDATOR_SCRIPT="$PLUGIN_ROOT/runtime/scripts/validate-requirement-packet.sh"
+if [ -x "$VALIDATOR_SCRIPT" ] || [ -f "$VALIDATOR_SCRIPT" ]; then
+  # E1. sha256 64 字符 hex 被接受（status != blocked, 无 "格式无效" error）
+  FULL_SHA_PACKET="$FIXTURE_DIR/packet-full-sha.json"
+  cat > "$FULL_SHA_PACKET" <<'EOF'
+{
+  "change_name": "demo",
+  "discussion_rounds": 2,
+  "requirement_type": "feature",
+  "requirement_maturity": "clear",
+  "goal": "Harden account flow",
+  "scope": ["signup"],
+  "non_goals": ["password reset"],
+  "acceptance_criteria": [
+    {"text": "Email validation rejects malformed addresses", "testable": true}
+  ],
+  "risks": [],
+  "decisions": [{"point": "x", "choice": "y", "rationale": "z"}],
+  "open_questions_closed": true,
+  "needs_clarification": [],
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+EOF
+  OUT_E1=$(bash "$VALIDATOR_SCRIPT" "$FULL_SHA_PACKET" "$FIXTURE_DIR" 2>/dev/null || true)
+  if ! grep -q '"格式无效' <<<"$OUT_E1" && ! grep -q '格式无效' <<<"$OUT_E1"; then
+    green "  PASS: E1. validator accepts 64-char sha256"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E1. validator rejects 64-char sha256 (output: $OUT_E1)"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E2. 16 字符 legacy hash 触发 warning（不阻断，但产生 upgrade 提示）
+  LEGACY_HASH_PACKET="$FIXTURE_DIR/packet-legacy-hash.json"
+  cat > "$LEGACY_HASH_PACKET" <<'EOF'
+{
+  "change_name": "demo",
+  "discussion_rounds": 2,
+  "requirement_type": "feature",
+  "requirement_maturity": "clear",
+  "goal": "Harden account flow",
+  "scope": ["signup"],
+  "non_goals": ["x"],
+  "acceptance_criteria": [
+    {"text": "Email validation works", "testable": true}
+  ],
+  "risks": [],
+  "decisions": [{"point": "x", "choice": "y", "rationale": "z"}],
+  "open_questions_closed": true,
+  "needs_clarification": [],
+  "hash": "aaaaaaaaaaaaaaaa"
+}
+EOF
+  OUT_E2=$(bash "$VALIDATOR_SCRIPT" "$LEGACY_HASH_PACKET" "$FIXTURE_DIR" 2>/dev/null || true)
+  if grep -q 'legacy\|16 字符截断\|64 字符 sha256' <<<"$OUT_E2"; then
+    green "  PASS: E2. validator flags 16-char legacy hash for upgrade"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E2. validator does not warn on legacy 16-char hash (output: $OUT_E2)"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E3. AC 字符串形态被拒绝
+  STRING_AC_PACKET="$FIXTURE_DIR/packet-string-ac.json"
+  cat > "$STRING_AC_PACKET" <<'EOF'
+{
+  "change_name": "demo",
+  "discussion_rounds": 2,
+  "requirement_type": "feature",
+  "requirement_maturity": "clear",
+  "goal": "x",
+  "scope": ["y"],
+  "non_goals": ["z"],
+  "acceptance_criteria": ["pure string criterion"],
+  "risks": [],
+  "decisions": [{"point": "x", "choice": "y", "rationale": "z"}],
+  "open_questions_closed": true,
+  "needs_clarification": [],
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+EOF
+  OUT_E3=$(bash "$VALIDATOR_SCRIPT" "$STRING_AC_PACKET" "$FIXTURE_DIR" 2>/dev/null || true)
+  if grep -q '"status": *"blocked"' <<<"$OUT_E3" && grep -q '不接受字符串\|必须是对象' <<<"$OUT_E3"; then
+    green "  PASS: E3. validator rejects string-form acceptance_criteria"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E3. validator does not reject string AC (output: $OUT_E3)"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E4. AC 使用 description 旧字段名被拒绝
+  DESC_AC_PACKET="$FIXTURE_DIR/packet-desc-ac.json"
+  cat > "$DESC_AC_PACKET" <<'EOF'
+{
+  "change_name": "demo",
+  "discussion_rounds": 2,
+  "requirement_type": "feature",
+  "requirement_maturity": "clear",
+  "goal": "x",
+  "scope": ["y"],
+  "non_goals": ["z"],
+  "acceptance_criteria": [{"description": "legacy field name"}],
+  "risks": [],
+  "decisions": [{"point": "x", "choice": "y", "rationale": "z"}],
+  "open_questions_closed": true,
+  "needs_clarification": [],
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+EOF
+  OUT_E4=$(bash "$VALIDATOR_SCRIPT" "$DESC_AC_PACKET" "$FIXTURE_DIR" 2>/dev/null || true)
+  if grep -q '"status": *"blocked"' <<<"$OUT_E4" && grep -q 'description\|旧字段名' <<<"$OUT_E4"; then
+    green "  PASS: E4. validator rejects description/criterion legacy AC fields"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E4. validator does not reject legacy description AC (output: $OUT_E4)"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E5. AC 含 {text, testable} 但缺 testable 被拒绝
+  MISSING_TESTABLE_PACKET="$FIXTURE_DIR/packet-missing-testable.json"
+  cat > "$MISSING_TESTABLE_PACKET" <<'EOF'
+{
+  "change_name": "demo",
+  "discussion_rounds": 2,
+  "requirement_type": "feature",
+  "requirement_maturity": "clear",
+  "goal": "x",
+  "scope": ["y"],
+  "non_goals": ["z"],
+  "acceptance_criteria": [{"text": "Only has text"}],
+  "risks": [],
+  "decisions": [{"point": "x", "choice": "y", "rationale": "z"}],
+  "open_questions_closed": true,
+  "needs_clarification": [],
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+EOF
+  OUT_E5=$(bash "$VALIDATOR_SCRIPT" "$MISSING_TESTABLE_PACKET" "$FIXTURE_DIR" 2>/dev/null || true)
+  if grep -q '"status": *"blocked"' <<<"$OUT_E5" && grep -q 'testable' <<<"$OUT_E5"; then
+    green "  PASS: E5. validator requires testable field on AC items"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E5. validator did not enforce testable field (output: $OUT_E5)"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E6. schema ↔ validator 契约一致：schema sha256 pattern 与 validator 64 字符校验一致
+  SCHEMA_SHA_PATTERN=$(jq -r '.properties.sha256.pattern' "$SCHEMA_FILE" 2>/dev/null || echo "")
+  if grep -Eq '\{64\}' <<<"$SCHEMA_SHA_PATTERN" \
+     && grep -q 'len(declared_hash) == 64\|64 字符' "$VALIDATOR_SCRIPT"; then
+    green "  PASS: E6. schema sha256 pattern (64 chars) aligns with validator"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E6. schema/validator sha256 length contract mismatch"
+    FAIL=$((FAIL + 1))
+  fi
+
+  # E7. schema ↔ validator 契约一致：schema AC items required=[text,testable] 与 validator 一致
+  SCHEMA_AC_REQ=$(jq -r '.properties.acceptance_criteria.items.required | sort | join(",")' "$SCHEMA_FILE" 2>/dev/null || echo "")
+  if [ "$SCHEMA_AC_REQ" = "testable,text" ] \
+     && grep -q "c.get('text')" "$VALIDATOR_SCRIPT" \
+     && grep -q "c.get('testable')" "$VALIDATOR_SCRIPT"; then
+    green "  PASS: E7. schema AC required fields align with validator"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: E7. schema/validator AC items contract mismatch (schema required=$SCHEMA_AC_REQ)"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  red "  FAIL: validator script not found: $VALIDATOR_SCRIPT"
+  FAIL=$((FAIL + 1))
+fi
+
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1
 exit 0

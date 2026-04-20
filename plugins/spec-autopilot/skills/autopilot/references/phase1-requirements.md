@@ -367,6 +367,8 @@ LOOP:
 
 **Step 1.9.2** 前置 — BA Agent 已产出 `context/requirements-analysis.md` 草稿（结构化 user stories + acceptance criteria + checklist），以及对应的 JSON 信封。
 
+> **文件名约定**：BA Agent 实际产出文件名为 `context/requirements-analysis.md`（沿用仓库既有约定）；spec 文档中偶尔出现的 `requirements.md` 为其抽象称呼，二者指同一文件，以 `requirements-analysis.md` 为准。
+
 **Step 1.9.3** 主线程派发 PackagerAgent（**复用 `phases.requirements.synthesizer.agent` 配置**作为 `subagent_type`，不新增 agent 字段）：
 - 输入：
   - `openspec/changes/{change_name}/context/phase1-verdict.json`（verdict.json 全文）
@@ -374,7 +376,7 @@ LOOP:
   - 用户澄清答复（来自 1.6-1.8 决策 LOOP 的最终确认）
 - 职责边界：**只做最终结构化打包**；不做需求撰写（属 BA 职责），不做跨路仲裁（属 Synthesizer 职责）。
 - 输出文件：`openspec/changes/{change_name}/context/requirement-packet.json`
-- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（由 L2 Hook 强制）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
+- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（Schema 作为契约参考，L2 Hook 运行时校验在 Task B11 接入；当前由 `runtime/scripts/validate-requirement-packet.sh` 做字段级校验）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
 - 信息无损要求：`acceptance_criteria` 数量 ≥ `requirements-analysis.md` 与 `research-findings.md` 中可测试动词（MUST/SHOULD/SHALL）数，禁止隐式压缩。
 
 **Step 1.9.4** 主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段写入 `phase-1-requirements.json` checkpoint。
@@ -393,7 +395,9 @@ LOOP:
   "goal": "业务目标（1-3 句）",
   "scope": ["功能范围条目"],
   "non_goals": ["明确排除项"],
-  "acceptance_criteria": ["可测试的验收标准"],
+  "acceptance_criteria": [
+    {"text": "可测试的验收标准", "testable": true, "source_ref": "requirements-analysis.md#AC1"}
+  ],
   "decisions": [
     {
       "point": "决策点描述",
@@ -415,7 +419,7 @@ LOOP:
     "skipped": ["web_search"]
   },
   "open_questions_closed": true,
-  "hash": "sha256 of canonical JSON (excluding hash field itself)",
+  "sha256": "sha256 of canonical JSON (excluding sha256/hash field itself)",
   "timestamp": "ISO-8601"
 }
 ```
