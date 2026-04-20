@@ -43,10 +43,14 @@ phases:
     research:
       enabled: true
       agent: ""                  # [必填] 技术兼容性分析 Agent；setup 强制写入。推荐 OMC "architect"。禁止 Explore / 空值。
-      web_search:
+      web_search_subtask:        # [v6+ 新拓扑] ResearchAgent 内嵌的联网搜索子任务。
+        enabled: true            # true: ResearchAgent 在 depth_trigger 命中时自主调用 WebSearch
+        depth_trigger: deep      # shallow | deep — 仅当深度档位达标时触发联网搜索
+      web_search:                # [DEPRECATED v6.0] 旧 v5.x 的独立联网 Agent 配置；保留以向后兼容
+        deprecated: true         # true: 字段保留以兼容旧 config，运行时会打印 [DEPRECATED] 警告并合并进 research.web_search_subtask
         enabled: true            # 默认 true（默认搜索），规则引擎判定跳过
         max_queries: 5           # 最大搜索次数
-        agent: ""                # [必填] 联网搜索 Agent；setup 强制写入。推荐 VoltAgent "search-specialist" (fork 加 Write)。禁止 Explore / 空值。
+        agent: ""                # [DEPRECATED] 旧 v5.x 字段；新拓扑由 research.agent 统一负责，无需独立 agent。
         search_policy:
           default: search        # search | skip — 默认搜索，跳过是例外
           skip_keywords:         # 需求含这些关键词时允许跳过（需全部满足 skip_when_ALL_true）
@@ -78,6 +82,8 @@ phases:
       thresholds:
         small: 2
         medium: 5
+    synthesizer:                 # [v6+ 新拓扑] 专职汇总者：把 auto_scan + research + BA 的输出整合为 requirement-packet
+      agent: ""                  # [必填] 汇总者 Agent；setup 强制写入。推荐 OMC "architect" / "judge" 类（强综合 + 冲突识别）。禁止 Explore / 空值。
   openspec:
     agent: "Plan"              # Phase 2/3 使用 Plan agent
     instruction_files: []      # 可选：覆盖内置 OpenSpec 创建/FF 指令
@@ -336,6 +342,7 @@ project_context:
 
 phases 内必须的 key:
   - phases.requirements.agent (string)
+  - phases.requirements.synthesizer.agent (string, [v6+] 必填，禁止空值/Explore)
   - phases.testing.agent (string)
   - phases.testing.gate.min_test_count_per_type (number, >= 1)
   - phases.testing.gate.required_test_types (array, non-empty)
