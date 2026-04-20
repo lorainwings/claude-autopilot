@@ -80,7 +80,10 @@ synthesizer_agent:
       1. Read 全部前序产物（context/project-context.md, context/existing-patterns.md,
          context/tech-constraints.md, context/research-findings.md）正文
       2. 跨路冲突检测：对比两路 envelope 的 decision_points 与 tech_constraints
-      3. 语义去重：合并相似 topic（语义相似度 >0.8 视为同一 topic）
+      3. 语义去重：合并相似 topic（语义相似度 >0.8 视为同一 topic）。
+         **同主题同推荐 → 相似 topic 合并** 为单条 merged_decision_point，并在
+         **evidence_refs 中保留所有源路径**（`scan:` / `research:` 前缀双源齐写）；
+         **同主题不同推荐 → 写入 conflicts[]**，不进入 merged_decision_points。
       4. 输出 verdict.json（schema: runtime/schemas/synthesizer-verdict.schema.json）
       5. 在 verdict.merged_decision_points 中保留唯一决策点集合，附 evidence_refs 指回原始来源
       6. 在 verdict.ambiguities 中插入 [NEEDS CLARIFICATION: ...] 标记，指明仍需用户澄清的问题
@@ -137,6 +140,51 @@ synthesizer_agent:
 ```
 
 > **禁止**：SynthesizerAgent 不得在 verdict 中复述原始调研全文；verdict 仅承载结构化判定结果（参见 schema 字段约束）。verdict.json 文件由 SynthesizerAgent 自行 Write 到 `openspec/changes/<name>/context/phase1-verdict.json`。
+
+### SynthesizerAgent 语义去重 Few-Shot 示例
+
+> 以下 few-shot 锚定 Synthesizer 的语义聚合行为，必须随 prompt 一并注入子 Agent 上下文。
+
+**Case A — 同主题不同推荐（写入 conflicts[]，merged_decision_points 留空）**
+
+```
+INPUT decision_points:
+  - {topic: "数据库选型", recommendation: "sqlite",   source: scan}
+  - {topic: "DB choice",  recommendation: "postgres", source: research}
+
+OUTPUT:
+  conflicts: [
+    {
+      topic: "数据库选型",
+      positions: [
+        {source: scan,     claim: sqlite},
+        {source: research, claim: postgres}
+      ],
+      resolution: "deferred_to_user"
+    }
+  ]
+  merged_decision_points: []   # 因为是冲突，不写入 merged
+```
+
+**Case B — 同主题同推荐（相似 topic 合并，evidence_refs 双源齐写）**
+
+```
+INPUT decision_points:
+  - {topic: "缓存策略",     recommendation: "Redis", source: scan}
+  - {topic: "cache layer",  recommendation: "Redis", source: research}
+
+OUTPUT:
+  conflicts: []
+  merged_decision_points: [
+    {
+      topic: "缓存策略",
+      options: ["Redis", "in-memory"],
+      recommendation: "Redis",
+      evidence_refs: ["scan:existing-patterns.md#cache", "research:research-findings.md#cache"]
+    }
+  ]
+```
+
 >
 > **主线程消费**：主线程仅 `Read(context/phase1-verdict.json)`（非两路调研全文），按 `verdict.requires_human || len(verdict.ambiguities) > 0` 决定是否进入 AskUserQuestion，再把 `verdict.merged_decision_points + 用户澄清答复`一并注入 BA Agent 的 dispatch prompt。
 
