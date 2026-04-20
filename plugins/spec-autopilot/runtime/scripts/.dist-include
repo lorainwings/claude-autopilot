@@ -74,6 +74,9 @@ validate-openspec-artifacts.sh
 validate-agent-registry.sh
 check-phase1-gate.sh
 
+# ── Phase 1 clarity_score 解耦 (Task 15/C15) ──
+score-raw-prompt.sh
+
 # ── Dispatch 治理与 fixup 校验 (工作包 H + J) ──
 generate-dispatch-plan.sh
 generate-dispatch-actual.sh
