@@ -110,6 +110,27 @@ assert_exit "scan missing output_files → exit 0" 0 "$exit_code"
 assert_contains "scan missing output_files → block" "$output" "$BLOCK_NEEDLE"
 assert_contains "scan block mentions output_files" "$output" "output_files"
 
+# 6a-bis. scan missing required `tech_constraints` → block
+#   (guards against accidental removal of tech_constraints from required[]
+#    while decision_points/existing_patterns remain optional pre-C14.)
+BAD_SCAN_NO_TECH='{"status":"ok","summary":"Scanned repo and got output files.","key_files":["a.ts"],"output_files":["context/project-context.md"]}'
+event=$(wrap_event "1-scan" "$BAD_SCAN_NO_TECH")
+exit_code=0
+output=$(run_hook "$event") || exit_code=$?
+assert_exit "scan missing tech_constraints → exit 0" 0 "$exit_code"
+assert_contains "scan missing tech_constraints → block" "$output" "$BLOCK_NEEDLE"
+assert_contains "scan block mentions tech_constraints" "$output" "tech_constraints"
+
+# 6a-ter. scan WITHOUT decision_points + existing_patterns but all other required
+#   fields present → passes (pre-C14 these two fields are optional; schema still
+#   validates them when present). Regression guard for schema contract drift.
+MIN_SCAN='{"status":"ok","summary":"Minimal valid scan pre-C14 without optional decision_points.","tech_constraints":["Node >= 18"],"key_files":["src/index.ts"],"output_files":["context/project-context.md","context/existing-patterns.md","context/tech-constraints.md"]}'
+event=$(wrap_event "1-scan" "$MIN_SCAN")
+exit_code=0
+output=$(run_hook "$event") || exit_code=$?
+assert_exit "scan without decision_points/existing_patterns → exit 0" 0 "$exit_code"
+assert_not_contains "scan without decision_points/existing_patterns → no block" "$output" "$BLOCK_NEEDLE"
+
 # 6b. research: bad status enum
 BAD_RESEARCH='{"status":"done","summary":"Research across 5 libs completed.","decision_points":[],"tech_constraints":[],"complexity":"small","key_files":[],"output_file":"context/research-findings.md"}'
 event=$(wrap_event "1-research" "$BAD_RESEARCH")

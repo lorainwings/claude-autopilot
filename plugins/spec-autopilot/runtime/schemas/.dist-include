@@ -1,0 +1,18 @@
+# Runtime Schemas Manifest — dist/runtime/schemas/ allowlist
+# Only files listed here will be copied into the release package.
+# Mirrors the pattern used by runtime/scripts/.dist-include.
+# ---
+# Format: one filename per line, comments (#) and blank lines ignored.
+
+# ── Phase 1 sub-role envelopes (loaded by validate-phase1-envelope.sh L2 hook) ──
+phase1-scan-envelope.schema.json
+phase1-research-envelope.schema.json
+synthesizer-verdict.schema.json
+
+# ── Legacy alias kept for contract reference ──
+# research-envelope.schema.json predates the phase1-* naming convention.
+# Retained so external producers/docs that still reference the old path keep working.
+research-envelope.schema.json
+
+# ── Cross-phase contract envelopes ──
+requirement-packet.schema.json

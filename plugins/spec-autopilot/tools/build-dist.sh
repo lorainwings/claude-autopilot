@@ -130,15 +130,26 @@ done < "$MANIFEST"
 echo "📋 Manifest-driven copy: $MANIFEST_COUNT files → dist/runtime/scripts/"
 
 # 5a-schemas. runtime/schemas/ — JSON Schema 产物（供 L2 hook 运行时加载）
-if [ -d "$PLUGIN_ROOT/runtime/schemas" ]; then
+#   按 manifest 逐项复制，避免把开发期临时 schema 误发布。
+SCHEMAS_MANIFEST="$PLUGIN_ROOT/runtime/schemas/.dist-include"
+if [ -d "$PLUGIN_ROOT/runtime/schemas" ] && [ -f "$SCHEMAS_MANIFEST" ]; then
   mkdir -p "$DIST_DIR/runtime/schemas"
   SCHEMA_COUNT=0
-  for schema in "$PLUGIN_ROOT/runtime/schemas/"*.json; do
-    [ -f "$schema" ] || continue
-    cp "$schema" "$DIST_DIR/runtime/schemas/"
+  while IFS= read -r line; do
+    line="${line%%#*}"
+    line="$(echo "$line" | xargs)"
+    [ -z "$line" ] && continue
+    if [ ! -f "$PLUGIN_ROOT/runtime/schemas/$line" ]; then
+      echo "ERROR: schemas manifest entry missing from source: runtime/schemas/$line"
+      exit 1
+    fi
+    cp "$PLUGIN_ROOT/runtime/schemas/$line" "$DIST_DIR/runtime/schemas/"
     SCHEMA_COUNT=$((SCHEMA_COUNT + 1))
-  done
+  done < "$SCHEMAS_MANIFEST"
   echo "📋 Schemas copied: $SCHEMA_COUNT files → dist/runtime/schemas/"
+elif [ -d "$PLUGIN_ROOT/runtime/schemas" ]; then
+  echo "ERROR: schemas manifest not found: $SCHEMAS_MANIFEST"
+  exit 1
 fi
 
 # 5b. runtime/server/ — 模块化 TS server 复制

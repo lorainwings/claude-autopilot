@@ -1,14 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Phase1 Scan Agent Envelope",
-  "description": "JSON envelope returned by ScanAgent (Phase 1 auto-scan path). Full reports are written to context/project-context.md, context/existing-patterns.md, context/tech-constraints.md; envelope carries only structured summary fields consumed by the main thread.",
+  "description": "JSON envelope returned by ScanAgent (Phase 1 auto-scan path). Full reports are written to context/project-context.md, context/existing-patterns.md, context/tech-constraints.md; envelope carries only structured summary fields consumed by the main thread. NOTE: decision_points and existing_patterns will move to required after Task C14 lands (which updates all Scan envelope producers to emit these fields). Until then they remain optional but are still validated when present.",
   "type": "object",
   "required": [
     "status",
     "summary",
-    "decision_points",
     "tech_constraints",
-    "existing_patterns",
+    "key_files",
     "output_files"
   ],
   "properties": {

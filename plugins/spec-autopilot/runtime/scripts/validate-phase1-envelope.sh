@@ -2,6 +2,11 @@
 # validate-phase1-envelope.sh
 # Hook: PostToolUse(Task) — Phase 1 sub-phase envelope schema validator (L2)
 #
+# Hook ordering:
+#   Runs AFTER post-task-validator.sh in hooks.json (both match PostToolUse
+#   ^Task$). That hook enforces generic envelope shape (status/summary);
+#   this hook adds schema-level tightening per Phase 1 sub-role.
+#
 # Purpose:
 #   When a Task's prompt contains a Phase 1 sub-phase marker
 #   (`<!-- autopilot-phase:1-scan -->`, `<!-- autopilot-phase:1-research -->`,
@@ -43,6 +48,17 @@ export AUTOPILOT_PHASE1_SCHEMAS_DIR="$SCHEMAS_DIR"
 
 # --- Run validation ---
 # Pass event payload via env var (heredoc occupies stdin).
+#
+# Inline Python validator scope (LIMITATION — future contributors read this):
+#   Supported JSON Schema keywords (sufficient for all current Phase 1 schemas):
+#     type, enum, required, minLength, minItems, properties, items
+#   Silently IGNORED keywords (do NOT rely on them in phase1-*.schema.json):
+#     additionalProperties, patternProperties, oneOf, anyOf, allOf, not,
+#     format, pattern, maxLength, maxItems, maximum, minimum, const,
+#     $ref, dependencies, if/then/else
+#   If you need any of those, either (a) extend walk() below, or (b) switch
+#   to a real jsonschema dependency — do not quietly add keywords to the
+#   schemas assuming they'll be enforced.
 AUTOPILOT_PHASE1_EVENT_JSON="$STDIN_DATA" \
   AUTOPILOT_PHASE1_SCHEMAS_DIR="$SCHEMAS_DIR" \
   python3 <<'PY'
