@@ -68,6 +68,11 @@
           },
           {
             "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-phase1-envelope.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/auto-emit-agent-complete.sh",
             "timeout": 5
           }

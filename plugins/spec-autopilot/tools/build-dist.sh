@@ -129,6 +129,18 @@ while IFS= read -r line; do
 done < "$MANIFEST"
 echo "📋 Manifest-driven copy: $MANIFEST_COUNT files → dist/runtime/scripts/"
 
+# 5a-schemas. runtime/schemas/ — JSON Schema 产物（供 L2 hook 运行时加载）
+if [ -d "$PLUGIN_ROOT/runtime/schemas" ]; then
+  mkdir -p "$DIST_DIR/runtime/schemas"
+  SCHEMA_COUNT=0
+  for schema in "$PLUGIN_ROOT/runtime/schemas/"*.json; do
+    [ -f "$schema" ] || continue
+    cp "$schema" "$DIST_DIR/runtime/schemas/"
+    SCHEMA_COUNT=$((SCHEMA_COUNT + 1))
+  done
+  echo "📋 Schemas copied: $SCHEMA_COUNT files → dist/runtime/schemas/"
+fi
+
 # 5b. runtime/server/ — 模块化 TS server 复制
 if [ -d "$PLUGIN_ROOT/runtime/server/src" ] && [ -f "$PLUGIN_ROOT/runtime/server/autopilot-server.ts" ]; then
   mkdir -p "$DIST_DIR/runtime/server/src"

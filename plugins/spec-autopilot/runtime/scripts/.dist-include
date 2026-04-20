@@ -27,6 +27,7 @@ reinject-state-after-compact.sh
 save-state-before-compact.sh
 scan-checkpoints-on-start.sh
 unified-write-edit-check.sh
+validate-phase1-envelope.sh
 
 # ── Runtime scripts (called by skills / other runtime scripts) ──
 create-lockfile.sh
