@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Phase1 Scan Agent Envelope",
-  "description": "JSON envelope returned by ScanAgent (Phase 1 auto-scan path). Full reports are written to context/project-context.md, context/existing-patterns.md, context/tech-constraints.md; envelope carries only structured summary fields consumed by the main thread. NOTE: decision_points and existing_patterns will move to required after Task C14 lands (which updates all Scan envelope producers to emit these fields). Until then they remain optional but are still validated when present.",
+  "description": "JSON envelope returned by ScanAgent (Phase 1 auto-scan path). Full reports are written to context/project-context.md, context/existing-patterns.md, context/tech-constraints.md; envelope carries only structured summary fields consumed by the main thread. decision_points is required (emitted for every scan even if the Agent judges no discretionary decisions are pending — in that case it MUST be []). conflicts_detected is optional and MUST be populated when the Agent detects project-pattern vs requirement conflicts; it feeds SynthesizerAgent cross-path arbitration.",
   "type": "object",
   "required": [
     "status",
     "summary",
+    "decision_points",
     "tech_constraints",
     "key_files",
     "output_files"
@@ -44,6 +45,23 @@
     "tech_constraints": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "conflicts_detected": {
+      "type": "array",
+      "description": "Project-pattern vs requirement conflicts surfaced by ScanAgent. Consumed by SynthesizerAgent during cross-path arbitration. Empty array is permitted; field may also be omitted when no conflicts detected.",
+      "items": {
+        "type": "object",
+        "required": ["topic", "description", "severity"],
+        "properties": {
+          "topic": { "type": "string", "minLength": 3 },
+          "description": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "related_decision_point": { "type": "string" }
+        }
+      }
     },
     "existing_patterns": {
       "type": "array",

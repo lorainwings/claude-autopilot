@@ -26,6 +26,38 @@ parallel_tasks:
 > - `_config_validator.py` 硬阻断上述两个字段值为 `Explore`（只读，无 Write 权限）。
 > - 旧字段 `phases.requirements.research.web_search.agent` 已 deprecated（v5.x 兼容残留），其能力以条件子任务方式合并至 `research.agent`，详见文末 Deprecation Notice。
 
+### ScanAgent 四要素契约（Four-Field Task Contract）
+
+ScanAgent prompt 必须按下列 YAML 注入到 dispatch 模板（嵌入在 markdown 中），令子 Agent 在执行前能精确判断"哪些事我做、哪些事不属于我"：
+
+```yaml
+scan_agent:
+  agent: config.phases.requirements.auto_scan.agent  # setup SKILL 强制写入；推荐 OMC explore-forked（具备 Write 权限）
+  task_boundary:
+    your_scope: |
+      1. 扫描项目结构、技术栈与既有实现，产出 project-context.md / existing-patterns.md / tech-constraints.md
+      2. 在 envelope.decision_points[] 中列出项目层面的关键取舍（例如：沿用现有状态管理 vs 引入新库），并给出 recommendation
+      3. **发现项目模式与需求冲突时，写入 envelope.conflicts_detected[]，并产出对应 decision_points**
+         （例如：现有单租户架构 vs 新需求多租户要求 → conflicts_detected 记录矛盾，
+         decision_points 记录需要用户裁定的选项）
+    not_your_scope: "需求相关性/技术可行性/CVE 调研（由 ResearchAgent 负责）/ 跨路冲突仲裁（由 SynthesizerAgent 负责）"
+  tool_boundary:
+    allowed: [Read, Grep, Glob, "Bash (read-only)", Write]
+    forbidden: [Edit, "Write to non-context paths", WebSearch, WebFetch, Task]
+  output_format:
+    envelope_schema: runtime/schemas/phase1-scan-envelope.schema.json
+    files:
+      - context/project-context.md
+      - context/existing-patterns.md
+      - context/tech-constraints.md
+```
+
+> **decision_points 必填（C14 起）**：即使 ScanAgent 判断当前项目无待决策点，也必须输出 `decision_points: []`（schema required 字段）。空数组允许，缺字段即 L2 Hook 阻断。
+>
+> **conflicts_detected 触发条件**：当扫描出的既有模式（existing_patterns）与用户需求存在语义冲突（架构、数据模型、安全策略、依赖锁定等）时，必须同时写入 `conflicts_detected[]` 与对应的 `decision_points[]` 条目；两者通过 `related_decision_point`（可选）交叉引用，供 SynthesizerAgent 做跨路仲裁。
+>
+> **严格禁止**：在 envelope.summary 或其他字段中返回扫描全文。全文必须 Write 到 output_files 中列出的路径；主线程仅消费信封。
+
 ### ResearchAgent 四要素契约（Four-Field Task Contract）
 
 ResearchAgent prompt 必须按下列 YAML 注入到 dispatch 模板（嵌入在 markdown 中），令子 Agent 在执行前能精确判断"哪些事我做、哪些事不属于我"：
