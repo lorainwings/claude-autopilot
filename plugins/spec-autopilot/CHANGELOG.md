@@ -1,5 +1,43 @@
 # Changelog
 
+## [5.13.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.12.0...spec-autopilot-v5.13.0) (2026-04-20)
+
+
+### Added
+
+* **spec-autopilot:** add synthesizer agent config + deprecate web_search agent ([43e8203](https://github.com/lorainwings/claude-autopilot/commit/43e8203c53470dec4cd5960ad5734804394df682))
+* **spec-autopilot:** add synthesizer verdict JSON schema ([78cae13](https://github.com/lorainwings/claude-autopilot/commit/78cae13fc9724395315d822d363df0318ee4afa6))
+* **spec-autopilot:** adopt [NEEDS CLARIFICATION] protocol from spec-kit ([815b1e6](https://github.com/lorainwings/claude-autopilot/commit/815b1e6bcb6b6eff65e6a95db86b66d581187e3e))
+* **spec-autopilot:** autopilot-agents installs synthesizer role with priority chain ([51a70e1](https://github.com/lorainwings/claude-autopilot/commit/51a70e1e6853f08994aee725cf65eeac32d9ad57))
+* **spec-autopilot:** early interrupt protocol for blocker-class findings ([43e466e](https://github.com/lorainwings/claude-autopilot/commit/43e466e00ab81446c9c513f2e2c27cdd656d7025))
+* **spec-autopilot:** enforce four-field task contract per Anthropic best practice ([99e91c1](https://github.com/lorainwings/claude-autopilot/commit/99e91c1c4a3c6f018555a0607640f7291afb1338))
+* **spec-autopilot:** introduce SynthesizerAgent with structured verdict ([f569ba6](https://github.com/lorainwings/claude-autopilot/commit/f569ba627c52860c2ab65449a8eaf679b13b116e))
+* **spec-autopilot:** L2 hook enforces phase1 envelope schemas ([42e4272](https://github.com/lorainwings/claude-autopilot/commit/42e4272792919092c55acb293a4fee1c9998dc25))
+* **spec-autopilot:** phase1 redesign — synthesizer + clarification protocol ([d9bf335](https://github.com/lorainwings/claude-autopilot/commit/d9bf335d8bd8ebae5c02c5ac7c3353976455a30f))
+* **spec-autopilot:** phase1-&gt;2 gate with triple validation ([564fa94](https://github.com/lorainwings/claude-autopilot/commit/564fa94dbae81f9a9c5742eae4ce040c7e819e0d))
+* **spec-autopilot:** research plan as maturity × project_type matrix ([969b6c4](https://github.com/lorainwings/claude-autopilot/commit/969b6c4d8865afb069cb2287a73eb7031ca8a3fd))
+* **spec-autopilot:** scan envelope carries decision_points and conflicts ([b34a536](https://github.com/lorainwings/claude-autopilot/commit/b34a536c5ede697a4f95846c9fc646c5633aec1f))
+* **spec-autopilot:** synthesizer performs semantic decision_points dedup ([f245d1c](https://github.com/lorainwings/claude-autopilot/commit/f245d1c699f56241a64fa43c383765db42eb4e53))
+
+
+### Fixed
+
+* **spec-autopilot:** address Task 1 review feedback (migration guide + test cleanup) ([74beceb](https://github.com/lorainwings/claude-autopilot/commit/74becebd78fc2b0d2dce540f4212294f9116f2f2))
+* **spec-autopilot:** address Task 4 review — schema stub + doc residuals ([be65038](https://github.com/lorainwings/claude-autopilot/commit/be65038407324fdab4f8de2bb74ac57a47db4042))
+* **spec-autopilot:** address Task 5 review — verdict.json as single source for BA input ([175290a](https://github.com/lorainwings/claude-autopilot/commit/175290afaeb6c0f254e668a41f764b83c4a9b05b))
+* **spec-autopilot:** decouple clarity_score from BA agent output ([f7fa44f](https://github.com/lorainwings/claude-autopilot/commit/f7fa44f4c05922e3a07fe4f675c80ad01e6a401f))
+* **spec-autopilot:** enforce real sha256 match in phase1 e2e integration test ([3d31114](https://github.com/lorainwings/claude-autopilot/commit/3d311142d98032758be5f1b52c5dc4840b7b756f))
+* **spec-autopilot:** relax scan schema required + schemas dist manifest + walker scope note ([fe9a0d9](https://github.com/lorainwings/claude-autopilot/commit/fe9a0d9206025a330b9d3d9e7e441ef81490007d))
+* **spec-autopilot:** unify failure handling to resume + narrowed retry ([767519d](https://github.com/lorainwings/claude-autopilot/commit/767519d4524c4efa47d9f1812451d4f8d7e815a9))
+* **spec-autopilot:** unify requirement-packet contract (sha256 full hex + AC text/testable) ([b33b4a8](https://github.com/lorainwings/claude-autopilot/commit/b33b4a8bdaa566c93518a262fd2699a89a7c75bb))
+* **spec-autopilot:** wire phase1 confidence_threshold config + reject invalid threshold ([44b61b6](https://github.com/lorainwings/claude-autopilot/commit/44b61b669d445f0d1d3cb7c1a1d6e588ae046d25))
+
+
+### Changed
+
+* **spec-autopilot:** merge web-search into ResearchAgent as conditional subtask ([df06116](https://github.com/lorainwings/claude-autopilot/commit/df0611684417fa7d682e84dc9dd54057dcbd3625))
+* **spec-autopilot:** packet synthesis moves to dedicated agent (no main-thread compression) ([219fda8](https://github.com/lorainwings/claude-autopilot/commit/219fda8ec9f1aab2d0b74fae0ecf36dc67ba9efb))
+
 ## [5.12.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.11.0...spec-autopilot-v5.12.0) (2026-04-19)
 
 
