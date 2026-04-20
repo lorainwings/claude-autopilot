@@ -469,6 +469,50 @@ LOOP:
 
 ---
 
+## 单路 Agent 失败统一处理（resume + 窄化重派）
+
+> **适用范围**：Phase 1 并行路（ScanAgent / ResearchAgent / 需求分析 Agent）任一返回失败信号时的统一协议。
+> **设计意图**：消除"搜索失败 fallback AI 内置知识"等静默降级路径，所有失败必须显式 resume 或升级用户决策。
+
+### 触发条件
+
+任一并行路满足下列任一条件即视为失败：
+
+- `envelope.status ∈ {blocked, failed}`
+- envelope JSON 无法解析 / schema 校验失败
+- Task 超时（超过配置的 `research.timeout_sec` / `scan.timeout_sec`）
+
+### 第一次失败 → 窄化重派 (Narrowed Retry)
+
+1. 主线程 Read 失败 envelope（含 `partial_output` 字段，若有；若 envelope 损坏则提取原始文本前 500 字符）
+2. 主线程**不得** fallback 到 AI 内置知识替代该路输出，也**不得**直接进入 AskUserQuestion
+3. 派发同类 Agent 的窄化重派 Task：
+   - `prompt` 注入 `previous_failure: { reason: "<envelope.status 或 parse error>", partial_output: "<truncated 500 chars>" }`
+   - `task_boundary` 追加：「本次为窄化重派（narrowed retry）：(a) 不重复已成功的子任务；(b) 缩小 scope 至失败点附近；(c) 若仍无法解决，请在 envelope.summary 明确说明阻断点并返回 status=blocked。」
+4. 等待重派完成 → 重新校验 envelope
+
+### 第二次失败 → AskUserQuestion 升级
+
+1. 主线程不再自动重派，记录 `retry_count=2`
+2. AskUserQuestion 向用户呈现：
+   - 失败路名称 + 失败次数（2 次）
+   - 两次失败原因与 `partial_output` 摘要
+   - 三选项：
+     - (a) 第三次手动重派（用户可补充 hint 后再派发）
+     - (b) 跳过该路（标记 `verdict.requires_human=true`，继续后续 Phase 1 流程）
+     - (c) 中止 Phase 1 并返回 Phase 0 重做
+3. 用户选择 (b) 时：
+   - `verdict.confidence` 强制下调 `0.2`
+   - `verdict.ambiguities` 追加一条 `[NEEDS CLARIFICATION: <路名> 调研未完成，需后续 Phase 手动补足]`
+
+### 禁止行为
+
+- ❌ 不可 fallback 到 AI 内置知识替代失败 Agent 输出
+- ❌ 不可静默自动重试超过 2 次（第三次必须由用户确认）
+- ❌ 不可在第一次失败时直接 AskUserQuestion（必须先走窄化重派）
+
+---
+
 ## 补充协议
 
 **执行前读取**: `references/phase1-supplementary.md`（苏格拉底模式、崩溃恢复、决策格式 Hook 验证）

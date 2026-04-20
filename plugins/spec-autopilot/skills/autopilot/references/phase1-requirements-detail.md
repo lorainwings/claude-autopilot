@@ -310,7 +310,7 @@ search_policy:
 3. **冲突解决**：
    - 搜索结果 vs 项目规范冲突 → **以项目规范为准**
    - 搜索结果 vs AI 内置知识冲突 → 标记为"需用户确认"
-4. **降级策略**：搜索失败/超时 → 回退到 AI 内置知识，不阻塞流程
+4. **失败统一协议**：搜索失败/超时/envelope 无效 → **不 fallback 到 AI 内置知识**，按 `phase1-requirements.md` 「单路 Agent 失败统一处理」章节执行窄化重派 → 二次失败升级 AskUserQuestion。
 
 ### 联网调研产出（合并到 ResearchAgent 主产物）
 
