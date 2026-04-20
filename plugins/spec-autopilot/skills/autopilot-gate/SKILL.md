@@ -36,7 +36,7 @@ user-invocable: false
 
 | 切换点 | 必读文件 | 条件读取 |
 |--------|---------|---------|
-| Phase 1→2（联合快速路径） | `log-format.md` + `gate-checkpoint-ops.md` | 无需读取 decision-polling/special-gates/optional-validation |
+| Phase 1→2（联合快速路径） | `log-format.md` + `gate-checkpoint-ops.md` | **必须**调用 `runtime/scripts/check-phase1-gate.sh` 三重校验（详见下方"特殊门禁"），无需读取 decision-polling/special-gates/optional-validation |
 | Phase 2→3（快速路径内联） | 由快速路径内联处理，**不调用本 Skill** | — |
 | Phase 3→4, 6→7 | `log-format.md` + `gate-checkpoint-ops.md` + `gate-decision-polling.md` | 无需 special-gates |
 | Phase 4→5, Phase 5→6 | **全部 5 个文件** | 含特殊门禁 |
@@ -132,6 +132,15 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 除通用 8 步校验外，以下切换点有额外验证：
 
+- **Phase 1→2 (三重硬校验，B10 任务)**: 必须调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-phase1-gate.sh --requirements <requirements-analysis.md> --verdict <synthesizer-verdict.json> --packet <requirement-packet.json> [--threshold 0.7]`，校验三条跨路硬约束：
+  - **L1 (TaskCreate blockedBy)** 已确保 Phase 1 子任务（Scan / Research / BA / Synthesizer）全部 `completed`
+  - **L2 (Hook, B11 任务)** 已校验单路 envelope schema（research-envelope / synthesizer-verdict / requirement-packet）
+  - **L3 (本 script)** 校验跨路硬约束：
+    1. `requirements-analysis.md` 不含残留 `[NEEDS CLARIFICATION:` 标记
+    2. `verdict.confidence ≥ threshold`，阈值优先级：**CLI `--threshold` > config `phases.requirements.gate.confidence_threshold` > 默认 `0.7`**。config 自动从 `<git-root>/.claude/autopilot.config.yaml` 探测；非法阈值（不匹配 `^[0-9]+(\.[0-9]+)?$`）一律 stderr 报错并 `exit 2`，禁止 silent failure
+    3. `verdict.conflicts` 中无 `resolution == "irreconcilable"` 的冲突
+    4. `packet.sha256` 必须存在且为 64-char hex（依赖 A 阶段产物完整性）
+  - 任一项失败 → `exit 1` → fail-closed 阻断 Phase 2，并触发 GUI 决策轮询；`exit 0` 才允许进入 Phase 2 dispatch
 - **Phase 4→5**: 非 TDD 模式验证 test_counts/artifacts/dry_run；TDD 模式验证 tdd-override.json
 - **Phase 5→6**: 验证 test-results.json + zero_skip_check + tasks 完成度；TDD 模式额外验证 tdd_metrics
 - **TDD 完整性审计 (L3)**: 扫描 `phase5-tasks/task-N.json` 验证 tdd_cycle 完整性

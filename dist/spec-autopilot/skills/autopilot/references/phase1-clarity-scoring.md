@@ -31,102 +31,62 @@
 
 ## 规则引擎评分（确定性，Layer 2 级别）
 
-每个维度的规则分从 requirement_packet 的结构化字段中提取，0.0-1.0 范围：
+> **v2 解耦（Task 15 / C15）**：规则分**不再**读取 BA Agent 产出的
+> `rp.goal / rp.scope / rp.non_goals / rp.acceptance_criteria / rp.context` 字段，
+> 改为对**原始用户 prompt**（Phase 0 保存到 `context/raw-user-prompt.md`）调用
+> `runtime/scripts/score-raw-prompt.sh` 计算语言学特征，输出 [0,1] 标准化总分作为 `rule_score`。
+>
+> 设计动机：BA Agent 产出会随时间漂移（措辞优化、字段语义微调），若规则分依赖
+> 这些字段则规则的"确定性"被 BA 漂移污染。原始 prompt 是稳定的事实基线，
+> 用语言学特征作规则分能保证评分跨版本可复现。
+>
+> 原 `rp.*` 结构化字段降级为 `ai_score[i]` 的 LLM-judge 输入（用于判断语义完整性、
+> 边界灰区、可测试性、上下文耦合），**不再参与规则分计算**。
 
-### 目标清晰度规则分
+### 原始 prompt 语言学特征（rule_score 输入）
 
-```
-goal_rule_score = 0.0
+`runtime/scripts/score-raw-prompt.sh --prompt <text>` 输出 JSON：
 
-# 1. goal 字段存在且非空（长度 > 10 字符）
-IF rp.goal AND len(rp.goal) > 10: score += 0.3
+| 字段 | 含义 | 计算 |
+|------|------|------|
+| `verb_density` | 动词密度（观测指标） | 命令式动词数 / token 总数 |
+| `quantifier_count` | 量化词总匹配数 | 数字 + 时间单位 + 阈值词 + `%` 的正则匹配总数 |
+| `role_clarity` | 角色明确度 | 角色词（用户/管理员/访客/admin/user/guest 等）出现总次数 |
+| `total_score` | 加权归一总分 | 见下方公式，[0, 1] |
 
-# 2. 含具体动词（非模糊动词）
-concrete_verbs = ["创建", "迁移", "修复", "集成", "添加", "删除", "重构",
-                  "优化", "替换", "实现", "移除", "升级", "拆分", "合并",
-                  "implement", "add", "fix", "migrate", "remove", "replace",
-                  "refactor", "split", "merge", "integrate", "upgrade"]
-IF any(verb IN rp.goal FOR verb IN concrete_verbs): score += 0.3
-
-# 3. 无模糊限定词
-vague_qualifiers = ["一些", "适当", "合适", "若干", "可能", "大概",
-                    "相关", "之类", "等等", "some", "appropriate", "etc"]
-IF NOT any(q IN rp.goal FOR q IN vague_qualifiers): score += 0.2
-
-# 4. scope 至少 1 条
-IF rp.scope AND len(rp.scope) >= 1: score += 0.2
-
-RETURN min(score, 1.0)
-```
-
-### 约束清晰度规则分
+总分公式（脚本内嵌）：
 
 ```
-constraint_rule_score = 0.0
+norm_verb  = min(1.0, verb_count / 4)
+norm_quant = min(1.0, quantifier_count / 5)
+norm_role  = min(1.0, role_clarity / 2)
 
-# 1. non_goals 至少 1 条
-IF rp.non_goals AND len(rp.non_goals) >= 1: score += 0.4
-
-# 2. scope 含边界词
-boundary_words = ["仅限", "不包含", "排除", "限于", "only", "exclude",
-                  "不超过", "最多", "至少", "不涉及", "范围内"]
-IF any(w IN str(rp.scope) FOR w IN boundary_words): score += 0.3
-
-# 3. 无开放式词汇
-open_ended = ["等等", "之类", "以及其他", "等功能", "...", "etc",
-              "and so on", "and more", "类似的"]
-IF NOT any(w IN str(rp.scope) FOR w IN open_ended): score += 0.3
-
-RETURN min(score, 1.0)
+total_score = 0.4 * norm_verb + 0.3 * norm_quant + 0.3 * norm_role
+            ∈ [0, 1]
 ```
 
-### 成功标准清晰度规则分
+**rule_score 注入**（4 个维度共用同一原始 prompt 总分）：
 
 ```
-criteria_rule_score = 0.0
-
-# 1. acceptance_criteria 至少 1 条
-IF rp.acceptance_criteria AND len(rp.acceptance_criteria) >= 1: score += 0.3
-
-# 2. 可测试条目比例（含数值或可测试动词）
-testable_verbs = ["返回", "显示", "响应", "跳转", "创建", "删除",
-                  "return", "display", "respond", "redirect", "create"]
-testable_count = count(c FOR c IN rp.acceptance_criteria
-                       IF has_numeric(c) OR any(v IN c FOR v IN testable_verbs))
-total = max(len(rp.acceptance_criteria), 1)
-score += 0.4 * (testable_count / total)
-
-# 3. 至少一条含数值指标
-IF any(has_numeric(c) FOR c IN rp.acceptance_criteria): score += 0.3
-# has_numeric: 匹配 \d+(%|ms|s|次|个|条|行|MB|KB|QPS|TPS|p\d+)
-
-RETURN min(score, 1.0)
+raw_score = score-raw-prompt.sh(raw_user_prompt).total_score
+goal_rule_score        = raw_score
+constraint_rule_score  = raw_score
+criteria_rule_score    = raw_score
+context_rule_score     = raw_score   # 棕地项目同样使用，由 ai_score 补充结构化判断
 ```
 
-### 上下文清晰度规则分
+> 规则分对 4 维度统一注入是有意为之：原始 prompt 是单一信号源，结构化分解
+> 由 `ai_score[i]` 在维度内承担。混合公式 `dimension_score = rule × 0.6 + ai × 0.4`
+> 仍然为每维度提供差异化输出。
 
-```
-context_rule_score = 0.0
+### 经验校准（fixture 基线）
 
-IF NOT is_brownfield:
-    # 绿地项目：上下文自动高分（无需理解现有系统）
-    RETURN 0.8
+| Prompt 样本 | 期望区间 |
+|------------|---------|
+| 模糊："做个登录" | `total_score < 0.30` |
+| 明确："为电商应用添加用户登录功能：邮箱+密码、支持记住我、JWT token 24h 过期，管理员可以在后台至少查看 100 条登录记录" | `total_score > 0.55` |
 
-# 棕地项目：需要理解现有系统
-# 1. 已识别影响文件
-IF rp.affected_files AND len(rp.affected_files) >= 1: score += 0.4
-
-# 2. 已分析现有模式
-IF rp.existing_patterns: score += 0.3
-
-# 3. 已识别兼容/回归风险
-compatibility_keywords = ["兼容", "回归", "向后", "backward", "regression",
-                          "breaking", "deprecat", "migration"]
-IF rp.risks AND any(any(k IN str(r) FOR k IN compatibility_keywords)
-                     FOR r IN rp.risks): score += 0.3
-
-RETURN min(score, 1.0)
-```
+回归测试见 `tests/test_clarity_score_raw_prompt.sh`。
 
 ## AI 补充评分（每轮末尾执行）
 

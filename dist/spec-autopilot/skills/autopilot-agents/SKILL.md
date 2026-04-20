@@ -211,6 +211,14 @@ ELSE:
   phases.requirements.auto_scan.agent: "{selected_phase1_autoscan_agent}"
   phases.requirements.research.agent: "{selected_phase1_research_agent}"
   phases.requirements.research.web_search.agent: "{selected_phase1_websearch_agent}"
+  # Phase 1 Synthesizer（v6+ 新拓扑：专职汇总 auto_scan + research + BA）
+  phases.requirements.synthesizer.agent: "{selected_phase1_synthesizer_agent}"
+  # 推荐链：OMC "architect" > "Plan" > 用户自配（architect/judge 类，非 explore 类）
+  # 选型约束：Synthesizer 负责结构化判断与冲突仲裁，必须选 architect/judge 类 agent；
+  #           禁止使用 explore 类（如 Explore / research-investigator），它们偏向发散探索，
+  #           与 Synthesizer 的"收敛仲裁 + [NEEDS CLARIFICATION] 标注"职责不匹配。
+  # IF 检测到旧 phases.requirements.research.web_search.agent 字段:
+  #   stderr 输出: "[DEPRECATED] phases.requirements.research.web_search.agent 已合并进 research.web_search_subtask；该字段保留仅为向后兼容"
   phases.openspec.agent: "{selected_phase2_agent}"
   phases.testing.agent: "{selected_phase4_agent}"
   phases.implementation.parallel.default_agent: "{selected_phase5_agent}"
@@ -276,7 +284,8 @@ Phase → config key 映射:
 phase1                → phases.requirements.agent (BA)
 phase1-autoscan       → phases.requirements.auto_scan.agent
 phase1-research       → phases.requirements.research.agent
-phase1-websearch      → phases.requirements.research.web_search.agent
+phase1-websearch      → phases.requirements.research.web_search.agent  # [DEPRECATED v6.0] 仅热交换旧 config 时使用
+phase1-synthesizer    → phases.requirements.synthesizer.agent  # [v6+ 新拓扑] 专职汇总者
 phase2 → phases.openspec.agent
 phase3 → phases.openspec.agent (共享 Phase 2)
 phase4 → phases.testing.agent

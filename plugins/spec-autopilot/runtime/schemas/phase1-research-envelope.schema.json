@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase1 Research Agent Envelope (canonical)",
+  "description": "Phase 1 ResearchAgent envelope. This is the canonical location used by the Phase 1 L2 hook; it mirrors runtime/schemas/research-envelope.schema.json which is retained as the contract reference documented in parallel-phase1.md.",
+  "type": "object",
+  "required": [
+    "status",
+    "summary",
+    "decision_points",
+    "tech_constraints",
+    "complexity",
+    "key_files",
+    "output_file"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warning", "blocked", "failed"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10
+    },
+    "decision_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["topic", "options", "recommendation"],
+        "properties": {
+          "topic": { "type": "string", "minLength": 3 },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "recommendation": { "type": "string" },
+          "rationale": { "type": "string" },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "tech_constraints": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["small", "medium", "large"]
+    },
+    "key_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "output_file": {
+      "type": "string",
+      "description": "Relative path of full research report (typically context/research-findings.md)."
+    },
+    "web_search_summary": {
+      "type": "object",
+      "properties": {
+        "search_decision": {
+          "type": "string",
+          "enum": ["executed", "skipped"]
+        },
+        "skip_reason": { "type": "string" }
+      }
+    },
+    "interrupt": {
+      "type": "object",
+      "description": "Set when ResearchAgent self-detects a blocker/warning that should halt or alert the parallel cohort. blocker → main thread aborts other parallel tasks + AskUserQuestion. warning → logged only, does not abort.",
+      "required": ["severity", "reason"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["blocker", "warning"] },
+        "reason": { "type": "string", "minLength": 5 }
+      }
+    }
+  }
+}

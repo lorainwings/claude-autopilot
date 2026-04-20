@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Phase1 Research Agent Envelope",
+  "description": "JSON envelope returned by ResearchAgent (with web_search subtask absorbed at depth=deep). Full report body is written to context/research-findings.md; envelope carries only structured summary fields consumed by the main thread.",
+  "type": "object",
+  "required": [
+    "status",
+    "summary",
+    "decision_points",
+    "tech_constraints",
+    "complexity",
+    "key_files",
+    "output_file"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warning", "blocked", "failed"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "description": "3-5 sentence structured summary; full body MUST be written to output_file, not inlined here."
+    },
+    "decision_points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["topic", "options", "recommendation"],
+        "properties": {
+          "topic": { "type": "string", "minLength": 3 },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "recommendation": { "type": "string" },
+          "rationale": { "type": "string" },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "tech_constraints": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["small", "medium", "large"]
+    },
+    "key_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "output_file": {
+      "type": "string",
+      "description": "Relative path of the full research report (typically context/research-findings.md)."
+    },
+    "web_search_summary": {
+      "type": "object",
+      "description": "Present when depth=deep triggers the absorbed web-search subtask; omitted (or skip_reason set) for standard depth.",
+      "required": ["search_decision"],
+      "properties": {
+        "search_decision": {
+          "type": "string",
+          "enum": ["executed", "skipped"]
+        },
+        "skip_reason": {
+          "type": "string",
+          "description": "Required when search_decision=skipped (e.g. 'depth=standard', 'rules_coverage_sufficient', 'offline')."
+        },
+        "queries_executed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+              "query": { "type": "string" },
+              "category": {
+                "type": "string",
+                "enum": ["product", "technical", "security", "competitive"]
+              },
+              "results_used": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "highlights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["claim", "source"],
+            "properties": {
+              "claim": { "type": "string" },
+              "source": { "type": "string", "description": "URL or document reference" },
+              "retrieved_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "search_decision": { "const": "skipped" } } },
+          "then": { "required": ["skip_reason"] }
+        }
+      ]
+    }
+  }
+}

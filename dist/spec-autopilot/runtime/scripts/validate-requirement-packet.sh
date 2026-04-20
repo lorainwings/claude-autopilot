@@ -152,6 +152,8 @@ else:
             warnings.append(f'{prefix}: 缺少 rationale（建议补充）')
 
 # ── 5. acceptance_criteria 校验 ──
+# 契约：schema requirement-packet.schema.json items 为 object，required=[text, testable]
+# 不接受字符串形态；不接受 description/criterion 旧字段名
 criteria = packet.get('acceptance_criteria', [])
 if not isinstance(criteria, list):
     errors.append('acceptance_criteria 必须是数组')
@@ -159,14 +161,29 @@ elif len(criteria) == 0:
     errors.append('acceptance_criteria 不能为空，至少需要一个验收标准')
 else:
     for idx, c in enumerate(criteria):
+        prefix = f'acceptance_criteria[{idx}]'
         if isinstance(c, str):
-            if len(c.strip()) < 5:
-                warnings.append(f'acceptance_criteria[{idx}]: 内容过短，可能不够具体')
-        elif isinstance(c, dict):
-            if not c.get('description') and not c.get('criterion'):
-                warnings.append(f'acceptance_criteria[{idx}]: 缺少 description 或 criterion')
-        else:
-            errors.append(f'acceptance_criteria[{idx}]: 类型无效，需为字符串或对象')
+            errors.append(
+                f'{prefix}: 必须是对象 {{\"text\": str, \"testable\": bool}}，'
+                '不接受字符串形态（契约对齐 schema）'
+            )
+            continue
+        if not isinstance(c, dict):
+            errors.append(f'{prefix}: 类型无效，需为对象（含 text + testable）')
+            continue
+        # 拒绝旧字段名
+        if 'description' in c or 'criterion' in c:
+            errors.append(
+                f'{prefix}: 使用了旧字段名 description/criterion，'
+                '请迁移到 text + testable（契约对齐 schema）'
+            )
+            continue
+        text_val = c.get('text')
+        if not isinstance(text_val, str) or len(text_val.strip()) < 3:
+            errors.append(f'{prefix}: text 必须是非空字符串（长度 ≥ 3）')
+        testable_val = c.get('testable')
+        if not isinstance(testable_val, bool):
+            errors.append(f'{prefix}: testable 必须是 boolean 值')
 
 # ── 6. closed_questions 校验 ──
 # v7.1 兼容：优先使用新字段名
@@ -221,21 +238,40 @@ else:
     # maturity 缺失时已在必填字段检查中报错
     pass
 
-# ── 8. packet hash 校验 ──
-# v7.1 兼容：优先使用新字段名
-declared_hash = packet.get('hash', packet.get('packet_hash', ''))
+# ── 8. packet sha256 校验 ──
+# 契约：schema requirement-packet.schema.json 定义 sha256 字段 pattern ^[0-9a-f]{64}$
+# 新版使用 sha256 字段 + 完整 64 字符 hexdigest；legacy 兼容 hash / packet_hash 字段
+declared_hash = packet.get('sha256', packet.get('hash', packet.get('packet_hash', '')))
+hash_field_used = 'sha256' if 'sha256' in packet else ('hash' if 'hash' in packet else ('packet_hash' if 'packet_hash' in packet else None))
 if declared_hash:
-    # 计算实际内容 hash（排除 packet_hash 字段本身）
-    packet_for_hash = {k: v for k, v in packet.items() if k not in ('hash', 'packet_hash')}
+    # 计算实际内容 hash（排除所有 hash 字段自身）
+    packet_for_hash = {k: v for k, v in packet.items() if k not in ('sha256', 'hash', 'packet_hash')}
     canonical = json.dumps(packet_for_hash, sort_keys=True, ensure_ascii=False)
-    computed_hash = hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]
-    if declared_hash != computed_hash:
+    computed_hash = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+    # 长度检测：schema 要求完整 64 字符 hex
+    if isinstance(declared_hash, str) and len(declared_hash) == 16:
         warnings.append(
-            f'packet_hash 不匹配: 声明={declared_hash}, 计算={computed_hash}。'
-            '可能 packet 内容已被修改但 hash 未更新'
+            f'{hash_field_used} 使用 16 字符截断格式（legacy），'
+            '请升级为完整 64 字符 sha256 hex（契约对齐 schema）'
+        )
+        if declared_hash != computed_hash[:16]:
+            warnings.append(
+                f'{hash_field_used} 不匹配: 声明={declared_hash}, 计算(前16)={computed_hash[:16]}'
+            )
+    elif isinstance(declared_hash, str) and len(declared_hash) == 64:
+        if declared_hash != computed_hash:
+            warnings.append(
+                f'{hash_field_used} 不匹配: 声明={declared_hash}, 计算={computed_hash}。'
+                '可能 packet 内容已被修改但 hash 未更新'
+            )
+    else:
+        length_desc = str(len(declared_hash)) if isinstance(declared_hash, str) else 'non-string'
+        errors.append(
+            f'{hash_field_used} 格式无效：必须为 64 字符 sha256 hex '
+            f'（实际长度 {length_desc}）'
         )
 else:
-    warnings.append('缺少 hash 字段（建议添加以支持完整性校验）')
+    warnings.append('缺少 sha256/hash 字段（建议添加以支持完整性校验）')
 
 # ── 9. change_name 绑定校验 ──
 change_name = packet.get('change_name', '')

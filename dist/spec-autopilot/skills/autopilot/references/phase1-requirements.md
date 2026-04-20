@@ -37,13 +37,17 @@
 
 ## Step 1.1.5b 需求成熟度评估
 
-在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，决定调研方案：
+在信息量评估（Step 1.1.5）完成后，立即执行需求成熟度分类，并结合 `project_type`（greenfield / brownfield，由 Phase 0 探测）共同决定调研方案。
 
-| 成熟度 | 判定规则 | 调研方案 |
-|--------|---------|---------|
-| **clear** | flags == 0 且 RAW_REQUIREMENT 含具体组件 + 具体行为 + 验收条件 | 仅 Auto-Scan（轻量澄清） |
-| **partial** | flags == 1 或 (flags == 0 但缺乏验收标准) | Auto-Scan + 定向技术调研（双路） |
-| **ambiguous** | flags >= 2 | Auto-Scan + 技术调研 + 联网搜索（三路） |
+> **权威来源**: 调研方案由 `runtime/scripts/select-research-plan.sh --maturity <M> --project-type <T>` 输出的 JSON 决定，主线程根据 `scan` / `research` / `research_depth` / `websearch_subtask` 字段构造 Task 派发列表。**禁止在编排逻辑或文档中硬编码 maturity → 调研方案的映射**，新增维度只能通过修改该脚本完成。
+
+### 成熟度判定规则（确定性，非 AI 判断）
+
+| 成熟度 | 判定规则 |
+|--------|---------|
+| **clear** | flags == 0 且 RAW_REQUIREMENT 含具体组件 + 具体行为 + 验收条件 |
+| **partial** | flags == 1 或 (flags == 0 但缺乏验收标准) |
+| **ambiguous** | flags >= 2 |
 
 ```
 # 成熟度决策规则（确定性，非 AI 判断）
@@ -61,13 +65,34 @@ ELIF flags == 0:
         maturity = "partial"
 ```
 
-### 成熟度驱动的调研方案
+### 调研方案矩阵（maturity × project_type）
 
-- **clear**: 仅派发 Auto-Scan → 直接进入 BA 分析 → 快速完成 Phase 1
-- **partial**: 派发 Auto-Scan + 技术调研 → 联网搜索按搜索规则引擎决定
-- **ambiguous**: 先走定向澄清/预循环 → 再派发三路调研
+> 此表仅供人类阅读 / 评审使用；运行期以 `select-research-plan.sh` 输出为准。
 
-> **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研，partial 需求按需补充，ambiguous 需求才全面展开。
+| maturity | project_type | scan | research | research_depth | websearch_subtask | 说明 |
+|----------|--------------|------|----------|----------------|-------------------|------|
+| clear | greenfield | true | false | none | false | 仅 Auto-Scan，跳过 ResearchAgent |
+| clear | brownfield | true | false | none | false | Auto-Scan 追加 lite-regression 子任务（轻量回归扫描），仍不派发 ResearchAgent |
+| partial | greenfield | true | true | standard | false | Auto-Scan + ResearchAgent（标准深度，无 WebSearch） |
+| partial | brownfield | true | true | standard | false | 同上 |
+| ambiguous | greenfield | true | true | deep | true | Auto-Scan + ResearchAgent，开启 depth=deep WebSearch 子任务 |
+| ambiguous | brownfield | true | true | deep | true | 同上 |
+
+### 调用约定
+
+```bash
+PLAN_JSON=$(runtime/scripts/select-research-plan.sh \
+  --maturity "$MATURITY" --project-type "$PROJECT_TYPE")
+SCAN=$(jq -r '.scan' <<<"$PLAN_JSON")
+RESEARCH=$(jq -r '.research' <<<"$PLAN_JSON")
+RESEARCH_DEPTH=$(jq -r '.research_depth' <<<"$PLAN_JSON")
+WEBSEARCH=$(jq -r '.websearch_subtask' <<<"$PLAN_JSON")
+# → 主线程依据上述字段构造 Task 派发列表（Auto-Scan 必派；
+#    ResearchAgent 在 RESEARCH=true 时派发，prompt 携带 depth=$RESEARCH_DEPTH 与
+#    web_search 子任务开关 $WEBSEARCH）。
+```
+
+> **设计意图**: 不再把所有需求都强制走三路调研。clear 需求无需消耗额外 Token 做技术调研；clear+brownfield 通过 ScanAgent 内的 lite-regression 子任务获得回归保护；partial 需求按需补充；ambiguous 需求才全面展开（含 WebSearch）。
 
 ## Step 1.1.7 定向澄清预检
 
@@ -226,6 +251,25 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 → 详见 `phase1-requirements-detail.md`（需求分析 Agent 完整 Prompt 模板）
 
+### 1.5.1 `[NEEDS CLARIFICATION]` 协议（Task B9 硬约束）
+
+> **协议来源**：[GitHub Spec Kit](https://github.com/github/spec-kit) 的 `[NEEDS CLARIFICATION: ...]` 标记规范。本 Phase 1 把该协议向上游延伸到 BA Agent 产出层，**不再依赖 Synthesizer 反推歧义**。
+
+**BA Agent 硬约束**（必须写入 `config.phases.requirements.agent` 的 prompt）：
+
+1. **模板唯一**：BA Agent 产出 `context/requirements-analysis.md` 时 **必须** 采用
+   `runtime/templates/requirements-template.md` 的骨架（User Stories / Acceptance Criteria / Non-Goals / Open Questions / Review Checklist 五段式）。
+2. **NEEDS CLARIFICATION 强制标记**：
+   > 任何用户原始 prompt 未覆盖的点**必须**用 `[NEEDS CLARIFICATION: 具体问题]` 标记，**禁止**貌似合理的假设。
+   - 未知角色 / 未知权限边界 / 未知性能阈值 / 未知失败策略 / 未知数据来源 / 未知 UI 反馈 — 一律标记，不得猜测。
+   - 标记语法必须严格匹配 `^\[NEEDS CLARIFICATION:`，与 `requirement-packet.schema.json#/properties/needs_clarification` 及 `synthesizer-verdict.schema.json#/properties/ambiguities` 的 pattern 对齐。
+3. **禁止 HOW**：BA 产出只回答 **WHAT / WHY**，不得出现实现路径、文件名、库选型、SQL 等 HOW 细节（HOW 由 Phase 2 OpenSpec / Phase 3 设计阶段承担）。
+4. **Review Checklist 闭环**：进入 1.6 决策 LOOP 前，BA 信封必须附带 `needs_clarification_count`（整数），供主线程在 clarity_score 与决策 LOOP 退出条件中使用。
+5. **与 Synthesizer 的职责分工**：BA 主动标记未覆盖点 → Synthesizer 只做跨路合并与去重，不再从语料反推歧义；双路冗余但方向一致，命中即进入决策 LOOP。
+
+> **反模式（L3 AI Gate 抽查）**：若 BA 产出中出现 "assume" / "假设" / "默认" / "通常" 等弱限定词却未伴随 `[NEEDS CLARIFICATION:` 标记，视为违反 spec-kit 协议，Gate 可要求 BA Agent 重新产出。
+
+
 ## 1.5.5 结构化决策协议（Decision Protocol）
 
 所有决策点**必须**以结构化卡片格式呈现给用户（所有复杂度级别均强制）。
@@ -359,7 +403,31 @@ LOOP:
 
 ## 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
 
-需求确认后，Phase 1 必须生成唯一的 `requirement-packet.json` 作为后续所有 Phase 的单一事实源：
+> **合成方式硬约束（Task 6 重构）**：`requirement-packet.json` 必须由专用 PackagerAgent 基于 **verdict.json + requirements-analysis.md 全文** 合成，**严禁**主线程自行从信封/摘要字段压缩拼装。主线程仅负责派发与 `Read(packet.json)` 消费。
+
+### 1.9 子步骤（四段式）
+
+**Step 1.9.1** 前置 — SynthesizerAgent 已产出 `context/phase1-verdict.json`（含 `merged_decision_points`、`conflicts`、`ambiguities`），schema: `runtime/schemas/synthesizer-verdict.schema.json`。
+
+**Step 1.9.2** 前置 — BA Agent 已产出 `context/requirements-analysis.md` 草稿（结构化 user stories + acceptance criteria + checklist），以及对应的 JSON 信封。
+
+> **文件名约定**：BA Agent 实际产出文件名为 `context/requirements-analysis.md`（沿用仓库既有约定）；spec 文档中偶尔出现的 `requirements.md` 为其抽象称呼，二者指同一文件，以 `requirements-analysis.md` 为准。
+
+**Step 1.9.3** 主线程派发 PackagerAgent（**复用 `phases.requirements.synthesizer.agent` 配置**作为 `subagent_type`，不新增 agent 字段）：
+- 输入：
+  - `openspec/changes/{change_name}/context/phase1-verdict.json`（verdict.json 全文）
+  - `openspec/changes/{change_name}/context/requirements-analysis.md`（BA 草稿全文）
+  - 用户澄清答复（来自 1.6-1.8 决策 LOOP 的最终确认）
+- 职责边界：**只做最终结构化打包**；不做需求撰写（属 BA 职责），不做跨路仲裁（属 Synthesizer 职责）。
+- 输出文件：`openspec/changes/{change_name}/context/requirement-packet.json`
+- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（Schema 作为契约参考，L2 Hook 运行时校验在 Task B11 接入；当前由 `runtime/scripts/validate-requirement-packet.sh` 做字段级校验）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
+- 信息无损要求：`acceptance_criteria` 数量 ≥ `requirements-analysis.md` 与 `research-findings.md` 中可测试动词（MUST/SHOULD/SHALL）数，禁止隐式压缩。
+
+**Step 1.9.4** 主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段写入 `phase-1-requirements.json` checkpoint。
+
+---
+
+### 参考 packet 结构
 
 ```json
 {
@@ -371,7 +439,9 @@ LOOP:
   "goal": "业务目标（1-3 句）",
   "scope": ["功能范围条目"],
   "non_goals": ["明确排除项"],
-  "acceptance_criteria": ["可测试的验收标准"],
+  "acceptance_criteria": [
+    {"text": "可测试的验收标准", "testable": true, "source_ref": "requirements-analysis.md#AC1"}
+  ],
   "decisions": [
     {
       "point": "决策点描述",
@@ -393,7 +463,7 @@ LOOP:
     "skipped": ["web_search"]
   },
   "open_questions_closed": true,
-  "hash": "sha256 of canonical JSON (excluding hash field itself)",
+  "sha256": "sha256 of canonical JSON (excluding sha256/hash field itself)",
   "timestamp": "ISO-8601"
 }
 ```
@@ -408,7 +478,7 @@ LOOP:
 1. **唯一事实源**：后续 Phase 2-7 只认 `requirement-packet.json`，不再读取散落的决策文本
 2. **open_questions 必须闭合**：`open_questions_closed` 必须为 `true` 才能写入最终 checkpoint
 3. **hash 校验**：后续 Phase 可通过 hash 验证 requirement packet 未被篡改
-4. **主线程不代写**：requirement-packet.json 由主线程从信封数据合成，不读取子 Agent 正文工件
+4. **由 PackagerAgent 全文合成**：requirement-packet.json 由 PackagerAgent 基于 verdict.json + requirements-analysis.md 全文产出；主线程仅 Read packet.json 消费（不读 markdown 原文、不做任何字段压缩拼装）
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
 > 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
@@ -421,6 +491,50 @@ LOOP:
 - 选"暂停" → 结束当前流水线，用户可后续通过崩溃恢复继续
 
 ---
+
+---
+
+## 单路 Agent 失败统一处理（resume + 窄化重派）
+
+> **适用范围**：Phase 1 并行路（ScanAgent / ResearchAgent / 需求分析 Agent）任一返回失败信号时的统一协议。
+> **设计意图**：消除"搜索失败 fallback AI 内置知识"等静默降级路径，所有失败必须显式 resume 或升级用户决策。
+
+### 触发条件
+
+任一并行路满足下列任一条件即视为失败：
+
+- `envelope.status ∈ {blocked, failed}`
+- envelope JSON 无法解析 / schema 校验失败
+- Task 超时（超过配置的 `research.timeout_sec` / `scan.timeout_sec`）
+
+### 第一次失败 → 窄化重派 (Narrowed Retry)
+
+1. 主线程 Read 失败 envelope（含 `partial_output` 字段，若有；若 envelope 损坏则提取原始文本前 500 字符）
+2. 主线程**不得** fallback 到 AI 内置知识替代该路输出，也**不得**直接进入 AskUserQuestion
+3. 派发同类 Agent 的窄化重派 Task：
+   - `prompt` 注入 `previous_failure: { reason: "<envelope.status 或 parse error>", partial_output: "<truncated 500 chars>" }`
+   - `task_boundary` 追加：「本次为窄化重派（narrowed retry）：(a) 不重复已成功的子任务；(b) 缩小 scope 至失败点附近；(c) 若仍无法解决，请在 envelope.summary 明确说明阻断点并返回 status=blocked。」
+4. 等待重派完成 → 重新校验 envelope
+
+### 第二次失败 → AskUserQuestion 升级
+
+1. 主线程不再自动重派，记录 `retry_count=2`
+2. AskUserQuestion 向用户呈现：
+   - 失败路名称 + 失败次数（2 次）
+   - 两次失败原因与 `partial_output` 摘要
+   - 三选项：
+     - (a) 第三次手动重派（用户可补充 hint 后再派发）
+     - (b) 跳过该路（标记 `verdict.requires_human=true`，继续后续 Phase 1 流程）
+     - (c) 中止 Phase 1 并返回 Phase 0 重做
+3. 用户选择 (b) 时：
+   - `verdict.confidence` 强制下调 `0.2`
+   - `verdict.ambiguities` 追加一条 `[NEEDS CLARIFICATION: <路名> 调研未完成，需后续 Phase 手动补足]`
+
+### 禁止行为
+
+- ❌ 不可 fallback 到 AI 内置知识替代失败 Agent 输出
+- ❌ 不可静默自动重试超过 2 次（第三次必须由用户确认）
+- ❌ 不可在第一次失败时直接 AskUserQuestion（必须先走窄化重派）
 
 ---
 

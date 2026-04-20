@@ -91,6 +91,16 @@ Task(subagent_type: "$AGENT_NAME", prompt: "...含 prior_risks / lessons 注入.
 
 未启用 Sprint 升级能力时，以上字段不出现即可，保持向后兼容。
 
+## Four-Field Task Contract（强制）
+
+所有由本 Skill 派发的 sub-agent prompt **必须**包含四要素结构：
+Objective / Output Format / Tool Boundary / Task Boundary。详见
+`autopilot/references/dispatch-prompt-template.md` 的 "Four-Field Task Contract" section。
+
+设计依据：Anthropic Engineering — "How we built our multi-agent research system"
+指出，task-boundary 缺失是 "sub-agent 重复劳动" 的头号失败模式。本契约是
+Phase 1 v6 重设计的强制约束，参见 `docs/superpowers/plans/2026-04-20-phase1-redesign.md`。
+
 ## 显式路径注入模板
 
 dispatch 子 Agent 时按以下优先级构造项目上下文：

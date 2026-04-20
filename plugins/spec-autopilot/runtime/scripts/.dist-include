@@ -27,6 +27,7 @@ reinject-state-after-compact.sh
 save-state-before-compact.sh
 scan-checkpoints-on-start.sh
 unified-write-edit-check.sh
+validate-phase1-envelope.sh
 
 # ── Runtime scripts (called by skills / other runtime scripts) ──
 create-lockfile.sh
@@ -71,6 +72,10 @@ write-phase-progress.sh
 validate-requirement-packet.sh
 validate-openspec-artifacts.sh
 validate-agent-registry.sh
+check-phase1-gate.sh
+
+# ── Phase 1 clarity_score 解耦 (Task 15/C15) ──
+score-raw-prompt.sh
 
 # ── Dispatch 治理与 fixup 校验 (工作包 H + J) ──
 generate-dispatch-plan.sh
@@ -121,3 +126,6 @@ apply-fix-patch.sh
 # ── Test health quantification (mutation + static health score, weekly sweep) ──
 test-mutation-sample.sh
 test-health-score.sh
+
+# ── Phase 1 research plan matrix (maturity × project_type → plan envelope) ──
+select-research-plan.sh

@@ -16,28 +16,44 @@
 - 此 Task 不含 `autopilot-phase` 标记 → 不受 Hook 门禁校验（设计预期）
 - 失败两次后标记 `research_status: "skipped"`，不阻断流程
 
+## Phase 1（Synthesizer 仲裁 — 主线程串行调度，含 `<!-- autopilot-phase:1-synthesizer -->` 标记）
+
+- Agent: `config.phases.requirements.synthesizer.agent`（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
+- **派发时机**：必须在 ScanAgent + ResearchAgent 两路 background Task 完成且产出文件落盘之后，由主线程在新一条消息中**前台派发**（不可与前两路并行）
+- 任务：跨路冲突检测 + 语义去重 + 输出 `context/phase1-verdict.json`（schema: `runtime/schemas/synthesizer-verdict.schema.json`）
+- **Prompt 必须包含 `<!-- autopilot-phase:1-synthesizer -->` 标记**，便于 L2 Hook 按角色路由校验：
+  - `auto-emit-agent-dispatch.sh` 按标记 + 输出文件路径（`phase1-verdict.json`）双重校验：`subagent_type` 必须等于 `phases.requirements.synthesizer.agent`
+  - 任何 phase:1-scan / phase:1-research 任务都不得使用此 marker，反之亦然
+- Prompt 必须注入：
+  - 两路 envelope 的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）
+  - context/*.md 文件路径列表（供 SynthesizerAgent 自行 Read 全文，非主线程注入正文）
+  - 四要素契约（详见 `autopilot/references/parallel-phase1.md` SynthesizerAgent 章节）
+- Tool boundary: `allowed: [Read, Write, Bash]`，`forbidden: [WebSearch, WebFetch, Edit, Task]`
+- 返回：必须严格符合 `synthesizer-verdict.schema.json` 的 JSON 信封 + 落盘 `phase1-verdict.json`
+- 失败处理：单次失败重新 dispatch；连续 2 次失败 → 主线程降级为人工汇总（AskUserQuestion 列出两路 decision_points 由用户决策）
+
 ## Phase 1（需求分析 — 主线程调度，不含 autopilot-phase 标记）
 
 - Agent: config.phases.requirements.agent（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
-- 任务：基于 Steering + Research 上下文分析需求，产出功能清单 + 疑问点
-- Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents 路径（供 BA 自行 Read）+ 调研信封摘要（decision_points + tech_constraints + complexity）
-- **上下文隔离红线**：主线程**禁止**读取 `research-findings.md` 或 `web-research-findings.md` 正文内容。
-  - 主线程仅向 BA prompt 注入：(1) 各调研 Agent 返回的 JSON 信封中的结构化字段（summary、decision_points、tech_constraints、complexity、key_files），(2) 产出文件路径（供 BA 自行 Read）
-  - BA Agent 在自己的执行环境中直接 `Read(research-findings.md)` 和 `Read(web-research-findings.md)`
-- **联网调研结果注入**：当联网搜索 Agent 返回信封中 `search_decision == "searched"` 时，向 BA prompt 追加以下指令：
+- **BA 输入的唯一权威源 = `context/phase1-verdict.json` + 用户澄清答复**（不再直接消费各路 envelope 的 `decision_points`）
+  - 正常分支：`verdict.merged_decision_points` + `verdict.conflicts(resolution=adopted)` + `verdict.tech_constraints` + `verdict.complexity` + 用户澄清答复
+  - 退化分支（maturity=mature 仅跑 ScanAgent，无 verdict.json）：消费 ScanAgent envelope 的 `decision_points` + `tech_constraints` + `complexity` + 用户澄清答复
+- 任务：基于 verdict（或退化时的 ScanAgent envelope）+ Steering Documents 路径分析需求，产出功能清单 + 疑问点
+- Prompt 必须注入：RAW_REQUIREMENT + 所有 Steering Documents 路径 + `verdict.merged_decision_points`（或 ScanAgent envelope `decision_points`）+ `verdict.tech_constraints` + `verdict.complexity` + 用户澄清答复
+- **上下文隔离红线**：主线程**禁止**读取 `research-findings.md` 正文内容。
+  - 主线程仅向 BA prompt 注入：(1) `verdict.json` 中的结构化字段（merged_decision_points、conflicts、tech_constraints、complexity、ambiguities）或 ScanAgent envelope 字段（退化分支），(2) 产出文件路径（供 BA 自行 Read）
+  - BA Agent 在自己的执行环境中按需直接 `Read(context/research-findings.md)` / `Read(context/phase1-verdict.json)` / `Read(context/project-context.md)`
+- **Synthesizer ambiguities 注入**：当 `verdict.requires_human == true` 或 `len(verdict.ambiguities) > 0` 时，主线程已通过 AskUserQuestion 收集用户答复；将答复以 `[CLARIFIED]` 形式追加到 BA prompt：
 
   ```
-  ## 联网调研结果
-  联网搜索 Agent 已完成调研，摘要: {web_research_envelope.summary}
-  决策点: {web_research_envelope.decision_points}
-  请自行读取完整调研报告: Read(openspec/changes/{change_name}/context/web-research-findings.md)
-  基于调研结果，在分析中：
-  - 引用具体的最佳实践和数据支撑你的建议
-  - 对比不同技术方案的优劣，给出推荐
-  - 提醒用户已知的坑点和风险
+  ## 用户澄清答复（来自 verdict.ambiguities）
+  对应 ambiguity_id: <id>
+  原始 [NEEDS CLARIFICATION] 标记: <原文>
+  用户答复: <answer>
+  请在分析中将该决策点视为已澄清并据此推进。
   ```
 
-- **决策协议注入**：当 complexity 为 "medium" 或 "large" 时，追加以下指令：
+- **决策协议注入**：当 `verdict.complexity` 为 "medium" 或 "large" 时，追加以下指令：
 
   ```
   ## 决策输出格式
@@ -45,7 +61,7 @@
   - 列出 2-4 个备选方案
   - 每个方案说明优点、缺点和影响范围
   - 标记推荐方案并说明理由
-  - 引用你自行 Read 的 research-findings.md 中的调研数据支撑推荐
+  - 引用你自行 Read 的 verdict.json / research-findings.md 中的依据支撑推荐
   ```
 
 - 返回值校验：非空，且包含功能清单和疑问点
