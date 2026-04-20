@@ -46,7 +46,13 @@ phases:
       web_search_subtask:        # [v6+ 新拓扑] ResearchAgent 内嵌的联网搜索子任务。
         enabled: true            # true: ResearchAgent 在 depth_trigger 命中时自主调用 WebSearch
         depth_trigger: deep      # shallow | deep — 仅当深度档位达标时触发联网搜索
-      web_search:                # [DEPRECATED v6.0] 旧 v5.x 的独立联网 Agent 配置；保留以向后兼容
+      # --- Migration v5.x → v6.0 ---
+      # 老 config（含 phases.requirements.research.web_search.agent）在 v6.0 仍可加载（兼容模式），
+      # 仅打印 [DEPRECATED] stderr 警告。推荐迁移：删除整块 web_search:，改用上方
+      # web_search_subtask: { enabled: true, depth_trigger: deep }，由 ResearchAgent 在 depth=deep
+      # 时自主联网搜索。当 web_search 与 web_search_subtask 并存时，**以 web_search_subtask 为准**，
+      # web_search 的子键全部失效，仅触发兼容警告。
+      web_search:                # [DEPRECATED v6.0] 旧 v5.x 的独立联网 Agent 配置；保留以向后兼容。以下所有子键随父块进入兼容模式，v6.0 起不再生效
         deprecated: true         # true: 字段保留以兼容旧 config，运行时会打印 [DEPRECATED] 警告并合并进 research.web_search_subtask
         enabled: true            # 默认 true（默认搜索），规则引擎判定跳过
         max_queries: 5           # 最大搜索次数

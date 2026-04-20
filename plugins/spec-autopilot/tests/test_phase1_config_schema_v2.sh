@@ -26,25 +26,18 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 2. config-schema.md must mark research.web_search.agent as deprecated
-if grep -nF 'deprecated: true' "$SCHEMA_FILE" >/dev/null \
-  && grep -nE 'web_search.*deprecated|deprecated.*web_search' "$SCHEMA_FILE" >/dev/null; then
-  green "  PASS: 2: config-schema marks web_search.agent as deprecated"
+# 2. config-schema.md must mark research.web_search block as deprecated
+if awk '
+    /^[[:space:]]*web_search:/{flag=1; next}
+    flag && /^[[:space:]]+deprecated:[[:space:]]*true/{found=1; exit}
+    flag && /^[[:space:]]{0,6}[a-z_]+:/ && !/^[[:space:]]{8,}/{flag=0}
+    END{exit found?0:1}
+  ' "$SCHEMA_FILE"; then
+  green "  PASS: 2: web_search block marked deprecated"
   PASS=$((PASS + 1))
 else
-  # second-chance match: deprecated: true appears within the web_search block
-  if awk '
-      /^[[:space:]]*web_search:/{flag=1; next}
-      flag && /^[[:space:]]+deprecated:[[:space:]]*true/{found=1; exit}
-      flag && /^[[:space:]]{0,6}[a-z_]+:/ && !/^[[:space:]]{8,}/{flag=0}
-      END{exit found?0:1}
-    ' "$SCHEMA_FILE"; then
-    green "  PASS: 2: config-schema marks web_search block as deprecated"
-    PASS=$((PASS + 1))
-  else
-    red "  FAIL: 2: config-schema missing 'deprecated: true' inside web_search block"
-    FAIL=$((FAIL + 1))
-  fi
+  red "  FAIL: 2: web_search block marked deprecated"
+  FAIL=$((FAIL + 1))
 fi
 
 # 2b. config-schema.md must introduce web_search_subtask block (research-internal)
