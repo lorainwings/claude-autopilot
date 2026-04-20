@@ -137,7 +137,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
   - **L2 (Hook, B11 任务)** 已校验单路 envelope schema（research-envelope / synthesizer-verdict / requirement-packet）
   - **L3 (本 script)** 校验跨路硬约束：
     1. `requirements-analysis.md` 不含残留 `[NEEDS CLARIFICATION:` 标记
-    2. `verdict.confidence ≥ threshold`（默认 0.7，可由 `phase1.confidence_threshold` 配置覆写）
+    2. `verdict.confidence ≥ threshold`，阈值优先级：**CLI `--threshold` > config `phases.requirements.gate.confidence_threshold` > 默认 `0.7`**。config 自动从 `<git-root>/.claude/autopilot.config.yaml` 探测；非法阈值（不匹配 `^[0-9]+(\.[0-9]+)?$`）一律 stderr 报错并 `exit 2`，禁止 silent failure
     3. `verdict.conflicts` 中无 `resolution == "irreconcilable"` 的冲突
     4. `packet.sha256` 必须存在且为 64-char hex（依赖 A 阶段产物完整性）
   - 任一项失败 → `exit 1` → fail-closed 阻断 Phase 2，并触发 GUI 决策轮询；`exit 0` 才允许进入 Phase 2 dispatch

@@ -15,12 +15,18 @@
 #     --requirements <path/to/requirements-analysis.md> \
 #     --verdict <path/to/synthesizer-verdict.json> \
 #     --packet <path/to/requirement-packet.json> \
-#     [--threshold 0.7]
+#     [--threshold 0.7] \
+#     [--config <path/to/autopilot.config.yaml>]
+#
+# 阈值优先级:
+#   --threshold (CLI) > config (phases.requirements.gate.confidence_threshold) > 默认 0.7
+#   未传 --config 时自动探测 <git-root>/.claude/autopilot.config.yaml；不存在则回落默认。
+#   非法阈值（非 ^[0-9]+(\.[0-9]+)?$）一律 stderr 报错并 exit 2，禁止 silent failure。
 #
 # 退出码:
 #   0  全部通过
 #   1  任一校验失败 (信息打到 stderr)
-#   2  参数错误 / 文件缺失 (调用方使用错误)
+#   2  参数错误 / 文件缺失 / 非法阈值 (调用方使用错误)
 #
 # 注：与 v1 版 (`post-task-validator.sh` 的 phase1 路径) 互补；
 # v1 校验单路 envelope，本脚本校验跨路合约。
@@ -30,12 +36,19 @@ set -uo pipefail
 REQ_FILE=""
 VERDICT_FILE=""
 PACKET_FILE=""
-THRESHOLD="0.7"
+THRESHOLD_CLI=""
+CONFIG_FILE=""
+DEFAULT_THRESHOLD="0.7"
 
 usage() {
   cat >&2 <<EOF
-用法: $(basename "$0") --requirements <md> --verdict <json> --packet <json> [--threshold 0.7]
+用法: $(basename "$0") --requirements <md> --verdict <json> --packet <json> [--threshold 0.7] [--config <yaml>]
 EOF
+}
+
+is_valid_threshold() {
+  # 严格匹配非负浮点（含整数），禁止 ".5" / "1." / "abc" / "1e2" 等模糊格式
+  printf '%s' "$1" | grep -Eq '^[0-9]+(\.[0-9]+)?$'
 }
 
 while [ $# -gt 0 ]; do
@@ -53,7 +66,11 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     --threshold)
-      THRESHOLD="${2:-0.7}"
+      THRESHOLD_CLI="${2:-}"
+      shift 2
+      ;;
+    --config)
+      CONFIG_FILE="${2:-}"
       shift 2
       ;;
     -h | --help)
@@ -72,6 +89,81 @@ if [ -z "$REQ_FILE" ] || [ -z "$VERDICT_FILE" ] || [ -z "$PACKET_FILE" ]; then
   echo "[GATE-PHASE1] 缺少必填参数" >&2
   usage
   exit 1
+fi
+
+# ── 阈值解析: CLI > config > default ──
+THRESHOLD_SOURCE="default"
+THRESHOLD="$DEFAULT_THRESHOLD"
+
+# 1) 自动探测 config 路径（若未显式传入）
+if [ -z "$CONFIG_FILE" ]; then
+  _git_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -n "$_git_root" ] && [ -f "$_git_root/.claude/autopilot.config.yaml" ]; then
+    CONFIG_FILE="$_git_root/.claude/autopilot.config.yaml"
+  elif [ -f ".claude/autopilot.config.yaml" ]; then
+    CONFIG_FILE=".claude/autopilot.config.yaml"
+  fi
+fi
+
+# 2) 从 config 读取（若可用）
+if [ -n "$CONFIG_FILE" ]; then
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo "[GATE-PHASE1] WARN: --config 指定的文件不存在，回落默认: $CONFIG_FILE" >&2
+  elif command -v python3 >/dev/null 2>&1; then
+    cfg_val=$(
+      python3 - "$CONFIG_FILE" <<'PYEOF' 2>/dev/null || true
+import sys
+path = sys.argv[1]
+try:
+    import yaml
+    with open(path) as f:
+        data = yaml.safe_load(f) or {}
+except ImportError:
+    # 极简正则 fallback：匹配 "phases.requirements.gate.confidence_threshold" 嵌套
+    import re
+    with open(path) as f:
+        text = f.read()
+    # 简化：仅扫单行 "confidence_threshold:" 在 gate: 块下
+    m = re.search(r'^\s{6,}confidence_threshold:\s*([0-9]+(?:\.[0-9]+)?)\s*$', text, re.M)
+    if m:
+        print(m.group(1))
+    sys.exit(0)
+except Exception:
+    sys.exit(0)
+
+cur = data
+for key in ("phases", "requirements", "gate", "confidence_threshold"):
+    if isinstance(cur, dict) and key in cur:
+        cur = cur[key]
+    else:
+        cur = None
+        break
+if cur is not None:
+    print(cur)
+PYEOF
+    )
+    if [ -n "$cfg_val" ]; then
+      if is_valid_threshold "$cfg_val"; then
+        THRESHOLD="$cfg_val"
+        THRESHOLD_SOURCE="config:$CONFIG_FILE"
+      else
+        echo "[GATE-PHASE1] invalid threshold in config (phases.requirements.gate.confidence_threshold='$cfg_val'); expected ^[0-9]+(\\.[0-9]+)?$" >&2
+        exit 2
+      fi
+    fi
+  else
+    echo "[GATE-PHASE1] WARN: python3 不可用，跳过 config 阈值读取，回落默认 $DEFAULT_THRESHOLD" >&2
+  fi
+fi
+
+# 3) CLI 覆写
+if [ -n "$THRESHOLD_CLI" ]; then
+  if ! is_valid_threshold "$THRESHOLD_CLI"; then
+    echo "[GATE-PHASE1] invalid threshold '$THRESHOLD_CLI' (expected ^[0-9]+(\\.[0-9]+)?$)" >&2
+    exit 2
+  fi
+  THRESHOLD="$THRESHOLD_CLI"
+  THRESHOLD_SOURCE="cli"
 fi
 
 # 文件存在性
@@ -143,5 +235,5 @@ if [ "$failures" -gt 0 ]; then
   exit 1
 fi
 
-echo "[GATE-PHASE1] PASSED: requirements clarified, confidence>=$THRESHOLD, 无 irreconcilable conflicts, packet.sha256 ok"
+echo "[GATE-PHASE1] PASSED: requirements clarified, confidence>=$THRESHOLD (source=$THRESHOLD_SOURCE), 无 irreconcilable conflicts, packet.sha256 ok"
 exit 0

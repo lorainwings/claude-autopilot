@@ -211,6 +211,65 @@ exit_code=0
 output=$("$GATE" --requirements "$REQ_MD" --verdict "$WORK_DIR/missing.json" --packet "$PACKET_JSON" 2>&1) || exit_code=$?
 assert_exit "9a. missing verdict → exit 1" 1 $exit_code
 
+# --- Test 10: --threshold 非法值 → exit 2 + stderr ---
+echo ""
+echo "10. --threshold abc → exit 2 (silent failure 防御)"
+write_clean_fixture
+exit_code=0
+output=$("$GATE" --requirements "$REQ_MD" --verdict "$VERDICT_JSON" --packet "$PACKET_JSON" --threshold abc 2>&1) || exit_code=$?
+assert_exit "10a. invalid threshold → exit 2" 2 $exit_code
+assert_contains "10b. stderr 含 'invalid threshold'" "$output" "invalid threshold"
+
+# --- Test 11: config 阈值生效 ---
+echo ""
+echo "11. config phases.requirements.gate.confidence_threshold=0.95, verdict.confidence=0.85 → block"
+write_clean_fixture
+CFG_DIR="$WORK_DIR/.claude"
+mkdir -p "$CFG_DIR"
+CFG="$CFG_DIR/autopilot.config.yaml"
+cat >"$CFG" <<'EOF'
+phases:
+  requirements:
+    gate:
+      confidence_threshold: 0.95
+EOF
+exit_code=0
+output=$("$GATE" --requirements "$REQ_MD" --verdict "$VERDICT_JSON" --packet "$PACKET_JSON" --config "$CFG" 2>&1) || exit_code=$?
+assert_exit "11a. config 0.95 vs confidence 0.85 → exit 1" 1 $exit_code
+assert_contains "11b. stderr 提及阈值 0.95" "$output" "0.95"
+
+# --- Test 12: CLI 覆写 config ---
+echo ""
+echo "12. config 0.95 + CLI --threshold 0.7 + confidence 0.85 → pass"
+write_clean_fixture
+exit_code=0
+output=$("$GATE" --requirements "$REQ_MD" --verdict "$VERDICT_JSON" --packet "$PACKET_JSON" --config "$CFG" --threshold 0.7 2>&1) || exit_code=$?
+assert_exit "12a. CLI 0.7 覆写 config 0.95 → exit 0" 0 $exit_code
+assert_contains "12b. PASSED 标记 source=cli" "$output" "source=cli"
+
+# --- Test 13: 无 config → 用默认 0.7 ---
+echo ""
+echo "13. 无 config (--config 指向不存在的文件), confidence 0.85 → pass"
+write_clean_fixture
+exit_code=0
+output=$("$GATE" --requirements "$REQ_MD" --verdict "$VERDICT_JSON" --packet "$PACKET_JSON" --config "$WORK_DIR/no-such-config.yaml" 2>&1) || exit_code=$?
+assert_exit "13a. missing config → exit 0 (默认 0.7)" 0 $exit_code
+
+# --- Test 14: config 中阈值非法 → exit 2 ---
+echo ""
+echo "14. config confidence_threshold=abc → exit 2"
+write_clean_fixture
+cat >"$CFG" <<'EOF'
+phases:
+  requirements:
+    gate:
+      confidence_threshold: abc
+EOF
+exit_code=0
+output=$("$GATE" --requirements "$REQ_MD" --verdict "$VERDICT_JSON" --packet "$PACKET_JSON" --config "$CFG" 2>&1) || exit_code=$?
+assert_exit "14a. config 非法阈值 → exit 2" 2 $exit_code
+assert_contains "14b. stderr 含 'invalid threshold'" "$output" "invalid threshold"
+
 echo ""
 echo "=============================="
 echo "Results: $PASS passed, $FAIL failed"
