@@ -101,7 +101,7 @@ Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT}}", run_in_background: true,
   需求: {RAW_REQUIREMENT}
   重点: 影响范围、依赖兼容性、技术可行性、风险识别
   当且仅当 depth=deep 时执行联网调研子任务（最佳实践、竞品对比、CVE）；
-  websearch_quota: 0 if depth=standard, up to {config.phases.requirements.research.web_search.max_queries|default=3} if depth=deep
+  websearch_quota: 0 if depth=standard, up to {config.phases.requirements.research.websearch_quota|default=3} if depth=deep
   输出到: openspec/changes/{change_name}/context/research-findings.md"
 )
 ```

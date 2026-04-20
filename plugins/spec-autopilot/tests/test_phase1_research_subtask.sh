@@ -104,6 +104,44 @@ fi
 assert_contains "envelope_schema points at research-envelope schema path" \
   "$PARALLEL_BODY" "runtime/schemas/research-envelope.schema.json"
 
+# --- (i) research-envelope schema file exists on disk and is valid JSON ---
+RESEARCH_ENVELOPE_SCHEMA="$PLUGIN_ROOT/runtime/schemas/research-envelope.schema.json"
+assert_file_exists "research-envelope.schema.json present on disk" "$RESEARCH_ENVELOPE_SCHEMA"
+if command -v jq >/dev/null 2>&1; then
+  if jq -e . "$RESEARCH_ENVELOPE_SCHEMA" >/dev/null 2>&1; then
+    green "  PASS: research-envelope.schema.json is valid JSON (jq)"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: research-envelope.schema.json failed jq parse"
+    FAIL=$((FAIL + 1))
+  fi
+  # Top-level keys promised by parallel-phase1 contract
+  if jq -e '.properties.web_search_summary.properties.search_decision and .properties.web_search_summary.properties.queries_executed and .properties.web_search_summary.properties.highlights and .properties.web_search_summary.properties.skip_reason' "$RESEARCH_ENVELOPE_SCHEMA" >/dev/null 2>&1; then
+    green "  PASS: research-envelope schema declares web_search_summary required subfields"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: research-envelope schema missing web_search_summary subfields"
+    FAIL=$((FAIL + 1))
+  fi
+else
+  yellow "  SKIP: jq not installed; skipping research-envelope JSON parse check" 2>/dev/null || echo "  SKIP: jq not installed; skipping research-envelope JSON parse check"
+fi
+
+# --- (j) detail doc must not reintroduce the deprecated max_queries field ---
+assert_not_contains "detail doc removed legacy web_search.max_queries reference" \
+  "$DETAIL_BODY" "web_search.max_queries"
+assert_not_contains "parallel-phase1 removed legacy web_search.max_queries reference" \
+  "$PARALLEL_BODY" "web_search.max_queries"
+
+# --- (k) detail doc must not Read web-research-findings.md (merged into research-findings.md) ---
+if grep -E -q -- "Read:[[:space:]]*[^[:space:]]*web-research-findings\.md" "$DETAIL_DOC"; then
+  red "  FAIL: detail doc still has 'Read: ... web-research-findings.md' directive"
+  FAIL=$((FAIL + 1))
+else
+  green "  PASS: detail doc has no Read directive targeting web-research-findings.md"
+  PASS=$((PASS + 1))
+fi
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -gt 0 ] && exit 1
