@@ -255,3 +255,32 @@ Task(prompt: "<!-- autopilot-phase:5 -->
 Project Rules Auto-Scan 结果注入在 `## Phase 1 项目分析` 之前、`### Playwright 登录流程` 之后。
 
 > 上下文注入优先级详见 `autopilot-dispatch/SKILL.md` 的优先级表。
+
+## Four-Field Task Contract（v6+ 新增）
+
+> 来源：Anthropic Engineering — "How we built our multi-agent research system"。
+> 每个被派发的 sub-agent prompt 都必须以下列四要素开头，缺一不可。
+> 设计目标：消除 "redundant sub-agent investigation" 失败模式（task-boundary 缺失是头号成因）。
+
+### Objective
+
+<一句话目标>
+
+### Output Format
+
+- Envelope JSON Schema: `{schema_path}`（如 `runtime/schemas/synthesizer-verdict.schema.json`）
+- Required fields: {field_list}
+- Files to write (Write tool): {file_list}
+- 主线程仅消费 envelope JSON，正文由后续 Agent / Synthesizer Read
+
+### Tool Boundary
+
+- ALLOWED: {tool_whitelist}（如 Read, Grep, Glob, Write）
+- FORBIDDEN: {tool_blacklist}（如 Edit 业务文件、Bash 写命令）
+- WebSearch quota: {n} calls（仅当 depth=deep 时启用，否则为 0）
+
+### Task Boundary
+
+- YOUR scope: {positive_scope} —— 你**只**做 X
+- NOT YOUR scope: {negative_scope} —— Y/Z 由其他 Agent 覆盖
+- 越界处理：发现越界内容时写入 envelope 的 `out_of_scope_findings[]` 字段，不要自行处理
