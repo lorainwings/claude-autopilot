@@ -126,7 +126,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    ```
 
 8. 生成结构化提示词 → **必须通过 AskUserQuestion 工具**展示提示词并让用户确认（严禁纯文字输出确认，详见 `autopilot/references/phase1-requirements.md` 1.8 节）
-9. 写入 `phase-1-requirements.json` checkpoint + `requirement-packet.json`（Phase 1 唯一结构化产出，含 sha256 hash）+ git fixup（使用后台 Checkpoint Agent，同统一调度模板 Step 5+7）
+9. 派发 **PackagerAgent**（`subagent_type` 复用 `phases.requirements.synthesizer.agent`）基于 `verdict.json + requirements-analysis.md` 全文合成 `requirement-packet.json`（schema: `runtime/schemas/requirement-packet.schema.json`，必填 `goal/scope/non_goals/acceptance_criteria/risks/decisions/needs_clarification/sha256`）；主线程仅 Read packet.json 后写入 `phase-1-requirements.json` checkpoint + git fixup（后台 Checkpoint Agent）。严禁主线程自行压缩信封合成 packet。详见 `autopilot/references/phase1-requirements.md` Step 1.9.1–1.9.4。
    写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 10. 可配置用户确认点（`config.gates.user_confirmation.after_phase_1`，**默认 false**——需求评审完成后默认自动推进）
 

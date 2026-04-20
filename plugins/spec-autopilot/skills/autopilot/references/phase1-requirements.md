@@ -359,7 +359,29 @@ LOOP:
 
 ## 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
 
-需求确认后，Phase 1 必须生成唯一的 `requirement-packet.json` 作为后续所有 Phase 的单一事实源：
+> **合成方式硬约束（Task 6 重构）**：`requirement-packet.json` 必须由专用 PackagerAgent 基于 **verdict.json + requirements-analysis.md 全文** 合成，**严禁**主线程自行从信封/摘要字段压缩拼装。主线程仅负责派发与 `Read(packet.json)` 消费。
+
+### 1.9 子步骤（四段式）
+
+**Step 1.9.1** 前置 — SynthesizerAgent 已产出 `context/phase1-verdict.json`（含 `merged_decision_points`、`conflicts`、`ambiguities`），schema: `runtime/schemas/synthesizer-verdict.schema.json`。
+
+**Step 1.9.2** 前置 — BA Agent 已产出 `context/requirements-analysis.md` 草稿（结构化 user stories + acceptance criteria + checklist），以及对应的 JSON 信封。
+
+**Step 1.9.3** 主线程派发 PackagerAgent（**复用 `phases.requirements.synthesizer.agent` 配置**作为 `subagent_type`，不新增 agent 字段）：
+- 输入：
+  - `openspec/changes/{change_name}/context/phase1-verdict.json`（verdict.json 全文）
+  - `openspec/changes/{change_name}/context/requirements-analysis.md`（BA 草稿全文）
+  - 用户澄清答复（来自 1.6-1.8 决策 LOOP 的最终确认）
+- 职责边界：**只做最终结构化打包**；不做需求撰写（属 BA 职责），不做跨路仲裁（属 Synthesizer 职责）。
+- 输出文件：`openspec/changes/{change_name}/context/requirement-packet.json`
+- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（由 L2 Hook 强制）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
+- 信息无损要求：`acceptance_criteria` 数量 ≥ `requirements-analysis.md` 与 `research-findings.md` 中可测试动词（MUST/SHOULD/SHALL）数，禁止隐式压缩。
+
+**Step 1.9.4** 主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段写入 `phase-1-requirements.json` checkpoint。
+
+---
+
+### 参考 packet 结构
 
 ```json
 {
@@ -408,7 +430,7 @@ LOOP:
 1. **唯一事实源**：后续 Phase 2-7 只认 `requirement-packet.json`，不再读取散落的决策文本
 2. **open_questions 必须闭合**：`open_questions_closed` 必须为 `true` 才能写入最终 checkpoint
 3. **hash 校验**：后续 Phase 可通过 hash 验证 requirement packet 未被篡改
-4. **主线程不代写**：requirement-packet.json 由主线程从信封数据合成，不读取子 Agent 正文工件
+4. **由 PackagerAgent 全文合成**：requirement-packet.json 由 PackagerAgent 基于 verdict.json + requirements-analysis.md 全文产出；主线程仅 Read packet.json 消费（不读 markdown 原文、不做任何字段压缩拼装）
 
 > 此 checkpoint 使崩溃恢复能跳过 Phase 1，直接从 Phase 2 继续。
 > 中间态 `phase-1-interim.json` 在三路调研完成和每轮决策后写入，提供细粒度崩溃恢复点。
