@@ -24,7 +24,7 @@ parallel_tasks:
 >   - prompt 引用 `research-findings.md` → 校验 `subagent_type == research.agent`
 > - 不一致、为空、或配置缺失即硬阻断，不允许偏离配置。
 > - `_config_validator.py` 硬阻断上述两个字段值为 `Explore`（只读，无 Write 权限）。
-> - 旧字段 `phases.requirements.research.web_search.agent` 已 deprecated（v5.x 兼容残留），其能力以条件子任务方式合并至 `research.agent`，详见文末 Deprecation Notice。
+> - 旧字段 `phases.requirements.research.web_search.agent` 已 deprecated（向后兼容残留），其能力以条件子任务方式合并至 `research.agent`，详见文末 Deprecation Notice。
 
 ### ScanAgent 四要素契约（Four-Field Task Contract）
 
@@ -248,7 +248,7 @@ Task(subagent_type: "{{RESOLVED_AUTOSCAN_AGENT}}", run_in_background: true,
   输出到: openspec/changes/{change_name}/context/"
 )
 
-# Task 2: 技术调研（解析后的 research.agent 名）— 已吸收 v5.x 第 3 路 web-search 子任务
+# Task 2: 技术调研（解析后的 research.agent 名）— 已吸收 web-search 子任务
 Task(subagent_type: "{{RESOLVED_RESEARCH_AGENT}}", run_in_background: true,
   prompt: "分析与需求相关的代码:
   需求: {RAW_REQUIREMENT}
@@ -358,11 +358,11 @@ MATCH maturity:
 
 ---
 
-## Deprecation Notice (v6.x)
+## Deprecation Notice
 
-**v5.x 第 3 路独立 web_search Agent 已合并至 ResearchAgent。**
+**独立 web_search Agent 已合并至 ResearchAgent。**
 
-- 新版 Phase 1 派发拓扑：两路并行（ScanAgent + ResearchAgent）+ 一路串行汇总（SynthesizerAgent，详见上文 SynthesizerAgent 四要素契约）。
+- Phase 1 派发拓扑：两路并行（ScanAgent + ResearchAgent）+ 一路串行汇总（SynthesizerAgent，详见上文 SynthesizerAgent 四要素契约）。
 - ResearchAgent 在 `depth=deep`（或 maturity=ambiguous / complexity=large 自动升级）时执行联网调研子任务，使用 WebSearch / WebFetch 工具，配额由 `websearch_quota` 控制（standard=0，deep≤3）。
 - `depth=standard` 时禁止调用 WebSearch，越权调用由 L2 Hook `auto-emit-agent-dispatch.sh` 阻断。
 - 旧 config 字段 `phases.requirements.research.web_search.agent` / `.web_search.enabled` 兼容保留但**不再被调度器读取**；若 setup 阶段检测到该字段非空，会输出 warning 提示用户迁移到新的 `research.depth` 控制方式（不阻断升级路径）。

@@ -256,7 +256,7 @@ Project Rules Auto-Scan 结果注入在 `## Phase 1 项目分析` 之前、`### 
 
 > 上下文注入优先级详见 `autopilot-dispatch/SKILL.md` 的优先级表。
 
-## Four-Field Task Contract（v6+ 新增）
+## Four-Field Task Contract
 
 > 来源：Anthropic Engineering — "How we built our multi-agent research system"。
 > 每个被派发的 sub-agent prompt 都必须以下列四要素开头，缺一不可。

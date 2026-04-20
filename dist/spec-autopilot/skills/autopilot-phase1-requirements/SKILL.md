@@ -30,7 +30,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
      - 低复杂度（纯 bugfix/chore）→ 单路调研（Auto-Scan only）
      - 中复杂度 → 双路调研（Auto-Scan + 技术调研）
      - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
-3. **并行调研 + 串行汇总（v6 三路拓扑）** → 读取 `autopilot/references/parallel-phase1.md` 并行配置 + SynthesizerAgent 四要素契约。
+3. **并行调研 + 串行汇总** → 读取 `autopilot/references/parallel-phase1.md` 并行配置 + SynthesizerAgent 四要素契约。
    > **Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
    > **Sub-Agent 名称硬解析协议（强制，三路独立）**: 派发前必须将 `config.phases.requirements.auto_scan.agent` / `.research.agent` / `.synthesizer.agent` 三个字段分别替换为实际已注册 Agent 名（不得留 `{{...}}` 或 `config.phases.` 字面量），并各自调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验；任一失败立即返回 blocked 信封。详见 `skills/autopilot-dispatch/SKILL.md` 之 "Sub-Agent 名称硬解析"。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
@@ -95,7 +95,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    - ❌ **禁止**：使用 TaskOutput 检查后台 Agent 进度（TaskOutput 仅适用于 Bash 后台命令）
    - ✅ **正确**：一条消息含 2 个 `Task(run_in_background: true)` 派发 ScanAgent + ResearchAgent；下一条消息含 1 个 `Task` 派发 SynthesizerAgent
    优先读取持久化上下文（`openspec/.autopilot-context/`），7 天内有效则跳过 ScanAgent 仅做增量
-4. **派发 Synthesizer 并汇合 verdict**（v6 串行汇总，唯一权威源）→ 子 Agent 自行 Write 产出文件 + 返回结构化 JSON 信封，主线程**不读取调研正文**：
+4. **派发 Synthesizer 并汇合 verdict**（串行汇总，唯一权威源）→ 子 Agent 自行 Write 产出文件 + 返回结构化 JSON 信封，主线程**不读取调研正文**：
    > **Agent 事件**: Hook `auto-emit-agent-complete.sh` 自动为每个完成的 autopilot Task 发射 `agent_complete` 事件，无需手动调用。
    - 验证产出文件存在（按 maturity 分支，参见 Step 1.2.2）
    - 派发 SynthesizerAgent 完成跨路冲突检测 + 语义去重 + ambiguities 标注（参见 Step 1.2.3）
