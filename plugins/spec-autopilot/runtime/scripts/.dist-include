@@ -71,6 +71,7 @@ write-phase-progress.sh
 validate-requirement-packet.sh
 validate-openspec-artifacts.sh
 validate-agent-registry.sh
+check-phase1-gate.sh
 
 # ── Dispatch 治理与 fixup 校验 (工作包 H + J) ──
 generate-dispatch-plan.sh

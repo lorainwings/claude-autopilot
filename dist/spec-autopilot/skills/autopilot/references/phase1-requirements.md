@@ -226,6 +226,25 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 → 详见 `phase1-requirements-detail.md`（需求分析 Agent 完整 Prompt 模板）
 
+### 1.5.1 `[NEEDS CLARIFICATION]` 协议（Task B9 硬约束）
+
+> **协议来源**：[GitHub Spec Kit](https://github.com/github/spec-kit) 的 `[NEEDS CLARIFICATION: ...]` 标记规范。本 Phase 1 把该协议向上游延伸到 BA Agent 产出层，**不再依赖 Synthesizer 反推歧义**。
+
+**BA Agent 硬约束**（必须写入 `config.phases.requirements.agent` 的 prompt）：
+
+1. **模板唯一**：BA Agent 产出 `context/requirements-analysis.md` 时 **必须** 采用
+   `runtime/templates/requirements-template.md` 的骨架（User Stories / Acceptance Criteria / Non-Goals / Open Questions / Review Checklist 五段式）。
+2. **NEEDS CLARIFICATION 强制标记**：
+   > 任何用户原始 prompt 未覆盖的点**必须**用 `[NEEDS CLARIFICATION: 具体问题]` 标记，**禁止**貌似合理的假设。
+   - 未知角色 / 未知权限边界 / 未知性能阈值 / 未知失败策略 / 未知数据来源 / 未知 UI 反馈 — 一律标记，不得猜测。
+   - 标记语法必须严格匹配 `^\[NEEDS CLARIFICATION:`，与 `requirement-packet.schema.json#/properties/needs_clarification` 及 `synthesizer-verdict.schema.json#/properties/ambiguities` 的 pattern 对齐。
+3. **禁止 HOW**：BA 产出只回答 **WHAT / WHY**，不得出现实现路径、文件名、库选型、SQL 等 HOW 细节（HOW 由 Phase 2 OpenSpec / Phase 3 设计阶段承担）。
+4. **Review Checklist 闭环**：进入 1.6 决策 LOOP 前，BA 信封必须附带 `needs_clarification_count`（整数），供主线程在 clarity_score 与决策 LOOP 退出条件中使用。
+5. **与 Synthesizer 的职责分工**：BA 主动标记未覆盖点 → Synthesizer 只做跨路合并与去重，不再从语料反推歧义；双路冗余但方向一致，命中即进入决策 LOOP。
+
+> **反模式（L3 AI Gate 抽查）**：若 BA 产出中出现 "assume" / "假设" / "默认" / "通常" 等弱限定词却未伴随 `[NEEDS CLARIFICATION:` 标记，视为违反 spec-kit 协议，Gate 可要求 BA Agent 重新产出。
+
+
 ## 1.5.5 结构化决策协议（Decision Protocol）
 
 所有决策点**必须**以结构化卡片格式呈现给用户（所有复杂度级别均强制）。

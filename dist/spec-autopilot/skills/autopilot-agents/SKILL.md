@@ -213,7 +213,10 @@ ELSE:
   phases.requirements.research.web_search.agent: "{selected_phase1_websearch_agent}"
   # Phase 1 Synthesizer（v6+ 新拓扑：专职汇总 auto_scan + research + BA）
   phases.requirements.synthesizer.agent: "{selected_phase1_synthesizer_agent}"
-  # 推荐链：OMC "architect" > OMC "judge" > VoltAgent "research-synthesizer" > general-purpose
+  # 推荐链：OMC "architect" > "Plan" > 用户自配（architect/judge 类，非 explore 类）
+  # 选型约束：Synthesizer 负责结构化判断与冲突仲裁，必须选 architect/judge 类 agent；
+  #           禁止使用 explore 类（如 Explore / research-investigator），它们偏向发散探索，
+  #           与 Synthesizer 的"收敛仲裁 + [NEEDS CLARIFICATION] 标注"职责不匹配。
   # IF 检测到旧 phases.requirements.research.web_search.agent 字段:
   #   stderr 输出: "[DEPRECATED] phases.requirements.research.web_search.agent 已合并进 research.web_search_subtask；该字段保留仅为向后兼容"
   phases.openspec.agent: "{selected_phase2_agent}"
