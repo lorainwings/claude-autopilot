@@ -4,6 +4,20 @@
 > 定义多轮决策循环中自动激活的视角转换机制。
 > 参考 oh-my-claudecode Deep Interview 的 Challenge Agents 设计。
 
+## Contents
+
+- 设计理念
+- 三种挑战代理
+- 反面论证（Contrarian Challenge）
+- 范围简化（Simplifier Challenge）
+- 核心概念澄清（Ontologist Challenge）
+- 状态追踪
+- 激活优先级
+- 停滞检测集成
+- 与苏格拉底模式的关系
+- 配置项
+- 挑战代理在 requirement-packet.json 中的记录
+
 ## 设计理念
 
 标准决策循环的提问方向是"收集信息以填补空白"。但某些盲区不是信息空白，而是**认知偏差**——用户和 AI 都可能锁定在某个假设上，不断在同一方向深化而忽视其他可能性。

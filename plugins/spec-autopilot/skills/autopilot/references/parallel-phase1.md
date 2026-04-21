@@ -3,6 +3,14 @@
 > 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 1 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
+## Contents
+
+- [Phase 1: 需求调研并行](#phase-1-需求调研并行)
+- [Phase 1 并行调度模板](#phase-1-并行调度模板)
+- [需求理解增强](#需求理解增强)
+- [需求成熟度驱动调研方案选择](#需求成熟度驱动调研方案选择)
+- [Deprecation Notice](#deprecation-notice)
+
 ## Phase 1: 需求调研并行
 
 ```yaml

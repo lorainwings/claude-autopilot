@@ -1,6 +1,6 @@
 ---
 name: autopilot-test-health
-description: "测试有效性量化：用 shell 层面的轻量变异测试 + 静态健康度评分，判断测试是否真的能捕获回归。user-invocable，建议用于 CI weekly cron 或人工 sweep。"
+description: "Use when the user wants to quantify test effectiveness — running lightweight shell-layer mutation testing and static health scoring to confirm the test suite would actually catch regressions. Typical triggers include weekly CI sweeps, on-demand audits asking 'how healthy are our tests', or '/autopilot-test-health score|mutate|all' invocations. Not part of any phase gate."
 user-invocable: true
 argument-hint: "[score|mutate|all] — 默认 all"
 ---

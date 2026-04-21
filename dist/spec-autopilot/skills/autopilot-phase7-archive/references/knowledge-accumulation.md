@@ -1,5 +1,14 @@
 # 跨会话知识累积协议
 
+## Contents
+
+- [知识库位置](#知识库位置)
+- [知识条目格式](#知识条目格式)
+- [Phase 7: 知识提取规则](#phase-7-知识提取规则)
+- [Phase 1: 知识注入规则](#phase-1-知识注入规则)
+- [知识库维护](#知识库维护)
+- [持久化 Steering Documents](#持久化-steering-documents)
+
 > 由 autopilot SKILL.md Phase 7 引用，执行知识提取和持久化。Phase 1 引用，注入历史知识。
 
 ## 知识库位置

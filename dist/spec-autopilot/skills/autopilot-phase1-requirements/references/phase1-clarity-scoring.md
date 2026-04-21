@@ -3,6 +3,20 @@
 > 本文件由 `phase1-requirements.md` 1.6 节引用。定义多轮决策循环的退出条件评分机制。
 > 参考 oh-my-claudecode Deep Interview 的数学化模糊度门禁 + Superpowers 的自然收敛设计。
 
+## Contents
+
+- 架构总览
+- 评分维度
+- 维度权重
+- 规则引擎评分（确定性，Layer 2 级别）
+- AI 补充评分（每轮末尾执行）
+- 混合计算公式
+- 清晰度阈值配置
+- 安全阀配置
+- 每轮进度展示模板
+- 停滞检测
+- requirement-packet.json 新增字段
+
 ## 架构总览
 
 混合评分 = 确定性规则基础分 × 0.6 + AI 语义补充分 × 0.4
@@ -233,7 +247,9 @@ IF current_round >= 3:
         # 停滞超过 2 轮 → 触发干预
         # 1. 优先激活本体论挑战代理（如未使用过）
         # 2. 已使用过 → 提示用户选择缩小范围或以当前清晰度推进
-        → 详见 phase1-challenge-agents.md 停滞检测集成章节
+        # 停滞干预的完整协议（激活顺序、降级选项、用户提示措辞）
+        # 定义在同目录 phase1-challenge-agents.md 的"停滞检测集成"章节；
+        # 由 SKILL.md 多轮决策 LOOP 步骤前统一加载，本文件不再下钻。
 ```
 
 ## requirement-packet.json 新增字段

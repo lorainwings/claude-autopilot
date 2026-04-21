@@ -2,6 +2,19 @@
 
 > 此文件被 autopilot-dispatch、autopilot-gate（含 checkpoint 管理）共同引用。修改时需同步评估影响。
 
+## Contents
+
+- [JSON 信封契约](#json-信封契约)
+- [各阶段额外返回字段](#各阶段额外返回字段)
+- [状态解析规则](#状态解析规则)
+- [结构化标记（Hook 识别依据）](#结构化标记hook-识别依据)
+- [模型路由（执行级路由）](#模型路由执行级路由)
+- [Checkpoint 文件命名](#checkpoint-文件命名)
+- [DecisionPoint 格式](#decisionpoint-格式)
+- [Web Research 格式](#web-research-格式)
+- [特殊门禁](#特殊门禁)
+- [并行调度协议字段](#并行调度协议字段)
+
 ## JSON 信封契约
 
 每个子 Agent **必须**返回此格式：

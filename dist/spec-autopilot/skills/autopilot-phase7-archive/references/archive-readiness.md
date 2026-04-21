@@ -1,5 +1,11 @@
 # Archive Readiness 检查与归档操作
 
+## Contents
+
+- [Step 3: Archive Readiness 检查与归档决策](#step-3-archive-readiness-检查与归档决策)
+- [Step 4: 归档操作（archive readiness 通过后自动执行）](#step-4-归档操作archive-readiness-通过后自动执行)
+- [Step 5: Archive Readiness 阻断时的用户选择](#step-5-archive-readiness-阻断时的用户选择)
+
 > 本文件由 `autopilot-phase7-archive/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 3（Archive Readiness 检查）、Step 4（归档操作）、Step 5（阻断处理）。
 

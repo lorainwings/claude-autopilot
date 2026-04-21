@@ -7,7 +7,7 @@
 #      .claude/docs-ownership.yaml
 # 随后根据项目实际映射补充条目。
 #
-# 详见：plugins/spec-autopilot/skills/autopilot-docs-sync/references/ownership-config.md
+# 详见同目录 ownership-config.md（不强制 Read：YAML 字段说明与 glob 行为在该文件中；本模板已覆盖典型用法可直接使用）
 
 mappings:
   # 1) 单文件映射：detect-doc-drift 的设计与使用文档

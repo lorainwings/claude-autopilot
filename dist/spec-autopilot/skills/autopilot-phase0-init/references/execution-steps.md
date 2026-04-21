@@ -2,6 +2,12 @@
 
 > 从 `SKILL.md` 抽取。主编排器在调用 `autopilot-phase0-init` 时**必须**逐条遵守本文定义的协议、脚本路径、JSON 字段与决策分支。
 
+<!--
+占位符说明：文中出现的 `{version}` 是**运行时占位符**，由 autopilot orchestrator
+启动时从插件根目录下的 `version.txt` 读取并注入，并非硬编码版本号。
+请勿把本文件中的 `{version}` 当成版本标记来替换或搜索。
+-->
+
 ## Contents
 
 - [Step 1: 读取插件版本（最优先）](#step-1-读取插件版本最优先)

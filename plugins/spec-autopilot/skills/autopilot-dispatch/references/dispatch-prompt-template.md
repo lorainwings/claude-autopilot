@@ -2,6 +2,22 @@
 
 > 本文件从 `autopilot-dispatch/SKILL.md` 提取，供 dispatch 构造子 Agent prompt 时引用。
 
+## Contents
+
+- [Prompt 构造模板](#prompt-构造模板)
+- [前置校验（在执行任何操作之前，必须首先完成）](#前置校验在执行任何操作之前必须首先完成)
+- [项目上下文（从 config 自动注入）](#项目上下文从-config-自动注入)
+- [Phase 1 项目分析（如存在）](#phase-1-项目分析如存在)
+- [项目自定义指令（覆盖）](#项目自定义指令覆盖)
+- [项目自定义参考文件](#项目自定义参考文件)
+- [模型路由（三种事件类型）](#模型路由三种事件类型)
+- [执行模式：高效模式 (autopilot-fast / haiku)](#执行模式高效模式-autopilot-fast--haiku)
+- [执行模式：标准模式 (autopilot-standard / sonnet)](#执行模式标准模式-autopilot-standard--sonnet)
+- [执行模式：深度分析模式 (autopilot-deep / opus)](#执行模式深度分析模式-autopilot-deep--opus)
+- [TDD 模式 Prompt 模板（Phase 5 专属）](#tdd-模式-prompt-模板phase-5-专属)
+- [注入位置](#注入位置)
+- [Four-Field Task Contract](#four-field-task-contract)
+
 ## Prompt 构造模板
 
 ```markdown

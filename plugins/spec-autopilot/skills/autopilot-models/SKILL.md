@@ -1,6 +1,6 @@
 ---
 name: autopilot-models
-description: "Configure per-phase AI model routing strategy for autopilot. Supports cost-optimized, balanced, and quality-max presets with custom per-phase configuration."
+description: "Use when the user wants to view or change the per-phase AI model routing strategy for autopilot — for example choosing a cost-optimized, balanced, or quality-max preset, inspecting the current routing table, or customising an individual phase's model binding."
 argument-hint: "[cost | balanced | quality | custom | show]"
 ---
 

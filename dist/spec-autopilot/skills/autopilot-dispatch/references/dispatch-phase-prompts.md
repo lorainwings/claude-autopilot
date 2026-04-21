@@ -2,6 +2,18 @@
 
 > 本文件从 `autopilot-dispatch/SKILL.md` 提取，供 dispatch 构造特定 Phase 子 Agent prompt 时按需读取。
 
+## Contents
+
+- [Phase 1（技术调研）](#phase-1技术调研--主线程调度不含-autopilot-phase-标记)
+- [Phase 1（Synthesizer 仲裁）](#phase-1synthesizer-仲裁--主线程串行调度含--autopilot-phase1-synthesizer---标记)
+- [Phase 1（需求分析）](#phase-1需求分析--主线程调度不含-autopilot-phase-标记)
+- [Phase 2（创建 OpenSpec）](#phase-2创建-openspec)
+- [Phase 3（FF 生成制品）](#phase-3ff-生成制品)
+- [Phase 4（测试用例设计）](#phase-4测试用例设计)
+- [Phase 5（循环实施 — 互斥双路径）](#phase-5循环实施--互斥双路径)
+- [Phase 6（测试报告）](#phase-6测试报告)
+- [并行调度协议](#并行调度协议)
+
 ## Phase 1（技术调研 — 主线程调度，不含 autopilot-phase 标记）
 
 - Agent: config.phases.requirements.research.agent（由 setup SKILL 期间用户选择的已安装 agent 写入；不硬编码默认名）
@@ -27,7 +39,7 @@
 - Prompt 必须注入：
   - 两路 envelope 的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）
   - context/*.md 文件路径列表（供 SynthesizerAgent 自行 Read 全文，非主线程注入正文）
-  - 四要素契约（详见 `../../autopilot-phase1-requirements/references/parallel-phase1.md` SynthesizerAgent 章节）
+  - 四要素契约（详见 `../../autopilot/references/parallel-phase1.md` SynthesizerAgent 章节）
 - Tool boundary: `allowed: [Read, Write, Bash]`，`forbidden: [WebSearch, WebFetch, Edit, Task]`
 - 返回：必须严格符合 `synthesizer-verdict.schema.json` 的 JSON 信封 + 落盘 `phase1-verdict.json`
 - 失败处理：单次失败重新 dispatch；连续 2 次失败 → 主线程降级为人工汇总（AskUserQuestion 列出两路 decision_points 由用户决策）
@@ -104,7 +116,7 @@
 Phase 4 子 Agent prompt 构造详见以下参考文件（dispatch 时读取并注入）：
 
 - 内置模板：`autopilot/templates/phase4-testing.md`（测试标准 + dry-run + 金字塔）
-- 并行 dispatch：`../../autopilot-phase4-testcase/references/parallel-phase4.md`（Phase 4 并行模板）
+- 并行 dispatch：`../../autopilot/references/parallel-phase4.md`（Phase 4 并行模板）
 
 **关键约束摘要**（完整指令在参考文件中）：
 
@@ -170,7 +182,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
   - Task prompt 模板详见 `references/phase5-implementation.md` 串行模式章节
 
 - **路径 C: TDD 模式**（当 `tdd_mode: true` 且模式为 `full`）：
-  - **执行前读取**: `references/tdd-cycle.md` + `references/testing-anti-patterns.md`
+  - **执行前读取**: `../../autopilot-phase5-implement/references/tdd-cycle.md` + `../../autopilot-phase5-implement/references/testing-anti-patterns.md`
   - **串行 TDD**（`parallel.enabled: false`）：每个 task 派发 3 个 sequential Task：
     - **RED Task**: `Task(prompt: "TDD RED — 写失败测试 for task-N")`
       - prompt 注入 Iron Law + 反合理化清单 + 反模式指南
@@ -205,7 +217,7 @@ Phase 5 有两条**互斥**的执行路径，由 `config.phases.implementation.p
     > 失败时 status 改为 `failed`，tdd_step 保持当前步骤值。GUI 据此展示 TDD 步骤图标。
   - **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律文档
     - 域 Agent prompt 中**必须**注入 `emit-task-progress.sh` 调用模板（含 `tdd_step` 参数），要求域 Agent 在每个 task 的 RED/GREEN/REFACTOR 步骤前后发射进度事件
-    - 详见 `references/tdd-cycle.md` 并行 TDD 章节中的 prompt 模板
+    - 详见 `../../autopilot-phase5-implement/references/tdd-cycle.md` 并行 TDD 章节中的 prompt 模板
 
 - 项目上下文从 config.project_context + config.test_suites 自动注入（快速校验命令 = test_suites 中 type=typecheck 的套件）
 - 可选覆盖：config.phases.implementation.instruction_files（非空时注入）

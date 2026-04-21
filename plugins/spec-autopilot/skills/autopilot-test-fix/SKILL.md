@@ -1,6 +1,6 @@
 ---
 name: autopilot-test-fix
-description: "消费 .cache/spec-autopilot/test-rot-candidates.json 生成测试过期修复 patch / suggestion。R1 (orphan 引用) 优先生成确定性 sed-style patch，其余规则生成 .suggestion.md（含弱断言补强模板）。绝不直接修改 tests/*.sh，由 apply-fix-patch.sh 在 git stash 保护下人工触发。触发: '/autopilot-test-fix scan', '修复测试腐烂'。"
+description: "Use when the user wants to consume the test-rot candidate list at .cache/spec-autopilot/test-rot-candidates.json and generate repair artifacts — deterministic sed-style patches for R1 orphan references and .suggestion.md files (including weak-assertion templates) for the rest. Typical triggers: '/autopilot-test-fix scan', '修复测试腐烂'. Does not directly modify tests/*.sh; application is a separate manual step via apply-fix-patch.sh."
 user-invocable: true
 ---
 

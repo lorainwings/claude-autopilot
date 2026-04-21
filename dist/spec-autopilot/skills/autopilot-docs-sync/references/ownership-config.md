@@ -4,7 +4,7 @@
 
 ## 1. 文件位置
 
-仓库根目录 `.claude/docs-ownership.yaml`。模板见 `plugins/spec-autopilot/skills/autopilot-docs-sync/references/docs-ownership.yaml.example`。
+仓库根目录 `.claude/docs-ownership.yaml`。模板文件位于同目录 `docs-ownership.yaml.example`（不强制 Read：如需可直接复制样例到 `.claude/docs-ownership.yaml`）。
 
 ## 2. 顶层 schema
 

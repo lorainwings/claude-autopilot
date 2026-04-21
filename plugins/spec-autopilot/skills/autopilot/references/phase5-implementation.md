@@ -2,6 +2,31 @@
 
 > 本文件由 autopilot SKILL.md 引用，执行 Phase 5 时按需读取。
 
+## Contents
+
+- [启动前安全准备](#启动前安全准备)
+- [Wall-clock 超时机制](#wall-clock-超时机制)
+- [无 tasks.md 场景（lite/minimal 模式）](#无-tasksmd-场景liteminimal-模式)
+- [1. Backend Changes](#1-backend-changes)
+- [2. Frontend Changes](#2-frontend-changes)
+- [3. Integration & Testing](#3-integration--testing)
+- [并行执行模式（混合模式增强）](#并行执行模式混合模式增强)
+- [文件所有权约束（ENFORCED）](#文件所有权约束enforced)
+- [并行合并验证 (Hook 级保障)](#并行合并验证-hook-级保障)
+- [实施流程（串行模式 — 仅当 parallel.enabled = false）](#实施流程串行模式--仅当-parallelenabled--false)
+- [你的任务](#你的任务)
+- [前序 task 摘要（只读参考）](#前序-task-摘要只读参考)
+- [测试驱动开发（Phase 4 测试先行验证）](#测试驱动开发phase-4-测试先行验证)
+- [上下文（由控制器提取，禁止自行读取计划文件）](#上下文由控制器提取禁止自行读取计划文件)
+- [项目规则约束](#项目规则约束)
+- [验证要求](#验证要求)
+- [返回要求](#返回要求)
+- [文件所有权约束（ENFORCED — batch 内互斥）](#文件所有权约束enforced--batch-内互斥)
+- [Phase 5→6 特殊门禁](#phase-56-特殊门禁)
+- [Task 级 Checkpoint](#task-级-checkpoint)
+- [非 TDD 模式测试驱动 L2 验证（full 模式）](#非-tdd-模式测试驱动-l2-验证full-模式)
+- [TDD Mode（当 tdd_mode true 且模式为 full）](#tdd-mode当-tdd_mode-true-且模式为-full)
+
 ## 启动前安全准备
 
 1. **Git 安全检查点**：在实施任何代码变更前，创建 git tag `autopilot-phase5-start` 标记当前状态
@@ -701,7 +726,7 @@ END FOR
 
 ## TDD Mode（当 `tdd_mode: true` 且模式为 `full`）
 
-> 详细协议见 `references/tdd-cycle.md`。本节为 Phase 5 集成概述。
+> 详细协议见 `../../autopilot-phase5-implement/references/tdd-cycle.md`。本节为 Phase 5 集成概述。
 
 ### 概述
 

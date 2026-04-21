@@ -45,7 +45,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 
 ### 与挑战代理的协同
 
-> 详见: `./phase1-challenge-agents.md`（完整的 3 种代理模式 + 停滞检测协议）
+> 挑战代理的 3 种模式（反面论证 / 简化者 / 本体论）+ 停滞检测协议在同目录 `phase1-challenge-agents.md` 中定义。**本节不强制 Read 该文件**——SKILL.md 已在多轮决策 LOOP 步骤前列出读取时机；此处仅描述共存语义。
 
 苏格拉底模式和挑战代理**可以共存**：
 
@@ -62,7 +62,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 - **清晰度评分退出**（主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
 - 安全阀：`soft_warning_rounds`（默认 8 轮）软提醒 + `max_rounds`（默认 15 轮）硬上限
 - 用户在软提醒时选择"以当前清晰度推进"
-- 详见: `./phase1-clarity-scoring.md`
+- 完整评分公式与维度权重定义在同目录 `phase1-clarity-scoring.md`，由 SKILL.md 多轮决策 LOOP 步骤前统一加载，本文件不再下钻。
 
 ---
 

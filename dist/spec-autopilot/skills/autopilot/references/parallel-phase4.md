@@ -3,6 +3,12 @@
 > 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 4 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
+## Contents
+
+- [Phase 4: 测试用例并行生成](#phase-4-测试用例并行生成)
+- [Phase 4 并行调度模板](#phase-4-并行调度模板)
+- [强制要求（不可违反）](#强制要求不可违反)
+
 ## Phase 4: 测试用例并行生成
 
 ```yaml

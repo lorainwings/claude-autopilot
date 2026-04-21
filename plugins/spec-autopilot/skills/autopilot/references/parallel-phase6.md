@@ -3,6 +3,11 @@
 > 本文件从 `parallel-dispatch.md` 拆分，仅在 Phase 6 按需加载。
 > 通用并行编排协议（适用条件、Union-Find、模板、结果收集、降级策略）见 `parallel-dispatch.md`。
 
+## Contents
+
+- [Phase 6: 三路并行](#phase-6-三路并行)
+- [Phase 6 并行调度模板](#phase-6-并行调度模板)
+
 ## Phase 6: 三路并行
 
 Phase 6 采用**跨维度三路并行**，不同于 Phase 1/4/5 的阶段内并行：

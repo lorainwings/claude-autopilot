@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase5-implement
-description: "[ONLY for autopilot orchestrator] Phase 5 orchestration: path selection (parallel/serial/TDD), Phase 4 test file extraction, non-TDD L2 verification, and CLAUDE.md change detection."
+description: "Use when the autopilot orchestrator enters Phase 5 after Phase 4 test case design has been approved and is about to choose an implementation path (parallel, serial, or TDD) and dispatch implementation work. [ONLY for autopilot orchestrator]"
 user-invocable: false
 ---
 
@@ -21,8 +21,8 @@ Phase 5 是流水线中最复杂的阶段，具有三条互斥执行路径。本
 - ✅ 派发 Task + 等待完成 + 解析 JSON 信封 + 写 checkpoint
 - ✅ 合并 worktree + 全量测试
 - ✅ **当 mode=full 且非 TDD 模式时**：从 Phase 4 checkpoint 提取测试文件列表，传递给 dispatch skill
-- ❌ **禁止**主线程 Read `autopilot/references/phase5-implementation.md`（由 dispatch skill 内部读取）
-- ❌ **禁止**主线程 Read `autopilot/references/parallel-phase5.md`（由 dispatch skill 内部读取）
+- ❌ **禁止**主线程 Read `../autopilot/references/phase5-implementation.md`（由 dispatch skill 内部读取）
+- ❌ **禁止**主线程 Read `../autopilot/references/parallel-phase5.md`（由 dispatch skill 内部读取）
 - ❌ **禁止**主线程自行分析任务依赖（由 generate-parallel-plan.sh 确定性计算）
 
 > **设计意图**: Phase 5 实施细节全部下沉到 dispatch skill 和子 Agent，保护主线程上下文窗口。
@@ -43,7 +43,7 @@ Phase 5 是流水线中最复杂的阶段，具有三条互斥执行路径。本
 
 ## 非 TDD 模式测试驱动 L2 验证（full 模式增强）
 
-当 `mode === "full"` 且 `tdd_mode !== true` 且 `phase4_test_files` 非空时，主线程对每个 task 执行 L2 测试驱动验证（详见 `autopilot/references/phase5-implementation.md` 非 TDD L2 验证章节）：
+当 `mode === "full"` 且 `tdd_mode !== true` 且 `phase4_test_files` 非空时，主线程对每个 task 执行 L2 测试驱动验证（详见 `../autopilot/references/phase5-implementation.md` 非 TDD L2 验证章节）：
 
 ### 串行模式每 task 流程
 
@@ -97,11 +97,11 @@ END FOR
 
 ## 任务来源（模式感知）
 
-> 详见 `autopilot/references/mode-routing-table.md` § 3。
+> 详见 `../autopilot/references/mode-routing-table.md` § 3。
 
 ## 执行模式决策（互斥分支）
 
-读取 `config.phases.implementation.parallel.enabled` + `tdd_mode`，按 `autopilot/references/mode-routing-table.md` § 4 确定路径：
+读取 `config.phases.implementation.parallel.enabled` + `tdd_mode`，按 `../autopilot/references/mode-routing-table.md` § 4 确定路径：
 
 ### 【路径 A — 并行模式】（`parallel.enabled = true`）
 
@@ -118,11 +118,11 @@ END FOR
 >
 > **违反此约束等同于违反 CLAUDE.md 状态机硬约束第 3 条。**
 
-解析任务 → **生成 `parallel_plan.json`**（调用 `generate-parallel-plan.sh` 确定性调度器） → 按 batch 分区 → worktree 并行 → 按编号合并 → 全量测试。详见 `autopilot/references/parallel-phase5.md`。
+解析任务 → **生成 `parallel_plan.json`**（调用 `generate-parallel-plan.sh` 确定性调度器） → 按 batch 分区 → worktree 并行 → 按编号合并 → 全量测试。详见 `../autopilot/references/parallel-phase5.md`。
 
 ### 【路径 B — 串行模式】（`parallel.enabled = false` 或降级）
 
-逐个前台 Task → JSON 信封 → task checkpoint。串行模式也调用 `generate-parallel-plan.sh` 生成计划，Batch Scheduler 消费 `batches` 字段执行。详见 `autopilot/references/phase5-implementation.md` 串行模式章节。
+逐个前台 Task → JSON 信封 → task checkpoint。串行模式也调用 `generate-parallel-plan.sh` 生成计划，Batch Scheduler 消费 `batches` 字段执行。详见 `../autopilot/references/phase5-implementation.md` 串行模式章节。
 
 **串行模式 CLAUDE.md 变更检测**: 串行模式下，每个 task dispatch 前执行轻量 CLAUDE.md 变更检测：
 
@@ -143,14 +143,14 @@ fi
 ### 【路径 C — TDD 模式】（`tdd_mode: true` 且模式为 `full`）
 
 **优先于路径 A/B，与 parallel.enabled 配合使用。**
-**执行前读取**: `autopilot/references/tdd-cycle.md` + `references/testing-anti-patterns.md`
+**执行前读取**: `references/tdd-cycle.md` + `references/testing-anti-patterns.md`
 
-- **串行 TDD**（`parallel.enabled: false`）：每个 task 3 个 sequential Task (RED→GREEN→REFACTOR)。主线程写入 `.tdd-stage` 文件供 L2 Hook 确定性拦截。详见 `autopilot/references/tdd-cycle.md` 串行 TDD 章节。
-- **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律。合并后主线程执行全量测试验证。详见 `autopilot/references/tdd-cycle.md` 并行 TDD 章节。
+- **串行 TDD**（`parallel.enabled: false`）：每个 task 3 个 sequential Task (RED→GREEN→REFACTOR)。主线程写入 `.tdd-stage` 文件供 L2 Hook 确定性拦截。详见 `references/tdd-cycle.md` 串行 TDD 章节。
+- **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律。合并后主线程执行全量测试验证。详见 `references/tdd-cycle.md` 并行 TDD 章节。
 
 TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试不可变 | REFACTOR 回归保护
 
-> **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造详见 `autopilot/references/protocol.md`。
+> **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造详见 `../autopilot/references/protocol.md`。
 
 ### Phase 5→6 特殊门禁
 
@@ -172,4 +172,4 @@ Skill(spec-autopilot:autopilot-phase5.5-redteam)
 
 **门禁约束**：`redteam-report.json.summary.blocking_reproducers > 0` 且任一 reproducer.status != "green" → Phase 6 入口阻断，回流到 Phase 5 修复（通过 `prior_risks[]` 注入下一轮 dispatch）。详见 `skills/autopilot-phase5.5-redteam/SKILL.md`。
 
-**dispatch skill 执行时自行读取**: `autopilot/references/phase5-implementation.md` + `autopilot/references/parallel-phase5.md` + `autopilot/references/mode-routing-table.md`
+**dispatch skill 执行时自行读取**: `../autopilot/references/phase5-implementation.md` + `../autopilot/references/parallel-phase5.md` + `../autopilot/references/mode-routing-table.md`

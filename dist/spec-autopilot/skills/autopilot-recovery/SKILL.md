@@ -1,6 +1,6 @@
 ---
 name: autopilot-recovery
-description: "[ONLY for autopilot orchestrator] Crash recovery protocol for autopilot. Scans existing checkpoints and determines resume point."
+description: "Use when the autopilot orchestrator restarts after a crash or interruption and must scan existing checkpoints, detect partial state, and determine the safe resume point. Not for direct user invocation; skip outside the orchestrator main thread."
 user-invocable: false
 ---
 

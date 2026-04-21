@@ -30,7 +30,10 @@ setup 结束时这四个字段不得为空，**任一为 `Explore` 即 fail-fast
 
 ```
 # 1. 扫描已安装 agent
-installed = ls .claude/agents/*.md (项目级) ∪ ls ~/.claude/agents/*.md (用户级)
+installed_local   = ls .claude/agents/*.md              # 项目级
+installed_user    = ls ~/.claude/agents/*.md            # 用户级
+installed_plugin  = ls ${CLAUDE_PLUGIN_ROOT}/../*/agents/*.md  # 同仓库其他插件，纳入时以 `plugin:agent` 命名空间形式呈现
+installed = installed_local ∪ installed_user ∪ installed_plugin
 # 排除内置 Explore（只读无 Write 权限，_config_validator 硬阻断）
 candidates = installed \ {Explore}
 
@@ -42,12 +45,20 @@ IF candidates 为空:
     - "安装推荐 Agent" → 调用 Skill("spec-autopilot:autopilot-agents" "install")，回到第 1 步重新扫描
     - "退出 setup" → fail-fast exit 1
 
-# 3. 三路 + BA 共四次 AskUserQuestion，分别选择
+# 3. 三路 + BA + Phase 2-7 共 12 次 AskUserQuestion，分别选择
 FOR field IN [
   ("phases.requirements.agent",                        "需求分析（BA）",        "OMC analyst"),
   ("phases.requirements.auto_scan.agent",              "代码库扫描",            "OMC explore (forked)"),
   ("phases.requirements.research.agent",               "技术兼容性分析",        "OMC architect"),
   ("phases.requirements.research.web_search.agent",    "联网搜索（需 WebSearch）", "VoltAgent search-specialist (forked)"),
+  ("phases.openspec.agent",                            "OpenSpec 规划",         "OMC planner"),
+  ("phases.testing.agent",                             "测试设计",              "OMC test-engineer"),
+  ("phases.implementation.parallel.default_agent",     "Phase 5 默认执行 Agent", "OMC executor"),
+  ("phases.implementation.review_agent",               "Phase 5 批量 Review",   "OMC code-reviewer"),
+  ("phases.redteam.agent",                             "Phase 5.5 Red Team",   "OMC code-reviewer / Anthropic red-team-critic"),
+  ("phases.reporting.agent",                           "Phase 6 测试报告",      "OMC qa-tester"),
+  ("phases.code_review.agent",                         "Phase 6.5 Code Review","OMC code-reviewer"),
+  ("phases.archive.agent",                             "Phase 7 归档",          "OMC git-master"),
 ]:
   IF candidates.size == 1:
     → 自动写入 candidates[0]
@@ -80,7 +91,7 @@ IF ws_agent ∉ BUILTIN_AGENTS:
 
 ## Step 5.3.5: 域级 Agent 配置引导
 
-**执行前读取**: `references/setup-domain-agent-guide.md`（完整映射表和安装逻辑）
+**执行前读取**: `setup-domain-agent-guide.md`（完整映射表和安装逻辑）
 
 利用 Step 1 检测到的项目结构，自动推荐域级专业 Agent 以提升 Phase 5 并行执行质量。
 
@@ -99,7 +110,7 @@ IF Wizard domain_agents_strategy == "recommended":
 IF 检测到至少一个项目域（backend_dir/frontend_dir/node_dir 非空，或扩展扫描发现额外目录）:
 
   # 生成推荐列表
-  domain_recommendations = 按 references/setup-domain-agent-guide.md Section B 映射
+  domain_recommendations = 按 setup-domain-agent-guide.md Section B 映射
 
   展示推荐表格:
   "检测到 {N} 个项目域，推荐配置域级专业 Agent（提升 Phase 5 并行执行质量）："

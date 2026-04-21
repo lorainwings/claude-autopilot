@@ -1,5 +1,18 @@
 # TDD Cycle Protocol — RED-GREEN-REFACTOR 确定性循环
 
+## Contents
+
+- [The Iron Law](#the-iron-law)
+- [TDD 门禁结构](#tdd-门禁结构)
+- [反合理化清单（13 种借口）](#反合理化清单13-种借口)
+- [红旗标记（13 种违规信号）](#红旗标记13-种违规信号)
+- [串行 TDD (`parallel.enabled: false` + `tdd_mode: true`)](#串行-tdd-parallelenabled-false--tdd_mode-true)
+- [并行 TDD (`parallel.enabled: true` + `tdd_mode: true`)](#并行-tdd-parallelenabled-true--tdd_mode-true)
+- [TDD Mode: RED-GREEN-REFACTOR (MANDATORY)](#tdd-mode-red-green-refactor-mandatory)
+- [Anti-Patterns to AVOID](#anti-patterns-to-avoid)
+- [TDD 崩溃恢复](#tdd-崩溃恢复)
+- [L3 Checkpoint 审计（Gate Skill 执行）](#l3-checkpoint-审计gate-skill-执行)
+
 > 本文档定义 autopilot Phase 5 TDD 模式的完整协议。
 > 仅当 `config.phases.implementation.tdd_mode: true` **且** 执行模式为 `full` 时启用。
 > 技术参考: Superpowers TDD skill + verification-before-completion + testing-anti-patterns。

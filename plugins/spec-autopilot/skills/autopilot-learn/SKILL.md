@@ -1,6 +1,6 @@
 ---
 name: autopilot-learn
-description: "[ONLY for autopilot orchestrator] 主动学习体系 L1/L2/L3 — 在 Phase 7 归档之后聚合 Episode，聚类失败/成功模式，生成 L3 晋升候选。借鉴 Reflexion + Voyager + MemGPT 分层记忆。"
+description: "Use when the autopilot orchestrator has finished Phase 7 archive and needs to aggregate Episode records into the L1/L2/L3 learning tiers, cluster failure/success patterns, and emit L3 promotion candidates. Not for direct user invocation; skip outside the orchestrator's post-archive hook."
 user-invocable: false
 ---
 

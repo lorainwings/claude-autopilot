@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-sync
-description: "[ONLY for autopilot orchestrator] Static documentation drift detector. Generates candidate list (.cache/spec-autopilot/drift-candidates.json) when SKILL.md / runtime scripts / CLAUDE.md changes are not mirrored in README, .dist-include or root plugin tables. Does NOT auto-modify; review the candidates manually."
+description: "Use when the autopilot orchestrator or pre-commit hook needs deterministic static detection of documentation drift — i.e. when SKILL.md, runtime scripts, or CLAUDE.md changes are not yet mirrored in README, .dist-include, or root plugin tables. Emits a warn-only candidate list at .cache/spec-autopilot/drift-candidates.json without modifying any source; downstream repair belongs to autopilot-docs-fix. Invoked by pre-commit hook or autopilot orchestrator only, not user-facing."
 user-invocable: false
 ---
 
@@ -59,3 +59,16 @@ engineering_auto_sync:
 ## 详细规则与映射
 
 详见 `references/ownership-mapping.md`。
+
+## References 按需读取清单
+
+以下 references 文件**互不强制串读**，按当前任务上下文显式择一加载，禁止链式跳转：
+
+| 场景 | 文件 | 用途 |
+|------|------|------|
+| 排查 R1–R5 规则定义、严重度、建议同步动作 | `references/ownership-mapping.md` | Rule → 动作映射表 |
+| 在源码 / 文档中插入双向 ownership 锚点 | `references/anchor-syntax.md` | `# CODE-REF:` / `<!-- CODE-OWNED-BY: -->` 语法规范 |
+| 配置 fallback ownership（`.claude/docs-ownership.yaml`） | `references/ownership-config.md` | YAML schema、glob 行为、优先级 |
+| 复制项目级 ownership 模板 | `references/docs-ownership.yaml.example` | 可直接 `cp` 到 `.claude/docs-ownership.yaml` 的样例 |
+
+> 三份 references 之间互为参照而非强制依赖：内联锚点语法（anchor-syntax）、配置 fallback（ownership-config）、可执行模板（docs-ownership.yaml.example）任一切入点都自洽，无需顺序读取。

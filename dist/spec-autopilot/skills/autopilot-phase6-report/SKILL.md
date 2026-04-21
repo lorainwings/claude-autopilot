@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase6-report
-description: "[ONLY for autopilot orchestrator] Phase 6: Test report generation with tri-path parallel execution (testing + code review + quality scans) and Allure integration."
+description: "Use when the autopilot orchestrator reaches Phase 6 after Phase 5.5 Red Team has passed and must generate test reports with tri-path parallel execution covering testing, code review, and quality scans before archival. [ONLY for autopilot orchestrator]"
 user-invocable: false
 ---
 
@@ -10,7 +10,7 @@ user-invocable: false
 
 Phase 6 执行测试报告生成，支持三路并行（测试 + 代码审查 + 质量扫描）和 Allure 集成。
 
-**执行前读取**: `references/parallel-phase6.md` + `references/phase6-code-review.md` + `references/quality-scans.md`
+**执行前读取**: `../autopilot/references/parallel-phase6.md` + `references/phase6-code-review.md` + `references/quality-scans.md`
 
 ## Phase 5→6 特殊门禁
 
@@ -25,7 +25,7 @@ autopilot-gate 额外验证：
 
 ## 测试执行
 
-- 并行测试执行按 `config.test_suites` 分套件派发（详见 `references/parallel-phase6.md`）
+- 并行测试执行按 `config.test_suites` 分套件派发（详见 `../autopilot/references/parallel-phase6.md`）
 - Agent: `config.phases.reporting.agent`（默认 general-purpose；推荐安装 qa-tester / qa-expert）
 - 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取
@@ -106,7 +106,7 @@ if [ -d "$TDD_ALLURE_DIR" ]; then
 fi
 ```
 
-> **设计意图**: TDD 模式下 Phase 5 的 RED→GREEN→REFACTOR 已经通过 Allure 增强命令产出了测试结果（详见 `tdd-cycle.md` TDD 测试命令 Allure 增强），此步骤确保这些结果被纳入统一 Allure 报告。
+> **设计意图**: TDD 模式下 Phase 5 的 RED→GREEN→REFACTOR 已经通过 Allure 增强命令产出了测试结果（详见 `../autopilot-phase5-implement/references/tdd-cycle.md` TDD 测试命令 Allure 增强），此步骤确保这些结果被纳入统一 Allure 报告。
 
 ### Step A2.6: TDD 模式强制全量 Allure 重跑
 

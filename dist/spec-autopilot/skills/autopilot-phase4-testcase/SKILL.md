@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase4-testcase
-description: "[ONLY for autopilot orchestrator] Phase 4: Test case design with TDD override, parallel grouping, and strict gate rules (no warning accepted)."
+description: "Use when the autopilot orchestrator advances into Phase 4 after OpenSpec alignment has completed and tasks.md is ready, and must design test cases with TDD awareness and strict gating before Phase 5 can dispatch. [ONLY for autopilot orchestrator]"
 user-invocable: false
 ---
 
@@ -10,7 +10,7 @@ user-invocable: false
 
 Phase 4 在 full 模式下执行测试用例设计，具有特殊的 TDD 跳过逻辑和严格门禁规则。
 
-**执行前读取**: `references/parallel-phase4.md` 并行配置 + `autopilot/references/protocol.md` 特殊门禁
+**执行前读取**: `../autopilot/references/parallel-phase4.md` 并行配置 + `../autopilot/references/protocol.md` 特殊门禁
 
 ## TDD 模式跳过（确定性检测）
 
@@ -45,7 +45,7 @@ TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 
 ## 门禁规则（严格）
 
-**Phase 4 只接受 ok 或 blocked**（warning 由 Hook 确定性阻断）。详见 `autopilot/references/protocol.md`。
+**Phase 4 只接受 ok 或 blocked**（warning 由 Hook 确定性阻断）。详见 `../autopilot/references/protocol.md`。
 
 ### Phase 4 → Phase 5 特殊门禁
 

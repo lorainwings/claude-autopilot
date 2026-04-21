@@ -4,11 +4,11 @@
 
 ## 可选 Layer 3 补充：语义验证
 
-> 详见：`./semantic-validation.md`
+> 完整清单参见同目录 `semantic-validation.md`（不强制 Read：仅在需要执行软检查时由 SKILL.md 的可选 references 清单显式加载）。
 
 在 8 步检查清单的 Step 6 之后，可选执行语义验证：
 
-1. 读取 `references/semantic-validation.md` 中对应阶段的检查清单
+1. 读取 `semantic-validation.md` 中对应阶段的检查清单
 2. 逐项验证（读取相关文件确认）
 3. 不通过项记录为 `warning`（不硬阻断，除非发现严重不一致）
 4. 输出语义验证摘要
@@ -17,7 +17,7 @@
 
 ## 可选 Layer 3 补充：Brownfield 验证
 
-> 详见：`./brownfield-validation.md`
+> 三向一致性的具体规则参见同目录 `brownfield-validation.md`（不强制 Read：仅在启用且对应阶段切换时由 SKILL.md 的可选 references 清单显式加载）。
 > 通过 `config.brownfield_validation.enabled` 控制（默认开启，greenfield 项目 Phase 0 自动关闭）。
 
 当启用时，在特定阶段切换时执行额外的三向一致性检查：

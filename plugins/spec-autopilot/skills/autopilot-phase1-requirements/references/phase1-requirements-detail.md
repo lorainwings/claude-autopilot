@@ -3,6 +3,18 @@
 > 本文件为 `phase1-requirements.md` 的详细补充文档，包含完整模板、规则引擎和流程细节。
 > 按需加载，由核心流程文件中的 `→ 详见 phase1-requirements-detail.md` 引用触发。
 
+## Contents
+
+- 1.2 Auto-Scan 详细流程（Tech Stack / Directory Layout / Key Dependencies / Coding Constraints / Existing Test Infrastructure / API Patterns / Data Models / Component Patterns / Error Handling / Hard Constraints / Dependency Constraints / Infrastructure Constraints）
+- 1.3 Research Agent 完整 Prompt 模板（需求概述 / 项目上下文 / 调研任务）
+- 1.3.3 搜索决策规则引擎完整规则（Web Research Findings / Research Agent 产出写入与返回格式）
+- 1.3.5 SynthesizerAgent 串行汇总流程（三路拓扑第三路）（两路前置 envelope 摘要 / 待 Read 全文 / 任务 / 产出）
+- 1.4 复杂度评估完整规则
+- 1.5 需求分析 Agent 完整 Prompt 模板（上下文隔离修订）（原始需求 / 项目上下文 / 技术调研结论 / 调研信封摘要 / 复杂度评估 / 你的任务 / 产出写入 / 返回要求）
+- 1.5.5 决策卡片完整格式（决策 #{n} 标题模板）
+- 1.6 多轮决策循环详细流程
+- 1.9 requirement-packet.json 完整 Schema
+
 ---
 
 ## 1.2 Auto-Scan 详细流程
@@ -405,7 +417,7 @@ Based on research, the recommended technical approach is: ...
 
 ## 1.3.5 SynthesizerAgent 串行汇总流程（三路拓扑第三路）
 
-> 详细契约见 `parallel-phase1.md` 之 SynthesizerAgent 四要素契约。本节聚焦 detail 文档侧的执行细节与 verdict 消费规则。
+> 详细契约见 `../../autopilot/references/parallel-phase1.md` 之 SynthesizerAgent 四要素契约。本节聚焦 detail 文档侧的执行细节与 verdict 消费规则。
 
 ### 派发时机
 

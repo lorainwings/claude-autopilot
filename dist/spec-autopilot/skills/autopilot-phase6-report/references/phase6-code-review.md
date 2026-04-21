@@ -1,5 +1,13 @@
 # Phase 6.5: AI 代码审查 — 详细流程
 
+## Contents
+
+- [触发条件](#触发条件)
+- [审查流程](#审查流程)
+- [配置参考](#配置参考)
+- [与 Hook 门禁的关系](#与-hook-门禁的关系)
+- [Review Findings 生命周期](#review-findings-生命周期)
+
 > 本文件由 autopilot SKILL.md 引用，Phase 6 完成后、Phase 7 之前按需读取。
 
 ## 触发条件
