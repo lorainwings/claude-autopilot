@@ -21,7 +21,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 # shellcheck disable=SC1091
 source "$TEST_DIR/_test_helpers.sh"
 
-PHASE1_DOC="$PLUGIN_ROOT/skills/autopilot/references/phase1-requirements.md"
+PHASE1_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
 SKILL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/SKILL.md"
 SCHEMA_FILE="$PLUGIN_ROOT/runtime/schemas/requirement-packet.schema.json"
 

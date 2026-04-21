@@ -5,8 +5,8 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$TEST_DIR/.." && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
-PHASE1_REQ="$PLUGIN_DIR/skills/autopilot/references/phase1-requirements.md"
-PHASE1_DETAIL="$PLUGIN_DIR/skills/autopilot/references/phase1-requirements-detail.md"
+PHASE1_REQ="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
+PHASE1_DETAIL="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md"
 
 echo "--- 15. Phase 1 定向澄清 + BA 约束 + 复杂度多维度 ---"
 

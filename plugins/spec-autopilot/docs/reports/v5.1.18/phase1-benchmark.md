@@ -324,12 +324,12 @@ Phase 1 requirement_type → routing_overrides
 |------|------|
 | SKILL.md（主编排器） | `skills/autopilot/SKILL.md` |
 | Dispatch 协议 | `skills/autopilot-dispatch/SKILL.md` |
-| Phase 1 核心流程 | `skills/autopilot/references/phase1-requirements.md` |
-| Phase 1 详细模板 | `skills/autopilot/references/phase1-requirements-detail.md` |
-| Phase 1 补充协议 | `skills/autopilot/references/phase1-supplementary.md` |
-| Phase 1 并行配置 | `skills/autopilot/references/parallel-phase1.md` |
+| Phase 1 核心流程 | `skills/autopilot-phase1-requirements/references/phase1-requirements.md` |
+| Phase 1 详细模板 | `skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md` |
+| Phase 1 补充协议 | `skills/autopilot-phase1-requirements/references/phase1-supplementary.md` |
+| Phase 1 并行配置 | `skills/autopilot-phase1-requirements/references/parallel-phase1.md` |
 | 共享协议 | `skills/autopilot/references/protocol.md` |
-| Brownfield 验证 | `skills/autopilot/references/brownfield-validation.md` |
+| Brownfield 验证 | `skills/autopilot-gate/references/brownfield-validation.md` |
 | Gate 门禁协议 | `skills/autopilot-gate/SKILL.md` |
 | CLAUDE.md（工程法则） | `CLAUDE.md` |
 | 决策格式验证脚本 | `scripts/validate-decision-format.sh` |

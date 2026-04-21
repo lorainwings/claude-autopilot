@@ -17,7 +17,7 @@ source "$SCRIPT_DIR/_test_helpers.sh"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIPT="$PLUGIN_ROOT/runtime/scripts/select-research-plan.sh"
 DIST_INCLUDE="$PLUGIN_ROOT/runtime/scripts/.dist-include"
-PHASE1_DOC="$PLUGIN_ROOT/skills/autopilot/references/phase1-requirements.md"
+PHASE1_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
 
 echo "=== select-research-plan.sh matrix tests ==="
 

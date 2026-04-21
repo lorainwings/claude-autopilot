@@ -385,13 +385,13 @@ $ARGUMENTS 输入
 | 文件 | 角色 | Phase 1 职责 |
 |------|------|-------------|
 | `skills/autopilot/SKILL.md` L98-162 | 主编排协议 | Phase 1 概要流程 + 并行调度 + 中间 Checkpoint |
-| `skills/autopilot/references/phase1-requirements.md` | 核心流程 | 10 步详细流程骨架 |
-| `skills/autopilot/references/phase1-requirements-detail.md` | 详细模板 | Prompt 模板 + 规则引擎 + 评估规则 |
-| `skills/autopilot/references/phase1-supplementary.md` | 补充协议 | 苏格拉底模式 + 崩溃恢复 + 格式验证 |
-| `skills/autopilot/references/config-schema.md` L22-62 | 配置模板 | `phases.requirements` 配置节 |
+| `skills/autopilot-phase1-requirements/references/phase1-requirements.md` | 核心流程 | 10 步详细流程骨架 |
+| `skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md` | 详细模板 | Prompt 模板 + 规则引擎 + 评估规则 |
+| `skills/autopilot-phase1-requirements/references/phase1-supplementary.md` | 补充协议 | 苏格拉底模式 + 崩溃恢复 + 格式验证 |
+| `skills/autopilot-setup/references/config-schema.md` L22-62 | 配置模板 | `phases.requirements` 配置节 |
 | `skills/autopilot/references/protocol.md` | JSON 信封契约 | Phase 1 DecisionPoint 格式 + 路由字段 |
 | `skills/autopilot/references/guardrails.md` | 护栏约束 | 上下文保护 + 并行编排 + 错误处理 |
-| `skills/autopilot/references/knowledge-accumulation.md` | 知识累积 | Phase 1 历史知识注入 |
+| `skills/autopilot-phase7-archive/references/knowledge-accumulation.md` | 知识累积 | Phase 1 历史知识注入 |
 | `scripts/_post_task_validator.py` L552-625 | L2 Hook | 决策格式确定性验证 (Validator 5) |
 | `scripts/_post_task_validator.py` L175-213, L276-289 | L2 Hook | routing_overrides 动态阈值 (Validator 1) |
 | `scripts/check-predecessor-checkpoint.sh` | L1 Hook | Phase 前置 Checkpoint 验证 |

@@ -582,7 +582,7 @@ rm -f openspec/changes/*/context/.tdd-stage 2>/dev/null
 - `skills/autopilot/references/tdd-cycle.md` (253 行)
 - `skills/autopilot/references/phase5-implementation.md` (600 行)
 - `skills/autopilot/references/guardrails.md` (75 行)
-- `skills/autopilot/references/testing-anti-patterns.md` (176 行)
+- `skills/autopilot-phase5-implement/references/testing-anti-patterns.md` (176 行)
 - `skills/autopilot/templates/shared-test-standards.md` (31 行)
 
 ### 基线报告

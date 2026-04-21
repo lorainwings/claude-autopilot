@@ -449,9 +449,9 @@ v4.2 默认启用，对串行模式中无依赖 task 自动后台并行:
 | `skills/autopilot/SKILL.md` | 主编排器 Phase 5 规范 |
 | `skills/autopilot/references/phase5-implementation.md` | Phase 5 详细流程 (串行/并行/TDD) |
 | `skills/autopilot/references/parallel-phase5.md` | Phase 5 并行调度配置与模板 |
-| `skills/autopilot/references/brownfield-validation.md` | Brownfield 三向一致性检查 |
+| `skills/autopilot-gate/references/brownfield-validation.md` | Brownfield 三向一致性检查 |
 | `skills/autopilot/references/guardrails.md` | 护栏约束清单 |
-| `skills/autopilot/references/dispatch-prompt-template.md` | Dispatch Prompt 构造模板 |
+| `skills/autopilot-dispatch/references/dispatch-prompt-template.md` | Dispatch Prompt 构造模板 |
 | `skills/autopilot/templates/phase5-serial-task.md` | Phase 5 串行任务内置模板 |
 | `skills/autopilot-dispatch/SKILL.md` | 子 Agent 调度协议 |
 | `scripts/unified-write-edit-check.sh` | 统一 Write/Edit L2 Hook |

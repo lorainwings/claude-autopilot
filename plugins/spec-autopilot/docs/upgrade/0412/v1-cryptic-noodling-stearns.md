@@ -72,7 +72,7 @@
 
 #### A3. 更新 config-schema.md
 
-**文件**: `skills/autopilot/references/config-schema.md`
+**文件**: `skills/autopilot-setup/references/config-schema.md`
 
 - Agent 默认值全部改为 `general-purpose`，注释推荐社区 Agent
 - 删除 legacy heavy/light 注释块和兼容映射注释
@@ -315,9 +315,9 @@ Phase 6B 代码审查不含 `autopilot-phase` 标记，当前无独立 model rou
 |------|------|
 | `runtime/scripts/resolve-model-routing.sh` | 删除 LEGACY_MAP + 新增环境变量覆盖 |
 | `runtime/scripts/_config_validator.py` | 删除 legacy 兼容 + Agent 类型 warning |
-| `skills/autopilot/references/config-schema.md` | 默认值修正 + 删除 legacy + Phase 4 降级 + Phase 6B 独立配置 + 模型文档 |
+| `skills/autopilot-setup/references/config-schema.md` | 默认值修正 + 删除 legacy + Phase 4 降级 + Phase 6B 独立配置 + 模型文档 |
 | `skills/autopilot/references/protocol.md` | 删除 heavy/light 映射 |
-| `skills/autopilot/references/dispatch-phase-prompts.md` | Agent 引用更新 + Phase 6B 独立路由 |
+| `skills/autopilot-dispatch/references/dispatch-phase-prompts.md` | Agent 引用更新 + Phase 6B 独立路由 |
 | `skills/autopilot-setup/SKILL.md` | Step 5.3/5.4 引导 + 预设关联 + 输出更新 |
 | `tests/test_model_routing_resolution.sh` | 删除 Section B + 新增拒绝测试 + 环境变量测试 |
 | `tests/test_validate_config.sh` | Agent warning + legacy 拒绝测试 |

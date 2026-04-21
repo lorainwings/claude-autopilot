@@ -40,7 +40,7 @@ Phase N 完成 → autopilot-gate Step 0
 {
   "phase": 5,
   "requirement_type": "feat",
-  "rubric_path": "skills/autopilot/references/rubrics/phase5-feat.yaml",
+  "rubric_path": "skills/autopilot-risk-scanner/references/rubrics/phase5-feat.yaml",
   "artifacts_root": "openspec/changes/<change_name>/",
   "report_output": "openspec/changes/<change_name>/context/risk-report-phase5.json",
   "stance": "adversarial-critic"

@@ -21,7 +21,7 @@ PHASE0_SKILL_DIR="$SCRIPT_DIR/../../skills/autopilot-phase0-init"
 # scan all markdown under the skill directory to preserve the contract.
 PHASE0_SKILL="$PHASE0_SKILL_DIR"
 PHASE0_GREP=(grep -r --include='*.md')
-DISPATCH_REF="$SCRIPT_DIR/../../skills/autopilot/references/dispatch-phase-prompts.md"
+DISPATCH_REF="$SCRIPT_DIR/../../skills/autopilot-dispatch/references/dispatch-phase-prompts.md"
 VALIDATOR_PY="$SCRIPT_DIR/_config_validator.py"
 
 # ────────────────────────────────────────
