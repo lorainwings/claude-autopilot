@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-# pre-push hook: 推送前最终防线
-# 确保 dist 与源码一致，且 dist 变更已提交，避免"本地能过、CI 报 stale"
+# pre-push hook: 推送前最终防线（分钟级兜底）
+#
+# 本 Hook 遵循社区最佳实践分层：
+#   pre-commit：秒级反馈（格式化、增量 lint、版本一致性）
+#   pre-push ：分钟级兜底（typecheck、dist freshness、分支同步）
+#   CI        ：全量矩阵（完整测试、多 OS、release discipline）
+#
+# 设计取舍：
+#   - 完整测试套件（make test / make ph-test）交由 CI 执行
+#     原因：本地 ~30s–2min，CI 已在 ubuntu+macOS 矩阵上跑全量；
+#     pre-push 仅做"代价低、CI 难发现 stale"的兜底。
+#   - 类型检查在本地执行：tsc/mypy 失败可在 5–15s 内定位，比等 CI 更快。
 
 set -uo pipefail
 
@@ -13,8 +23,6 @@ if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
 fi
 
 # ── 0. 分支必须与 origin/main 同步（规范化提交流程闸口）──
-# 任何 feature/fix/refactor 分支推送前必须包含 origin/main 最新 commit，
-# 否则 PR 合入时会产生不必要的 merge conflict / CI 失效
 if ! bash "$REPO_ROOT/scripts/check-branch-synced.sh"; then
   exit 1
 fi
@@ -22,7 +30,6 @@ fi
 # ── 1. dist 内容一致性 (对比已提交状态，排除工作树 WIP 干扰) ──
 echo "🔍 Pre-push: checking dist freshness..."
 
-# Stash 所有非 HEAD 改动 (unstaged + staged + untracked)，确保 freshness check 只看 HEAD
 _needs_stash=false
 if ! git diff --quiet 2>/dev/null \
    || ! git diff --cached --quiet 2>/dev/null \
@@ -36,7 +43,6 @@ if ! bash "$REPO_ROOT/scripts/check-dist-freshness.sh" all; then
   _freshness_ok=false
 fi
 
-# 恢复 WIP
 if [ "$_needs_stash" = "true" ]; then
   git stash pop -q 2>/dev/null || true
 fi
@@ -54,21 +60,17 @@ if [ "$_freshness_ok" = "false" ]; then
 fi
 
 # ── 2. dist 变更是否已提交 (防止 build 了但没 commit) ──
-# 三层检查: unstaged changes / staged-but-uncommitted / untracked files
 UNCOMMITTED=0
 for plugin in spec-autopilot parallel-harness daily-report; do
   if [ -d "dist/$plugin" ]; then
-    # unstaged: working tree vs index
     if ! git diff --quiet -- "dist/$plugin" 2>/dev/null; then
       echo "❌ dist/$plugin has unstaged changes"
       UNCOMMITTED=1
     fi
-    # staged but not committed: index vs HEAD
     if ! git diff --cached --quiet -- "dist/$plugin" 2>/dev/null; then
       echo "❌ dist/$plugin has staged but uncommitted changes"
       UNCOMMITTED=1
     fi
-    # untracked
     _untracked=$(git ls-files --others --exclude-standard "dist/$plugin")
     if [ -n "$_untracked" ]; then
       echo "❌ dist/$plugin has untracked files"
@@ -80,6 +82,18 @@ done
 if [ "$UNCOMMITTED" -eq 1 ]; then
   echo ""
   echo "❌ dist/ has uncommitted changes. Stage and commit before pushing."
+  exit 1
+fi
+
+# ── 3. TypeScript / Python 类型检查（5–15s，CI 之前的本地兜底） ──
+# 设计：完整测试由 CI 跑，但类型错误在本地暴露代价极低且诊断更快。
+echo "🔍 Pre-push: typecheck (spec-autopilot + parallel-harness)..."
+if ! make typecheck >/dev/null; then
+  echo "❌ spec-autopilot typecheck failed. Run 'make typecheck' for details."
+  exit 1
+fi
+if ! make ph-typecheck >/dev/null; then
+  echo "❌ parallel-harness typecheck failed. Run 'make ph-typecheck' for details."
   exit 1
 fi
 
