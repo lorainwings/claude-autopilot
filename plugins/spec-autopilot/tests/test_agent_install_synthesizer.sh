@@ -18,12 +18,15 @@ source "$SCRIPT_DIR/_test_helpers.sh"
 
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AGENTS_SKILL="$PLUGIN_ROOT/skills/autopilot-agents/SKILL.md"
+AGENTS_REFS_DIR="$PLUGIN_ROOT/skills/autopilot-agents/references"
 
 echo "=== autopilot-agents install: synthesizer role registration ==="
 
 assert_file_exists "autopilot-agents SKILL.md present" "$AGENTS_SKILL"
 
-SKILL_BODY="$(cat "$AGENTS_SKILL")"
+# v6+: protocol content lives in SKILL.md + references/*.md (modular split).
+# Aggregate all files so assertions cover the full skill surface.
+SKILL_BODY="$(cat "$AGENTS_SKILL" "$AGENTS_REFS_DIR"/*.md 2>/dev/null)"
 
 # --- (a) install 模板写入 synthesizer.agent ---
 assert_contains "install template writes phases.requirements.synthesizer.agent" \
@@ -42,8 +45,9 @@ assert_contains "phase map routes phase1-synthesizer to phases.requirements.synt
 # --- (c) 推荐链：OMC architect > Plan > 用户自配 ---
 # 使用 python 做单行完整匹配，避免多行模式被 grep 拆散
 PRIORITY_LINE="$(python3 -c "
-import re,sys,io
-body=open('$AGENTS_SKILL',encoding='utf-8').read()
+import re,sys,io,glob
+paths=['$AGENTS_SKILL'] + sorted(glob.glob('$AGENTS_REFS_DIR/*.md'))
+body=''.join(open(p,encoding='utf-8').read()+'\n' for p in paths)
 hits=[l for l in body.splitlines() if 'synthesizer' in l.lower() or re.search(r'架构师|architect',l,re.I)]
 print('\n'.join(hits))
 " 2>/dev/null || echo "")"
@@ -69,7 +73,7 @@ assert_contains "synthesizer recommendation excludes explore class" \
 # 以 awk 抽取首个同时包含 architect + Plan + 用户自配 的单行
 CHAIN_OK="$(awk '
   /architect/ && /Plan/ && /用户自配/ {print "FOUND"; exit}
-' "$AGENTS_SKILL")"
+' "$AGENTS_SKILL" "$AGENTS_REFS_DIR"/*.md)"
 
 if [ "$CHAIN_OK" = "FOUND" ]; then
   green "  PASS: recommendation chain OMC architect > Plan > 用户自配 on single line"
