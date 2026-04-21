@@ -7,7 +7,7 @@ set -uo pipefail
 
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
-DOC_FILE="$(cd "$TEST_DIR/.." && pwd)/skills/autopilot/references/phase1-clarity-scoring.md"
+DOC_FILE="$(cd "$TEST_DIR/.." && pwd)/skills/autopilot-phase1-requirements/references/phase1-clarity-scoring.md"
 source "$TEST_DIR/_test_helpers.sh"
 
 SCORER="$SCRIPT_DIR/score-raw-prompt.sh"

@@ -7,9 +7,9 @@ TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(cd "$TEST_DIR/.." && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 
-PARALLEL_PHASE1="$PLUGIN_DIR/skills/autopilot/references/parallel-phase1.md"
-PHASE1_REQ="$PLUGIN_DIR/skills/autopilot/references/phase1-requirements.md"
-PHASE1_DETAIL="$PLUGIN_DIR/skills/autopilot/references/phase1-requirements-detail.md"
+PARALLEL_PHASE1="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/parallel-phase1.md"
+PHASE1_REQ="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
+PHASE1_DETAIL="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md"
 DISPATCH_SKILL="$PLUGIN_DIR/skills/autopilot-dispatch/SKILL.md"
 VALIDATE_SCRIPT="$PLUGIN_DIR/runtime/scripts/validate-decision-format.sh"
 

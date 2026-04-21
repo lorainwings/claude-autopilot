@@ -9,7 +9,7 @@
 #   - Phase → config key 映射表新增 requirements.synthesizer
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA_FILE="$(cd "$TEST_DIR/../skills/autopilot/references" && pwd)/config-schema.md"
+SCHEMA_FILE="$(cd "$TEST_DIR/../skills/autopilot-setup/references" && pwd)/config-schema.md"
 AGENTS_SKILL="$(cd "$TEST_DIR/../skills/autopilot-agents" && pwd)/SKILL.md"
 source "$TEST_DIR/_test_helpers.sh"
 

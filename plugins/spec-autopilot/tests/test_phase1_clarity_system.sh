@@ -130,7 +130,7 @@ assert_file_contains "2c. error message uses discussion rounds wording" \
 # Part 3: phase1-requirements.md exit logic
 # ================================================================
 
-PHASE1_REQ="$SKILL_DIR/autopilot/references/phase1-requirements.md"
+PHASE1_REQ="$SKILL_DIR/autopilot-phase1-requirements/references/phase1-requirements.md"
 
 # 3a. Exit condition is three-way AND
 assert_file_contains "3a. exit requires clarity_score >= clarity_threshold" \
@@ -159,7 +159,7 @@ assert_file_contains "3d. max_rounds forces exit" \
 # Part 4: Challenge agents protocol completeness
 # ================================================================
 
-CHALLENGE_MD="$SKILL_DIR/autopilot/references/phase1-challenge-agents.md"
+CHALLENGE_MD="$SKILL_DIR/autopilot-phase1-requirements/references/phase1-challenge-agents.md"
 
 # 4a. Three agent types defined
 assert_file_contains "4a. Contrarian agent defined" "$CHALLENGE_MD" "Contrarian"
@@ -176,7 +176,7 @@ assert_file_contains "4e. challenge_agents_used prevents reuse" "$CHALLENGE_MD" 
 # Part 5: Clarity scoring system completeness
 # ================================================================
 
-CLARITY_MD="$SKILL_DIR/autopilot/references/phase1-clarity-scoring.md"
+CLARITY_MD="$SKILL_DIR/autopilot-phase1-requirements/references/phase1-clarity-scoring.md"
 
 # 5a. Four dimensions defined
 assert_file_contains "5a. goal_clarity dimension" "$CLARITY_MD" "goal_clarity"
@@ -194,7 +194,7 @@ assert_file_contains "5f. progress bar template exists" "$CLARITY_MD" "Round {n}
 # Part 6: Schema and protocol include v7.1 fields
 # ================================================================
 
-DETAIL_MD="$SKILL_DIR/autopilot/references/phase1-requirements-detail.md"
+DETAIL_MD="$SKILL_DIR/autopilot-phase1-requirements/references/phase1-requirements-detail.md"
 PROTOCOL_MD="$SKILL_DIR/autopilot/references/protocol.md"
 
 # 6a. requirement-packet.json schema includes clarity_score
@@ -301,7 +301,7 @@ rm -f "$TEMP_XREF"
 # Part 9: State snapshot includes v7.1 fields
 # ================================================================
 
-SNAPSHOT_SCHEMA="$SKILL_DIR/autopilot/references/state-snapshot-schema.md"
+SNAPSHOT_SCHEMA="$SKILL_DIR/autopilot-recovery/references/state-snapshot-schema.md"
 TYPES_TS="$TEST_DIR/../runtime/server/src/types.ts"
 
 # 9a. state-snapshot schema includes clarity_score
@@ -357,7 +357,7 @@ assert_file_contains "10h. OrchestrationPanel renders clarityScore" "$ORCH_PANEL
 # Part 11: State snapshot schema version consistency
 # ================================================================
 
-SNAPSHOT_SCHEMA="$SKILL_DIR/autopilot/references/state-snapshot-schema.md"
+SNAPSHOT_SCHEMA="$SKILL_DIR/autopilot-recovery/references/state-snapshot-schema.md"
 
 # 11a. Schema doc includes schema_version field
 assert_file_contains "11a. snapshot schema has schema_version field" "$SNAPSHOT_SCHEMA" '"schema_version"'

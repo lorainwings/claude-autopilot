@@ -420,7 +420,7 @@ curl http://localhost:9527/api/events
 
 事件类型一览: `phase_start`, `phase_end`, `gate_pass`, `gate_block`, `task_progress`, `decision_ack`。
 
-> 详细事件接口定义见 [Event Bus API](../../skills/autopilot/references/event-bus-api.zh.md)。
+> 详细事件接口定义见 [Event Bus API](../../skills/autopilot/references/event-bus-api.md)。
 
 ---
 

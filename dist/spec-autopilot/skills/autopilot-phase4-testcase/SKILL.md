@@ -10,7 +10,7 @@ user-invocable: false
 
 Phase 4 在 full 模式下执行测试用例设计，具有特殊的 TDD 跳过逻辑和严格门禁规则。
 
-**执行前读取**: `autopilot/references/parallel-phase4.md` 并行配置 + `autopilot/references/protocol.md` 特殊门禁
+**执行前读取**: `references/parallel-phase4.md` 并行配置 + `autopilot/references/protocol.md` 特殊门禁
 
 ## TDD 模式跳过（确定性检测）
 

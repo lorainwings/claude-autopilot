@@ -35,7 +35,7 @@ argument-hint: "[可选: 项目根目录路径] [--non-interactive 跳过向导]
 
 ### Step 3: 生成配置
 
-**读取模板**: `autopilot/references/config-schema.md`（完整 YAML 配置模板）
+**读取模板**: `references/config-schema.md`（完整 YAML 配置模板）
 
 根据 Step 1-2.6 的检测结果，按 `config-schema.md` 中的模板生成配置文件。所有 `{detected}` 占位符替换为实际检测值。
 
@@ -156,7 +156,7 @@ Bash('python3 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/adapt-agent-tools.py --proje
 
 ## Step 6: Schema 验证
 
-**读取规则**: `autopilot/references/config-schema.md`（Schema 验证规则章节）
+**读取规则**: `references/config-schema.md`（Schema 验证规则章节）
 
 写入后**必须**按 `config-schema.md` 中的 schema 验证配置完整性。校验失败 → 输出缺失/错误的 key 列表，AskUserQuestion 要求用户修正后重试。
 

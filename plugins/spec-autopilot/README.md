@@ -388,7 +388,7 @@ Common issues and solutions: [docs/operations/troubleshooting.md](docs/operation
 | [Gates](docs/architecture/gates.md) | 3-layer gate deep dive, anti-rationalization, routing_overrides, decision_ack | [中文](docs/architecture/gates.zh.md) |
 | [Config Tuning](docs/operations/config-tuning-guide.md) | Per-project-type configuration optimization | [中文](docs/operations/config-tuning-guide.zh.md) |
 | [Troubleshooting](docs/operations/troubleshooting.md) | Common errors, debugging hooks, recovery scenarios | [中文](docs/operations/troubleshooting.zh.md) |
-| [Event Bus API](skills/autopilot/references/event-bus-api.md) | Event types, transport layer, consumption examples | [中文](skills/autopilot/references/event-bus-api.zh.md) |
+| [Event Bus API](skills/autopilot/references/event-bus-api.md) | Event types, transport layer, consumption examples | — |
 | [Changelog](CHANGELOG.md) | Version history | — |
 
 ## Contributing

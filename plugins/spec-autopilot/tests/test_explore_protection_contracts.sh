@@ -17,7 +17,7 @@ source "$TEST_DIR/_test_helpers.sh"
 echo "=== Explore protection contracts (docs_consistency) ==="
 
 PHASE0_SKILL="$SCRIPT_DIR/../../skills/autopilot-phase0-init/SKILL.md"
-DISPATCH_REF="$SCRIPT_DIR/../../skills/autopilot/references/dispatch-phase-prompts.md"
+DISPATCH_REF="$SCRIPT_DIR/../../skills/autopilot-dispatch/references/dispatch-phase-prompts.md"
 VALIDATOR_PY="$SCRIPT_DIR/_config_validator.py"
 
 # ────────────────────────────────────────

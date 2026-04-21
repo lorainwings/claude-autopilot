@@ -54,7 +54,7 @@ else
 fi
 
 # B3 (原 30c). config-schema.md exists
-if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot-setup/references/config-schema.md" ]; then
   green "  PASS: B3: config-schema.md exists"
   PASS=$((PASS + 1))
 else
@@ -63,7 +63,7 @@ else
 fi
 
 # B4 (原 30d). phase1-supplementary.md exists
-if [ -f "$SCRIPT_DIR/../../skills/autopilot/references/phase1-supplementary.md" ]; then
+if [ -f "$SCRIPT_DIR/../../skills/autopilot-phase1-requirements/references/phase1-supplementary.md" ]; then
   green "  PASS: B4: phase1-supplementary.md exists"
   PASS=$((PASS + 1))
 else

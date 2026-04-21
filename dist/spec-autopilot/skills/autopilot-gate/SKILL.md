@@ -126,7 +126,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 **自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
 
-**条件读取**: `autopilot/references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
+**条件读取**: `references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
 
 ### 特殊门禁
 
@@ -146,13 +146,13 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 - **TDD 完整性审计 (L3)**: 扫描 `phase5-tasks/task-N.json` 验证 tdd_cycle 完整性
 - **Phase 6.5 代码审查 (Advisory Gate)**: 可选门禁，不阻断 Phase 7 predecessor，结果在 Phase 7 汇合
 
-**条件读取**: `autopilot/references/gate-special-gates.md`（仅 Phase 4→5, Phase 5→6 过渡时读取，其他过渡无特殊门禁）
+**条件读取**: `references/gate-special-gates.md`（仅 Phase 4→5, Phase 5→6 过渡时读取，其他过渡无特殊门禁）
 
 ### 可选验证
 
 语义验证（soft check）和 Brownfield 三向一致性检查。
 
-**条件读取**: `autopilot/references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
+**条件读取**: `references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
 
 ## 执行模式感知
 
@@ -216,4 +216,4 @@ phase-results/
 
 Phase 5 的每个 task 完成后写入独立 checkpoint（`phase5-tasks/task-N.json`），支持细粒度恢复。
 
-**执行前读取**: `autopilot/references/gate-checkpoint-ops.md`（完整的原子写入流程 + 断电安全 + Phase 5 task 级）
+**执行前读取**: `references/gate-checkpoint-ops.md`（完整的原子写入流程 + 断电安全 + Phase 5 task 级）

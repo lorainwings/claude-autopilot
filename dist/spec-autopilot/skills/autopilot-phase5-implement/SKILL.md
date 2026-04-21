@@ -143,7 +143,7 @@ fi
 ### 【路径 C — TDD 模式】（`tdd_mode: true` 且模式为 `full`）
 
 **优先于路径 A/B，与 parallel.enabled 配合使用。**
-**执行前读取**: `autopilot/references/tdd-cycle.md` + `autopilot/references/testing-anti-patterns.md`
+**执行前读取**: `autopilot/references/tdd-cycle.md` + `references/testing-anti-patterns.md`
 
 - **串行 TDD**（`parallel.enabled: false`）：每个 task 3 个 sequential Task (RED→GREEN→REFACTOR)。主线程写入 `.tdd-stage` 文件供 L2 Hook 确定性拦截。详见 `autopilot/references/tdd-cycle.md` 串行 TDD 章节。
 - **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律。合并后主线程执行全量测试验证。详见 `autopilot/references/tdd-cycle.md` 并行 TDD 章节。

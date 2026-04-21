@@ -14,8 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_test_helpers.sh"
 
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-DETAIL_DOC="$PLUGIN_ROOT/skills/autopilot/references/phase1-requirements-detail.md"
-CORE_DOC="$PLUGIN_ROOT/skills/autopilot/references/phase1-requirements.md"
+DETAIL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md"
+CORE_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
 
 echo "=== Phase 1 Resume + Narrowed Retry Protocol Tests ==="
 

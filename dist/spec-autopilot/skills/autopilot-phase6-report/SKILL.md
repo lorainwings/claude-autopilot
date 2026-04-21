@@ -10,7 +10,7 @@ user-invocable: false
 
 Phase 6 执行测试报告生成，支持三路并行（测试 + 代码审查 + 质量扫描）和 Allure 集成。
 
-**执行前读取**: `autopilot/references/parallel-phase6.md` + `autopilot/references/phase6-code-review.md` + `autopilot/references/quality-scans.md`
+**执行前读取**: `references/parallel-phase6.md` + `references/phase6-code-review.md` + `references/quality-scans.md`
 
 ## Phase 5→6 特殊门禁
 
@@ -25,7 +25,7 @@ autopilot-gate 额外验证：
 
 ## 测试执行
 
-- 并行测试执行按 `config.test_suites` 分套件派发（详见 `autopilot/references/parallel-phase6.md`）
+- 并行测试执行按 `config.test_suites` 分套件派发（详见 `references/parallel-phase6.md`）
 - Agent: `config.phases.reporting.agent`（默认 general-purpose；推荐安装 qa-tester / qa-expert）
 - 测试命令从 config.test_suites 动态读取（全量运行所有 suite）
 - 报告命令从 config.phases.reporting.report_commands 读取

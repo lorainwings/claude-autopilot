@@ -324,4 +324,4 @@ Phase 2: [摘要...]
 
 `scan-checkpoints-on-start.sh` Hook 在会话启动时自动扫描 checkpoint 目录和 state-snapshot.json，输出摘要信息。本 Skill 在此基础上提供交互式恢复决策。
 
-> **state-snapshot.json Schema 及消费方契约**: 详见 `autopilot/references/state-snapshot-schema.md`
+> **state-snapshot.json Schema 及消费方契约**: 详见 `references/state-snapshot-schema.md`

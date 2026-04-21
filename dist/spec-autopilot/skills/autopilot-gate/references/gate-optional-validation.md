@@ -4,7 +4,7 @@
 
 ## 可选 Layer 3 补充：语义验证
 
-> 详见：`autopilot/references/semantic-validation.md`
+> 详见：`./semantic-validation.md`
 
 在 8 步检查清单的 Step 6 之后，可选执行语义验证：
 
@@ -17,7 +17,7 @@
 
 ## 可选 Layer 3 补充：Brownfield 验证
 
-> 详见：`autopilot/references/brownfield-validation.md`
+> 详见：`./brownfield-validation.md`
 > 通过 `config.brownfield_validation.enabled` 控制（默认开启，greenfield 项目 Phase 0 自动关闭）。
 
 当启用时，在特定阶段切换时执行额外的三向一致性检查：

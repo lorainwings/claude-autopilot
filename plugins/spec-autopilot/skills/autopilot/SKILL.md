@@ -85,7 +85,10 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 |------|------|
 | `references/mode-routing-table.md` | 三种模式的阶段序列、跳过规则、路径选择（声明式表格） |
 | `references/parallel-dispatch.md` | 跨阶段通用并行编排协议（核心协议） |
-| `references/parallel-phase{1,4,5,6}.md` | 各 Phase 按需加载的并行配置与 dispatch 模板 |
+| `references/parallel-phase5.md` | Phase 5 并行实施的配置与 dispatch 模板（共享引用） |
+| `../autopilot-phase1-requirements/references/parallel-phase1.md` | Phase 1 并行调研配置（归 autopilot-phase1-requirements） |
+| `../autopilot-phase4-testcase/references/parallel-phase4.md` | Phase 4 并行测试设计配置（归 autopilot-phase4-testcase） |
+| `../autopilot-phase6-report/references/parallel-phase6.md` | Phase 6 并行测试执行配置（归 autopilot-phase6-report） |
 | `references/log-format.md` | 统一日志格式规范 |
 
 ## 阶段总览

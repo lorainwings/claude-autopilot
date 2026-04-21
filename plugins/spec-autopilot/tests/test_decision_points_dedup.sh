@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_test_helpers.sh"
 
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot/references/parallel-phase1.md"
+PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/parallel-phase1.md"
 
 echo "=== Phase 1 SynthesizerAgent decision_points dedup Tests ==="
 

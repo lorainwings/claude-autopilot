@@ -13,7 +13,7 @@ PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/_test_helpers.sh"
 
 TEMPLATE_FILE="$PLUGIN_DIR/runtime/templates/requirements-template.md"
-PHASE1_DOC="$PLUGIN_DIR/skills/autopilot/references/phase1-requirements.md"
+PHASE1_DOC="$PLUGIN_DIR/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
 
 echo "=== Task B9: [NEEDS CLARIFICATION] 协议测试 ==="
 

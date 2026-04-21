@@ -45,7 +45,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 
 ### 与挑战代理的协同
 
-> 详见: `autopilot/references/phase1-challenge-agents.md`（完整的 3 种代理模式 + 停滞检测协议）
+> 详见: `./phase1-challenge-agents.md`（完整的 3 种代理模式 + 停滞检测协议）
 
 苏格拉底模式和挑战代理**可以共存**：
 
@@ -62,7 +62,7 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 - **清晰度评分退出**（主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
 - 安全阀：`soft_warning_rounds`（默认 8 轮）软提醒 + `max_rounds`（默认 15 轮）硬上限
 - 用户在软提醒时选择"以当前清晰度推进"
-- 详见: `autopilot/references/phase1-clarity-scoring.md`
+- 详见: `./phase1-clarity-scoring.md`
 
 ---
 

@@ -388,7 +388,7 @@ argument-hint: "[需求描述或 PRD 文件路径]"
 | [门禁详解](docs/architecture/gates.zh.md) | 3 层门禁深入、反合理化、routing_overrides、decision_ack | [EN](docs/architecture/gates.md) |
 | [配置调优](docs/operations/config-tuning-guide.zh.md) | 按项目类型的配置优化 | [EN](docs/operations/config-tuning-guide.md) |
 | [故障排查](docs/operations/troubleshooting.zh.md) | 常见错误、Hook 调试、恢复场景 | [EN](docs/operations/troubleshooting.md) |
-| [事件总线 API](skills/autopilot/references/event-bus-api.zh.md) | 事件类型、传输层、消费示例 | [EN](skills/autopilot/references/event-bus-api.md) |
+| [事件总线 API](skills/autopilot/references/event-bus-api.md) | 事件类型、传输层、消费示例 | [EN](skills/autopilot/references/event-bus-api.md) |
 | [变更日志](CHANGELOG.md) | 版本历史 | — |
 
 ## 贡献
