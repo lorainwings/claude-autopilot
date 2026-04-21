@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.13.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.0...spec-autopilot-v5.13.1) (2026-04-21)
+
+
+### Changed
+
+* **spec-autopilot:** align skills with Anthropic standards + hooks community best practices ([7889fee](https://github.com/lorainwings/claude-autopilot/commit/7889feebba2a6ce62b79c35f907c2235eed3af21))
+* **spec-autopilot:** migrate skill-specific references from autopilot/references/ to per-skill directories ([aa6aab4](https://github.com/lorainwings/claude-autopilot/commit/aa6aab4dd1e208a3bd56a3bc70da97703d983441))
+* **spec-autopilot:** slim autopilot-agents SKILL by extracting mode protocols to references/ ([e04771c](https://github.com/lorainwings/claude-autopilot/commit/e04771c02887ec0b27afdcbae6d1092f486c5c3c))
+* **spec-autopilot:** slim autopilot-phase0-init SKILL by extracting execution steps and lock file protocol to references/ ([67407e9](https://github.com/lorainwings/claude-autopilot/commit/67407e9d9b5384f0cf309ea36a96760e3344922c))
+* **spec-autopilot:** slim autopilot-recovery SKILL by extracting recovery flow to references/ ([74b16ef](https://github.com/lorainwings/claude-autopilot/commit/74b16ef4a240137e07c1e4d29504f65f763e9108))
+* **spec-autopilot:** strip version evolution noise from skills and add skill-authoring rule ([33a5fe4](https://github.com/lorainwings/claude-autopilot/commit/33a5fe4debb63c626f0f55c684c8cd18dd9833d9))
+
 ## [5.13.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.12.0...spec-autopilot-v5.13.0) (2026-04-20)
 
 
