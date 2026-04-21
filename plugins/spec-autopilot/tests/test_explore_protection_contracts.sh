@@ -16,7 +16,11 @@ source "$TEST_DIR/_test_helpers.sh"
 
 echo "=== Explore protection contracts (docs_consistency) ==="
 
-PHASE0_SKILL="$SCRIPT_DIR/../../skills/autopilot-phase0-init/SKILL.md"
+PHASE0_SKILL_DIR="$SCRIPT_DIR/../../skills/autopilot-phase0-init"
+# Phase 0 protocol content is split across SKILL.md + references/*.md;
+# scan all markdown under the skill directory to preserve the contract.
+PHASE0_SKILL="$PHASE0_SKILL_DIR"
+PHASE0_GREP=(grep -r --include='*.md')
 DISPATCH_REF="$SCRIPT_DIR/../../skills/autopilot/references/dispatch-phase-prompts.md"
 VALIDATOR_PY="$SCRIPT_DIR/_config_validator.py"
 
@@ -26,12 +30,12 @@ VALIDATOR_PY="$SCRIPT_DIR/_config_validator.py"
 echo "--- Layer 2: Phase 0 hard-block contracts ---"
 
 # L2a. Phase 0 mentions enum_errors (not just missing_keys)
-line=$(grep 'enum_errors' "$PHASE0_SKILL" || true)
+line=$("${PHASE0_GREP[@]}" 'enum_errors' "$PHASE0_SKILL" || true)
 assert_contains "L2a. Phase 0 SKILL.md mentions enum_errors" "$line" "enum_errors"
 
 # L2b. Phase 0 has hard-block semantics on valid=false
 # Checks for both "硬阻断" (hard-block) and "禁止" (forbidden) in the same file
-hard_block=$(grep -c '硬阻断' "$PHASE0_SKILL" || echo "0")
+hard_block=$("${PHASE0_GREP[@]}" -c '硬阻断' "$PHASE0_SKILL" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
 if [ "$hard_block" -ge "1" ]; then
   green "  PASS: L2b. Phase 0 mentions 硬阻断 (hard-block)"
   PASS=$((PASS + 1))
@@ -39,7 +43,7 @@ else
   red "  FAIL: L2b. Phase 0 missing 硬阻断 hard-block language"
   FAIL=$((FAIL + 1))
 fi
-forbid=$(grep -c '禁止.*进入\|禁止.*继续' "$PHASE0_SKILL" || echo "0")
+forbid=$("${PHASE0_GREP[@]}" -c '禁止.*进入\|禁止.*继续' "$PHASE0_SKILL" 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
 if [ "$forbid" -ge "1" ]; then
   green "  PASS: L2b2. Phase 0 explicitly forbids continuing on valid=false"
   PASS=$((PASS + 1))
@@ -50,7 +54,7 @@ fi
 
 # L2c. Phase 0 mentions all error categories (missing_keys, type_errors, enum_errors)
 for category in missing_keys type_errors enum_errors; do
-  line=$(grep "$category" "$PHASE0_SKILL" || true)
+  line=$("${PHASE0_GREP[@]}" "$category" "$PHASE0_SKILL" || true)
   if [ -n "$line" ]; then
     green "  PASS: L2c. Phase 0 mentions $category"
     PASS=$((PASS + 1))
