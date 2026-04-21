@@ -188,7 +188,7 @@ gates:
     after_phase_3: false     # 设计生成后自动继续
     after_phase_4: false     # 测试设计后自动继续
 
-model_routing:                   # 模型路由配置（升级为执行级路由）
+model_routing:                   # 模型路由配置（执行级路由）
   enabled: true                  # 是否启用模型路由（false 时退化为默认路由）
   default_session_model: opusplan  # 主线程默认模型
   default_subagent_model: sonnet   # 子 Agent 默认模型

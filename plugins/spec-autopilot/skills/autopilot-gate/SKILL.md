@@ -56,7 +56,7 @@ user-invocable: false
 每次从 Phase N 切换到 Phase N+1 时，**必须**执行：
 
 ```
-- [ ] Step 0: 风险报告预检（Sprint 升级新增） — 调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/risk-scan-gate.sh --change-root <change_dir> --phase N || true`，blocking_count > 0 → fail-closed；缺失 risk-report（exit 2）→ 视为 warning 不阻断（见注）
+- [ ] Step 0: 风险报告预检 — 调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/risk-scan-gate.sh --change-root <change_dir> --phase N || true`，blocking_count > 0 → fail-closed；缺失 risk-report（exit 2）→ 视为 warning 不阻断（见注）
 - [ ] Step 1: 确认阶段 N 的子 Agent 已返回 JSON 信封
 - [ ] Step 2: 验证 JSON status 为 "ok" 或 "warning"
 - [ ] Step 3: 将 JSON 写入 phase-results/phase-N-*.json（由本 Skill checkpoint 管理执行）
@@ -70,7 +70,7 @@ user-invocable: false
 
 > **Step 0 风险报告**：由 `Skill(spec-autopilot:autopilot-risk-scanner)` 在 Phase N 完成时以独立 Critic Sub-Agent 派发产出 `risk-report-phase{N}.json`；若未启用 risk-scanner（或报告缺失），`risk-scan-gate.sh` exit code 2 表示"未生成"，主线**必须**用 `|| true` 兜底以保持向后兼容（视为 warning 不阻断）。当 exit 1（blocking_count > 0）时才 fail-closed。
 >
-> **Gate 阻断时即时学习（Sprint 升级新增）**：任一 Step 判为 blocked/failed 时，立即调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-episode-write.sh --phase phase{N} --checkpoint <checkpoint_path> --version <version>` 写入 episode（status / mode / failure_trace 由脚本从 checkpoint JSON 自动解析），不必等到 Phase 7 才落盘。
+> **Gate 阻断时即时学习**：任一 Step 判为 blocked/failed 时，立即调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-episode-write.sh --phase phase{N} --checkpoint <checkpoint_path> --version <version>` 写入 episode（status / mode / failure_trace 由脚本从 checkpoint JSON 自动解析），不必等到 Phase 7 才落盘。
 
 ### Step 5.5 CLAUDE.md 变更感知
 

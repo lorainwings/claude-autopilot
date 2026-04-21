@@ -158,7 +158,7 @@ TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试
 
 autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.passed === true`、任务清单中所有任务标记为 `[x]`
 
-### Phase 5.5：Red Team 对抗相位（Sprint 升级新增）
+### Phase 5.5：Red Team 对抗相位
 
 Phase 5 全部 task 完成后、进入 Phase 6 之前，**必须**派发独立 Critic Sub-Agent 执行 Red Team 对抗：
 

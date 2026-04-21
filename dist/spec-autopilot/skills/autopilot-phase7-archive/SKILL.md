@@ -28,7 +28,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 **进度写入**: `Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 7 summary_dispatched in_progress')`
 
-### Step 0.5: 主动学习 — Episodes 写入与候选晋升扫描（Sprint 升级新增）
+### Step 0.5: 主动学习 — Episodes 写入与候选晋升扫描
 
 归档前，对本次 autopilot 全部 phase 写入 episode 并触发 L2/L3 学习：
 

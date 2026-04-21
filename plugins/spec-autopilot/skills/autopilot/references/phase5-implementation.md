@@ -103,7 +103,7 @@
 
 ### 与 Superpowers subagent-driven 的关键差异
 
-| 维度 | Superpowers | Autopilot v3.4.0 |
+| 维度 | Superpowers | Autopilot 当前实现 |
 |------|-------------|-------------------|
 | 实施模式 | 严格串行（每次一个 subagent） | 域间并行 + 域内串行（每域 1 Agent） |
 | 并行粒度 | 独立问题域 | 域级单 Agent（backend ‖ frontend ‖ node） |
@@ -237,15 +237,15 @@ cross_cutting 串行执行
 主线程在合并所有域 Agent 的 worktree 后，逐 task 执行：
 1. 检查每个 task 的 checkpoint JSON（`phase5-tasks/task-N.json`）中 `tdd_cycle` 字段完整性
 2. 验证 `tdd_metrics` 存在且 `red_violations === 0`
-3. 验证每个 task 的 `test_intent` 非空且符合规范（WS-E 治理）
-4. 验证每个 task 的 `failing_signal` 存在且包含 `assertion_message`（WS-E 治理）
+3. 验证每个 task 的 `test_intent` 非空且符合规范
+4. 验证每个 task 的 `failing_signal` 存在且包含 `assertion_message`
 5. 如果 task checkpoint 缺少 `tdd_cycle`，标记该 task 为 `tdd_unverified`
 6. `tdd_unverified` 的 task 数 > 0 → `audit_passed = false`，阻断 Phase 6 gate（full 模式下由 L3 层硬门禁强制执行；lite/minimal 模式下降级为 warning）
 7. 全量测试验证通过后继续
 
 > **设计意图**: 并行模式下域 Agent 以 `run_in_background: true` 运行，L2 Hook 被跳过。
 > 此后置审计作为补偿机制，在合并后验证 TDD 循环完整性。
-> **WS-E 治理强化**: test_intent 和 failing_signal 从可选字段升级为门禁必检字段。
+> **治理约束**: test_intent 和 failing_signal 是门禁必检字段。
 
 ### 并行 Checkpoint 管理
 

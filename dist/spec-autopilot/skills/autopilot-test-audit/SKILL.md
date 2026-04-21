@@ -31,7 +31,7 @@ user-invocable: true
 
 ## 产物
 
-- `<project_root>/.cache/spec-autopilot/test-rot-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`（自 v5.9 迁移至 `.cache/spec-autopilot/`）
+- `<project_root>/.cache/spec-autopilot/test-rot-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`
 
 ## 退出码
 

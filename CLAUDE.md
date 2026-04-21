@@ -62,4 +62,5 @@
 - @.claude/rules/git-workflow.md
 - @.claude/rules/docs.md
 - @.claude/rules/cross-plugin.md
+- @.claude/rules/skill-authoring.md
 - @.claude/rules/forbidden.md
