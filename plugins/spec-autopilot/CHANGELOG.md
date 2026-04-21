@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.13.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.1...spec-autopilot-v5.13.2) (2026-04-21)
+
+
+### Changed
+
+* **spec-autopilot:** standardize SKILL frontmatter and flatten r… ([75ca00f](https://github.com/lorainwings/claude-autopilot/commit/75ca00f4dc10c2bfe44b927ac6fc5fe89915ed01))
+* **spec-autopilot:** standardize SKILL frontmatter and flatten references per Anthropic spec ([5c115b3](https://github.com/lorainwings/claude-autopilot/commit/5c115b3751690d4088f355c258a59148c4328294))
+
 ## [5.13.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.0...spec-autopilot-v5.13.1) (2026-04-21)
 
 
