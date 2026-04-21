@@ -125,6 +125,15 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
       echo "⚠️  Warning: Skill files modified but README.md not updated"
     fi
   fi
+
+  # CHANGELOG info-only reminder (release-please 自动维护，非阻断)
+  METADATA_PATTERNS='(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json|/docs/|/reports/)'
+  _SA_NON_META=$(echo "$_CACHED_NAMES" | grep -E '^plugins/spec-autopilot/' | grep -vE "$METADATA_PATTERNS" || true)
+  if [ -n "$_SA_NON_META" ]; then
+    if ! grep -q "CHANGELOG.md" <<< "$_CACHED_NAMES"; then
+      echo "ℹ️  Plugin code modified but CHANGELOG.md not updated (release-please will handle this)"
+    fi
+  fi
 fi
 
 # ============================================
