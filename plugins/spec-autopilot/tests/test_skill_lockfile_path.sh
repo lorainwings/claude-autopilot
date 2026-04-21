@@ -34,8 +34,9 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 50d: Recovery SKILL.md also uses absolute path
-recovery_line=$(grep 'autopilot-active' "$RECOVERY_FILE" || true)
+# 50d: Recovery skill (SKILL.md + references/) also uses absolute path
+RECOVERY_DIR="$(dirname "$RECOVERY_FILE")"
+recovery_line=$(grep -rh 'autopilot-active' "$RECOVERY_FILE" "$RECOVERY_DIR/references" 2>/dev/null | head -1 || true)
 assert_contains "50d: Recovery skill uses absolute path" "$recovery_line" '\${session_cwd}'
 
 # 50e: Gate SKILL.md also uses absolute path
