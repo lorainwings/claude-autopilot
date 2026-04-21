@@ -117,7 +117,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 > **必要性**: Phase 0/1 此前未接入 Event Bus，导致 GUI 在 Phase 2 之前无任何数据。此步骤确保 `events.jsonl` 在 GUI 服务器启动后立即创建，且 Phase 0 生命周期事件对 GUI 可见。
 
-### Step 4.6: 注入历史教训（Sprint 升级新增 — 主动学习 Phase 0 入口）
+### Step 4.6: 注入历史教训（主动学习 Phase 0 入口）
 
 Banner 渲染完成后、dispatch Phase 1 之前，读取 `autopilot-lessons` 语料，把 top-3 与当前需求相似的历史教训注入后续 dispatch prompt。
 

@@ -32,7 +32,7 @@ user-invocable: false
 
 ## 产物
 
-- `<project_root>/.cache/spec-autopilot/drift-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`（自 v5.9 迁移至 `.cache/spec-autopilot/`）
+- `<project_root>/.cache/spec-autopilot/drift-candidates.json` —— `{timestamp, checks:[{rule_id, severity, source_file, target_file, reason, evidence}]}`
 
 ## 忽略机制
 

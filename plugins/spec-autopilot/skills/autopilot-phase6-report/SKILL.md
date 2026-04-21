@@ -21,7 +21,7 @@ autopilot-gate 额外验证：
 - `test-results.json` 存在
 - `zero_skip_check.passed === true`
 - 任务清单中所有任务标记为 `[x]`
-- **Red Team 反例全绿（Sprint 升级新增）**：若 `openspec/changes/{change_name}/context/redteam-report.json` 存在，其中所有 `reproducers[*].status` 必须为 `green`。任一 `blocking: true` 且非 green 的反例 → 硬阻断 Phase 6 进入（对应 rubric 校验条 `P6-FEAT-006`）。
+- **Red Team 反例全绿**：若 `openspec/changes/{change_name}/context/redteam-report.json` 存在，其中所有 `reproducers[*].status` 必须为 `green`。任一 `blocking: true` 且非 green 的反例 → 硬阻断 Phase 6 进入（对应 rubric 校验条 `P6-FEAT-006`）。
 
 ## 测试执行
 

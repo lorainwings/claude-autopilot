@@ -17,7 +17,7 @@
 
 ---
 
-## TDD 门禁结构（WS-E 治理强化）
+## TDD 门禁结构
 
 每个 TDD 周期 **必须** 记录以下字段，作为 Phase 5→6 gate 的真实门禁依据：
 
@@ -485,8 +485,8 @@ Phase 5→6 门禁额外验证（当 `tdd_mode: true`）：
 - [ ] tdd_metrics 存在
 - [ ] tdd_metrics.red_violations === 0（零 RED 违规）
 - [ ] 每个 task 的 tdd_cycle 完整（red + green 都 verified）
-- [ ] 每个 task 的 test_intent 非空且符合规范（WS-E 治理）
-- [ ] 每个 task 的 failing_signal 存在且包含 assertion_message（WS-E 治理）
+- [ ] 每个 task 的 test_intent 非空且符合规范
+- [ ] 每个 task 的 failing_signal 存在且包含 assertion_message
 - [ ] refactor_reverts 记录在案（允许 > 0，仅审计）
 ```
 

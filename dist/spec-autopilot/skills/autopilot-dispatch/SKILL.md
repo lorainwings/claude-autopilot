@@ -70,7 +70,7 @@ if ! bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/validate-agent-registry.sh" "$AGE
   exit 0
 fi
 
-# 3. 收集历史教训 + 前一阶段风险（Sprint 升级新增）
+# 3. 收集历史教训 + 前一阶段风险
 LESSONS=$(cat "$PROJECT_ROOT/openspec/changes/.autopilot-lessons.json" 2>/dev/null || echo "[]")
 PRIOR_RISKS=$(bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/feedback-loop-inject.sh" \
   --change-root "$CHANGE_DIR" --phase "$((PHASE - 1))" 2>/dev/null || echo "[]")
@@ -79,7 +79,7 @@ PRIOR_RISKS=$(bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/feedback-loop-inject.sh"
 Task(subagent_type: "$AGENT_NAME", prompt: "...含 prior_risks / lessons 注入...")
 ```
 
-### Task Envelope 扩展字段（Sprint 升级新增）
+### Task Envelope 扩展字段
 
 子 Agent 构造的 prompt 与其应返回的 JSON 信封需在现有契约基础上支持下列**可选**字段：
 
@@ -89,7 +89,7 @@ Task(subagent_type: "$AGENT_NAME", prompt: "...含 prior_risks / lessons 注入.
 | `lessons[]` | prompt 注入 | Phase 0 收集的 top-3 历史教训（`.autopilot-lessons.json`），字段 `{lesson_id, title, severity, injection_text}` |
 | `red_team_reproducers[]` | envelope 返回 | Phase 5.5 Critic Agent 返回的反例列表（文件 + 测试名） |
 
-未启用 Sprint 升级能力时，以上字段不出现即可，保持向后兼容。
+未启用对应能力时，以上字段不出现即可，保持向后兼容。
 
 ## Four-Field Task Contract（强制）
 
