@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase2-3-openspec
-description: "[ONLY for autopilot orchestrator] Phase 2-3: OpenSpec creation and Fast-Forward artifact generation. Mechanical operations dispatched as background tasks."
+description: "Use when the autopilot orchestrator main thread reaches Phase 2 or Phase 3 and must dispatch the mechanical OpenSpec change creation and Fast-Forward artifact generation as background tasks against the prepared requirements bundle. Not for direct user invocation; skip outside the orchestrator."
 user-invocable: false
 ---
 

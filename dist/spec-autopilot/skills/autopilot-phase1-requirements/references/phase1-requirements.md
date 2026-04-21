@@ -6,6 +6,26 @@
 
 **核心原则**: 绝不假设，始终列出选项由用户决策。
 
+## Contents
+
+- 1.1 获取需求来源
+- Step 1.1.5 需求信息量评估（主线程执行）
+- Step 1.1.5b 需求成熟度评估
+- Step 1.1.7 定向澄清预检
+- Step 1.1.6 需求类型分类与路由
+- 1.2 项目上下文扫描（Auto-Scan）— 并行增强
+- 1.3 技术调研（Research Agent）
+- 1.4 复杂度评估与分路（Complexity Routing）
+- 1.5 需求分析（增强版）
+- 1.5.5 结构化决策协议（Decision Protocol）
+- 1.6 多轮决策循环（LOOP）— 弹性收敛重构
+- 1.7 生成结构化提示词（上下文隔离增强）
+- 1.8 最终确认（AskUserQuestion 强制）
+- 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
+- 1.10 可配置用户确认点
+- 单路 Agent 失败统一处理（resume + 窄化重派）
+- 补充协议
+
 ---
 
 ## 1.1 获取需求来源
@@ -217,7 +237,7 @@ IF flags < 2:
 
 > **Agent 事件**：Hook 自动发射 agent_dispatch/complete 事件。SKILL.md 中的手动发射为双重保障，任一机制工作即可驱动 GUI ParallelKanban 显示 Agent 卡片。
 
-Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `references/parallel-phase1.md` 配置）。
+Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `../../autopilot/references/parallel-phase1.md` 配置）。
 
 → 详见 `phase1-requirements-detail.md`（持久化上下文检查、扫描范围、Steering Documents 模板、历史知识注入、返回信封格式）
 

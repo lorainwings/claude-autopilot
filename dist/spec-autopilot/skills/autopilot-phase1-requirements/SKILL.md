@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase1-requirements
-description: "[ONLY for autopilot orchestrator] Phase 1: Requirements understanding, multi-round decision making, parallel research dispatch, and requirement packet generation."
+description: "Use when autopilot orchestrator enters Phase 1 to understand requirements, dispatch parallel research (ScanAgent / ResearchAgent / SynthesizerAgent), drive multi-round clarification decisions with hybrid clarity scoring and challenge agents, and produce the structured requirement packet checkpoint."
 user-invocable: false
 ---
 
@@ -12,7 +12,19 @@ user-invocable: false
 
 **跳过规则**: 当 `recovery_phase > 1` 时，Phase 1 已完成，跳过整个 Phase 1 流程。直接从 `recovery_phase` 对应的阶段继续。跳过时不发射 Phase 1 事件。
 
-**执行前读取**: `references/phase1-requirements.md`（完整的 10 步流程）
+## References 按需读取清单
+
+为避免二级跳转，下表显式列出本 Skill 全部 references 及其消费时机。**只读取与当前步骤匹配的文件**，不要从 reference 内部继续下钻。
+
+| 文件 | 何时读取 | 主要内容 |
+|------|---------|---------|
+| `references/phase1-requirements.md` | Phase 1 启动前必读 | 完整 10 步主流程、决策循环骨架、退出条件 |
+| `references/phase1-requirements-detail.md` | 需要扫描/调研/分析 Agent Prompt 模板、规则引擎细则、决策卡片格式时按需读取 | Steering Documents 模板、Research Prompt、搜索决策规则、复杂度分路、需求分析 Agent Prompt、决策卡片格式 |
+| `references/phase1-clarity-scoring.md` | 进入多轮决策 LOOP（步骤 7）前读取 | 混合清晰度评分公式、维度权重、停滞检测、退出条件 |
+| `references/phase1-challenge-agents.md` | 进入多轮决策 LOOP（步骤 7）前读取 | 反面论证 / 简化者 / 本体论 三种挑战代理触发轮次与停滞干预 |
+| `references/phase1-supplementary.md` | 启用苏格拉底模式、处理崩溃恢复或决策格式校验时读取 | 苏格拉底 7 步提问、崩溃恢复矩阵、decisions 数组 Hook 验证 |
+
+> **读取规则**：references 内部不强制 Read 其他 reference；遇到"详见同目录 xxx.md"字样时，按上表自行判断是否需要补读，禁止形成二级跳转链。
 
 ## Step 0: 发射 Phase 1 开始事件（Event Bus 补全）
 
@@ -26,16 +38,16 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 2. **前置决策：Requirement Lint + 复杂度路由**（策略统一）
    - 执行 requirement lint（参见 `references/phase1-requirements.md` Step 1.1.7）
    - 如 `flags >= 2` → 先进入澄清预检（Step 1.1.7），完成后再派发调研
-   - 按 `references/parallel-phase1.md:85-93` 复杂度分级路由决定调研 agent 数量：
+   - 按 `../autopilot/references/parallel-phase1.md:85-93` 复杂度分级路由决定调研 agent 数量：
      - 低复杂度（纯 bugfix/chore）→ 单路调研（Auto-Scan only）
      - 中复杂度 → 双路调研（Auto-Scan + 技术调研）
      - 高复杂度 → 三路调研（Auto-Scan + 技术调研 + 联网搜索）
-3. **并行调研 + 串行汇总** → 读取 `references/parallel-phase1.md` 并行配置 + SynthesizerAgent 四要素契约。
+3. **并行调研 + 串行汇总** → 读取 `../autopilot/references/parallel-phase1.md` 并行配置 + SynthesizerAgent 四要素契约。
    > **Agent 事件**: Hook `auto-emit-agent-dispatch.sh` 自动为每个含 phase marker 的 Task 发射 `agent_dispatch` 事件，无需手动调用。
    > **Sub-Agent 名称硬解析协议（强制，三路独立）**: 派发前必须将 `config.phases.requirements.auto_scan.agent` / `.research.agent` / `.synthesizer.agent` 三个字段分别替换为实际已注册 Agent 名（不得留 `{{...}}` 或 `config.phases.` 字面量），并各自调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验；任一失败立即返回 blocked 信封。详见 `skills/autopilot-dispatch/SKILL.md` 之 "Sub-Agent 名称硬解析"。
    **进度写入**: Bash('AUTOPILOT_PROJECT_ROOT=$(pwd) bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress')
 
-   **Step 1.2.1** 并行派发 ScanAgent + ResearchAgent，**同一条消息内**同时发起两个 `Task(run_in_background=true)`（按复杂度路由可降级为单路 ScanAgent，详见 parallel-phase1.md 成熟度路由）：
+   **Step 1.2.1** 并行派发 ScanAgent + ResearchAgent，**同一条消息内**同时发起两个 `Task(run_in_background=true)`（按复杂度路由可降级为单路 ScanAgent，详见 `../autopilot/references/parallel-phase1.md` 成熟度路由）：
 
    ```
    ┌─ ScanAgent (config.phases.requirements.auto_scan.agent) → Steering Documents      ← 始终执行

@@ -1,7 +1,17 @@
 # Gate Checkpoint 管理操作
 
 > 本文件从 `autopilot-gate/SKILL.md` 提取，供 checkpoint 读写时按需读取。
-> JSON 信封格式、阶段额外字段等详见：`autopilot/references/protocol.md`
+> JSON 信封格式、阶段额外字段等详见：`../../autopilot/references/protocol.md`
+
+## Contents
+
+- [Checkpoint 文件命名](#checkpoint-文件命名)
+- [写入 Checkpoint](#写入-checkpoint)
+  - [JSON 格式](#json-格式)
+  - [写入确认输出](#写入确认输出)
+- [读取 Checkpoint](#读取-checkpoint)
+- [Task 级 Checkpoint（Phase 5 专用）](#task-级-checkpointphase-5-专用)
+- [扫描所有 Checkpoint](#扫描所有-checkpoint)
 
 ## Checkpoint 文件命名
 
@@ -51,14 +61,14 @@ Read phase-{N}-{slug}.json → parse JSON → confirm status field exists
 
 ### JSON 格式
 
-> 完整的 JSON 信封格式定义详见 `autopilot/references/protocol.md`。
+> 完整的 JSON 信封格式定义详见 `../../autopilot/references/protocol.md`。
 
 核心字段：`status`（ok/warning/blocked/failed）、`summary`、`artifacts`、`risks`、`next_ready`。
 `_metrics` 和 `timestamp` 由主线程写入时附加。
 
 ### 写入确认输出
 
-Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `autopilot/references/log-format.md`）：
+Checkpoint 写入成功后，**必须**输出以下格式化日志（遵循 `../../autopilot/references/log-format.md`）：
 
 ```
 [CP] phase-{N}-{slug}.json | commit: {short_sha}

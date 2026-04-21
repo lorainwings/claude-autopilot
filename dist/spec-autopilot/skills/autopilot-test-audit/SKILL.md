@@ -1,6 +1,6 @@
 ---
 name: autopilot-test-audit
-description: "Static test rot detector. Generates candidate list (.cache/spec-autopilot/test-rot-candidates.json) when deleted runtime scripts are still referenced in tests, hook files change, weak assertions appear, or duplicate case names are detected. Read-only; review the candidates manually before fixing tests. Triggers: '检测测试腐烂', 'audit tests'."
+description: "Use when the user wants a read-only static audit of test rot — for example asks to '检测测试腐烂' or 'audit tests', suspects deleted runtime scripts are still referenced in tests, hook files were renamed, weak assertions or duplicate case names may have crept in, or a candidate list at .cache/spec-autopilot/test-rot-candidates.json needs to be regenerated for manual review before any test edits."
 user-invocable: true
 ---
 

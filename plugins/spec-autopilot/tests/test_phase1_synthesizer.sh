@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_test_helpers.sh"
 
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/parallel-phase1.md"
+PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot/references/parallel-phase1.md"
 DETAIL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements-detail.md"
 SKILL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/SKILL.md"
 DISPATCH_DOC="$PLUGIN_ROOT/skills/autopilot-dispatch/references/dispatch-phase-prompts.md"

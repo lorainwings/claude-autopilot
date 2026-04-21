@@ -34,7 +34,7 @@ Markdown 文件内 HTML 注释，单条或多条逗号分隔：
 
 ## 3. 配置 fallback (`.claude/docs-ownership.yaml`)
 
-详见 [`ownership-config.md`](./ownership-config.md)。配置侧锚点 source 标记为 `config`，
+详见同目录 `ownership-config.md`（不强制 Read：本文单独自洽描述内联锚点语法；仅在需要配置 fallback 时再加载）。配置侧锚点 source 标记为 `config`，
 内联锚点 source 标记为 `inline`。同一 code 来自多个来源时 docs 列表合并去重。
 
 ## 4. 扫描产物

@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase5.5-redteam
-description: "[ONLY for autopilot orchestrator] Phase 5.5 Red Team Critic Agent injected between Phase 5 (Implement) and Phase 6 (Report). Enumerates 5 attack categories, generates executable reproducers, and writes redteam-report.json + tests/generated/redteam-*.sh."
+description: "Use when the autopilot orchestrator has completed Phase 5 implementation and must run a Red Team adversarial critic pass before Phase 6 reporting begins, validating the implementation against attack scenarios. [ONLY for autopilot orchestrator]"
 user-invocable: false
 ---
 

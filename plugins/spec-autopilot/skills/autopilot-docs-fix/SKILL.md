@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-fix
-description: "消费 .cache/spec-autopilot/drift-candidates.json 生成可应用的文档漂移修复 patch。确定性优先（R2 新脚本自动 patch），其余规则生成 .suggestion.md。绝不自动应用，由 apply-fix-patch.sh 在 git stash 保护下由人工触发。触发: '/autopilot-docs-fix scan', '修复文档漂移', 'apply doc fix'。"
+description: "Use when a user or the autopilot orchestrator needs to turn the documentation drift candidate list at .cache/spec-autopilot/drift-candidates.json into applicable fixes — producing deterministic auto patches (R2 scripts → .dist-include append) and manual .suggestion.md templates for the remaining rules. The skill never auto-applies: patches land under .cache/spec-autopilot/docs-fix-patches/ and are applied only via apply-fix-patch.sh under git stash protection on explicit human confirmation. Triggers: '/autopilot-docs-fix scan', '修复文档漂移', 'apply doc fix'."
 user-invocable: true
 ---
 
@@ -29,7 +29,7 @@ bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
   --changed-files "<space-separated-files>"
 ```
 
-或直接触发 `autopilot-docs-sync` skill。
+或等待 autopilot 主流水线 Phase 7 自动触发 docs-sync。
 
 ## 规则 → 产物映射
 

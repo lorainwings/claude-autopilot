@@ -1,5 +1,11 @@
 # Red Team Prompt Templates
 
+## Contents
+
+- [通用前缀 (System Stance)](#通用前缀-system-stance)
+- [5 类破坏 Prompt](#5-类破坏-prompt)
+- [reproducer 输出规范](#reproducer-输出规范)
+
 派发 `autopilot-phase5.5-redteam` Critic Sub-Agent 时所用的 prompt 范式。
 所有模板均以"反方红军"立场撰写，目标是**主动制造可执行反例**，而非给出建议。
 

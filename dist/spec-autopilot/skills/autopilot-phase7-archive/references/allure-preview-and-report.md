@@ -1,5 +1,10 @@
 # Allure 本地预览 + Test Report 线框
 
+## Contents
+
+- [Step 2.5: Allure 本地预览（验证+兜底模式）](#step-25-allure-本地预览验证兜底模式)
+- [Step 2.6: Test Report 线框（测试报告即时可见）](#step-26-test-report-线框测试报告即时可见)
+
 > 本文件由 `autopilot-phase7-archive/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 2.5（Allure 预览服务启动）和 Step 2.6（Test Report 线框渲染）。
 

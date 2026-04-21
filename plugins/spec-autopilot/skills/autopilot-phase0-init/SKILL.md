@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase0-init
-description: "[ONLY for autopilot orchestrator] Phase 0: Environment check, config loading, crash recovery, banner rendering, task creation, lockfile management, and anchor commit."
+description: "Use when the autopilot orchestrator main thread enters Phase 0 and must perform environment checks, load config, decide between fresh start and crash recovery, render the banner, seed the task tree, acquire the lockfile, and create the anchor commit before any downstream phase begins. Not for direct user invocation."
 user-invocable: false
 ---
 

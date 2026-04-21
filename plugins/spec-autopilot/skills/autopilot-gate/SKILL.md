@@ -1,6 +1,6 @@
 ---
 name: autopilot-gate
-description: "[ONLY for autopilot orchestrator] Gate verification + checkpoint management for autopilot phase transitions. Enforces 8-step checklist, special gates, and manages phase-results checkpoint files."
+description: "Use when the autopilot orchestrator transitions between phases (Phase N → N+1) and needs AI-side Layer 3 verification — running the 8-step checklist, applying special gates (Phase 1→2 triple check, Phase 4→5 / 5→6 TDD and test-results gates, Phase 6.5 advisory review), honoring mode-aware skip rules (full/lite/minimal), and atomically reading/writing phase-results/phase-N-*.json checkpoints with .tmp rename safety. Emits [GATE] / [CP] formatted logs; any failed step hard-blocks the next phase."
 user-invocable: false
 ---
 
@@ -152,7 +152,15 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 语义验证（soft check）和 Brownfield 三向一致性检查。
 
-**条件读取**: `references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
+**可选 References 加载清单**（仅 Phase 4→5 / 5→6 过渡时按需择一加载，互不串读）：
+
+| 场景 | 文件 | 用途 |
+|------|------|------|
+| 查看语义验证顶层流程（何时触发、如何汇总） | `references/gate-optional-validation.md` | 入口概览（软检查 + brownfield 三向） |
+| 执行语义软检查 | `references/semantic-validation.md` | 按阶段的软检查清单（AI 执行，warning 为主） |
+| 执行 Brownfield 三向一致性 | `references/brownfield-validation.md` | 设计/测试/实现三向对齐规则，受 `config.brownfield_validation.enabled` 与 `strict_mode` 控制 |
+
+> 三份 references 互为同层补充，不强制串读；仅在对应阶段过渡触发时加载其中所需的一份或多份。
 
 ## 执行模式感知
 

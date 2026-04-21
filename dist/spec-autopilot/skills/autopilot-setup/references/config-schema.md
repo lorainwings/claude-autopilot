@@ -19,7 +19,7 @@ services:
 
 phases:
   requirements:
-    agent: "general-purpose"    # [必填] 需求分析（BA）Agent。三路并行调研的 Agent 在 auto_scan/research/web_search 各自字段独立配置。推荐 OMC "analyst"。
+    agent: ""                  # [必填] 需求分析（BA）Agent。三路并行调研的 Agent 在 auto_scan/research/web_search 各自字段独立配置。推荐 OMC "analyst"。Setup 必须写入非空值（Relaxed 例外）。
     min_qa_rounds: 1
     max_rounds: 15             # 硬性安全阀：讨论最大轮数（强制结束）
     soft_warning_rounds: 8     # 软性提醒轮次：提示用户当前清晰度
@@ -95,7 +95,7 @@ phases:
     instruction_files: []      # 可选：覆盖内置 OpenSpec 创建/FF 指令
     reference_files: []        # 可选：项目自定义参考文件
   testing:
-    agent: "general-purpose"    # 推荐安装 OMC "test-engineer" Agent（/autopilot-agents install）
+    agent: ""                   # [必填] 测试设计 Agent。推荐 OMC "test-engineer"。Setup 必须写入非空值（Relaxed 例外）。
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     reference_files: []        # 可选：项目自定义参考文件
     gate:
@@ -116,15 +116,15 @@ phases:
       max_agents: 8          # 最大并行域数（建议 3-8，上限 10）
       dependency_analysis: true
       domain_detection: "auto"   # auto: 自动发现未配置的顶级目录 | explicit: 仅用 domain_agents
-      review_agent: "general-purpose"   # 批量 Review Agent（Phase 5 review + parallel-dispatch review）
-      default_agent: "general-purpose"  # 未匹配域的 fallback Agent
+      review_agent: ""                  # [必填] 批量 Review Agent（Phase 5 review + parallel-dispatch review）。推荐 OMC "code-reviewer"。
+      default_agent: ""                 # [必填] 未匹配域的 fallback Agent。推荐 OMC "executor"。
       domain_agents:             # 路径前缀 → Agent 映射（最长前缀匹配，每域 1 Agent）
         "backend/":
-          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "backend-developer"
+          agent: ""                  # 推荐安装 OMC "executor" 或 VoltAgent "backend-developer"
         "frontend/":
-          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "frontend-developer"
+          agent: ""                  # 推荐安装 OMC "executor" 或 VoltAgent "frontend-developer"
         "node/":
-          agent: "general-purpose"   # 推荐安装 OMC "executor" 或 VoltAgent "fullstack-developer"
+          agent: ""                  # 推荐安装 OMC "executor" 或 VoltAgent "fullstack-developer"
         # ---- 多技术栈项目示例 ----
         # "services/auth/":           { agent: "java-architect" }
         # "services/payment/":        { agent: "backend-developer" }
@@ -135,7 +135,7 @@ phases:
         # "apps/ios/":               { agent: "mobile-developer" }
         # "packages/":               { agent: "fullstack-developer" }
   reporting:
-    agent: "general-purpose"    # 推荐安装 OMC "qa-tester" Agent（/autopilot-agents install）
+    agent: ""                   # [必填] 测试报告 Agent。推荐 OMC "qa-tester"。
     instruction_files: []      # 可选：项目自定义指令覆盖插件内置规则
     format: "allure"         # allure | custom
     report_commands:
@@ -146,7 +146,7 @@ phases:
     zero_skip_required: true
   code_review:
     enabled: true              # Phase 6.5 代码审查（默认启用）
-    agent: "pr-review-toolkit:code-reviewer"  # 代码审查 Agent（/autopilot-agents install 可替换）
+    agent: ""                                 # [必填] 代码审查 Agent。推荐 OMC "code-reviewer"。
     auto_fix_minor: false      # 是否自动修复 minor findings
     block_on_critical: true    # critical findings 时是否要求用户显式确认（true: 展示 findings 并要求用户选择忽略/修复/暂停；false: 跳过检查直接自动归档）
     skip_patterns:             # 跳过审查的文件模式
@@ -154,10 +154,10 @@ phases:
       - "*.json"
       - "openspec/**"
   archive:
-    agent: "general-purpose"    # Phase 7 归档/知识提取 Agent
+    agent: ""                   # [必填] Phase 7 归档/知识提取 Agent。推荐 OMC "git-master"。
   redteam:                       # Phase 5.5 Red Team Critic
     enabled: true               # 是否启用 Phase 5.5（默认 true）
-    agent: "general-purpose"    # Phase 5.5 Critic Agent；推荐 OMC "code-reviewer" 或 Anthropic 官方 "red-team-critic"。禁止 Explore / 空值。
+    agent: ""                   # [必填] Phase 5.5 Critic Agent；推荐 OMC "code-reviewer" 或 Anthropic 官方 "red-team-critic"。禁止 Explore / 空值（Relaxed 例外）。
 
 test_pyramid:
   min_unit_pct: 50           # 单元测试最低占比（金字塔底层）
@@ -368,4 +368,30 @@ phases 内必须的 key:
 ```
 
 如果校验失败 → 输出缺失/错误的 key 列表，AskUserQuestion 要求用户修正后重试。
+
+### Setup 完成后 agent 字段非空校验
+
+Setup 结束时对以下 12 个 agent 字段执行终态校验：
+
+```
+phases.requirements.agent
+phases.requirements.auto_scan.agent
+phases.requirements.research.agent
+phases.requirements.research.web_search.agent
+phases.requirements.synthesizer.agent
+phases.openspec.agent
+phases.testing.agent
+phases.implementation.parallel.default_agent
+phases.implementation.parallel.review_agent
+phases.redteam.agent
+phases.reporting.agent
+phases.code_review.agent
+phases.archive.agent
+```
+
+**规则**：
+
+- **Strict / Moderate 预设**：任一字段为空（`""`）或为 `"general-purpose"` → 视为 setup 未完成，输出未完成清单并引导用户继续配置（选项：立即安装推荐 agent / 降级但显式确认 / 暂存）。
+- **Relaxed 预设**（`phase_agents_strategy == "fallback_general_purpose"`）：显式允许 `"general-purpose"` 作为 fallback；仍警告 `""` 空值。
+- `phases.requirements.*` 四字段（BA + 三路）额外禁止 `"Explore"`（见 Step 5.3）。
 

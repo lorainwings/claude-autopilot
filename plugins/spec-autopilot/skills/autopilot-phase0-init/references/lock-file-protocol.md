@@ -44,7 +44,7 @@ ${session_cwd}/openspec/changes/.autopilot-active
 
 ## 日志格式
 
-遵循 `autopilot/references/log-format.md` 规范：
+遵循 `../../autopilot/references/log-format.md` 规范：
 
 ```
 [LOCK] created: .autopilot-active

@@ -17,7 +17,7 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 # === 1. Verify tdd-cycle.md documents test_intent ===
-TDD_DOC="$PLUGIN_ROOT/skills/autopilot/references/tdd-cycle.md"
+TDD_DOC="$PLUGIN_ROOT/skills/autopilot-phase5-implement/references/tdd-cycle.md"
 if [ -f "$TDD_DOC" ]; then
   tdd_content=$(cat "$TDD_DOC")
   assert_contains "1a. tdd-cycle.md documents test_intent" "$tdd_content" "test_intent"

@@ -1,6 +1,6 @@
 ---
 name: autopilot-agents
-description: "Discover, install and configure AI agents for autopilot phases from community sources (OMC, Anthropic official, VoltAgent, etc.). Supports install/list/swap/recommend/sources modes."
+description: "Use when the user wants to discover, install, list, hot-swap, or get recommendations for phase-specific autopilot sub-agents sourced from community catalogs (OMC, Anthropic official, VoltAgent, etc.), or when the autopilot setup flow needs to resolve a missing agent for a given phase."
 argument-hint: "[install | list | swap <phase> <agent> | recommend | sources]"
 ---
 

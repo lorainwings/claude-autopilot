@@ -1,5 +1,15 @@
 # Testing Anti-Patterns Guide
 
+## Contents
+
+- [Anti-Pattern 1: Testing Mock Behavior](#anti-pattern-1-testing-mock-behavior)
+- [Anti-Pattern 2: Test-Only Methods in Production](#anti-pattern-2-test-only-methods-in-production)
+- [Anti-Pattern 3: Mocking Without Understanding](#anti-pattern-3-mocking-without-understanding)
+- [Anti-Pattern 4: Incomplete Mocks](#anti-pattern-4-incomplete-mocks)
+- [Anti-Pattern 5: Integration Tests as Afterthought](#anti-pattern-5-integration-tests-as-afterthought)
+- [Gate Function 检查表（TDD 子 Agent 自查）](#gate-function-检查表tdd-子-agent-自查)
+- [注入时机](#注入时机)
+
 > 本文档定义 5 种常见测试反模式及其 Gate Function 检查表。
 > 在 TDD RED step 的子 Agent prompt 中注入，帮助避免常见陷阱。
 > 来源: Superpowers testing-anti-patterns.md，适配 autopilot Phase 体系。

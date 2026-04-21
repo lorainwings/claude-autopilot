@@ -1,6 +1,6 @@
 ---
 name: autopilot-risk-scanner
-description: "[ONLY for autopilot orchestrator] Adversarial Critic Agent dispatched before each phase gate. Scores phase artifacts against structured rubrics and writes risk-report-phase{N}.json into the change context for downstream gate prechecks."
+description: "Use when the autopilot orchestrator dispatches an adversarial Critic sub-agent just before a phase gate and needs that sub-agent to score the phase artifacts against structured rubrics and emit risk-report-phase{N}.json into the change context for downstream gate prechecks. ONLY for autopilot orchestrator; not for direct user invocation; skip when running outside the dispatched Critic context."
 user-invocable: false
 ---
 

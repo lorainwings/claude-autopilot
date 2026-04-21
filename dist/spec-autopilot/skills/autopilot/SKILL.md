@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: "Full autopilot orchestrator: requirements → OpenSpec → implementation → testing → reporting → archive. Triggers: '全自动开发流程', '一键从需求到交付', '启动autopilot'. NOT for single-phase tasks like /opsx:apply or /opsx:ff."
+description: "Use when the user requests an end-to-end delivery pipeline that spans requirements gathering, OpenSpec design, implementation, testing, reporting and archive — for example phrases like '全自动开发流程'、'一键从需求到交付'、'启动 autopilot'、'autopilot full/lite/minimal'，或者需要把一个 PRD / 需求描述一次性驱动经过 Phase 0-7 的完整流水线。Do NOT use for single-phase tasks such as /opsx:apply or /opsx:ff, nor for partial fixes that only touch one phase."
 argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default)|lite|minimal"
 ---
 
@@ -12,29 +12,11 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 ## 执行模式
 
-支持 3 种执行模式，按任务规模选择：
+支持 3 种模式（`full` / `lite` / `minimal`），按任务规模选择。**模式只控制阶段跳过，不影响阶段质量**：Phase 1（需求讨论）与 Phase 5（实施）在所有模式下执行完全相同的流程。
 
-| 模式 | 阶段 | 跳过内容 | 适用场景 |
-|------|------|---------|---------|
-| **full** | 0→1→2→3→4→5→6→7 | 无 | 中大型功能，需要完整规范 |
-| **lite** | 0→1→5→6→7 | OpenSpec（Phase 2/3/4） | 小功能，需求明确，跳过规范文档 |
-| **minimal** | 0→1→5→7 | OpenSpec + 测试（Phase 2/3/4/6） | 极简需求，跳过规范和测试报告 |
+模式解析优先级：`$ARGUMENTS 首 token` > `config.default_mode` > `full`。
 
-### 核心约束：模式只控制阶段跳过，不影响阶段质量
-
-**Phase 1（需求讨论）和 Phase 5（实施）在所有模式下执行完全相同的流程，无任何简化或跳过。**
-
-### 模式解析优先级
-
-```
-1. $ARGUMENTS 关键词匹配: "lite"/"minimal"/"full" → 直接使用
-2. config.default_mode → 配置默认值
-3. 未指定 → "full"
-
-解析: $ARGUMENTS = "[mode_keyword] [actual_requirement]"
-  - 首个 token 匹配 full|lite|minimal → 提取为 mode，剩余为需求
-  - 不匹配 → mode 从 config 读取，整体为需求
-```
+详细的阶段序列、跳过规则、任务来源、路径选择逻辑见 `references/mode-routing-table.md`。
 
 ## 配置加载
 
@@ -86,10 +68,14 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | `references/mode-routing-table.md` | 三种模式的阶段序列、跳过规则、路径选择（声明式表格） |
 | `references/parallel-dispatch.md` | 跨阶段通用并行编排协议（核心协议） |
 | `references/parallel-phase5.md` | Phase 5 并行实施的配置与 dispatch 模板（共享引用） |
-| `../autopilot-phase1-requirements/references/parallel-phase1.md` | Phase 1 并行调研配置（归 autopilot-phase1-requirements） |
-| `../autopilot-phase4-testcase/references/parallel-phase4.md` | Phase 4 并行测试设计配置（归 autopilot-phase4-testcase） |
-| `../autopilot-phase6-report/references/parallel-phase6.md` | Phase 6 并行测试执行配置（归 autopilot-phase6-report） |
+| `references/parallel-phase1.md` | Phase 1 并行调研配置（共享 SHARED） |
+| `references/parallel-phase4.md` | Phase 4 并行测试设计配置（共享 SHARED） |
+| `references/parallel-phase6.md` | Phase 6 并行测试执行配置（共享 SHARED） |
+| `references/protocol.md` | JSON 信封契约 / 结构化标记 / 模型路由 / Checkpoint / 特殊门禁 |
+| `references/phase5-implementation.md` | Phase 5 串行/并行实施详细流程（按需加载） |
+| `references/event-bus-api.md` | GUI Event Bus API 规范（被 docs/ 与 runtime/ 间接消费） |
 | `references/log-format.md` | 统一日志格式规范 |
+| `references/guardrails.md` | 护栏约束清单 + 错误处理 + 上下文压缩恢复协议 |
 
 ## 阶段总览
 
@@ -164,49 +150,25 @@ Phase 1 关键约束摘要（详见 autopilot-phase1 Skill）：
 
 对于每个 Phase N（2 ≤ N ≤ 6），在**主线程**中执行以下通用步骤。各 Phase 的特殊处理通过对应 Phase Skill 加载：
 
-- **Phase 2-3 特殊处理**: 调用 Skill(`spec-autopilot:autopilot-phase2-3-openspec`)，使用**联合调度快速路径**（见下方）
-- **Phase 4 特殊处理**: 调用 Skill(`spec-autopilot:autopilot-phase4-testcase`)
-- **Phase 5 特殊处理**: 调用 Skill(`spec-autopilot:autopilot-phase5-implement`)
-  - 路径 B 串行模式逐个派发前台 Task（同步阻塞），每个 task 完成后写入 `phase5-tasks/task-N.json` checkpoint
-  - 崩溃恢复时扫描 `phase5-tasks/task-*.json` 实现细粒度恢复
-- **Phase 6 特殊处理**: 调用 Skill(`spec-autopilot:autopilot-phase6-report`)
+- **Phase 2-3**: 调用 Skill(`spec-autopilot:autopilot-phase2-3-openspec`)，采用**联合调度快速路径**（见下方）
+- **Phase 4**: 调用 Skill(`spec-autopilot:autopilot-phase4-testcase`)
+- **Phase 5**: 调用 Skill(`spec-autopilot:autopilot-phase5-implement`)；串行模式逐个派发前台 Task（同步阻塞），每个 task 完成后写入 `phase5-tasks/task-N.json` checkpoint；崩溃恢复时扫描 `phase5-tasks/task-*.json` 实现细粒度恢复
+- **Phase 6**: 调用 Skill(`spec-autopilot:autopilot-phase6-report`)
 
 ### Phase 2-3 联合调度快速路径（性能优化）
 
-Phase 2 和 Phase 3 共享同一 Agent (Plan) 和 Tier (fast/haiku)，且 Phase 2 输出即 Phase 3 输入。采用联合调度快速路径，**合并为单次 gate + 单次 model routing + 两个串行 background Task**，消除 Phase 3 的冗余 gate/dispatch/event 开销：
+Phase 2 与 Phase 3 共享同一 Agent (Plan) 和 Tier (fast/haiku)，且 Phase 2 输出即 Phase 3 输入。采用联合调度快速路径，**合并为单次 gate + 单次 model routing + 两个串行 background Task**，消除 Phase 3 的冗余 gate/dispatch/event 开销：
 
-```
-Fast-Step 0: 发射 Phase 2 开始事件
-             → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start 2 {mode}')
-Fast-Step 1: 简化 Gate 验证
-             → 仅验证 Phase 1 checkpoint exists + status ok/warning（Hook L2 自动完成）
-             → 调用 Skill("spec-autopilot:autopilot-gate") 但**跳过** Step 5.5 (CLAUDE.md变更检测)、
-               特殊门禁（Phase 2 无特殊门禁）
-             → Gate 通过后输出: [GATE] Phase 1 → 2: PASSED
-Fast-Step 2: 单次 resolve-model-routing.sh
-             → Phase 2 和 3 共享此路由结果，不再为 Phase 3 重复调用
-Fast-Step 3: 调用 Skill("spec-autopilot:autopilot-dispatch") 构造 Phase 2 prompt
-Fast-Step 4: 派发 Phase 2 Task (run_in_background: true)
-             → 等待完成 → 解析 JSON 信封
-             → ok/warning → 继续; blocked/failed → 终止，不进入 Phase 3
-Fast-Step 5: 派发后台 Checkpoint Agent 写入 phase-2-openspec.json + git fixup
-             → 发射 Phase 2 结束事件 + Phase 3 开始事件
-Fast-Step 6: 直接构造 Phase 3 prompt（复用 Fast-Step 2 的路由结果）
-             → **无需**再次调用 Skill("autopilot-gate")（Phase 2 checkpoint 由 Hook L2 自动验证）
-             → **无需**再次调用 resolve-model-routing.sh
-             → **无需** GUI 健康检查
-Fast-Step 7: 派发 Phase 3 Task (run_in_background: true)
-             → 等待完成 → 解析 JSON 信封
-Fast-Step 8: 派发后台 Checkpoint Agent 写入 phase-3-ff.json + git fixup
-             → 发射 Phase 3 结束事件
-             → Context save（合并 Phase 2+3 为一次 save-phase-context.sh）
-Fast-Step 9: 等待 Checkpoint Agent 完成 → 立即继续下一 Phase
-```
+1. 发射 Phase 2 开始事件 → `emit-phase-event.sh phase_start 2 {mode}`
+2. 简化 Gate 验证：仅验证 Phase 1 checkpoint exists + status ok/warning（Hook L2 完成），调用 Skill(`autopilot-gate`) 但**跳过** Step 5.5 (CLAUDE.md 变更检测) 与特殊门禁
+3. 单次 `resolve-model-routing.sh`，Phase 2/3 共享
+4. 调用 Skill(`autopilot-dispatch`) 构造 Phase 2 prompt → 派发 Phase 2 Task（`run_in_background: true`）→ 等待 JSON 信封；ok/warning 继续，blocked/failed 终止
+5. 后台 Checkpoint Agent 写入 `phase-2-openspec.json` + git fixup；发射 Phase 2 结束 + Phase 3 开始事件
+6. 直接构造 Phase 3 prompt（复用 Step 3 路由），**无需**再次调用 `autopilot-gate` / `resolve-model-routing.sh` / GUI 健康检查（L2 Hook 仍确保 Phase 2 checkpoint 已写入）
+7. 派发 Phase 3 Task → 后台 Checkpoint Agent 写入 `phase-3-ff.json` + 合并 save-phase-context → 发射 Phase 3 结束事件
+8. 等待 Checkpoint Agent 完成 → 立即继续下一 Phase
 
-> **消除的冗余操作**: 1× Skill("autopilot-gate") 192 行注入 + 5× 参考文件 Read + 1× resolve-model-routing.sh + 1× emit-model-routing-event.sh + 2× GUI 健康检查 + 1× 独立 Checkpoint Agent。
-> **保留的约束**: L2 Hook (check-predecessor-checkpoint.sh) 在 Phase 3 Task 派发时仍自动触发，确保 Phase 2 checkpoint 已写入。三层门禁系统不受影响。
-
-### Phase 4-6 通用调度模板
+> **消除的冗余**: 1× gate 注入 + 5× 参考 Read + 1× resolve-model-routing + 1× emit-model-routing + 2× GUI 健康检查 + 1× 独立 Checkpoint Agent。三层门禁系统不受影响。
 
 ### Phase 4-6 通用调度模板
 
@@ -214,44 +176,33 @@ Fast-Step 9: 等待 Checkpoint Agent 完成 → 立即继续下一 Phase
 
 ```
 Step -1: 恢复跳过前置检查
-        → 当 recovery_phase 已设定时，检查当前 Phase N 是否需要跳过：
-          - N < recovery_phase → 跳过整个 Phase N
-          - N == recovery_phase → 从该阶段开始恢复执行
-          - N > recovery_phase → 正常执行
+        → 当 recovery_phase 已设定时：N < recovery_phase 跳过；
+          N == recovery_phase 从该阶段开始恢复；N > recovery_phase 正常执行
         → 跳过的 Phase 不发射 phase_start/phase_end 事件
 Step -0.5: GUI 健康检查（自动恢复，端口透传）
         → Bash('AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_port+1} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
-Step 0: 发射 Phase 开始事件
-        → Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start {N} {mode}')
+Step 0: 发射 Phase 开始事件 → emit-phase-event.sh phase_start {N} {mode}
 Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
         → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
-        → Gate 通过/阻断后发射对应事件 + 进度写入
-        → 阻断时启动决策轮询（双向反控）
-Step 1.5: 检查可配置用户确认点（仅当 config.gates.user_confirmation.after_phase_{N} === true 时，默认全部 false）
-        → IF `after_phase_{N} === true`: AskUserQuestion 确认后继续
-        → ELSE: **直接跳过 Step 1.5 进入 Step 2**，不得执行 AskUserQuestion
+        → Gate 通过/阻断后发射对应事件 + 进度写入；阻断时启动决策轮询（双向反控）
+Step 1.5: 可配置用户确认点（仅 after_phase_{N} === true 时生效，默认全部 false；else 分支直接跳过 Step 1.5 进入 Step 2）
 Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
         → 按协议构造 Task prompt（注入 instruction_files、reference_files）
-Step 3: 使用 Task 工具派发子 Agent
-        → prompt 开头必须包含 <!-- autopilot-phase:N --> 标记
-        → Hook 脚本自动校验前置 checkpoint 和返回 JSON
-        → 进度写入
-        → Hook `auto-emit-agent-dispatch.sh` 和 `auto-emit-agent-complete.sh` 自动发射 Agent 生命周期事件，主线程无需显式调用 emit 脚本
-Step 4: 解析子 Agent 返回的 JSON 信封
+Step 3: Task 工具派发子 Agent（prompt 开头需 <!-- autopilot-phase:N --> 标记）
+        → Hook 脚本自动校验前置 checkpoint 与返回 JSON
+        → auto-emit-agent-dispatch / auto-emit-agent-complete 自动发射生命周期事件
+Step 4: 解析子 Agent JSON 信封
         → ok → 继续 | warning → 继续（Phase 4 例外）| blocked/failed → 暂停
 Step 4.7: GUI 周期性健康检查（Phase 5 长任务保活）
-Step 5+7: 派发后台 Checkpoint Agent（原子写入 + 状态隔离）
-        → Checkpoint 写入 + git fixup commit 合并为后台 Agent
+Step 5+7: 后台 Checkpoint Agent（原子写入 + 状态隔离）
         → Checkpoint 写入**必须使用 Bash 工具**（非 Write 工具）
         → **必须使用 `git add -A`**（自动尊重 .gitignore）
-        → **禁止显式 `git add` 锁文件 `.autopilot-active`** — git add -A 自动尊重 .gitignore
+        → **禁止显式 `git add` 锁文件 `.autopilot-active`**
 Step 6: TaskUpdate Phase N → completed
 Step 6.5: 发射 Phase 结束事件
-Step 6.6: 上下文使用率提示（上下文压缩预警）
-Step 6.7: 保存上下文快照（占位符修复）
-        → 从子 Agent JSON 信封提取实际内容填入 save-phase-context.sh 参数
-Step 8: 等待 Step 5+7 后台 Agent 完成通知
-        → 确认 checkpoint 已持久化后，**立即**继续下一 Phase
+Step 6.6: 上下文使用率提示（压缩预警）
+Step 6.7: 保存上下文快照（占位符修复；从子 Agent JSON 信封填入 save-phase-context.sh 参数）
+Step 8: 等待 Step 5+7 后台 Agent 完成通知 → 立即继续下一 Phase
 ```
 
 ---

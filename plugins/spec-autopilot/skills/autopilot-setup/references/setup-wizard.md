@@ -45,6 +45,7 @@ strict:
   phases.implementation.parallel.enabled: true       # Strict 默认启用并行
   phases.implementation.parallel.domain_agents_strategy: "recommended"  # 自动安装推荐域 Agent
   phase1_agent_strategy: "recommended"               # Step 5.3 自动应用三路推荐预设
+  phase_agents_strategy: "recommended"               # Step 5.3.6 自动一键安装 Phase 2-7 推荐 agent
   phases.reporting.coverage_target: 80
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
@@ -66,6 +67,7 @@ moderate:
   phases.implementation.parallel.enabled: false      # Moderate 默认不启用并行
   phases.implementation.parallel.domain_agents_strategy: "ask"  # 提示用户选择
   phase1_agent_strategy: "ask"                       # Step 5.3 弹 AskUserQuestion 让用户三路各自选
+  phase_agents_strategy: "ask"                       # Step 5.3.6 Phase 2-7 每字段交互式选择
   phases.reporting.coverage_target: 60
   phases.reporting.zero_skip_required: true
   phases.code_review.enabled: true
@@ -87,6 +89,7 @@ relaxed:
   phases.implementation.parallel.enabled: false      # Relaxed 默认不启用并行
   phases.implementation.parallel.domain_agents_strategy: "skip"  # 跳过域 Agent 配置
   phase1_agent_strategy: "fallback_general_purpose"  # Step 5.3 四字段全填 general-purpose（仍须用户确认）
+  phase_agents_strategy: "fallback_general_purpose"  # Step 5.3.6 Phase 2-7 全填 general-purpose
   phases.reporting.coverage_target: 40
   phases.reporting.zero_skip_required: false
   phases.code_review.enabled: false
@@ -148,6 +151,38 @@ IF domain_agents_strategy == "skip":
   → Step 5.3.5 输出 "跳过域 Agent 配置（Relaxed 模式）"
   → 所有 domain_agents 保持 general-purpose
   → 适用场景: Relaxed 预设，快速原型
+```
+
+### phase_agents_strategy 预设行为
+
+`phase_agents_strategy` 是 Wizard 内部指令（不写入 config YAML），控制 Step 5.3.6（Phase 2-7 共 8 个 agent 字段）配置流程：
+
+```
+覆盖字段：
+  phases.openspec.agent
+  phases.testing.agent
+  phases.implementation.parallel.default_agent
+  phases.implementation.review_agent
+  phases.redteam.agent
+  phases.reporting.agent
+  phases.code_review.agent
+  phases.archive.agent
+
+推荐预设来源：../autopilot-agents/references/recommend-mode.md
+
+IF phase_agents_strategy == "recommended":
+  → 自动检测推荐 agent 是否安装；缺失自动调用 /autopilot-agents install 一键安装后写入
+  → 全部完成后输出汇总表，不弹 AskUserQuestion
+  → 适用场景: Strict 预设
+
+IF phase_agents_strategy == "ask":
+  → 8 个字段逐个 AskUserQuestion，候选未安装时提供 "立即安装 / 保持空字段 / 降级 general-purpose" 三选一
+  → 推荐预设标 Recommended 排首位
+  → 适用场景: Moderate 预设
+
+IF phase_agents_strategy == "fallback_general_purpose":
+  → 8 个字段全部默认写 "general-purpose"，不安装任何社区 agent
+  → 适用场景: Relaxed 预设（快速原型）
 ```
 
 ## Wizard 完成后输出

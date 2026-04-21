@@ -1,6 +1,6 @@
 ---
 name: autopilot-setup
-description: "Initialize autopilot config by scanning project structure. Auto-detects tech stack, services, and test suites to generate .claude/autopilot.config.yaml."
+description: "Use when a user initializes autopilot in a project that lacks .claude/autopilot.config.yaml, requests /autopilot-setup, asks to bootstrap autopilot configuration, or needs autopilot to detect project tech stack, services, agents, and test suites for the first time."
 argument-hint: "[可选: 项目根目录路径] [--non-interactive 跳过向导]"
 ---
 
@@ -111,6 +111,54 @@ ELSE:
 ```
 
 > 域级 Agent 配置是可选步骤，跳过不影响 autopilot 功能。未配置时使用 default_agent (fallback)。
+
+### Step 5.3.6: Phase 2-7 Agent 配置引导（必须执行）
+
+在 Step 5.3 / 5.3.5 之后，遍历以下 8 个 Phase 2-7 关键 agent 字段，逐个执行 "scan candidates → 推荐预设 → AskUserQuestion 选择 → 写 config"：
+
+| 字段 | 推荐预设（来源 `../autopilot-agents/references/recommend-mode.md`） |
+|------|------|
+| `phases.openspec.agent` | OMC `planner` |
+| `phases.testing.agent` | OMC `test-engineer` |
+| `phases.implementation.parallel.default_agent` | OMC `executor` |
+| `phases.implementation.review_agent`（即 `parallel.review_agent`） | OMC `code-reviewer` |
+| `phases.redteam.agent` | OMC `code-reviewer`（备选 Anthropic `red-team-critic`） |
+| `phases.reporting.agent` | OMC `qa-tester` |
+| `phases.code_review.agent` | OMC `code-reviewer` |
+| `phases.archive.agent` | OMC `git-master` |
+
+**Wizard 分支控制**（参见 `references/setup-wizard.md` 的 `phase_agents_strategy`）：
+
+```
+IF phase_agents_strategy == "recommended":
+  → 对每个字段：若推荐 agent 已安装则直接写入，否则自动调用
+    Skill("spec-autopilot:autopilot-agents" "install") 后写入（不弹 AskUserQuestion）
+  → 输出汇总表
+
+ELIF phase_agents_strategy == "fallback_general_purpose":
+  → 所有 8 字段默认写 "general-purpose"，供用户后续手动替换
+
+ELSE (phase_agents_strategy == "ask" 或未指定):
+  # 标准交互流程
+  FOR field IN 上述 8 个字段:
+    # 1. 扫描已安装候选（同 Step 5.3 规则，含 plugin:agent 命名空间）
+    # 2. 计算推荐 agent 是否已安装
+    IF 推荐 agent 未安装:
+      → AskUserQuestion: "{field} 推荐使用 {recommended_agent}，当前未安装。如何处理？"
+        选项:
+        - "立即安装（调用 autopilot-agents install-mode）" →
+            Skill("spec-autopilot:autopilot-agents" "install") 完成后写入推荐 agent
+        - "保持空字段稍后手动安装" → 写入 ""（Schema 校验会提示未完成）
+        - "降级 general-purpose" → 写入 "general-purpose"
+    ELIF 候选为 1 个（仅推荐 agent）:
+      → 直接写入推荐 agent，输出 "✓ {field}: {agent}"
+    ELSE:
+      → AskUserQuestion: "选择 {field} 使用的 agent：" 选项=候选列表（推荐标 Recommended 首位，
+        始终追加 "立即安装其它推荐" / "保持空字段" 两个特殊选项）
+      → 写入用户选择
+```
+
+**二次校验**：写入后若某字段为空且当前预设非 Relaxed/fallback_general_purpose → 输出警告并记录到 Schema 校验清单（见 Step 6）。
 
 ### Step 5.4: 模型路由引导
 

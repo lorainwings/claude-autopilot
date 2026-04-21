@@ -25,7 +25,7 @@ PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 # shellcheck disable=SC1091
 source "$TEST_DIR/_test_helpers.sh"
 
-PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/parallel-phase1.md"
+PARALLEL_DOC="$PLUGIN_ROOT/skills/autopilot/references/parallel-phase1.md"
 PHASE1_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/references/phase1-requirements.md"
 SKILL_DOC="$PLUGIN_ROOT/skills/autopilot-phase1-requirements/SKILL.md"
 DISPATCH_DOC="$PLUGIN_ROOT/skills/autopilot-dispatch/references/dispatch-phase-prompts.md"
