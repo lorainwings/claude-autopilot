@@ -143,7 +143,7 @@ fi
 ### 【路径 C — TDD 模式】（`tdd_mode: true` 且模式为 `full`）
 
 **优先于路径 A/B，与 parallel.enabled 配合使用。**
-**执行前读取**: `autopilot/references/tdd-cycle.md` + `autopilot/references/testing-anti-patterns.md`
+**执行前读取**: `autopilot/references/tdd-cycle.md` + `references/testing-anti-patterns.md`
 
 - **串行 TDD**（`parallel.enabled: false`）：每个 task 3 个 sequential Task (RED→GREEN→REFACTOR)。主线程写入 `.tdd-stage` 文件供 L2 Hook 确定性拦截。详见 `autopilot/references/tdd-cycle.md` 串行 TDD 章节。
 - **并行 TDD**（`parallel.enabled: true`）：域 Agent prompt 注入完整 TDD 纪律。合并后主线程执行全量测试验证。详见 `autopilot/references/tdd-cycle.md` 并行 TDD 章节。
@@ -158,7 +158,7 @@ TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试
 
 autopilot-gate 额外验证：`test-results.json` 存在、`zero_skip_check.passed === true`、任务清单中所有任务标记为 `[x]`
 
-### Phase 5.5：Red Team 对抗相位（Sprint 升级新增）
+### Phase 5.5：Red Team 对抗相位
 
 Phase 5 全部 task 完成后、进入 Phase 6 之前，**必须**派发独立 Critic Sub-Agent 执行 Red Team 对抗：
 

@@ -56,7 +56,7 @@ user-invocable: false
 每次从 Phase N 切换到 Phase N+1 时，**必须**执行：
 
 ```
-- [ ] Step 0: 风险报告预检（Sprint 升级新增） — 调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/risk-scan-gate.sh --change-root <change_dir> --phase N || true`，blocking_count > 0 → fail-closed；缺失 risk-report（exit 2）→ 视为 warning 不阻断（见注）
+- [ ] Step 0: 风险报告预检 — 调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/risk-scan-gate.sh --change-root <change_dir> --phase N || true`，blocking_count > 0 → fail-closed；缺失 risk-report（exit 2）→ 视为 warning 不阻断（见注）
 - [ ] Step 1: 确认阶段 N 的子 Agent 已返回 JSON 信封
 - [ ] Step 2: 验证 JSON status 为 "ok" 或 "warning"
 - [ ] Step 3: 将 JSON 写入 phase-results/phase-N-*.json（由本 Skill checkpoint 管理执行）
@@ -70,7 +70,7 @@ user-invocable: false
 
 > **Step 0 风险报告**：由 `Skill(spec-autopilot:autopilot-risk-scanner)` 在 Phase N 完成时以独立 Critic Sub-Agent 派发产出 `risk-report-phase{N}.json`；若未启用 risk-scanner（或报告缺失），`risk-scan-gate.sh` exit code 2 表示"未生成"，主线**必须**用 `|| true` 兜底以保持向后兼容（视为 warning 不阻断）。当 exit 1（blocking_count > 0）时才 fail-closed。
 >
-> **Gate 阻断时即时学习（Sprint 升级新增）**：任一 Step 判为 blocked/failed 时，立即调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-episode-write.sh --phase phase{N} --checkpoint <checkpoint_path> --version <version>` 写入 episode（status / mode / failure_trace 由脚本从 checkpoint JSON 自动解析），不必等到 Phase 7 才落盘。
+> **Gate 阻断时即时学习**：任一 Step 判为 blocked/failed 时，立即调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-episode-write.sh --phase phase{N} --checkpoint <checkpoint_path> --version <version>` 写入 episode（status / mode / failure_trace 由脚本从 checkpoint JSON 自动解析），不必等到 Phase 7 才落盘。
 
 ### Step 5.5 CLAUDE.md 变更感知
 
@@ -126,7 +126,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 **自动推进语义**: 门禁通过时，默认自动推进到下一阶段，不弹出用户确认。
 
-**条件读取**: `autopilot/references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
+**条件读取**: `references/gate-decision-polling.md`（仅 Phase 3→4, 4→5, 5→6, 6→7 过渡时读取；Phase 1→2 由快速路径处理，不需要）
 
 ### 特殊门禁
 
@@ -146,13 +146,13 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 - **TDD 完整性审计 (L3)**: 扫描 `phase5-tasks/task-N.json` 验证 tdd_cycle 完整性
 - **Phase 6.5 代码审查 (Advisory Gate)**: 可选门禁，不阻断 Phase 7 predecessor，结果在 Phase 7 汇合
 
-**条件读取**: `autopilot/references/gate-special-gates.md`（仅 Phase 4→5, Phase 5→6 过渡时读取，其他过渡无特殊门禁）
+**条件读取**: `references/gate-special-gates.md`（仅 Phase 4→5, Phase 5→6 过渡时读取，其他过渡无特殊门禁）
 
 ### 可选验证
 
 语义验证（soft check）和 Brownfield 三向一致性检查。
 
-**条件读取**: `autopilot/references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
+**条件读取**: `references/gate-optional-validation.md`（仅 Phase 4→5, Phase 5→6 过渡时读取）
 
 ## 执行模式感知
 
@@ -216,4 +216,4 @@ phase-results/
 
 Phase 5 的每个 task 完成后写入独立 checkpoint（`phase5-tasks/task-N.json`），支持细粒度恢复。
 
-**执行前读取**: `autopilot/references/gate-checkpoint-ops.md`（完整的原子写入流程 + 断电安全 + Phase 5 task 级）
+**执行前读取**: `references/gate-checkpoint-ops.md`（完整的原子写入流程 + 断电安全 + Phase 5 task 级）

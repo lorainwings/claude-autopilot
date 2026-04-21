@@ -280,7 +280,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `re
 
 **循环退出条件**: 清晰度评分达标 + 所有决策点已澄清 + 满足最低轮数。
 
-**执行前读取**: `autopilot/references/phase1-clarity-scoring.md`（混合评分系统）+ `autopilot/references/phase1-challenge-agents.md`（挑战代理协议）
+**执行前读取**: `./phase1-clarity-scoring.md`（混合评分系统）+ `./phase1-challenge-agents.md`（挑战代理协议）
 
 ### 退出条件（三条件 AND）
 

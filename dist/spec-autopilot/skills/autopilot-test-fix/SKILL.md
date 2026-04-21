@@ -9,7 +9,7 @@ user-invocable: true
 ## 用途
 
 - 消费 `autopilot-test-audit` 产出的 `.cache/spec-autopilot/test-rot-candidates.json`
-- 输出位置：`<project>/.cache/spec-autopilot/tests-fix-patches/`（**绝不写入 `tests/*.sh`**，自 v5.9 迁移至 `.cache/spec-autopilot/`）
+- 输出位置：`<project>/.cache/spec-autopilot/tests-fix-patches/`（**绝不写入 `tests/*.sh`**）
 - 修复动作分类：
   - **R1**（删除脚本仍被引用）：尝试生成确定性 patch 移除引用行；上下文复杂时退化为 suggestion
   - **R3 / R4 / R5**：生成 `.suggestion.md`（R5 附弱断言补强模板）

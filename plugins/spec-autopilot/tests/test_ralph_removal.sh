@@ -57,7 +57,7 @@ for old_key in "ralph_loop.enabled" "ralph_loop.max_iterations" "ralph_loop.fall
 done
 
 # 41f. config-schema.md uses max_retries_per_task (not max_iterations/fallback_enabled under serial_task)
-SCHEMA_FILE="$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md"
+SCHEMA_FILE="$SCRIPT_DIR/../../skills/autopilot-setup/references/config-schema.md"
 if grep -q 'max_retries_per_task' "$SCHEMA_FILE"; then
   green "  PASS: config-schema has max_retries_per_task"
   PASS=$((PASS + 1))
@@ -90,7 +90,7 @@ CORE_FILES=(
   "$SCRIPT_DIR/../../skills/autopilot-dispatch/SKILL.md"
   "$SCRIPT_DIR/../../skills/autopilot/references/phase5-implementation.md"
   "$SCRIPT_DIR/../../skills/autopilot/references/parallel-dispatch.md"
-  "$SCRIPT_DIR/../../skills/autopilot/references/config-schema.md"
+  "$SCRIPT_DIR/../../skills/autopilot-setup/references/config-schema.md"
 )
 ralph_found=false
 for f in "${CORE_FILES[@]}"; do

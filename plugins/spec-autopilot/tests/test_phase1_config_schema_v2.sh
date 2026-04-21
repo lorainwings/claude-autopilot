@@ -9,8 +9,9 @@
 #   - Phase → config key 映射表新增 requirements.synthesizer
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA_FILE="$(cd "$TEST_DIR/../skills/autopilot/references" && pwd)/config-schema.md"
+SCHEMA_FILE="$(cd "$TEST_DIR/../skills/autopilot-setup/references" && pwd)/config-schema.md"
 AGENTS_SKILL="$(cd "$TEST_DIR/../skills/autopilot-agents" && pwd)/SKILL.md"
+AGENTS_REFS_DIR="$(cd "$TEST_DIR/../skills/autopilot-agents" && pwd)/references"
 source "$TEST_DIR/_test_helpers.sh"
 
 echo "--- Phase 1 redesign: config schema v2 contract ---"
@@ -50,7 +51,8 @@ else
 fi
 
 # 3. autopilot-agents/SKILL.md install Step 4 must write phases.requirements.synthesizer.agent
-if grep -nF 'phases.requirements.synthesizer.agent' "$AGENTS_SKILL" >/dev/null; then
+# v6+: install protocol moved to references/install-mode.md — search SKILL.md + references.
+if grep -rnF 'phases.requirements.synthesizer.agent' "$AGENTS_SKILL" "$AGENTS_REFS_DIR" >/dev/null; then
   green "  PASS: 3: autopilot-agents install writes phases.requirements.synthesizer.agent"
   PASS=$((PASS + 1))
 else
@@ -59,7 +61,8 @@ else
 fi
 
 # 4. autopilot-agents/SKILL.md Phase → config key mapping table must include requirements.synthesizer
-if grep -nE 'requirements\.synthesizer|phase1-synthesizer' "$AGENTS_SKILL" >/dev/null; then
+# v6+: swap protocol moved to references/swap-mode.md — search SKILL.md + references.
+if grep -rnE 'requirements\.synthesizer|phase1-synthesizer' "$AGENTS_SKILL" "$AGENTS_REFS_DIR" >/dev/null; then
   green "  PASS: 4: Phase → config key mapping includes requirements.synthesizer"
   PASS=$((PASS + 1))
 else

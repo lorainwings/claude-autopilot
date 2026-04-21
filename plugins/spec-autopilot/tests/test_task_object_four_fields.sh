@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_test_helpers.sh"
 
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TEMPLATE_FILE="$PLUGIN_ROOT/skills/autopilot/references/dispatch-prompt-template.md"
+TEMPLATE_FILE="$PLUGIN_ROOT/skills/autopilot-dispatch/references/dispatch-prompt-template.md"
 DISPATCH_SKILL="$PLUGIN_ROOT/skills/autopilot-dispatch/SKILL.md"
 
 echo "=== Task Object Four-Field Contract Tests ==="

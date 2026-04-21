@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# pre-commit hook: run spec-autopilot test suite and doc sync check
+# pre-commit hook: 秒级反馈层（社区最佳实践：Husky + lint-staged 思路）
+#
+# 本 Hook 遵循社区最佳实践分层：
+#   pre-commit：秒级反馈（格式化、增量 lint、版本一致性）
+#   pre-push ：分钟级兜底（typecheck、dist freshness、分支同步）
+#   CI        ：全量矩阵（完整测试、多 OS、release discipline）
+#
+# 设计目标：单次 commit 耗时 < 5s。禁止在此处调用完整测试套件 / 全量 lint。
+# 若需全量，请使用 `make ci`（本地）或 CI（远端）。
 
 set -uo pipefail
 
@@ -26,63 +34,18 @@ if [[ "$_CURRENT_BRANCH" == release-please--* ]]; then
   exit 0
 fi
 
-# ============================================
-# Part 1: Hook Test Suite
-# ============================================
+# 缓存一次 staged 文件列表
+_CACHED_NAMES=$(git diff --cached --name-only || true)
 
+# ============================================
+# Part 1: spec-autopilot 快速提示 + 增量 lint
+# ============================================
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' || true)
 
 if [ -n "$STAGED" ]; then
-  echo "🧪 Plugin files changed — running full build + test suite..."
+  echo "→ 提示：CI 将运行完整测试套件（make test）。本地可选执行 'make test' 加速反馈。"
 
-  TEST_SCRIPT="plugins/spec-autopilot/tests/run_all.sh"
-
-  if [ ! -f "$TEST_SCRIPT" ]; then
-    echo "WARNING: tests/run_all.sh not found, skipping" >&2
-  else
-    # Unset git hook env vars so test subprocesses don't accidentally
-    # operate on the main repo when they create temp git repos.
-    if ! env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE bash "$TEST_SCRIPT"; then
-      echo ""
-      echo "❌ Hook tests failed. Fix the issues above before committing."
-      exit 1
-    fi
-    echo "✅ All hook tests passed."
-  fi
-
-  # ============================================
-  # Part 1.5: Targeted Test Coverage Check
-  # ============================================
-  CHANGED_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/scripts/[^/]+\.sh$' | grep -v '_common\.sh' || true)
-  TESTS_DIR="plugins/spec-autopilot/tests"
-  TEST_FILES_DIFF=$(git diff --cached --name-only -- "$TESTS_DIR" 2>/dev/null || true)
-
-  if [ -n "$CHANGED_SCRIPTS" ]; then
-    MISSING_TESTS=""
-    for script in $CHANGED_SCRIPTS; do
-      script_basename=$(basename "$script" .sh)
-      if [ -n "$TEST_FILES_DIFF" ]; then
-        if ! grep -q "test_.*${script_basename}" <<< "$TEST_FILES_DIFF"; then
-          MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}.sh\n"
-        fi
-      else
-        MISSING_TESTS="${MISSING_TESTS}  - ${script_basename}.sh\n"
-      fi
-    done
-
-    if [ -n "$MISSING_TESTS" ]; then
-      echo ""
-      echo "⚠️  Scripts modified without corresponding test updates in tests/:"
-      printf "$MISSING_TESTS"
-      echo "   Each script change should include targeted test cases."
-      echo ""
-    fi
-  fi
-
-  # ============================================
-  # Part 1.7: Staged Lint Quick-Check
-  # ============================================
-  # 使用共享脚本 scripts/run-spec-autopilot-lint.sh --files-from-stdin
+  # ── Part 1.7: Staged-only 增量 lint（秒级） ──
   # 范围与 Makefile / CI 对齐: 仅 plugins/spec-autopilot/runtime/scripts/ 一级目录
   STAGED_SA_LINT_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/runtime/scripts/[^/]+\.(sh|py)$' || true)
 
@@ -94,16 +57,12 @@ if [ -n "$STAGED" ]; then
       exit 1
     fi
   fi
-
-  echo ""
 fi
 
 # ============================================
-# Part 1.5: Engineering Auto-Sync (warn-only by default)
+# Part 1.8: Engineering Auto-Sync (warn-only by default)
 # ============================================
-# 静态检测文档漂移 + 测试过期候选，只生成 .drift-candidates.json 等候选清单，
-# 不修改源码。默认 warn（exit 0），仅当 autopilot.config.yaml
-# 的 engineering_auto_sync.enabled: true 时聚合门 block。
+# 静态检测文档漂移 + 测试过期候选，仅生成 .drift-candidates.json 等清单，不修改源码。
 ENG_SYNC_GATE="plugins/spec-autopilot/runtime/scripts/engineering-sync-gate.sh"
 if [ -x "$ENG_SYNC_GATE" ]; then
   _SA_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' | tr '\n' ' ' || true)
@@ -117,40 +76,17 @@ if [ -x "$ENG_SYNC_GATE" ]; then
 fi
 
 # ============================================
-# Part 2: Documentation & Version Consistency (read-only)
+# Part 2: Documentation & Version Consistency (read-only, 秒级)
 # ============================================
-# Strategy (keepachangelog best practice):
-#   - Developers accumulate changes under ## [Unreleased] across multiple commits
-#   - This hook only validates consistency (read-only), never modifies files
-#   - When ready to release: bash tools/release.sh <patch|minor|major> <plugin>
-
-# 先缓存一次 staged 文件列表，避免后续多次 pipe + grep -q 在 pipefail 下误判
-_CACHED_NAMES=$(git diff --cached --name-only || true)
-
 PLUGIN_CHANGED="no"
 if grep -q "plugins/spec-autopilot/" <<< "$_CACHED_NAMES"; then
   PLUGIN_CHANGED="yes"
 fi
 
 if [ "$PLUGIN_CHANGED" = "yes" ]; then
-  echo "📚 Checking documentation sync..."
-  echo ""
-
   if ! command -v jq &>/dev/null; then
     echo "❌ Error: jq is required for version checks. Install: brew install jq"
     exit 1
-  fi
-
-  # Classify: substantive code vs metadata-only
-  METADATA_PATTERNS='(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json|/docs/|/reports/)'
-  SUBSTANTIVE_PLUGIN_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/spec-autopilot/' | grep -vE "$METADATA_PATTERNS" || true)
-
-  # CHANGELOG enforcement (info-only — release-please manages changelogs automatically)
-  if [ -n "$SUBSTANTIVE_PLUGIN_FILES" ]; then
-    if ! grep -q "CHANGELOG.md" <<< "$_CACHED_NAMES"; then
-      echo "ℹ️  Plugin code modified but CHANGELOG.md not updated (release-please will handle this)"
-      echo ""
-    fi
   fi
 
   # Version consistency check (read-only: plugin.json vs README.md vs marketplace.json)
@@ -170,18 +106,16 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
     if [ -n "$VERSION_MISMATCH" ]; then
       echo "❌ Error: Version mismatch"
       echo "  plugin.json:    $PLUGIN_VERSION"
-      printf "$VERSION_MISMATCH"
+      printf '%b' "$VERSION_MISMATCH"
       echo ""
       exit 1
     fi
-    echo "✅ Version consistent: $PLUGIN_VERSION"
   fi
 
   # Warn if Hook scripts changed but docs not updated
   if grep -q "plugins/spec-autopilot/scripts/.*\.sh" <<< "$_CACHED_NAMES"; then
     if ! grep -q "plugins/spec-autopilot/README.md\|plugins/spec-autopilot/docs/" <<< "$_CACHED_NAMES"; then
       echo "⚠️  Warning: Hook scripts modified but docs not updated"
-      echo ""
     fi
   fi
 
@@ -189,25 +123,22 @@ if [ "$PLUGIN_CHANGED" = "yes" ]; then
   if grep -q "plugins/spec-autopilot/skills/.*/SKILL\.md" <<< "$_CACHED_NAMES"; then
     if ! grep -q "plugins/spec-autopilot/README.md" <<< "$_CACHED_NAMES"; then
       echo "⚠️  Warning: Skill files modified but README.md not updated"
-      echo ""
     fi
   fi
 
-  # ============================================
-  # Part 2.5: spec-autopilot dist freshness 提示 (不自动重建)
-  # ============================================
-  echo "ℹ️  spec-autopilot 源码已修改，提交后请运行 'make build' 重建 dist/"
-  echo ""
-
-  echo "✅ Documentation sync check passed"
-  echo ""
+  # CHANGELOG info-only reminder (release-please 自动维护，非阻断)
+  METADATA_PATTERNS='(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json|/docs/|/reports/)'
+  _SA_NON_META=$(echo "$_CACHED_NAMES" | grep -E '^plugins/spec-autopilot/' | grep -vE "$METADATA_PATTERNS" || true)
+  if [ -n "$_SA_NON_META" ]; then
+    if ! grep -q "CHANGELOG.md" <<< "$_CACHED_NAMES"; then
+      echo "ℹ️  Plugin code modified but CHANGELOG.md not updated (release-please will handle this)"
+    fi
+  fi
 fi
 
 # ============================================
-# Part 2.7 / 3 / 3.5 / 3.6 / 3.7: 插件 staleness 检测 + PH lint
+# Part 3: parallel-harness 构建脚本 shellcheck（< 1s）
 # ============================================
-# 先计算各插件实质性源码变更 (用 git diff --cached, 仅检查 index 内容)
-
 PH_CHANGED="no"
 if grep -q "plugins/parallel-harness/" <<< "$_CACHED_NAMES"; then
   PH_CHANGED="yes"
@@ -220,17 +151,6 @@ if [ "$PH_CHANGED" = "yes" ]; then
     | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|package\.json|docs/|reports/)' || true)
 fi
 
-DR_CHANGED="no"
-if grep -q "plugins/daily-report/" <<< "$_CACHED_NAMES"; then
-  DR_CHANGED="yes"
-fi
-
-DR_SUBSTANTIVE=""
-if [ "$DR_CHANGED" = "yes" ]; then
-  DR_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^plugins/daily-report/' | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
-fi
-
-# ── PH lint (需要工作树文件) ──
 if [ -n "$PH_SUBSTANTIVE" ]; then
   if command -v shellcheck >/dev/null 2>&1; then
     echo "🔍 shellcheck parallel-harness build script..."
@@ -242,60 +162,18 @@ if [ -n "$PH_SUBSTANTIVE" ]; then
     echo "❌ shellcheck not found. Install: brew install shellcheck"
     exit 1
   fi
-
-  echo "ℹ️  parallel-harness 源码已修改，提交后请运行 'make ph-build' 重建 dist/"
-  echo ""
-fi
-
-if [ -n "$DR_SUBSTANTIVE" ]; then
-  echo "ℹ️  daily-report 源码已修改，提交后请运行 'make dr-build' 重建 dist/"
-  echo ""
-fi
-
-# ── Stale guards: 使用 --staged 模式比较 index 内容，不受工作树 WIP 干扰 ──
-if [ -n "${SUBSTANTIVE_PLUGIN_FILES:-}" ] && [ -d "dist/spec-autopilot" ]; then
-  bash scripts/check-dist-freshness.sh spec-autopilot --staged --warn-only
-fi
-
-if [ -n "$PH_SUBSTANTIVE" ] && [ -d "dist/parallel-harness" ]; then
-  bash scripts/check-dist-freshness.sh parallel-harness --staged --warn-only
-fi
-
-if [ -n "$DR_SUBSTANTIVE" ] && [ -d "dist/daily-report" ]; then
-  bash scripts/check-dist-freshness.sh daily-report --staged --warn-only
 fi
 
 # ============================================
-# Part 4: 基础设施文件变更 lint guard
+# Part 4: 基础设施变更提醒（不阻断，仅提示）
 # ============================================
-# 当 Makefile / .githooks / scripts / .shellcheckrc / release-please 配置等
-# 被修改时，远端 CI 会触发完整 lint，本地也应执行等价的全量 lint。
+# Makefile / .githooks / scripts / .shellcheckrc / release-please 配置变更时，
+# 远端 CI 会触发完整 lint；本地提交不阻断，仅提醒用户主动执行 `make lint`。
 INFRA_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^(Makefile|\.githooks/|scripts/|\.shellcheckrc|release-please-config\.json|\.release-please-manifest\.json)' || true)
 
 if [ -n "$INFRA_STAGED" ]; then
-  echo "🔍 Infrastructure files changed — running full lint..."
-
-  # spec-autopilot: 使用共享脚本全量模式（与 make lint / CI 完全一致）
-  if ! bash scripts/run-spec-autopilot-lint.sh; then
-    echo "❌ spec-autopilot lint failed on infra change."
-    exit 1
-  fi
-
-  # parallel-harness: shellcheck build-dist.sh
-  if [ -f "plugins/parallel-harness/tools/build-dist.sh" ]; then
-    if command -v shellcheck >/dev/null 2>&1; then
-      if ! shellcheck plugins/parallel-harness/tools/build-dist.sh; then
-        echo "❌ parallel-harness shellcheck failed on infra change."
-        exit 1
-      fi
-    else
-      echo "❌ shellcheck not found. Install: brew install shellcheck"
-      exit 1
-    fi
-  fi
-
-  echo "✅ Infrastructure lint passed"
-  echo ""
+  echo "→ 提示：基础设施文件已修改，CI 将触发全插件完整 lint。"
+  echo "         建议本地执行 'make lint' / 'make ph-lint' / 'make dr-lint' 提前验证。"
 fi
 
 exit 0

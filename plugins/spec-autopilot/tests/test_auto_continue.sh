@@ -101,13 +101,13 @@ assert_not_contains "4b5: Phase 7 不再写 user_override" "$phase7_content" 'us
 assert_not_contains "4b6: Phase 7 不再写 override_reason" "$phase7_content" 'override_reason'
 
 # --- 4c-4e. Phase 1 最终确认后必须直接推进 ---
-PHASE1_REQ="$SKILL_DIR/autopilot/references/phase1-requirements.md"
+PHASE1_REQ="$SKILL_DIR/autopilot-phase1-requirements/references/phase1-requirements.md"
 assert_file_contains "4c: Phase 1 确认后立即进入 1.9" "$PHASE1_REQ" '选"确认".*立即.*进入 1.9'
 assert_file_contains "4d: Phase 1 禁止下一步元问题" "$PHASE1_REQ" '下一步是 Phase 2'
 assert_file_contains "4e: Phase 1 强制连续执行" "$PHASE1_REQ" '主线程必须继续进入下一执行阶段'
 
 # --- 4f-4h. Phase 6.5 / Phase 5 内部也不应默认打断自动流 ---
-PHASE6_REVIEW="$SKILL_DIR/autopilot/references/phase6-code-review.md"
+PHASE6_REVIEW="$SKILL_DIR/autopilot-phase6-report/references/phase6-code-review.md"
 assert_file_contains "4f: code review warning 不再 AskUser" "$PHASE6_REVIEW" '不弹 AskUserQuestion'
 assert_file_contains "4g: code review 统一由 Phase 7 readiness 判定" "$PHASE6_REVIEW" 'archive-readiness 统一判定'
 

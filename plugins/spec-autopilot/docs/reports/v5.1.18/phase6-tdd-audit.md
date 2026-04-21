@@ -465,7 +465,7 @@ test_file_patterns:
 | `scripts/collect-metrics.sh` | Phase 7 指标收集 |
 | `skills/autopilot/templates/phase6-reporting.md` | Phase 6 内置模板 |
 | `skills/autopilot/templates/phase4-testing.md` | Phase 4 内置模板 |
-| `skills/autopilot/references/testing-anti-patterns.md` | Mock 反模式指南 |
+| `skills/autopilot-phase5-implement/references/testing-anti-patterns.md` | Mock 反模式指南 |
 | `skills/autopilot/references/phase5-implementation.md` | Phase 5 详细流程 |
 | `skills/autopilot-gate/SKILL.md` | 门禁验证协议 |
 | `tests/test_tdd_isolation.sh` | TDD RED/GREEN/REFACTOR 隔离测试 |

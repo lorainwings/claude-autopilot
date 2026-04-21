@@ -67,11 +67,11 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 | `spec-autopilot:autopilot-phase5-implement` | Phase 5 实施编排（路径选择 + L2 验证） |
 | `spec-autopilot:autopilot-phase6-report` | Phase 6 测试报告与三路并行 |
 | `spec-autopilot:autopilot-phase7-archive` | Phase 7 汇总 + 归档 |
-| `spec-autopilot:autopilot-risk-scanner` | 每 gate 前 Critic Agent 按 rubric 打分输出风险报告（Sprint 升级新增） |
-| `spec-autopilot:autopilot-phase5.5-redteam` | Phase 5↔6 之间 Red Team 对抗相位（Sprint 升级新增） |
-| `spec-autopilot:autopilot-learn` | Phase 7 后汇聚 episodes → 聚类 → 候选晋升（Sprint 升级新增） |
-| `spec-autopilot:autopilot-docs-sync` | pre-commit 触发的文档漂移检测，输出 `.cache/spec-autopilot/drift-candidates.json`（工程自动化新增） |
-| `spec-autopilot:autopilot-test-audit` | 按需人工触发的测试过期候选扫描，输出 `.cache/spec-autopilot/test-rot-candidates.json`（工程自动化新增） |
+| `spec-autopilot:autopilot-risk-scanner` | 每 gate 前 Critic Agent 按 rubric 打分输出风险报告 |
+| `spec-autopilot:autopilot-phase5.5-redteam` | Phase 5↔6 之间 Red Team 对抗相位 |
+| `spec-autopilot:autopilot-learn` | Phase 7 后汇聚 episodes → 聚类 → 候选晋升 |
+| `spec-autopilot:autopilot-docs-sync` | pre-commit 触发的文档漂移检测，输出 `.cache/spec-autopilot/drift-candidates.json` |
+| `spec-autopilot:autopilot-test-audit` | 按需人工触发的测试过期候选扫描，输出 `.cache/spec-autopilot/test-rot-candidates.json` |
 | `spec-autopilot:autopilot-docs-fix` | 消费 drift 候选生成可 git-apply patch / manual suggestion.md（user-invocable） |
 | `spec-autopilot:autopilot-test-fix` | 消费 test-rot 候选生成 sed patch / manual suggestion.md（user-invocable） |
 | `spec-autopilot:autopilot-test-health` | 测试有效性量化：变异测试采样 + 健康度评分（user-invocable，建议 weekly sweep） |
@@ -85,7 +85,10 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 |------|------|
 | `references/mode-routing-table.md` | 三种模式的阶段序列、跳过规则、路径选择（声明式表格） |
 | `references/parallel-dispatch.md` | 跨阶段通用并行编排协议（核心协议） |
-| `references/parallel-phase{1,4,5,6}.md` | 各 Phase 按需加载的并行配置与 dispatch 模板 |
+| `references/parallel-phase5.md` | Phase 5 并行实施的配置与 dispatch 模板（共享引用） |
+| `../autopilot-phase1-requirements/references/parallel-phase1.md` | Phase 1 并行调研配置（归 autopilot-phase1-requirements） |
+| `../autopilot-phase4-testcase/references/parallel-phase4.md` | Phase 4 并行测试设计配置（归 autopilot-phase4-testcase） |
+| `../autopilot-phase6-report/references/parallel-phase6.md` | Phase 6 并行测试执行配置（归 autopilot-phase6-report） |
 | `references/log-format.md` | 统一日志格式规范 |
 
 ## 阶段总览

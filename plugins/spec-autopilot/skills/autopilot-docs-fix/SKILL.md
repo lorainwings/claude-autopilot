@@ -12,7 +12,7 @@ user-invocable: true
 - 将候选转换为两类产物：
   - **auto patch** (`<id>.patch`)：可直接 `git apply` 的 unified diff（确定性）
   - **manual suggestion** (`<id>.<rule>.suggestion.md`)：人工评审模板（含推荐修改说明）
-- **绝不自动应用**：产物位于 `<project>/.cache/spec-autopilot/docs-fix-patches/`（自 v5.9 迁移至 `.cache/spec-autopilot/`），需通过 `apply-fix-patch.sh` 在 `git stash` 保护下手动触发
+- **绝不自动应用**：产物位于 `<project>/.cache/spec-autopilot/docs-fix-patches/`，需通过 `apply-fix-patch.sh` 在 `git stash` 保护下手动触发
 
 ## 触发入口
 

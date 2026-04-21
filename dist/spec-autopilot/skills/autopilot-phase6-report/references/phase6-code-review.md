@@ -75,7 +75,7 @@ Task(
 )
 ```
 
-### Step 3: JSON 信封格式（WS-E 结构化 findings）
+### Step 3: JSON 信封格式（结构化 findings）
 
 ```json
 {
@@ -104,7 +104,7 @@ Task(
 }
 ```
 
-#### findings 字段规范（WS-E 治理强化）
+#### findings 字段规范
 
 每个 finding **必须** 包含以下字段：
 
@@ -127,7 +127,7 @@ Task(
 | major findings > 3 | `warning` |
 | 其他 | `ok` |
 
-### Step 4: 处理审查结果（WS-E fail-closed 门禁）
+### Step 4: 处理审查结果（fail-closed 门禁）
 
 | 状态 | 处理 |
 |------|------|
@@ -135,7 +135,7 @@ Task(
 | warning | 记录 checkpoint，展示 findings 供用户可见，但**不弹 AskUserQuestion**、不阻断 Phase 7；是否阻断归档由 Phase 7 的 archive-readiness 统一判定 |
 | blocked | 写入 `blocked` checkpoint 并展示 blocking findings；后续是否允许继续由 Phase 7 的 archive-readiness + `block_on_critical` 统一判定，主线程此处不额外插入“是否继续”的确认问题 |
 
-> **WS-E 治理变更**: review findings 不再是纯 advisory。`blocking: true` 的 finding 会：
+> **治理约束**: review findings 不是纯 advisory。`blocking: true` 的 finding 会：
 > 1. 将 review checkpoint 状态设为 `blocked`
 > 2. Phase 7 的 post-task-validator (Validator 6c) 会检查 review checkpoint
 > 3. 存在未解决的 blocking finding 时，Phase 7 被硬阻断
@@ -152,20 +152,20 @@ phases:
   code_review:
     enabled: true              # 默认启用
     auto_fix_minor: false      # 是否自动修复 minor findings
-    block_on_critical: true    # critical findings 时硬阻断归档（WS-E: 升级为 fail-closed）
+    block_on_critical: true    # critical findings 时硬阻断归档（fail-closed）
     skip_patterns:             # 跳过审查的文件模式
       - "*.md"
       - "*.json"
       - "openspec/**"
 ```
 
-## 与 Hook 门禁的关系（WS-E 治理强化）
+## 与 Hook 门禁的关系
 
 Phase 6.5 不是整数阶段，因此：
 - **不受 Layer 2 Hook 门禁校验**（Hook 只检查整数阶段的 predecessor checkpoint）
 - 主线程仍执行 JSON 信封解析和状态检查
 - checkpoint 文件命名为 `phase-6.5-code-review.json`（带小数点）
-- **WS-E 新增**: Phase 7 的 post-task-validator (Validator 6c) 会读取此 checkpoint，
+- Phase 7 的 post-task-validator (Validator 6c) 会读取此 checkpoint，
   检查是否存在未解决的 `blocking: true` findings。如果存在，Phase 7 被硬阻断。
   这使得 review findings 真实影响归档结果，而非纯 advisory。
 

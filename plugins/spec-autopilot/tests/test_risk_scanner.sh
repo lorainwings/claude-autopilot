@@ -7,7 +7,7 @@ set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 GATE_SCRIPT="$PLUGIN_ROOT/runtime/scripts/risk-scan-gate.sh"
-RUBRICS_DIR="$PLUGIN_ROOT/skills/autopilot/references/rubrics"
+RUBRICS_DIR="$PLUGIN_ROOT/skills/autopilot-risk-scanner/references/rubrics"
 SCHEMA_DOC="$PLUGIN_ROOT/skills/autopilot-risk-scanner/references/rubric-schema.md"
 SKILL_FILE="$PLUGIN_ROOT/skills/autopilot-risk-scanner/SKILL.md"
 

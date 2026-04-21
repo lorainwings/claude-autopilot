@@ -8,7 +8,7 @@ set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 SCHEMAS_DIR="$(cd "$TEST_DIR/../runtime/schemas" && pwd)"
-REFS_DIR="$(cd "$TEST_DIR/../skills/autopilot/references" && pwd)"
+REFS_DIR="$(cd "$TEST_DIR/../skills/autopilot-phase1-requirements/references" && pwd)"
 # shellcheck disable=SC1091
 source "$TEST_DIR/_test_helpers.sh"
 # shellcheck disable=SC1091
