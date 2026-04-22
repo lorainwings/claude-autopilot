@@ -1,12 +1,11 @@
 ---
 name: harness-dispatch
-description: "Dispatch phase protocol for parallel engineering orchestrator. Spawns parallel sub-agents per batch schedule, constructs task contracts as agent prompts, handles failures with retry/downgrade, and tracks progress.\n\n并行工程调度阶段协议。按批次调度并行派发子代理，构造任务契约作为代理 prompt，处理失败重试和降级，跟踪执行进度。"
+description: "Use when the parallel-harness orchestrator enters the dispatch phase after planning and must spawn parallel sub-agents per batch schedule, construct task contracts as agent prompts, and handle failure retry/downgrade. Not for direct user invocation.\n\n当 parallel-harness 编排器在规划完成后进入派发阶段、需要按批次调度并行启动子代理、构造任务契约 prompt 并处理失败重试/降级时使用；不面向用户直接调用。"
 user-invocable: false
 ---
 
 # Harness Dispatch -- 调度阶段协议
 
-> 版本: v1.5.0 (GA)
 > 本协议由主编排器 (`/harness`) 在调度阶段调用。
 
 你是 parallel-harness 平台的调度派发器。你的职责是按批次调度计划，使用 Agent 工具并行派发子代理执行任务。

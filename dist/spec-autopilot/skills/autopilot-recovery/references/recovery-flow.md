@@ -275,5 +275,3 @@ Phase 2: [摘要...]
 - **CLI 也未指定** → 默认 "full"
 
 恢复后的 mode 传递给主线程，用于 Task 系统重建时的阶段选择。
-
-> **变更**: 之前 mode 仅从 CLI 入参获取，可能与锁文件中记录的 mode 不一致。现在 `recovery-decision.sh` 自动以锁文件 mode 为准。

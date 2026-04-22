@@ -69,7 +69,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-promote-candidate.sh" \
 脚本负责：
 1. 扫描 `docs/reports/*/episodes/*.json`（若 MCP 可用，切换到 `autopilot-lessons` corpus）
 2. 按 `pattern_id` 聚合，命中次数 ≥ 3 且无反例（无成功 fingerprint 抵消）→ 输出候选到 `docs/learned/candidates/{pattern_id}.md`
-3. 候选默认 `status: pending_review`，需人工审核后升级到正式 `docs/learned/<skill>.md` 或 CLAUDE.md "习得规则"区块
+3. 候选默认 `status: pending_review`，需人工审核后晋升到正式 `docs/learned/<skill>.md` 或 CLAUDE.md "习得规则"区块
 
 ### Step 4: Phase 0 注入（由主线调用）
 

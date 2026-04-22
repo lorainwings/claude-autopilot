@@ -1,12 +1,11 @@
 ---
 name: harness-verify
-description: "Verification phase protocol for parallel engineering orchestrator. Runs multi-gate quality checks (test, lint, type, security, policy, coverage), verifies file ownership compliance, synthesizes gate conclusions with blocking/non-blocking classification.\n\n并行工程验证阶段协议。运行多维度门禁检查（测试、Lint、类型、安全、策略、覆盖率），验证文件所有权合规，综合门禁结论并分类为阻断/非阻断。"
+description: "Use when the parallel-harness orchestrator enters the verification phase after dispatch and must run multi-gate quality checks (test, lint, type, security, policy/ownership, coverage), classify gate results as blocking/non-blocking, and emit a PASS/BLOCK conclusion. Not for direct user invocation.\n\n当 parallel-harness 编排器在派发完成后进入验证阶段、需要运行多维度门禁检查（测试 / Lint / 类型 / 安全 / 策略与所有权 / 覆盖率）并将结果分类为阻断或非阻断、综合产出 PASS/BLOCK 结论时使用；不面向用户直接调用。"
 user-invocable: false
 ---
 
 # Harness Verify -- 验证阶段协议
 
-> 版本: v1.5.0 (GA)
 > 本协议由主编排器 (`/harness`) 在验证阶段调用。
 
 你是 parallel-harness 平台的验证编排器。你的职责是独立验证所有任务输出的质量，综合门禁结论，输出通过或阻断决策。
