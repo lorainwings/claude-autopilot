@@ -80,9 +80,16 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
         </h3>
         {latestStatus ? (
           <div className="space-y-2 text-[11px] font-mono">
+            {latestStatus.snapshot_source === "seed" && (
+              <div className="px-2 py-1 bg-surface border border-cyan/30 rounded text-[10px] text-cyan">
+                已接入 statusLine · 等待 Claude Code 首次状态栏刷新
+              </div>
+            )}
             <div className="flex justify-between gap-3">
               <span className="text-text-muted shrink-0">模型</span>
-              <span className="text-text-bright truncate">{latestStatus.model || "--"}</span>
+              <span className="text-text-bright truncate">
+                {latestStatus.snapshot_source === "seed" ? "等待中…" : latestStatus.model || "--"}
+              </span>
             </div>
             <div className="flex justify-between gap-3">
               <span className="text-text-muted shrink-0">成本</span>
@@ -116,7 +123,7 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
                 如需立即启用，请重启当前会话；或手动执行：
               </div>
               <code className="block mt-1 text-[9px] text-text-bright break-all">
-                bash "${"${CLAUDE_PLUGIN_ROOT:-<plugin-dir>}"}/runtime/scripts/install-statusline-config.sh" --mode chain
+                {'bash "${CLAUDE_PLUGIN_ROOT:-<plugin-dir>}/runtime/scripts/install-statusline-config.sh" --mode chain'}
               </code>
             </div>
           </div>
