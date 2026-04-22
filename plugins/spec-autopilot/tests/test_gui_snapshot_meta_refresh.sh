@@ -143,7 +143,16 @@ const ws = new WebSocket('ws://localhost:${WS_PORT}');
 ws.onmessage = (e: any) => {
   count++;
   Bun.write('${TMP_PROJECT}/_ws_out/long_' + count + '.json', e.data);
-  if (count >= 2) { ws.close(); process.exit(0); }
+  // 等待最终态消息：避免捕获写入中间态（state 已更新但 archive 未更新）
+  try {
+    const msg = JSON.parse(e.data);
+    const m = msg && msg.meta;
+    const ar = m && m.archiveReadiness;
+    if (m && m.requirementPacketHash === 'pkt-new' && m.gateFrontier === 7 &&
+        ar && ar.overall === 'ready') {
+      ws.close(); process.exit(0);
+    }
+  } catch {}
 };
 ws.onerror = () => process.exit(1);
 
