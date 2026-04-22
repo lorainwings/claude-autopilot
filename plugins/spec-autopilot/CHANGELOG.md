@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.14.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.4...spec-autopilot-v5.14.0) (2026-04-22)
+
+
+### Added
+
+* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([616c278](https://github.com/lorainwings/claude-autopilot/commit/616c278ace04b3d7b613cd75b5f28b8eab26ba97))
+* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([30ec843](https://github.com/lorainwings/claude-autopilot/commit/30ec843209cbbff16a819f2062b052f7afaf1d08))
+
 ## [5.13.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.3...spec-autopilot-v5.13.4) (2026-04-22)
 
 
