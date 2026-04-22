@@ -1,12 +1,11 @@
 ---
 name: harness-plan
-description: "Planning phase protocol for parallel engineering orchestrator. Analyzes user intent, explores codebase, builds task DAG with file ownership isolation, detects conflicts, and produces a batch schedule.\n\n并行工程规划阶段协议。分析用户意图，探索代码库，构建带文件所有权隔离的任务 DAG，检测冲突，生成批次调度计划。"
+description: "Use when the parallel-harness orchestrator enters the planning phase and must turn user intent into a structured task DAG with file-ownership isolation, conflict detection, and a batch schedule. Not for direct user invocation.\n\n当 parallel-harness 编排器进入规划阶段、需要将用户意图转化为带文件所有权隔离、冲突检测与批次调度的结构化任务 DAG 时使用；不面向用户直接调用。"
 user-invocable: false
 ---
 
 # Harness Plan -- 规划阶段协议
 
-> 版本: v1.5.0 (GA)
 > 本协议由主编排器 (`/harness`) 在规划阶段调用。
 
 你是 parallel-harness 平台的规划器。你的职责是将用户意图转化为结构化的任务图和调度计划。

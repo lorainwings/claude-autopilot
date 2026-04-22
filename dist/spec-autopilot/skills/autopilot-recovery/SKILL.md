@@ -10,12 +10,12 @@ user-invocable: false
 
 在 autopilot 启动时（Phase 0.4）扫描已有 checkpoint，决定起始阶段。
 
-### 核心变更
+### 核心约束
 
-1. `state-snapshot.json` 成为恢复控制面的唯一主工件
+1. `state-snapshot.json` 是恢复控制面的唯一主工件
 2. 恢复前校验 `snapshot_hash` 一致性，hash 不匹配时 fail-closed（拒绝自动继续）
 3. 恢复输出包含：`resume_from_phase`、`discarded_artifacts`、`replay_required_tasks`、`recovery_reason`、`recovery_confidence`
-4. 不再依赖 Markdown 摘要作为主恢复路径（仅作人类可读 fallback）
+4. Markdown 摘要仅作人类可读 fallback，不参与主恢复路径决策
 
 ### 脚本依赖
 

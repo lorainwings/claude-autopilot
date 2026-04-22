@@ -1,6 +1,6 @@
 ---
 name: daily-report
-description: 基于 git 提交和飞书聊天记录，自动生成并提交内控日报
+description: Use when the user invokes /daily-report or asks in natural language to fill out, write, generate or submit an internal daily report (填写日报/写日报/生成日报/提交日报), aggregating recent git commits and Lark chat history into the company time-tracking system.
 argument-hint: "[--init] [--date YYYY-MM-DD] [--range START~END] [自然语言]"
 ---
 
