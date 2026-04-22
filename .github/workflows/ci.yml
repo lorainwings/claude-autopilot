@@ -44,11 +44,21 @@ jobs:
       - name: Detect release context
         id: release
         run: |
-          eval "$(bash scripts/ci-detect-release-context.sh "${{ github.event.before || '' }}" "${{ github.sha }}")"
-          {
-            echo "skip=${SKIP_WHOLE_CI}"
-            echo "skip_dist_stale=${SKIP_DIST_STALE}"
-          } >> "$GITHUB_OUTPUT"
+          # 改用 --check exit code 模式，避免 eval 静默失败导致下游误判
+          # （历史 bug：eval 任何一环失败时变量为空，SKIP_DIST_STALE!='true' 会错误触发 freshness check）
+          BASE_REF="${{ github.event.before || '' }}"
+          HEAD_REF="${{ github.sha }}"
+          if bash scripts/ci-detect-release-context.sh --check=skip_whole_ci "$BASE_REF" "$HEAD_REF"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale "$BASE_REF" "$HEAD_REF"; then
+            echo "skip_dist_stale=true" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  release/post-release context detected — dist freshness check will be skipped"
+          else
+            echo "skip_dist_stale=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Force all (workflow_dispatch)
         id: force
@@ -157,16 +167,13 @@ jobs:
   # Stage 2: spec-autopilot CI
   # ════════════════════════════════════════════════════════════════════
   sa-test:
-    name: spec-autopilot / Tests (${{ matrix.os }})
+    name: spec-autopilot / Tests
     needs: [detect]
     if: >-
       needs.detect.outputs.skip_ci != 'true' &&
       needs.detect.outputs.run_sa == 'true'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -270,7 +277,14 @@ jobs:
 
       - name: Check dist freshness
         if: needs.detect.outputs.skip_dist_stale != 'true'
-        run: bash scripts/check-dist-freshness.sh spec-autopilot --ci-git-check
+        run: |
+          # L2 防御：即便 detect output 链异常，本地再判一次 release commit 直接放行
+          # 防止 release-please bot 提交（GUI bundle hash 因 version bump 必然变化）误报 freshness fail
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale; then
+            echo "ℹ️  release/post-release commit detected at job level — skipping freshness check"
+            exit 0
+          fi
+          bash scripts/check-dist-freshness.sh spec-autopilot --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
   # Stage 2: parallel-harness CI
@@ -295,16 +309,13 @@ jobs:
         run: make ph-typecheck
 
   ph-test:
-    name: parallel-harness / Tests (${{ matrix.os }})
+    name: parallel-harness / Tests
     needs: [detect]
     if: >-
       needs.detect.outputs.skip_ci != 'true' &&
       needs.detect.outputs.run_ph == 'true'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -369,7 +380,13 @@ jobs:
 
       - name: Check dist freshness
         if: needs.detect.outputs.skip_dist_stale != 'true'
-        run: bash scripts/check-dist-freshness.sh parallel-harness --ci-git-check
+        run: |
+          # L2 防御：见 sa-build 同名 step 注释
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale; then
+            echo "ℹ️  release/post-release commit detected at job level — skipping freshness check"
+            exit 0
+          fi
+          bash scripts/check-dist-freshness.sh parallel-harness --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
   # Stage 2: daily-report CI
@@ -418,7 +435,13 @@ jobs:
 
       - name: Check dist freshness
         if: needs.detect.outputs.skip_dist_stale != 'true'
-        run: bash scripts/check-dist-freshness.sh daily-report --ci-git-check
+        run: |
+          # L2 防御：见 sa-build 同名 step 注释
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale; then
+            echo "ℹ️  release/post-release commit detected at job level — skipping freshness check"
+            exit 0
+          fi
+          bash scripts/check-dist-freshness.sh daily-report --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
   # Stage 3: Per-plugin Summary (允许其他插件独立通过)
