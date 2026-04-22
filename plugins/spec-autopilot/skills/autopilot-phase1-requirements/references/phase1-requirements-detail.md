@@ -555,7 +555,7 @@ IF "high_risk_domain" IN complexity_boost_flags AND complexity == "small":
 | medium | 0.80（标准） | 一次一问（每轮 1 个决策点） | 遵循 config；挑战代理按配置 |
 | large | 0.85（严格） | 一次一问 + scope creep 检查 | 强制苏格拉底；挑战代理按配置 |
 
-> **轮数不再硬性限制**。讨论轮数由清晰度评分自然收敛决定（详见 `phase1-clarity-scoring.md`）。
+> **轮数不再硬性限制**。讨论轮数由清晰度评分自然收敛决定（混合评分公式详见 SKILL.md references 表中 `phase1-clarity-scoring.md`）。
 > 安全阀: `soft_warning_rounds`（默认 8）软提醒 + `max_rounds`（默认 15）硬上限。
 
 ### 降级处理
