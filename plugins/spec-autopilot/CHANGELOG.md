@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.13.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.2...spec-autopilot-v5.13.3) (2026-04-22)
+
+
+### Changed
+
+* **spec-autopilot:** comprehensive skill review fixes across all phases ([cda92a8](https://github.com/lorainwings/claude-autopilot/commit/cda92a832bd6b34605e95939267c88bc7871f3e5))
+* **spec-autopilot:** comprehensive skill review fixes across all… ([52ff240](https://github.com/lorainwings/claude-autopilot/commit/52ff24006027b642df30dc98c01aa222a487ff3d))
+
 ## [5.13.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.1...spec-autopilot-v5.13.2) (2026-04-21)
 
 
