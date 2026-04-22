@@ -96,9 +96,9 @@ Critic Agent 的工作流程：
 | 脚本 | 用途 |
 |------|------|
 | `runtime/scripts/risk-scan-gate.sh` | gate Step 0 预检入口，读取报告并决策放行/拦截 |
-| `runtime/scripts/feedback-loop-inject.sh` | 将 severity≥warn 条目注入下游 task envelope (C4) |
+| `runtime/scripts/feedback-loop-inject.sh` | 将 severity≥warn 条目注入下游 task envelope |
 
-## 反例库 (C5)
+## 反例库
 
 所有由本 Skill 拦截、最终被人工或 Phase 5.5 复现的真实事故，必须以条目形式收录至
 `docs/regression-vault/`，命名规范见 `docs/regression-vault/README.md`。

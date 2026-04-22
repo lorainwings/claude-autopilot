@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-fix
-description: "Use when a user or the autopilot orchestrator needs to turn the documentation drift candidate list at .cache/spec-autopilot/drift-candidates.json into applicable fixes — producing deterministic auto patches (R2 scripts → .dist-include append) and manual .suggestion.md templates for the remaining rules. The skill never auto-applies: patches land under .cache/spec-autopilot/docs-fix-patches/ and are applied only via apply-fix-patch.sh under git stash protection on explicit human confirmation. Triggers: '/autopilot-docs-fix scan', '修复文档漂移', 'apply doc fix'."
+description: "Use when the user runs /autopilot-docs-fix scan|apply or asks to convert documentation drift candidates into git-applicable patches or manual suggestion templates under human confirmation."
 user-invocable: true
 ---
 
@@ -25,7 +25,7 @@ user-invocable: true
 若 `.cache/spec-autopilot/drift-candidates.json` 不存在，提示先执行：
 
 ```bash
-bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/detect-doc-drift.sh \
   --changed-files "<space-separated-files>"
 ```
 
@@ -46,7 +46,7 @@ bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh \
 ### 扫描生成
 
 ```bash
-bash plugins/spec-autopilot/runtime/scripts/generate-doc-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/generate-doc-fix-patch.sh \
   --candidates-file .cache/spec-autopilot/drift-candidates.json \
   --output-dir .cache/spec-autopilot/docs-fix-patches/
 ```
@@ -55,17 +55,17 @@ bash plugins/spec-autopilot/runtime/scripts/generate-doc-fix-patch.sh \
 
 ```bash
 # 单个
-bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/apply-fix-patch.sh \
   --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --patch-id <id>
 
 # 批量 auto
-bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/apply-fix-patch.sh \
   --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --all
 
 # 演练
-bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/apply-fix-patch.sh \
   --index .cache/spec-autopilot/docs-fix-patches/INDEX.json \
   --patch-id <id> --dry-run
 ```

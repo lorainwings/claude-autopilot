@@ -13,7 +13,7 @@
 - **候选**: `docs/learned/candidates/{pattern_id}.md` — 默认 `status: pending_review`
 - **正式（人工审核通过后）**: `docs/learned/<skill-or-topic>.md` 或直接在根 `CLAUDE.md` "习得规则" 区块追加
 
-本 sprint 只做候选生成，不做自动写入正式区块。
+当前仅做候选生成，不做自动写入正式区块。
 
 ## 候选 markdown 模板
 

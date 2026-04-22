@@ -84,6 +84,10 @@ reconcile-dispatch.sh
 generate-fixup-manifest.sh
 validate-fixup-manifest.sh
 
+# ── Phase 5 并行调度（确定性调度器 + 事件发射）──
+generate-parallel-plan.sh
+emit-parallel-event.sh
+
 # ── Deprecated (兼容窗口，计划于下个大版本移除) ──
 # anti-rationalization-check.sh → post-task-validator.sh (v4.0)
 anti-rationalization-check.sh

@@ -3,6 +3,15 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 1 ~ Step 2.6 的完整检测逻辑和推导规则。
 
+## Contents
+
+- Step 1: 检测项目结构
+- Step 2: 检测服务端口
+- Step 2.5: 检测项目上下文（测试凭据 / 项目结构 / Playwright 登录流程）
+- Step 2.6: 安全工具检测
+- test_suites 自动推导规则
+- report_commands 自动推导规则
+
 ## Step 1: 检测项目结构
 
 使用 Glob 和 Read 扫描以下模式：

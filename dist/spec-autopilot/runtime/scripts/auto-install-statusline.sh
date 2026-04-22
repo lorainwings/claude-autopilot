@@ -77,7 +77,7 @@ do_install() {
   local issues="[]"
 
   while [ "$retries" -le "$max_retries" ]; do
-    if bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJECT_ROOT" --scope local >/dev/null 2>&1; then
+    if bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJECT_ROOT" --scope local --mode chain >/dev/null 2>&1; then
       # 安装成功即视为成功，健康检查仅做日志记录
       installed=true
       run_health_check >/dev/null 2>&1 || true

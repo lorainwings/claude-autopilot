@@ -3,6 +3,14 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含域级 Agent 推荐映射表、检测映射逻辑、安装机制和用户交互流程。
 
+## Contents
+
+- A. 域级 Agent 推荐映射表
+- B. 检测到域的映射逻辑
+- C. Agent 安装机制
+- D. 用户交互流程（D.1 标准 / D.2 Strict 自动 / D.3 Relaxed 跳过）
+- E. Config 写入逻辑
+
 ## A. 域级 Agent 推荐映射表
 
 基于社区综合评估（stars、指令深度、域专精度、兼容性），为 Phase 5 并行模式推荐域级专业 Agent：

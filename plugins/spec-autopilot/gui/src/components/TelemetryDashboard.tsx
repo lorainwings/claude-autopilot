@@ -111,9 +111,12 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
           <div className="space-y-2">
             <div className="text-[11px] font-mono text-text-muted">未接入 statusLine 或当前会话暂无遥测</div>
             <div className="mt-2 px-2 py-1.5 bg-surface border border-amber/30 rounded text-[10px] text-amber font-mono">
-              <div className="font-bold mb-1">安装 statusLine Hook:</div>
-              <code className="text-[9px] text-text-bright break-all">
-                bash plugins/spec-autopilot/runtime/scripts/install-statusline-config.sh
+              <div className="font-bold mb-1">自动安装将在下次 Claude Code 会话启动时生效</div>
+              <div className="text-[10px] text-text-muted leading-relaxed">
+                如需立即启用，请重启当前会话；或手动执行：
+              </div>
+              <code className="block mt-1 text-[9px] text-text-bright break-all">
+                bash "${"${CLAUDE_PLUGIN_ROOT:-<plugin-dir>}"}/runtime/scripts/install-statusline-config.sh" --mode chain
               </code>
             </div>
           </div>

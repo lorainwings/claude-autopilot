@@ -21,12 +21,12 @@ user-invocable: false
 
 | 脚本 | 用途 |
 |------|------|
-| `scripts/recovery-decision.sh` | 确定性恢复扫描（纯只读，JSON 输出，含 state-snapshot.json 校验） |
-| `scripts/clean-phase-artifacts.sh` | 统一清理阶段制品 + 事件过滤 + git 状态回退 + state-snapshot.json 清理 |
+| `runtime/scripts/recovery-decision.sh` | 确定性恢复扫描（纯只读，JSON 输出，含 state-snapshot.json 校验） |
+| `runtime/scripts/clean-phase-artifacts.sh` | 统一清理阶段制品 + 事件过滤 + git 状态回退 + state-snapshot.json 清理 |
 
 ### 共享基础设施依赖
 
-本 Skill 通过 `recovery-decision.sh` 间接使用 `scripts/_common.sh` 提供的以下共享函数：
+本 Skill 通过 `recovery-decision.sh` 间接使用 `runtime/scripts/_common.sh` 提供的以下共享函数：
 
 | 函数 | 用途 |
 |------|------|

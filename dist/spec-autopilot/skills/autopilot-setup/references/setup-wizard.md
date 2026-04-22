@@ -3,6 +3,16 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Wizard 的 3 步交互流程和预设模板定义。
 
+## Contents
+
+- Wizard Step 1: 选择预设模板
+- Wizard Step 2: 确认自动检测
+- Wizard Step 3: 应用预设 + 写入（含 Strict / Moderate / Relaxed 预设映射）
+- phase1_agent_strategy 预设行为
+- domain_agents_strategy 预设行为
+- phase_agents_strategy 预设行为
+- Wizard 完成后输出
+
 ## Wizard Step 1: 选择预设模板
 
 通过 AskUserQuestion 展示 3 个预设：
@@ -168,7 +178,7 @@ IF domain_agents_strategy == "skip":
   phases.code_review.agent
   phases.archive.agent
 
-推荐预设来源：../autopilot-agents/references/recommend-mode.md
+推荐预设来源：Skill `spec-autopilot:autopilot-agents` 的 recommend 模式
 
 IF phase_agents_strategy == "recommended":
   → 自动检测推荐 agent 是否安装；缺失自动调用 /autopilot-agents install 一键安装后写入
