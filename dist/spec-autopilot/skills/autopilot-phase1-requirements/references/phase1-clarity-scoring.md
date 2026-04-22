@@ -45,17 +45,9 @@
 
 ## 规则引擎评分（确定性，Layer 2 级别）
 
-> **v2 解耦（Task 15 / C15）**：规则分**不再**读取 BA Agent 产出的
-> `rp.goal / rp.scope / rp.non_goals / rp.acceptance_criteria / rp.context` 字段，
-> 改为对**原始用户 prompt**（Phase 0 保存到 `context/raw-user-prompt.md`）调用
+> 规则分输入改为原始 prompt 而非 BA 字段：**不再**依赖 BA 产出的 `rp.*` 字段，改为对**原始用户 prompt**（Phase 0 保存到 `context/raw-user-prompt.md`）调用
 > `runtime/scripts/score-raw-prompt.sh` 计算语言学特征，输出 [0,1] 标准化总分作为 `rule_score`。
->
-> 设计动机：BA Agent 产出会随时间漂移（措辞优化、字段语义微调），若规则分依赖
-> 这些字段则规则的"确定性"被 BA 漂移污染。原始 prompt 是稳定的事实基线，
-> 用语言学特征作规则分能保证评分跨版本可复现。
->
-> 原 `rp.*` 结构化字段降级为 `ai_score[i]` 的 LLM-judge 输入（用于判断语义完整性、
-> 边界灰区、可测试性、上下文耦合），**不再参与规则分计算**。
+> `rp.*` 结构化字段仅作为 `ai_score[i]` 的 LLM-judge 输入（语义完整性、边界灰区、可测试性、上下文耦合），不参与规则分计算。
 
 ### 原始 prompt 语言学特征（rule_score 输入）
 
@@ -248,8 +240,7 @@ IF current_round >= 3:
         # 1. 优先激活本体论挑战代理（如未使用过）
         # 2. 已使用过 → 提示用户选择缩小范围或以当前清晰度推进
         # 停滞干预的完整协议（激活顺序、降级选项、用户提示措辞）
-        # 定义在同目录 phase1-challenge-agents.md 的"停滞检测集成"章节；
-        # 由 SKILL.md 多轮决策 LOOP 步骤前统一加载，本文件不再下钻。
+        # 参见 SKILL.md references 表中 phase1-challenge-agents.md 的"停滞检测集成"章节。
 ```
 
 ## requirement-packet.json 新增字段

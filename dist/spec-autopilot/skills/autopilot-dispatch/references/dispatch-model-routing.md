@@ -9,7 +9,7 @@ dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
 1. **调用 resolver**:
 
    ```bash
-   ROUTING_JSON=$(bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL")
+   ROUTING_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL")
    ```
 
 2. **提取路由结果**:
@@ -32,7 +32,7 @@ dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
 5. **发射路由事件**（`$AGENT_ID` 为必填参数，并行场景下用于精确归因）:
 
    ```bash
-   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" "$ROUTING_JSON" "$AGENT_ID"
+   bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" "$ROUTING_JSON" "$AGENT_ID"
    ```
 
    - `$AGENT_ID` 格式为 `phase{N}-{slug}`，与 auto-emit-agent-dispatch.sh 生成的一致
@@ -41,7 +41,7 @@ dispatch 子 Agent **之前**，主线程必须执行模型路由解析：
    - 当 Task 因模型不可用失败并使用 fallback 重试时，发射 `model_fallback` 事件:
 
    ```bash
-   bash <plugin_scripts>/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" \
+   bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-model-routing-event.sh "$PROJECT_ROOT" "$PHASE" "$MODE" \
      '{"requested_model":"opus","fallback_model":"sonnet","fallback_reason":"Rate limit"}' "$AGENT_ID" "model_fallback"
    ```
 

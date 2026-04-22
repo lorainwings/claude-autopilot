@@ -45,7 +45,7 @@
 
 ### Step 3.2: 判定逻辑
 
-```
+```text
 IF archive-readiness.overall === "ready":
   → 日志输出 [ARCHIVE] Readiness check: PASSED — auto-archiving
   → 直接进入 Step 4 归档操作（无需 AskUserQuestion）
@@ -54,7 +54,7 @@ ELSE:
   → AskUserQuestion 展示阻断原因，选项:
     - "修复后重新检查"
     - "放弃归档"
-  → 禁止 "忽略继续归档" 选项（fail-closed 原则）
+  → 禁止 "忽略继续归档" 选项（fail-closed 原则）—— 不得在 Step 2 提供"忽略继续归档"开关
 ```
 
 **block_on_critical 语义保留**: 当 `config.phases.code_review.block_on_critical = true` 时：
@@ -103,7 +103,7 @@ b. **Git 自动压缩**（当 `config.context_management.squash_on_archive` 为 
     - autosquash 失败时（含 merge --squash 备选也失败）：`[BLOCKED] autosquash 失败，备选方案也失败。归档中止，需要手动干预。`
     - post-autosquash 验证失败时：`[BLOCKED] 归档后仍存在未合并的 fixup commits，归档完整性受损。`
 
-  > **增强说明**:
+  > **设计说明**:
   > 1. **merge --squash 备选**: 当 `git rebase --autosquash` 失败时（如历史中有 merge commits），自动尝试 `git merge --squash` 作为备选方案
   > 2. **Post-autosquash 验证**: 归档后检查是否还有残留的 fixup commits，确保所有 fixup 已完全合并
   > 3. **按阶段 fixup 校验**: 除了总数对比，还验证每个 Phase 都有对应的 fixup commit

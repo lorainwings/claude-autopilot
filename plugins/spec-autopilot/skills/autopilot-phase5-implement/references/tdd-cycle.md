@@ -406,11 +406,7 @@ For each task in your domain:
 Report per-task: tdd_cycles: [{ task, red_verified, green_verified, refactor_verified }]
 
 ## Anti-Patterns to AVOID
-1. NEVER test mock behavior — test real code
-2. NEVER add test-only methods to production classes
-3. NEVER mock without understanding dependencies
-4. If mock setup > test logic → use integration test instead
-5. Integration tests are first-class, not afterthoughts
+See `testing-anti-patterns.md` (authoritative): 5 patterns + Gate Function checks. Domain agents must consume that file before writing tests.
 ```
 
 ### 并行 TDD Checkpoint

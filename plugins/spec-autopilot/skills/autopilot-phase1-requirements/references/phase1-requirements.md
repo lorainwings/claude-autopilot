@@ -237,7 +237,7 @@ IF flags < 2:
 
 > **Agent 事件**：Hook 自动发射 agent_dispatch/complete 事件。SKILL.md 中的手动发射为双重保障，任一机制工作即可驱动 GUI ParallelKanban 显示 Agent 卡片。
 
-Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `../../autopilot/references/parallel-phase1.md` 配置）。
+Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参见 autopilot skill 的 parallel-phase1 章节）。
 
 → 详见 `phase1-requirements-detail.md`（持久化上下文检查、扫描范围、Steering Documents 模板、历史知识注入、返回信封格式）
 
@@ -271,7 +271,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `..
 
 → 详见 `phase1-requirements-detail.md`（需求分析 Agent 完整 Prompt 模板）
 
-### 1.5.1 `[NEEDS CLARIFICATION]` 协议（Task B9 硬约束）
+### 1.5.1 `[NEEDS CLARIFICATION]` 协议
 
 > **协议来源**：[GitHub Spec Kit](https://github.com/github/spec-kit) 的 `[NEEDS CLARIFICATION: ...]` 标记规范。本 Phase 1 把该协议向上游延伸到 BA Agent 产出层，**不再依赖 Synthesizer 反推歧义**。
 
@@ -300,7 +300,7 @@ Auto-Scan、技术调研、联网搜索三者**同时并行执行**（参考 `..
 
 **循环退出条件**: 清晰度评分达标 + 所有决策点已澄清 + 满足最低轮数。
 
-**执行前读取**: `./phase1-clarity-scoring.md`（混合评分系统）+ `./phase1-challenge-agents.md`（挑战代理协议）
+> 混合评分与挑战代理协议详见 SKILL.md references 表（`phase1-clarity-scoring.md`、`phase1-challenge-agents.md`）。
 
 ### 退出条件（三条件 AND）
 
@@ -423,7 +423,7 @@ LOOP:
 
 ## 1.9 生成 requirement-packet.json 并写入 Phase 1 Checkpoint
 
-> **合成方式硬约束（Task 6 重构）**：`requirement-packet.json` 必须由专用 PackagerAgent 基于 **verdict.json + requirements-analysis.md 全文** 合成，**严禁**主线程自行从信封/摘要字段压缩拼装。主线程仅负责派发与 `Read(packet.json)` 消费。
+> **合成方式硬约束**：`requirement-packet.json` 必须由专用 PackagerAgent 基于 **verdict.json + requirements-analysis.md 全文** 合成，**严禁**主线程自行从信封/摘要字段压缩拼装。主线程仅负责派发与 `Read(packet.json)` 消费。
 
 ### 1.9 子步骤（四段式）
 
@@ -440,7 +440,7 @@ LOOP:
   - 用户澄清答复（来自 1.6-1.8 决策 LOOP 的最终确认）
 - 职责边界：**只做最终结构化打包**；不做需求撰写（属 BA 职责），不做跨路仲裁（属 Synthesizer 职责）。
 - 输出文件：`openspec/changes/{change_name}/context/requirement-packet.json`
-- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（Schema 作为契约参考，L2 Hook 运行时校验在 Task B11 接入；当前由 `runtime/scripts/validate-requirement-packet.sh` 做字段级校验）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
+- Schema 校验：`runtime/schemas/requirement-packet.schema.json`（Schema 作为契约参考；当前由 `runtime/scripts/validate-requirement-packet.sh` 做字段级校验）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
 - 信息无损要求：`acceptance_criteria` 数量 ≥ `requirements-analysis.md` 与 `research-findings.md` 中可测试动词（MUST/SHOULD/SHALL）数，禁止隐式压缩。
 
 **Step 1.9.4** 主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段写入 `phase-1-requirements.json` checkpoint。
@@ -560,7 +560,7 @@ LOOP:
 
 ## 补充协议
 
-**执行前读取**: `references/phase1-supplementary.md`（苏格拉底模式、崩溃恢复、决策格式 Hook 验证）
+> 苏格拉底模式、崩溃恢复、决策格式 Hook 验证等补充协议详见 SKILL.md references 表中 `phase1-supplementary.md`。
 
 | 协议 | 触发条件 | 说明 |
 |------|---------|------|

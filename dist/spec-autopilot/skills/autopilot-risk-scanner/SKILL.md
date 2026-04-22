@@ -1,6 +1,6 @@
 ---
 name: autopilot-risk-scanner
-description: "Use when the autopilot orchestrator dispatches an adversarial Critic sub-agent just before a phase gate and needs that sub-agent to score the phase artifacts against structured rubrics and emit risk-report-phase{N}.json into the change context for downstream gate prechecks. ONLY for autopilot orchestrator; not for direct user invocation; skip when running outside the dispatched Critic context."
+description: "Use when the autopilot orchestrator dispatches an adversarial Critic sub-agent just before a phase gate and needs that sub-agent to score the phase artifacts against structured rubrics and emit risk-report-phase{N}.json into the change context for downstream gate prechecks. ONLY for autopilot orchestrator; not for direct user invocation."
 user-invocable: false
 ---
 
@@ -89,7 +89,7 @@ Critic Agent 的工作流程：
 |------|------|
 | `autopilot-gate` | gate Step 0 调用本 Skill 作为预检；blocking_count>0 时拒绝放行 |
 | `autopilot-dispatch` | task envelope 应携带 `prior_risks[]`，由 `feedback-loop-inject.sh` 从本 Skill 报告生成 |
-| `autopilot-phase5.5-redteam` | Phase 5.5 是更激进的对抗模式；本 Skill 是常规 phase 级 Critic |
+| `autopilot-phase5-5-redteam` | Phase 5.5 是更激进的对抗模式；本 Skill 是常规 phase 级 Critic |
 
 ## 脚本依赖
 

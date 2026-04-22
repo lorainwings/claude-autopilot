@@ -1,6 +1,6 @@
 ---
 name: autopilot-gate
-description: "Use when the autopilot orchestrator transitions between phases (Phase N → N+1) and needs AI-side Layer 3 verification — running the 8-step checklist, applying special gates (Phase 1→2 triple check, Phase 4→5 / 5→6 TDD and test-results gates, Phase 6.5 advisory review), honoring mode-aware skip rules (full/lite/minimal), and atomically reading/writing phase-results/phase-N-*.json checkpoints with .tmp rename safety. Emits [GATE] / [CP] formatted logs; any failed step hard-blocks the next phase."
+description: "Use when an autopilot phase boundary is reached and gate verification + checkpoint + event emission are required before advancing to the next phase."
 user-invocable: false
 ---
 
@@ -132,9 +132,9 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 除通用 8 步校验外，以下切换点有额外验证：
 
-- **Phase 1→2 (三重硬校验，B10 任务)**: 必须调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-phase1-gate.sh --requirements <requirements-analysis.md> --verdict <synthesizer-verdict.json> --packet <requirement-packet.json> [--threshold 0.7]`，校验三条跨路硬约束：
+- **Phase 1→2 (三重硬校验)**: 必须调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-phase1-gate.sh --requirements <requirements-analysis.md> --verdict <synthesizer-verdict.json> --packet <requirement-packet.json> [--threshold 0.7]`，校验三条跨路硬约束：
   - **L1 (TaskCreate blockedBy)** 已确保 Phase 1 子任务（Scan / Research / BA / Synthesizer）全部 `completed`
-  - **L2 (Hook, B11 任务)** 已校验单路 envelope schema（research-envelope / synthesizer-verdict / requirement-packet）
+  - **L2 (Hook)** 已校验单路 envelope schema（research-envelope / synthesizer-verdict / requirement-packet）
   - **L3 (本 script)** 校验跨路硬约束：
     1. `requirements-analysis.md` 不含残留 `[NEEDS CLARIFICATION:` 标记
     2. `verdict.confidence ≥ threshold`，阈值优先级：**CLI `--threshold` > config `phases.requirements.gate.confidence_threshold` > 默认 `0.7`**。config 自动从 `<git-root>/.claude/autopilot.config.yaml` 探测；非法阈值（不匹配 `^[0-9]+(\.[0-9]+)?$`）一律 stderr 报错并 `exit 2`，禁止 silent failure
@@ -190,7 +190,7 @@ CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 
 
 ---
 
-## Checkpoint 管理（原 autopilot-checkpoint，合入）
+## Checkpoint 管理
 
 管理 `openspec/changes/<name>/context/phase-results/` 目录下的 checkpoint 文件。
 

@@ -39,7 +39,7 @@
 - Prompt 必须注入：
   - 两路 envelope 的结构化摘要（summary、decision_points、tech_constraints、complexity、key_files）
   - context/*.md 文件路径列表（供 SynthesizerAgent 自行 Read 全文，非主线程注入正文）
-  - 四要素契约（详见 `../../autopilot/references/parallel-phase1.md` SynthesizerAgent 章节）
+  - 四要素契约（详见 autopilot skill 的 `parallel-phase1.md` 章节 SynthesizerAgent 章节）
 - Tool boundary: `allowed: [Read, Write, Bash]`，`forbidden: [WebSearch, WebFetch, Edit, Task]`
 - 返回：必须严格符合 `synthesizer-verdict.schema.json` 的 JSON 信封 + 落盘 `phase1-verdict.json`
 - 失败处理：单次失败重新 dispatch；连续 2 次失败 → 主线程降级为人工汇总（AskUserQuestion 列出两路 decision_points 由用户决策）
@@ -116,7 +116,7 @@
 Phase 4 子 Agent prompt 构造详见以下参考文件（dispatch 时读取并注入）：
 
 - 内置模板：`autopilot/templates/phase4-testing.md`（测试标准 + dry-run + 金字塔）
-- 并行 dispatch：`../../autopilot/references/parallel-phase4.md`（Phase 4 并行模板）
+- 并行 dispatch：autopilot skill 的 `parallel-phase4.md` 章节（Phase 4 并行模板）
 
 **关键约束摘要**（完整指令在参考文件中）：
 

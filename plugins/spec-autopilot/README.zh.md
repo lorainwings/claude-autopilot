@@ -288,7 +288,7 @@ test_suites:
 | `autopilot-phase2-3-openspec` | 否 | OpenSpec 创建 + Fast-Forward 制品生成 |
 | `autopilot-phase4-testcase` | 否 | 测试用例设计（TDD 覆盖 + 并行分组） |
 | `autopilot-phase5-implement` | 否 | 实施编排（并行/串行/TDD）+ L2 验证 |
-| `autopilot-phase5.5-redteam` | 否 | Phase 5 与 Phase 6 之间的 Red Team 对抗相位（5 破坏类别反例） |
+| `autopilot-phase5-5-redteam` | 否 | Phase 5 与 Phase 6 之间的 Red Team 对抗相位（5 破坏类别反例） |
 | `autopilot-phase6-report` | 否 | 三路并行测试报告生成 |
 | `autopilot-phase7` | 否 | 摘要展示 + 归档 + git autosquash + episode 写入 |
 | `autopilot-recovery` | 否 | 通过检查点扫描进行崩溃恢复 + anchor_sha 验证 |

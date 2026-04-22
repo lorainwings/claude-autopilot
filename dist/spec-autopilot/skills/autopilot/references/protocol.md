@@ -102,7 +102,7 @@
 dispatch 子 Agent 前调用 `resolve-model-routing.sh` 统一解析：
 
 ```bash
-bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL"
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/resolve-model-routing.sh "$PROJECT_ROOT" "$PHASE" "$COMPLEXITY" "$REQUIREMENT_TYPE" "$RETRY_COUNT" "$CRITICAL"
 ```
 
 返回结构化 JSON:
@@ -184,9 +184,48 @@ phase-results/
 ├── phase-3-ff.json
 ├── phase-4-testing.json
 ├── phase-5-implement.json
+├── phase-5.5-redteam.json
 ├── phase-6-report.json
-└── phase-7-summary.json
+├── phase-6.5-review.json
+├── phase-7-summary.json
+├── risk-report-phase{N}.json
+├── state-snapshot.json
+└── archive-readiness.json
 ```
+
+> 文件用途：`phase-N-*.json` 为各 Phase 主 checkpoint；`phase-5.5-redteam.json` 由 Phase 5.5 Red Team 派生；`phase-6.5-review.json` 为 Phase 6.5 advisory review 输出；`risk-report-phase{N}.json` 由 risk-scanner 在 Phase 1/4/5 完成时产出；`state-snapshot.json` 为崩溃恢复主工件；`archive-readiness.json` 为 Phase 7 fail-closed 判定结果。
+
+## archive-readiness.json schema
+
+Phase 7 归档前由主线程构造并写入；任一 blocker 命中即硬阻断归档。
+
+```json
+{
+  "ready": true,
+  "blockers": [
+    {"category": "fixup_incomplete", "detail": "尚有未 squash 的 fixup commit"}
+  ],
+  "checked_at": "2026-04-22T10:53:00+08:00",
+  "phase_results_summary": {
+    "phase_1": "ok",
+    "phase_2": "ok",
+    "phase_3": "ok",
+    "phase_4": "ok",
+    "phase_5": "warning",
+    "phase_6": "ok",
+    "phase_6_5_review": "ok"
+  }
+}
+```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `ready` | boolean | 整体是否可归档；任一 blocker 存在时为 false |
+| `blockers` | `{category, detail}[]` | 阻断项清单，category 取值如 `fixup_incomplete` / `anchor_invalid` / `review_blocking` / `test_skip_violation` / `archive_dirty_worktree` |
+| `checked_at` | string | ISO 8601 时间戳 |
+| `phase_results_summary` | object | 各 Phase 最终 status 汇总 |
 
 ## DecisionPoint 格式
 
@@ -290,7 +329,7 @@ Phase 1 JSON 信封中的 `web_research` 可选字段：
 
 ### 崩溃恢复 auto_continue 字段
 
-`recovery-decision.sh` 输出中新增以下字段，支持单候选变更自动继续（无需用户交互）：
+`recovery-decision.sh` 输出包含以下字段，支持单候选变更自动继续（无需用户交互）：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|

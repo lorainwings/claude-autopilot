@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_phase55_redteam.sh — autopilot-phase5.5-redteam skill + feedback-loop-inject.sh 验收测试
+# test_phase55_redteam.sh — autopilot-phase5-5-redteam skill + feedback-loop-inject.sh 验收测试
 # TEST_LAYER: behavior
 
 set -uo pipefail
@@ -7,8 +7,8 @@ set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$TEST_DIR/.." && pwd)"
 INJECT_SCRIPT="$PLUGIN_ROOT/runtime/scripts/feedback-loop-inject.sh"
-SKILL_FILE="$PLUGIN_ROOT/skills/autopilot-phase5.5-redteam/SKILL.md"
-PROMPT_DOC="$PLUGIN_ROOT/skills/autopilot-phase5.5-redteam/references/redteam-prompts.md"
+SKILL_FILE="$PLUGIN_ROOT/skills/autopilot-phase5-5-redteam/SKILL.md"
+PROMPT_DOC="$PLUGIN_ROOT/skills/autopilot-phase5-5-redteam/references/redteam-prompts.md"
 VAULT_README="$PLUGIN_ROOT/docs/regression-vault/README.md"
 
 # shellcheck source=_test_helpers.sh

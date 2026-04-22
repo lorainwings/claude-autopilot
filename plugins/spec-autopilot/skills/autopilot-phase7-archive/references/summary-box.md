@@ -33,13 +33,14 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/collect-summary-urls.sh "opensp
 
 ## Summary Box 模板
 
+```text
 如果 execution_mode !== "full":
   在 Summary Box 的第一行添加:
   `Mode: ${execution_mode} | Skipped: Phase ${skipped_list}`
   其中:
-
-- lite: skipped_list = "2, 3, 4"
-- minimal: skipped_list = "2, 3, 4, 6"
+  - lite: skipped_list = "2, 3, 4"
+  - minimal: skipped_list = "2, 3, 4, 6"
+```
 
 ```
 ╭──────────────────────────────────────────────────╮

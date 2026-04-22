@@ -45,24 +45,14 @@ IF config.phases.requirements.mode == "socratic" OR complexity == "large":
 
 ### 与挑战代理的协同
 
-> 挑战代理的 3 种模式（反面论证 / 简化者 / 本体论）+ 停滞检测协议在同目录 `phase1-challenge-agents.md` 中定义。**本节不强制 Read 该文件**——SKILL.md 已在多轮决策 LOOP 步骤前列出读取时机；此处仅描述共存语义。
-
-苏格拉底模式和挑战代理**可以共存**：
-
-| 场景 | 行为 |
-|------|------|
-| 苏格拉底 ON + 挑战代理 ON | 挑战代理在激活轮**替代**苏格拉底步骤，未激活轮仍执行苏格拉底 7 步 |
-| 苏格拉底 ON + 挑战代理 OFF | 每轮执行苏格拉底 7 步（原有行为） |
-| 苏格拉底 OFF + 挑战代理 ON | 挑战代理在特定轮次激活，其余轮正常决策提问 |
-
-挑战代理是苏格拉底模式的**超集增强**：苏格拉底的"挑战假设"（步骤 1）被反面论证代理覆盖，"最小可行范围"（步骤 6）被简化者代理覆盖，但苏格拉底的其他步骤（探索替代、识别隐含需求、强制排优、魔鬼代言人、非功能需求）仍然在非激活轮执行。
+苏格拉底模式与挑战代理的协同矩阵参见 SKILL.md references 表中 `phase1-challenge-agents.md` 的"与苏格拉底模式的关系"章节。
 
 ### 退出条件
 
 - **清晰度评分退出**（主退出条件）：`clarity_score >= clarity_threshold` 且所有决策点已澄清 且 `current_round >= min_qa_rounds`
 - 安全阀：`soft_warning_rounds`（默认 8 轮）软提醒 + `max_rounds`（默认 15 轮）硬上限
 - 用户在软提醒时选择"以当前清晰度推进"
-- 完整评分公式与维度权重定义在同目录 `phase1-clarity-scoring.md`，由 SKILL.md 多轮决策 LOOP 步骤前统一加载，本文件不再下钻。
+- 完整评分公式与维度权重参见 SKILL.md references 表中 `phase1-clarity-scoring.md`。
 
 ---
 

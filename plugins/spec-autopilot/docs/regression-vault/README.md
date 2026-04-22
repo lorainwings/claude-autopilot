@@ -1,6 +1,6 @@
 # Regression Vault — 反例库 (C5)
 
-本目录收录所有由 `autopilot-risk-scanner` 拦截或 `autopilot-phase5.5-redteam` 复现的真实事故，
+本目录收录所有由 `autopilot-risk-scanner` 拦截或 `autopilot-phase5-5-redteam` 复现的真实事故，
 作为后续 autopilot 运行时的"先验风险知识库"。
 
 ## 命名规范
@@ -28,7 +28,7 @@
 一句话描述被复现的缺陷。
 
 ## 来源 (Source)
-- 触发 Skill: `autopilot-risk-scanner` | `autopilot-phase5.5-redteam`
+- 触发 Skill: `autopilot-risk-scanner` | `autopilot-phase5-5-redteam`
 - 关联 change: `openspec/changes/<change_name>/`
 - 原始报告引用: `context/risk-report-phase{N}.json#check_id` 或 `context/redteam-report.json#RT-XXX-001`
 
@@ -48,7 +48,7 @@
 
 ## 入库流程
 
-1. `autopilot-phase5.5-redteam` 复现成功 ⇒ Phase 5 修复 ⇒ reproducer 转正式测试
+1. `autopilot-phase5-5-redteam` 复现成功 ⇒ Phase 5 修复 ⇒ reproducer 转正式测试
 2. 在本目录新建 `.md` 条目，遵循上述模板
 3. `feedback-loop-inject.sh` 在后续运行中读取本目录条目，
    将 `防御回灌` 章节命中的条目作为 `prior_risks[]` 注入下游 task envelope
@@ -56,5 +56,5 @@
 ## 相关 Skill
 
 - `skills/autopilot-risk-scanner/SKILL.md`
-- `skills/autopilot-phase5.5-redteam/SKILL.md`
+- `skills/autopilot-phase5-5-redteam/SKILL.md`
 - `runtime/scripts/feedback-loop-inject.sh`

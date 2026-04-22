@@ -99,7 +99,7 @@ Node:
 
 ## Step 2.6: 安全工具检测
 
-运行 `bash <plugin_scripts>/check-security-tools-install.sh "$(pwd)"`，检测已安装的安全扫描工具。
+运行 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-security-tools-install.sh "$(pwd)"`，检测已安装的安全扫描工具。
 
 ```
 检测结果处理:
