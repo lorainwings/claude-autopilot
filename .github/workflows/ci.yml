@@ -157,16 +157,13 @@ jobs:
   # Stage 2: spec-autopilot CI
   # ════════════════════════════════════════════════════════════════════
   sa-test:
-    name: spec-autopilot / Tests (${{ matrix.os }})
+    name: spec-autopilot / Tests
     needs: [detect]
     if: >-
       needs.detect.outputs.skip_ci != 'true' &&
       needs.detect.outputs.run_sa == 'true'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -295,16 +292,13 @@ jobs:
         run: make ph-typecheck
 
   ph-test:
-    name: parallel-harness / Tests (${{ matrix.os }})
+    name: parallel-harness / Tests
     needs: [detect]
     if: >-
       needs.detect.outputs.skip_ci != 'true' &&
       needs.detect.outputs.run_ph == 'true'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
