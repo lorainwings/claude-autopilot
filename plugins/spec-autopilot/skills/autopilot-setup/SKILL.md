@@ -116,7 +116,7 @@ ELSE:
 
 在 Step 5.3 / 5.3.5 之后，遍历以下 8 个 Phase 2-7 关键 agent 字段，逐个执行 "scan candidates → 推荐预设 → AskUserQuestion 选择 → 写 config"：
 
-| 字段 | 推荐预设（来源 `../autopilot-agents/references/recommend-mode.md`） |
+| 字段 | 推荐预设（来源 Skill `spec-autopilot:autopilot-agents` 的 recommend 模式） |
 |------|------|
 | `phases.openspec.agent` | OMC `planner` |
 | `phases.testing.agent` | OMC `test-engineer` |

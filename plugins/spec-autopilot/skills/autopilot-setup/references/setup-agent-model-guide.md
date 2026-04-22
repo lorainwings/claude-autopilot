@@ -3,6 +3,12 @@
 > 本文件由 `autopilot-setup/SKILL.md` 通过 `**执行前读取**` 引用。
 > 包含 Step 5.3（Agent 安装引导）和 Step 5.4（模型路由引导）。
 
+## Contents
+
+- Step 5.3: Agent 安装引导（Phase 1 三路 + BA 四字段 + Phase 2-7 共 12 字段）
+- Step 5.3.5: 域级 Agent 配置引导（概述，详细规则由 SKILL.md 直接引用 `setup-domain-agent-guide.md`）
+- Step 5.4: 模型路由引导
+
 ## Step 5.3: Agent 安装引导（必须配置 Phase 1 三路 + BA Agent 关键字段）
 
 检查 `.claude/agents/` 是否存在可用于 Phase 1 的 agent，并强制写入 4 个字段：
@@ -91,7 +97,7 @@ IF ws_agent ∉ BUILTIN_AGENTS:
 
 ## Step 5.3.5: 域级 Agent 配置引导
 
-**执行前读取**: `setup-domain-agent-guide.md`（完整映射表和安装逻辑）
+> 详细映射表和安装逻辑由 `autopilot-setup/SKILL.md` 直接引用 `setup-domain-agent-guide.md`，本节仅给出分支摘要以保持 Step 5.3 / 5.4 的连续性。
 
 利用 Step 1 检测到的项目结构，自动推荐域级专业 Agent 以提升 Phase 5 并行执行质量。
 

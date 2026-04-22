@@ -24,7 +24,7 @@ user-invocable: true
 若 `.cache/spec-autopilot/test-rot-candidates.json` 不存在，提示先执行：
 
 ```bash
-bash plugins/spec-autopilot/runtime/scripts/detect-test-rot.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/detect-test-rot.sh \
   --changed-files "<files>" --deleted-files "<files>"
 ```
 
@@ -43,12 +43,12 @@ bash plugins/spec-autopilot/runtime/scripts/detect-test-rot.sh \
 
 ```bash
 # 扫描生成
-bash plugins/spec-autopilot/runtime/scripts/generate-test-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/generate-test-fix-patch.sh \
   --candidates-file .cache/spec-autopilot/test-rot-candidates.json \
   --output-dir .cache/spec-autopilot/tests-fix-patches/
 
 # 应用 (manual 需 --force-manual)
-bash plugins/spec-autopilot/runtime/scripts/apply-fix-patch.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/apply-fix-patch.sh \
   --index .cache/spec-autopilot/tests-fix-patches/INDEX.json \
   --patch-id <id> [--force-manual]
 ```

@@ -1,6 +1,6 @@
 ---
 name: autopilot-learn
-description: "Use when the autopilot orchestrator has finished Phase 7 archive and needs to aggregate Episode records into the L1/L2/L3 learning tiers, cluster failure/success patterns, and emit L3 promotion candidates. Not for direct user invocation; skip outside the orchestrator's post-archive hook."
+description: "Use when the autopilot orchestrator has finished Phase 7 archive and needs to aggregate Episode records into the L1/L2/L3 learning tiers, cluster failure/success patterns, and emit L3 promotion candidates. ONLY for autopilot orchestrator; not for direct user invocation."
 user-invocable: false
 ---
 

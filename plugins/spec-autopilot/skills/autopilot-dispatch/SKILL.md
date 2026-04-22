@@ -12,7 +12,7 @@ user-invocable: false
 
 ### 共享基础设施依赖
 
-本 Skill 依赖 `scripts/_common.sh` 提供的以下共享函数，**不重复实现**配置/锁文件解析：
+本 Skill 依赖 `runtime/scripts/_common.sh` 提供的以下共享函数，**不重复实现**配置/锁文件解析：
 
 | 函数 | 用途 |
 |------|------|
@@ -23,7 +23,7 @@ user-invocable: false
 | `find_checkpoint(phase_results_dir, phase_number)` | 查找指定阶段的最新 checkpoint 文件 |
 | `scan_all_checkpoints(phase_results_dir, mode)` | 按阶段顺序扫描全部 checkpoint，返回 JSON 结果 |
 
-> 上述函数的实现和参数说明详见 `scripts/_common.sh`。
+> 上述函数的实现和参数说明详见 `runtime/scripts/_common.sh`。
 
 ## 共享协议
 

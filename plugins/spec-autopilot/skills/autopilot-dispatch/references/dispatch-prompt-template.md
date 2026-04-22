@@ -26,7 +26,7 @@ Task(prompt: "<!-- autopilot-phase:{phase_number} -->
 
 ## 前置校验（在执行任何操作之前，必须首先完成）
 执行以下确定性脚本校验前置 checkpoint，**禁止自行编写 Python/Bash 读取代码**：
-Bash('bash {CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.sh "openspec/changes/{change_name}/context/phase-results" "{phase_number}" "{mode}"')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.sh "openspec/changes/{change_name}/context/phase-results" "{phase_number}" "{mode}"')
 脚本自动通过 mode-aware phase graph 计算正确的前驱阶段（支持 full/lite/minimal + TDD 覆盖）。
 解析返回的 JSON（格式: `{"exists": true/false, "status": "ok"/"warning"/..., "predecessor": N}`）：
 - 如果 `predecessor` 为 0 → 无前驱，直接继续

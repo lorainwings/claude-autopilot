@@ -1,6 +1,6 @@
 ---
 name: autopilot-docs-sync
-description: "Use when the autopilot orchestrator or pre-commit hook needs deterministic static detection of documentation drift — i.e. when SKILL.md, runtime scripts, or CLAUDE.md changes are not yet mirrored in README, .dist-include, or root plugin tables. Emits a warn-only candidate list at .cache/spec-autopilot/drift-candidates.json without modifying any source; downstream repair belongs to autopilot-docs-fix. Invoked by pre-commit hook or autopilot orchestrator only, not user-facing."
+description: "Use when the autopilot orchestrator or pre-commit hook needs deterministic static detection of documentation drift between SKILL.md, runtime scripts, CLAUDE.md and their README / .dist-include / root plugin table targets."
 user-invocable: false
 ---
 
@@ -18,7 +18,7 @@ user-invocable: false
 ## 触发入口
 
 - `pre-commit` hook（建议在 dist rebuild 之后调用 `engineering-sync-gate.sh`）
-- 手动：`bash plugins/spec-autopilot/runtime/scripts/detect-doc-drift.sh --changed-files "<files>"`
+- 手动：`bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/detect-doc-drift.sh --changed-files "<files>"`
 
 ## 检测规则
 

@@ -2,6 +2,12 @@
 
 > 本文件由 autopilot-setup SKILL.md 引用。包含配置文件模板和 schema 验证规则。
 
+## Contents
+
+- 配置模板（完整 YAML）
+- Schema 验证规则
+- Setup 完成后 agent 字段非空校验
+
 ## 配置模板
 
 ```yaml

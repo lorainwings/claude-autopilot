@@ -40,7 +40,7 @@ esac
 ### Step 2: 执行变异测试（mutate / all）
 
 ```bash
-bash plugins/spec-autopilot/runtime/scripts/test-mutation-sample.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/test-mutation-sample.sh \
   --targets "plugins/spec-autopilot/runtime/scripts/*.sh" \
   --sample-size 10 \
   --timeout-per-mutant 30
@@ -53,7 +53,7 @@ bash plugins/spec-autopilot/runtime/scripts/test-mutation-sample.sh \
 ### Step 3: 执行静态评分（score / all）
 
 ```bash
-bash plugins/spec-autopilot/runtime/scripts/test-health-score.sh \
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/test-health-score.sh \
   --tests-dir plugins/spec-autopilot/tests \
   --threshold 60
 ```
