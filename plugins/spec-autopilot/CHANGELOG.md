@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.13.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.3...spec-autopilot-v5.13.4) (2026-04-22)
+
+
+### Fixed
+
+* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([6a5cfb7](https://github.com/lorainwings/claude-autopilot/commit/6a5cfb782c5e2c9a1678b1aa7e657efefb61d38c))
+* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([ada1482](https://github.com/lorainwings/claude-autopilot/commit/ada1482726d17c1c9397f71efe11cc19fd625b18))
+* **spec-autopilot:** ship generate-parallel-plan.sh + emit-parallel-event.sh in dist ([7a495fd](https://github.com/lorainwings/claude-autopilot/commit/7a495fd0ce4cb15346e642402f2d7bc9a29fa639))
+* **spec-autopilot:** statusLine chain mode + health check + GUI hint ([315c75a](https://github.com/lorainwings/claude-autopilot/commit/315c75a471a35d16cf515ef6bf2297a038832075))
+
+
+### Changed
+
+* **spec-autopilot:** skill review fixes for non-phase support skills ([75e2e04](https://github.com/lorainwings/claude-autopilot/commit/75e2e0483533a0d3fb180e988c6932698516a05c))
+
 ## [5.13.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.2...spec-autopilot-v5.13.3) (2026-04-22)
 
 
