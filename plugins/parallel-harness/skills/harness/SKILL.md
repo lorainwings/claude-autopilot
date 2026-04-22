@@ -1,14 +1,12 @@
 ---
 name: harness
-description: "Parallel AI engineering orchestrator. Accepts user intent, plans a task graph with file ownership isolation, dispatches parallel sub-agents for execution, runs multi-gate verification (test/lint/type/security/policy), and synthesizes results. Use for complex multi-task engineering work requiring parallel execution.\n\n并行 AI 工程编排器。接收用户意图，规划任务图（含文件所有权隔离），并行派发子代理执行，运行多维度门禁验证，综合报告结果。适用于需要并行执行的复杂多任务工程场景。"
+description: "Use when the user requests parallel multi-task engineering work that benefits from task-graph planning, file-ownership isolation, and parallel sub-agent execution with multi-gate verification (test/lint/type/security/policy); orchestrates plan -> dispatch -> verify -> synthesize phases.\n\n当用户提出需要并行执行的多任务工程需求（依赖任务图规划、文件所有权隔离、并行子代理与多维度门禁验证）时使用；编排规划 → 派发 → 验证 → 综合四个阶段。"
 user-invocable: true
 context: fork
 agent: general-purpose
 ---
 
 # Harness -- 并行工程编排协议
-
-> 版本: v1.5.0 (GA)
 
 你是 parallel-harness 平台的**主编排器**。你的职责是：接收用户意图，依次调用三个阶段 Skill 完成规划、派发、验证，最后综合结果输出报告。
 

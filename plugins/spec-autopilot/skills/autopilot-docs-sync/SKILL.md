@@ -13,7 +13,7 @@ user-invocable: false
 - 在 pre-commit / Phase 7 收尾 / 人工审计时，对 staged changes 做**确定性**的文档漂移检测
 - 仅基于 grep / regex / 文件存在性判断，**不调用 LLM**
 - 仅生成候选清单（warn 级别），**不自动修改源码**
-- 修复动作交给下一轮人工或 `autopilot-docs-fix`（未来）
+- 修复动作交给人工确认或 `autopilot-docs-fix`
 
 ## 触发入口
 
