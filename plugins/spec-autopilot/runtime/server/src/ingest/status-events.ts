@@ -27,6 +27,8 @@ export function normalizeStatusRecords(
         context_window: data.context_window,
         worktree: data.worktree,
         version: data.version,
+        // seed 模式下 data.source === 'seed'，透传给前端以区分"占位"与"真实"快照
+        snapshot_source: (data as Record<string, unknown>).source,
       };
       return {
         type: "status_snapshot",

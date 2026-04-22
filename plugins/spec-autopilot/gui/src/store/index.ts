@@ -86,6 +86,8 @@ export interface StatusSnapshot {
   worktree?: string;
   version?: string;
   timestamp: string;
+  /** "seed" 表示 SessionStart 钩子种的占位 snapshot；缺省/其他值代表 Claude Code 真实 statusLine 刷新 */
+  snapshot_source?: string;
 }
 
 /** 服务可用性细分 (v5.4) */
@@ -609,20 +611,35 @@ export const useStore = create<AppState>((set) => ({
             }
           }
         } else if (event.type === "status_snapshot") {
-          latestStatus = {
-            model: event.payload.model as string | undefined,
-            cwd: event.payload.cwd as string | undefined,
-            transcript_path: event.payload.transcript_path as string | undefined,
-            cost: event.payload.cost == null ? undefined : String(event.payload.cost),
-            context_window: event.payload.context_window as Record<string, unknown> | undefined,
-            worktree: event.payload.worktree as string | undefined,
-            version: event.payload.version as string | undefined,
-            timestamp: event.timestamp,
-          };
+          const incomingSource = event.payload.snapshot_source as string | undefined;
+          const incomingModel = event.payload.model as string | undefined;
+          // 保护：真实 snapshot 到来后不应被晚到的 seed 覆盖
+          if (
+            state.latestStatus &&
+            state.latestStatus.snapshot_source !== "seed" &&
+            incomingSource === "seed"
+          ) {
+            // 忽略迟到的 seed
+          } else {
+            latestStatus = {
+              model: incomingModel,
+              cwd: event.payload.cwd as string | undefined,
+              transcript_path: event.payload.transcript_path as string | undefined,
+              cost: event.payload.cost == null ? undefined : String(event.payload.cost),
+              context_window: event.payload.context_window as Record<string, unknown> | undefined,
+              worktree: event.payload.worktree as string | undefined,
+              version: event.payload.version as string | undefined,
+              timestamp: event.timestamp,
+              snapshot_source: incomingSource,
+            };
+          }
           // v5.4: 从 statusLine 推断 effective_model
           // 仅在尚未收到 model_effective 事件时推断（避免与 model_effective 路径竞争覆盖）
+          // seed 占位 snapshot（model=pending）不参与推断
           if (
+            latestStatus &&
             latestStatus.model &&
+            latestStatus.snapshot_source !== "seed" &&
             modelRouting.requested_model &&
             modelRouting.model_status === "requested" &&
             modelRouting.inference_source === null

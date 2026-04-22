@@ -128,6 +128,13 @@ has_envvar_format() {
   grep -q 'CLAUDE_PLUGIN_ROOT' "$file" 2>/dev/null
 }
 
+# --- Seed 一次 snapshot，让 GUI 首屏立刻显示"已接入·等待首次刷新"而不是"暂无遥测" ---
+# 无论 statusLine 是否已配置、是否需要重新安装，都要执行；collector 自身已 guard 空 stdin。
+seed_snapshot() {
+  [ -x "$COLLECTOR_SCRIPT" ] || return 0
+  printf "%s" "${STDIN_DATA:-}" | bash "$COLLECTOR_SCRIPT" --seed >/dev/null 2>&1 || true
+}
+
 # --- 已配置时检查是否 stale ---
 if statusline_configured "$LOCAL_SETTINGS" ||
   statusline_configured "$PROJECT_SETTINGS" ||
@@ -136,16 +143,19 @@ if statusline_configured "$LOCAL_SETTINGS" ||
   if has_envvar_format "$LOCAL_SETTINGS" ||
     has_envvar_format "$PROJECT_SETTINGS" ||
     has_envvar_format "$USER_SETTINGS"; then
+    seed_snapshot
     exit 0
   fi
   # 即使已配置，运行健康检查确认非 stale
   if run_health_check >/dev/null 2>&1; then
+    seed_snapshot
     exit 0
   fi
   # 健康检查失败 → stale 配置，重新安装
   if do_install; then
     echo "[autopilot] statusLine config was stale — re-installed (scope: local). GUI telemetry is now active."
   fi
+  seed_snapshot
   exit 0
 fi
 
@@ -153,4 +163,5 @@ fi
 if do_install; then
   echo "[autopilot] statusLine hook auto-installed (scope: local). GUI telemetry is now active."
 fi
+seed_snapshot
 exit 0

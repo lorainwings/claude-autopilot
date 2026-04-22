@@ -5,14 +5,43 @@
 
 set -uo pipefail
 
+# --seed mode: 由 SessionStart 钩子 / Phase 0 init 调用，写一条占位 snapshot，
+# 避免 GUI 首屏在 Claude Code 首次刷新 statusLine 前看到"暂无遥测"。
+SEED_MODE=false
+if [ "${1:-}" = "--seed" ]; then
+  SEED_MODE=true
+  shift
+fi
+
 STDIN_DATA=""
 if [ ! -t 0 ]; then
   STDIN_DATA=$(cat)
 fi
 
 if [ -z "$STDIN_DATA" ]; then
-  printf "[autopilot] idle"
-  exit 0
+  if [ "$SEED_MODE" = "true" ]; then
+    # seed 模式下允许空 stdin，合成最小 payload
+    STDIN_DATA='{}'
+  else
+    printf "[autopilot] idle"
+    exit 0
+  fi
+fi
+
+# seed 模式：在 data 中标记 source=seed 与 model=pending，让 GUI 区分"占位"和"真实"
+if [ "$SEED_MODE" = "true" ]; then
+  STDIN_DATA=$(python3 -c '
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    if not isinstance(d, dict):
+        d = {}
+except Exception:
+    d = {}
+d.setdefault("model", "pending")
+d["source"] = "seed"
+print(json.dumps(d, ensure_ascii=False))
+' <<<"$STDIN_DATA")
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -134,7 +163,8 @@ printf "%s" "${STATUS_LINE:-[autopilot] telemetry}"
 # --- v5.4: Emit model_effective event if autopilot is active ---
 # Correlates by session_id + agent_id (from .active-agent-id marker).
 # Dedup marker written ONLY after successful emit to avoid lost events.
-if has_active_autopilot "$PROJECT_ROOT" 2>/dev/null; then
+# seed 模式下跳过 —— model=pending 不是真实观测值
+if [ "$SEED_MODE" != "true" ] && has_active_autopilot "$PROJECT_ROOT" 2>/dev/null; then
   _OBSERVED_MODEL=$(python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('model',''))" <<<"$STDIN_DATA" 2>/dev/null) || _OBSERVED_MODEL=""
   if [ -n "$_OBSERVED_MODEL" ]; then
     # Resolve active agent_id for precise correlation in parallel scenarios
