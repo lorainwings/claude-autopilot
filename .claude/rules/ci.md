@@ -34,5 +34,5 @@
 3. **release-please 分支 bypass**: pre-commit hook 检测到 `release-please--*` 分支自动跳过
 4. **bot commit bypass**: CI discipline 检查自动跳过 release-please 和 post-release bot 提交
 5. **dist freshness 验证**: CI 构建后调用统一脚本对比，不一致则失败
-6. **跨平台测试分层**: PR CI (`ci.yml`) 仅在 `ubuntu-latest` 上跑 test；macOS 专属风险由开发者本地 pre-push + 每周一 `ci-sweep.yml` 兜底（ubuntu + macOS 全量）。理由：macOS runner 计费 10× + 排队慢，而开发者本地即 macOS，PR 层面重复跑收益极低
+6. **跨平台测试分层**: PR CI (`ci.yml`) 在 `ubuntu-latest` + `macos-latest` 双矩阵上跑 test；本地 pre-push 在开发者原生 OS 上跑受影响 plugin 增量测试（消除 "PR CI 单 OS → OS 专属 bug 漏到 main" 真空）；每周一 `ci-sweep.yml` 做全插件 × 双 OS 全量兜底。四层独立保障，每层捕获不同失效模式
 7. **定时全量 sweep**: 每周一全插件扫描，防止路径过滤遗漏共享问题

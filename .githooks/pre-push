@@ -3,14 +3,14 @@
 #
 # 本 Hook 遵循社区最佳实践分层：
 #   pre-commit：秒级反馈（格式化、增量 lint、版本一致性）
-#   pre-push ：分钟级兜底（typecheck、dist freshness、分支同步）
+#   pre-push ：分钟级兜底（typecheck + dist freshness + 分支同步 + 受影响 plugin 增量测试）
 #   CI        ：全量矩阵（完整测试、多 OS、release discipline）
 #
 # 设计取舍：
-#   - 完整测试套件（make test / make ph-test）交由 CI 执行
-#     原因：本地 ~30s–2min，CI 已在 ubuntu+macOS 矩阵上跑全量；
-#     pre-push 仅做"代价低、CI 难发现 stale"的兜底。
-#   - 类型检查在本地执行：tsc/mypy 失败可在 5–15s 内定位，比等 CI 更快。
+#   - typecheck 在本地执行：tsc/mypy 失败 5–15s 内定位，比等 CI 更快
+#   - 受影响 plugin 测试在本地执行：本地 OS 原生捕获 OS 专属 bug（macOS / Linux），
+#     消除"PR CI 某 OS 不覆盖 → OS 专属 bug 漏到 main"的真空窗口
+#   - 紧急绕过：AUTOPILOT_SKIP_TEST=1 git push ...（仅在极端场景使用）
 
 set -uo pipefail
 
@@ -95,6 +95,44 @@ fi
 if ! make ph-typecheck >/dev/null; then
   echo "❌ parallel-harness typecheck failed. Run 'make ph-typecheck' for details."
   exit 1
+fi
+
+# ── 4. 受影响 plugin 增量测试（本地 OS 原生，消除 OS 真空） ──
+# 仅在 runtime/ 或 tests/ 有改动时触发，避免纯文档 push 被拖慢。
+# 对比 upstream（@{u}）→ merge-base，精准定位本次 push 引入的改动。
+# AUTOPILOT_SKIP_TEST=1 可紧急绕过（hotfix / 明知不影响测试的场景）。
+if [ "${AUTOPILOT_SKIP_TEST:-}" != "1" ]; then
+  _UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo "origin/main")
+  _DIFF_BASE=$(git merge-base HEAD "$_UPSTREAM" 2>/dev/null || git rev-parse origin/main 2>/dev/null || echo "HEAD~1")
+  _AFFECTED_PLUGINS=$(git diff --name-only "$_DIFF_BASE" HEAD 2>/dev/null \
+    | grep -E '^plugins/(spec-autopilot|parallel-harness)/(runtime|tests)/' \
+    | awk -F/ '{print $2}' | sort -u)
+
+  if [ -n "$_AFFECTED_PLUGINS" ]; then
+    echo "🧪 Pre-push: running affected plugin tests on $(uname -s)..."
+    for plugin in $_AFFECTED_PLUGINS; do
+      case "$plugin" in
+        spec-autopilot)
+          echo "  → spec-autopilot test suite (make test)"
+          if ! make test >/dev/null 2>&1; then
+            echo ""
+            echo "❌ spec-autopilot tests failed on $(uname -s)."
+            echo "   Run 'make test' for details, or AUTOPILOT_SKIP_TEST=1 git push ... (emergency only)"
+            exit 1
+          fi
+          ;;
+        parallel-harness)
+          echo "  → parallel-harness test suite (make ph-test)"
+          if ! make ph-test >/dev/null 2>&1; then
+            echo ""
+            echo "❌ parallel-harness tests failed on $(uname -s)."
+            echo "   Run 'make ph-test' for details, or AUTOPILOT_SKIP_TEST=1 git push ... (emergency only)"
+            exit 1
+          fi
+          ;;
+      esac
+    done
+  fi
 fi
 
 echo "✅ Pre-push checks passed"
