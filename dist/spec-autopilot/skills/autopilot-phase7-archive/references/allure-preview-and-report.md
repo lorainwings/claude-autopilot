@@ -13,17 +13,26 @@
 > Phase 6 Step A5.5 已在测试完成后立即启动 Allure 预览服务。
 > 本步骤优先验证已有服务，仅在需要时执行兜底启动。
 
-派发**前台 Task**（非后台）处理 Allure 预览验证/兜底：
+派发**前台 Task**（非后台）处理 Allure 预览验证/兜底。
+
+> **subagent_type 必须为字面量字符串**（CLAUDE.md §子 Agent 约束 第 10 条），由主线程先解析配置：
 
 ```
-Task(subagent_type: config.phases.archive.agent, prompt: "
+RESOLVED_AGENT=$(yq '.phases.archive.agent' .claude/autopilot.config.yaml)
+
+Task(subagent_type: <RESOLVED_AGENT 字面量>, prompt: "
   你是 Allure 预览服务验证子 Agent。按以下步骤执行：
 
   ## Step 1: 检查已有服务
   检查 ${change_dir}context/allure-preview.json 是否存在：
   - 若存在：读取 pid 和 url 字段
     - 验证 PID 是否存活（kill -0 $PID）
-    - 验证 URL 是否可访问（curl -s -o /dev/null -w '%{http_code}' $URL | grep '200\|301\|302'）
+    - 验证 URL 可访问性（case 判断代替正则）：
+        HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' \"$URL\")
+        case \"$HTTP_CODE\" in
+          200|301|302) URL_OK=1 ;;
+          *) URL_OK=0 ;;
+        esac
     - 两者均通过 → 返回 {\"status\": \"ok\", \"url\": \"...\", \"pid\": ..., \"reused\": true}
     - PID 不存活或 URL 不可访问 → 继续 Step 2（兜底重启）
 
@@ -70,6 +79,9 @@ Task(subagent_type: config.phases.archive.agent, prompt: "
 2. **Allure 地址**: 从 Step 2.5 子 Agent 返回的 JSON 信封提取 `url` 字段，或从 `${change_dir}context/allure-preview.json` 读取
 
 ```bash
+# TODO(P1): 抽为 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/collect-test-report-data.sh，
+# 入参 change_dir，输出统一 JSON：{total, passed, failed, skipped, pass_rate, allure_url}
+# 当前保留内联实现直至脚本落地。
 Bash('
   CHANGE_DIR="openspec/changes/{change_name}"
   CONTEXT_DIR="${CHANGE_DIR}/context"
@@ -87,7 +99,7 @@ Bash('
     fi
   fi
 
-  # 2. 从 allure-preview.json 读取 Allure 地址
+  # 2. 从 allure-preview.json 读取 Allure 地址（Step 9 共享同一来源）
   ALLURE_URL=""
   if [ -f "${CONTEXT_DIR}/allure-preview.json" ]; then
     ALLURE_URL=$(python3 -c "import json; print(json.load(open(\"${CONTEXT_DIR}/allure-preview.json\")).get(\"url\",\"\"))" 2>/dev/null || echo "")
@@ -102,6 +114,8 @@ print(json.dumps({
   "
 ')
 ```
+
+> **去重说明**：测试统计数据由本步骤统一收集；SKILL.md Step 9 的 Allure 提示仅复用 `allure_url` + PID，不重复读取 P6 checkpoint。
 
 ### 线框渲染
 

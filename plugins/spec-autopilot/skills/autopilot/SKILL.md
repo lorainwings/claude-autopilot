@@ -1,7 +1,8 @@
 ---
 name: autopilot
-description: "Use when the user requests an end-to-end delivery pipeline that spans requirements gathering, OpenSpec design, implementation, testing, reporting and archive — for example phrases like '全自动开发流程'、'一键从需求到交付'、'启动 autopilot'、'autopilot full/lite/minimal'，或者需要把一个 PRD / 需求描述一次性驱动经过 Phase 0-7 的完整流水线。Do NOT use for single-phase tasks such as /opsx:apply or /opsx:ff, nor for partial fixes that only touch one phase."
+description: "Use when the user requests an end-to-end spec-driven delivery pipeline (requirements → OpenSpec → implementation → testing → archive); orchestrates Phase 0-7."
 argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default)|lite|minimal"
+user-invocable: true
 ---
 
 # Autopilot — 主线程编排器
@@ -38,60 +39,21 @@ argument-hint: "[mode] [需求描述或 PRD 文件路径] — mode: full(default
 
 如果配置文件不存在 → 自动调用 Skill(`spec-autopilot:autopilot-setup`) 扫描项目生成配置。
 
-## 协议技能
+## 协议技能与阶段总览
 
-| 技能 | 用途 |
-|------|------|
-| `spec-autopilot:autopilot-phase0-init` | Phase 0 初始化（环境检查 + 崩溃恢复 + 锁文件管理） |
-| `spec-autopilot:autopilot-phase1-requirements` | Phase 1 需求理解与多轮决策 |
-| `spec-autopilot:autopilot-phase2-3-openspec` | Phase 2-3 OpenSpec 创建与 FF 生成 |
-| `spec-autopilot:autopilot-phase4-testcase` | Phase 4 测试用例设计（含 TDD 跳过） |
-| `spec-autopilot:autopilot-phase5-implement` | Phase 5 实施编排（路径选择 + L2 验证） |
-| `spec-autopilot:autopilot-phase6-report` | Phase 6 测试报告与三路并行 |
-| `spec-autopilot:autopilot-phase7-archive` | Phase 7 汇总 + 归档 |
-| `spec-autopilot:autopilot-risk-scanner` | 每 gate 前 Critic Agent 按 rubric 打分输出风险报告 |
-| `spec-autopilot:autopilot-phase5.5-redteam` | Phase 5↔6 之间 Red Team 对抗相位 |
-| `spec-autopilot:autopilot-learn` | Phase 7 后汇聚 episodes → 聚类 → 候选晋升 |
-| `spec-autopilot:autopilot-docs-sync` | pre-commit 触发的文档漂移检测，输出 `.cache/spec-autopilot/drift-candidates.json` |
-| `spec-autopilot:autopilot-test-audit` | 按需人工触发的测试过期候选扫描，输出 `.cache/spec-autopilot/test-rot-candidates.json` |
-| `spec-autopilot:autopilot-docs-fix` | 消费 drift 候选生成可 git-apply patch / manual suggestion.md（user-invocable） |
-| `spec-autopilot:autopilot-test-fix` | 消费 test-rot 候选生成 sed patch / manual suggestion.md（user-invocable） |
-| `spec-autopilot:autopilot-test-health` | 测试有效性量化：变异测试采样 + 健康度评分（user-invocable，建议 weekly sweep） |
-| `spec-autopilot:autopilot-recovery` | 崩溃恢复协议 |
-| `spec-autopilot:autopilot-gate` | 阶段门禁验证 + 检查点读写管理 |
-| `spec-autopilot:autopilot-dispatch` | 子 Agent 调度构造 |
+| Phase | Skill | Description |
+|-------|-------|-------------|
+| 0 | `spec-autopilot:autopilot-phase0-init` | 环境检查 + 崩溃恢复 + 锁文件初始化（主线程执行，不写 checkpoint） |
+| 1 | `spec-autopilot:autopilot-phase1-requirements` | 需求理解与多轮决策（LOOP 直到全部澄清） |
+| 2-3 | `spec-autopilot:autopilot-phase2-3-openspec` | OpenSpec 创建 + FF 生成（联合调度快速路径） |
+| 4 | `spec-autopilot:autopilot-phase4-testcase` | 测试用例设计（full 模式强制；TDD 模式下由 Phase 5 吸收） |
+| 5 | `spec-autopilot:autopilot-phase5-implement` | 串行/并行循环实施 |
+| 5.5 | `spec-autopilot:autopilot-phase5-5-redteam` | Red Team 对抗相位，详见该 SKILL |
+| 6 | `spec-autopilot:autopilot-phase6-report` | 测试报告生成（强制，不可跳过） |
+| 6.5 | — | Phase 6.5 code review advisory gate（结果在 Phase 7 汇合） |
+| 7 | `spec-autopilot:autopilot-phase7-archive` | 汇总展示 + Archive Readiness 自动归档 |
 
-**参考文档**:
-
-| 文档 | 用途 |
-|------|------|
-| `references/mode-routing-table.md` | 三种模式的阶段序列、跳过规则、路径选择（声明式表格） |
-| `references/parallel-dispatch.md` | 跨阶段通用并行编排协议（核心协议） |
-| `references/parallel-phase5.md` | Phase 5 并行实施的配置与 dispatch 模板（共享引用） |
-| `references/parallel-phase1.md` | Phase 1 并行调研配置（共享 SHARED） |
-| `references/parallel-phase4.md` | Phase 4 并行测试设计配置（共享 SHARED） |
-| `references/parallel-phase6.md` | Phase 6 并行测试执行配置（共享 SHARED） |
-| `references/protocol.md` | JSON 信封契约 / 结构化标记 / 模型路由 / Checkpoint / 特殊门禁 |
-| `references/phase5-implementation.md` | Phase 5 串行/并行实施详细流程（按需加载） |
-| `references/event-bus-api.md` | GUI Event Bus API 规范（被 docs/ 与 runtime/ 间接消费） |
-| `references/log-format.md` | 统一日志格式规范 |
-| `references/guardrails.md` | 护栏约束清单 + 错误处理 + 上下文压缩恢复协议 |
-
-## 阶段总览
-
-| Phase | 执行位置 | Description |
-|-------|----------|-------------|
-| 0 | Skill(`autopilot-phase0-init`) | 环境检查 + 崩溃恢复 + 锁文件初始化 |
-| 1 | Skill(`autopilot-phase1-requirements`) | 需求理解与多轮决策（LOOP 直到全部澄清） |
-| 2 | Task 子 Agent | 创建 OpenSpec 并保存上下文 |
-| 3 | Task 子 Agent | OpenSpec 快进生成制品 |
-| 4 | Task 子 Agent | 测试用例设计（full 模式强制；TDD 模式下由 Phase 5 吸收，标记 `skipped_tdd`） |
-| 5 | Task 子 Agent | 串行/并行 循环实施 |
-| 5.5 | Task 子 Agent (Critic, 前台派发) | **Red Team 对抗相位**：枚举 5 类破坏并产出 reproducer，追加至 `tests/generated/redteam-*.sh`。Agent 来源：`config.phases.redteam.agent`（setup 强制写入，禁 Explore）。详见 Skill(`spec-autopilot:autopilot-phase5.5-redteam`) |
-| 6 | Task 子 Agent | 测试报告生成（强制，不可跳过） |
-| 7 | Skill(`autopilot-phase7-archive`) | 汇总展示 + **Archive Readiness 自动**归档 |
-
-> **Checkpoint 范围**: Phase 1-7 产生 checkpoint 文件。Phase 0 在主线程执行，不写 checkpoint。
+支撑 Skill：`autopilot-gate`（阶段门禁 + checkpoint）、`autopilot-dispatch`（子 Agent 调度构造）、`autopilot-recovery`（崩溃恢复）、`autopilot-risk-scanner`（gate 前 Critic 风险报告）、`autopilot-learn`（Phase 7 后 episode 聚类）、`autopilot-docs-sync` / `autopilot-docs-fix` / `autopilot-test-audit` / `autopilot-test-fix` / `autopilot-test-health`（工程自动化纪律）。
 
 ## 连续执行硬约束（用户交互边界明确化）
 
@@ -136,13 +98,9 @@ Phase 1 完成后获得：requirement_packet、change_name、complexity、decisi
 > Phase 1 在主线程中执行，Skill 调用直接注入当前上下文。**跳过规则**: 当 `recovery_phase > 1` 时跳过。
 > Phase 1 结束时发射 `phase_end 1` 事件，payload 包含 `requirement_packet_hash`、`clarity_score`、`discussion_rounds`、`challenge_agents_activated`。
 
-Phase 1 关键约束摘要（详见 autopilot-phase1 Skill）：
+详见 Skill(spec-autopilot:autopilot-phase1-requirements)。
 
-- **弹性收敛**：讨论轮数不设硬性上限，以混合清晰度评分（规则×0.6 + AI×0.4）≥ 阈值作为退出条件。安全阀: 8 轮软提醒 + 15 轮硬上限。
-- **一次一问**：Medium/Large 每轮只问 1 个决策点，按最弱清晰度维度优先选择。Small 保持合并确认。
-- **挑战代理**：第 4/6/8 轮自动激活反面论证/简化/本体论视角转换。停滞检测在连续 2 轮波动 ≤5% 时干预。
-- **联网搜索决策**：默认执行搜索（`search_policy.default: search`），仅当同时满足所有跳过条件时才跳过。判定由规则引擎执行（非 AI 自评）。
-- **并行调研**：强制在同一消息中同时发起所有调研 Task（`run_in_background: true`）
+> **联网搜索决策（test 锚点）**：默认执行搜索（`search_policy.default: search`），由 `regex/rules-scanner.sh` 规则引擎执行跳过判定，仅当任务同时满足所有跳过条件时才跳过。
 
 ---
 
@@ -157,53 +115,28 @@ Phase 1 关键约束摘要（详见 autopilot-phase1 Skill）：
 
 ### Phase 2-3 联合调度快速路径（性能优化）
 
-Phase 2 与 Phase 3 共享同一 Agent (Plan) 和 Tier (fast/haiku)，且 Phase 2 输出即 Phase 3 输入。采用联合调度快速路径，**合并为单次 gate + 单次 model routing + 两个串行 background Task**，消除 Phase 3 的冗余 gate/dispatch/event 开销：
+Phase 2 与 Phase 3 共享同一 Agent (Plan) 和 Tier (fast/haiku)，合并为单次 gate + 单次 model routing + 两个串行 background Task。
 
-1. 发射 Phase 2 开始事件 → `emit-phase-event.sh phase_start 2 {mode}`
-2. 简化 Gate 验证：仅验证 Phase 1 checkpoint exists + status ok/warning（Hook L2 完成），调用 Skill(`autopilot-gate`) 但**跳过** Step 5.5 (CLAUDE.md 变更检测) 与特殊门禁
-3. 单次 `resolve-model-routing.sh`，Phase 2/3 共享
-4. 调用 Skill(`autopilot-dispatch`) 构造 Phase 2 prompt → 派发 Phase 2 Task（`run_in_background: true`）→ 等待 JSON 信封；ok/warning 继续，blocked/failed 终止
-5. 后台 Checkpoint Agent 写入 `phase-2-openspec.json` + git fixup；发射 Phase 2 结束 + Phase 3 开始事件
-6. 直接构造 Phase 3 prompt（复用 Step 3 路由），**无需**再次调用 `autopilot-gate` / `resolve-model-routing.sh` / GUI 健康检查（L2 Hook 仍确保 Phase 2 checkpoint 已写入）
-7. 派发 Phase 3 Task → 后台 Checkpoint Agent 写入 `phase-3-ff.json` + 合并 save-phase-context → 发射 Phase 3 结束事件
-8. 等待 Checkpoint Agent 完成 → 立即继续下一 Phase
-
-> **消除的冗余**: 1× gate 注入 + 5× 参考 Read + 1× resolve-model-routing + 1× emit-model-routing + 2× GUI 健康检查 + 1× 独立 Checkpoint Agent。三层门禁系统不受影响。
+详见 `references/phase23-fast-path.md`。
 
 ### Phase 4-6 通用调度模板
 
-对于 Phase N（N ∈ {4, 5, 6}），在**主线程**中执行以下步骤：
+对每个 Phase N (4 ≤ N ≤ 6)，主线程依次：
 
-```
-Step -1: 恢复跳过前置检查
-        → 当 recovery_phase 已设定时：N < recovery_phase 跳过；
-          N == recovery_phase 从该阶段开始恢复；N > recovery_phase 正常执行
-        → 跳过的 Phase 不发射 phase_start/phase_end 事件
-Step -0.5: GUI 健康检查（自动恢复，端口透传）
-        → Bash('AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_port+1} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh --check-health')
-Step 0: 发射 Phase 开始事件 → emit-phase-event.sh phase_start {N} {mode}
-Step 1: 调用 Skill("spec-autopilot:autopilot-gate")
-        → 执行 8 步阶段切换检查清单（验证 Phase N-1 checkpoint）
-        → Gate 通过/阻断后发射对应事件 + 进度写入；阻断时启动决策轮询（双向反控）
-Step 1.5: 可配置用户确认点（仅 after_phase_{N} === true 时生效，默认全部 false；else 分支直接跳过 Step 1.5 进入 Step 2）
-Step 2: 调用 Skill("spec-autopilot:autopilot-dispatch")
-        → 按协议构造 Task prompt（注入 instruction_files、reference_files）
-Step 3: Task 工具派发子 Agent（prompt 开头需 <!-- autopilot-phase:N --> 标记）
-        → Hook 脚本自动校验前置 checkpoint 与返回 JSON
-        → auto-emit-agent-dispatch / auto-emit-agent-complete 自动发射生命周期事件
-Step 4: 解析子 Agent JSON 信封
-        → ok → 继续 | warning → 继续（Phase 4 例外）| blocked/failed → 暂停
-Step 4.7: GUI 周期性健康检查（Phase 5 长任务保活）
-Step 5+7: 后台 Checkpoint Agent（原子写入 + 状态隔离）
-        → Checkpoint 写入**必须使用 Bash 工具**（非 Write 工具）
-        → **必须使用 `git add -A`**（自动尊重 .gitignore）
-        → **禁止显式 `git add` 锁文件 `.autopilot-active`**
-Step 6: TaskUpdate Phase N → completed
-Step 6.5: 发射 Phase 结束事件
-Step 6.6: 上下文使用率提示（压缩预警）
-Step 6.7: 保存上下文快照（占位符修复；从子 Agent JSON 信封填入 save-phase-context.sh 参数）
-Step 8: 等待 Step 5+7 后台 Agent 完成通知 → 立即继续下一 Phase
-```
+1. Skill(spec-autopilot:autopilot-gate)
+2. Skill(spec-autopilot:autopilot-dispatch)
+3. Task tool（派发并阻塞）
+4. 解析 JSON 信封 → 写 checkpoint → emit 事件
+
+详见 `references/phase4-6-loop.md`。
+
+#### Step 1.5 / Step 5+7 关键约束（test 锚点）
+
+- **Step 1.5**：当 `config.gates.user_confirmation.after_phase_{N} === true` 时 AskUserQuestion 确认；ELSE：**直接跳过 Step 1.5 进入 Step 2**，不得执行 AskUserQuestion
+- **Step 5+7 后台 Checkpoint Agent**：Checkpoint 写入 + git fixup commit 合并为后台 Agent
+  - Checkpoint 写入**必须使用 Bash 工具**（非 Write 工具）
+  - **必须使用 `git add -A`**（自动尊重 .gitignore）
+  - **禁止显式 `git add` 锁文件 `.autopilot-active`** — git add -A 自动尊重 .gitignore
 
 ---
 

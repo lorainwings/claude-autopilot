@@ -126,22 +126,14 @@ Task(
 | `blocking` | 是 | 是否阻断归档（`true` = 必须修复后才能归档） |
 | `owner` | 推荐 | 产出该 finding 的 agent 标识 |
 
-### 状态判定规则
+### Step 4: 状态判定与处理（fail-closed 门禁）
 
-| 条件 | 状态 |
-|------|------|
-| 存在 `blocking: true` 的 findings | `blocked`（Phase 7 归档被硬阻断，直到所有 blocking findings 被解决） |
-| critical findings > 0 且 `block_on_critical = true` | `blocked` |
-| major findings > 3 | `warning` |
-| 其他 | `ok` |
-
-### Step 4: 处理审查结果（fail-closed 门禁）
-
-| 状态 | 处理 |
-|------|------|
-| ok | 记录 checkpoint，继续质量扫描和 Phase 7 |
-| warning | 记录 checkpoint，展示 findings 供用户可见，但**不弹 AskUserQuestion**、不阻断 Phase 7；是否阻断归档由 Phase 7 的 archive-readiness 统一判定 |
-| blocked | 写入 `blocked` checkpoint 并展示 blocking findings；后续是否允许继续由 Phase 7 的 archive-readiness + `block_on_critical` 统一判定，主线程此处不额外插入“是否继续”的确认问题 |
+| 条件 | 状态 | 处理 |
+|------|------|------|
+| 存在 `blocking: true` 的 findings | `blocked` | 写入 `blocked` checkpoint 并展示 blocking findings；Phase 7 归档被硬阻断，直到 blocking findings 被解决（由 Phase 7 archive-readiness + `block_on_critical` 统一判定，主线程此处不再插入"是否继续"确认） |
+| critical findings > 0 且 `block_on_critical = true` | `blocked` | 同上 |
+| major findings > 3 | `warning` | 记录 checkpoint，展示 findings 供用户可见，但**不弹 AskUserQuestion**、不阻断 Phase 7；是否阻断归档由 Phase 7 archive-readiness 统一判定 |
+| 其他 | `ok` | 记录 checkpoint，继续质量扫描和 Phase 7 |
 
 > **治理约束**: review findings 不是纯 advisory。`blocking: true` 的 finding 会：
 > 1. 将 review checkpoint 状态设为 `blocked`

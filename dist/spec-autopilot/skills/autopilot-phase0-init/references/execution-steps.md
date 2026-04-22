@@ -34,7 +34,7 @@
 提取 `version` 字段，**立即输出初始化提示**（先于一切其他操作让用户看到版本号）：
 
 ```
-⏳ Autopilot v{version} initializing...
+[INIT] Autopilot v{version} initializing...
 ```
 
 ### Step 2: 检查配置文件
@@ -79,11 +79,13 @@
 
 **先启动 GUI 服务器**，再将地址嵌入 Banner 统一输出，避免分两步展示。
 
-先从已加载的 config 中读取 `gui.port`（默认 9527），计算 WS 端口（`gui.port + 1`），以环境变量形式传入脚本：
+> **占位符约定**：`gui_port` 取自 `config.gui.port`（默认 9527）；`gui_ws_port = gui_port + 1`（如 9528）。下文统一使用 `{gui_ws_port}`，不再出现 `{gui_port+1}` 表达式占位符。
 
-调用 `Bash("AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_port+1} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh <project_root>")`：
+先从已加载的 config 中读取 `gui.port`（默认 9527），计算 WS 端口（`gui_ws_port = gui_port + 1`），以环境变量形式传入脚本：
 
-其中 `{gui_port}` 从 `config.gui.port` 读取，未配置时默认 `9527`。`{gui_port+1}` 为 WS 端口（如 `9528`）。
+调用 `Bash("AUTOPILOT_HTTP_PORT={gui_port} AUTOPILOT_WS_PORT={gui_ws_port} bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/start-gui-server.sh <project_root>")`：
+
+其中 `{gui_port}` 从 `config.gui.port` 读取，未配置时默认 `9527`。`{gui_ws_port}` 为 WS 端口（如 `9528`）。
 
 解析脚本输出中 `GUI_SERVER_JSON:` 前缀行的 JSON，提取 `http_url` 字段作为实际 GUI 地址。
 
@@ -105,7 +107,7 @@
 │   Mode      {mode}                               │
 │   Change    {change_name}                        │
 │   Session   {session_id}                         │
-│   Started   {YYYY-MM-DD HH:mm:ss}               │
+│   Started   {started_at}                        │
 │   GUI       {gui_url}                            │
 │                                                  │
 ╰──────────────────────────────────────────────────╯
@@ -113,7 +115,7 @@
 
 - session_id：**此时生成**毫秒级时间戳并暂存，后续步骤 9 写入锁文件时复用同一值
 - change_name：此时尚未确定，显示 `pending`（Phase 1 完成后更新锁文件时回填）
-- Started：使用 `date "+%Y-%m-%d %H:%M:%S"` 获取本地时间，禁止 ISO-8601 带时区偏移格式
+- Started：`{started_at}` 由 `date "+%Y-%m-%d %H:%M:%S"`（即 strftime `%Y-%m-%d %H:%M:%S`）获取本地时间，禁止 ISO-8601 带时区偏移格式
 - GUI：从 `start-gui-server.sh` 的 `GUI_SERVER_JSON:` 输出解析 `http_url` 字段，服务器启动成功时显示实际地址（如 `http://localhost:9527`），启动失败时显示 `unavailable`
 
 ### Step 4.5: 初始化事件文件 + 发射 Phase 0 开始事件（Event Bus 补全）
@@ -145,7 +147,7 @@ if [ ! -f "$LESSONS_FILE" ]; then
 fi
 ```
 
-空语料（首次运行或无历史 episode）返回 `[]`，不阻断流程。详见 `skills/autopilot-learn/SKILL.md`。
+空语料（首次运行或无历史 episode）返回 `[]`，不阻断流程。详见 `autopilot-learn`。
 
 ### Step 5: 检查必需插件
 
@@ -236,5 +238,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/update-anchor-sha.sh "${session
 ### Step 10.5: 发射 Phase 0 结束事件（Event Bus 补全）
 
 ```bash
-Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 0 {mode} \'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}\'')
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_end 0 {mode} '"'"'{"status":"ok","duration_ms":{elapsed},"artifacts":["lockfile","anchor_commit"]}'"'"'')
 ```
+
+> **引用规则**：JSON payload 使用 POSIX 单引号闭合模式 `'"'"'{...}'"'"'`（关闭外层单引号 → 插入 `"'"` → 重新开启单引号）。**禁止**在 POSIX 单引号内使用 `\'`（shell 不识别反斜杠转义），否则引号不闭合。若 payload 过长或含不可控字符，可改为写入临时文件后 `--payload-file` 读取。

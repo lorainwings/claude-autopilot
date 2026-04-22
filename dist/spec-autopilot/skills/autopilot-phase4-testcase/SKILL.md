@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase4-testcase
-description: "Use when the autopilot orchestrator advances into Phase 4 after OpenSpec alignment has completed and tasks.md is ready, and must design test cases with TDD awareness and strict gating before Phase 5 can dispatch. [ONLY for autopilot orchestrator]"
+description: "Use when the autopilot orchestrator enters Phase 4 to design test cases. Applies after Phase 3 alignment with tasks.md ready; gates Phase 5 dispatch."
 user-invocable: false
 ---
 
@@ -10,13 +10,13 @@ user-invocable: false
 
 Phase 4 在 full 模式下执行测试用例设计，具有特殊的 TDD 跳过逻辑和严格门禁规则。
 
-**执行前读取**: `../autopilot/references/parallel-phase4.md` 并行配置 + `../autopilot/references/protocol.md` 特殊门禁
+**执行前读取**: 参见 autopilot skill 的 parallel-phase4 章节（由编排主线程已加载，子 SKILL 无需重复读取）+ 详见 autopilot skill 的 protocol 文档（特殊门禁定义）
 
 ## TDD 模式跳过（确定性检测）
 
 **必须执行确定性 Bash 检测**（禁止依赖 AI 记忆判断配置值）：
 
-```
+```bash
 TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 ```
 
@@ -37,7 +37,7 @@ TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 
 **执行位置**: Task 子 Agent
 
-- Agent: `config.phases.testing.agent`（默认 general-purpose；推荐安装 qa-expert / test-engineer）
+- `Agent name`：由 `config.phases.testing.agent` 配置项解析（默认 general-purpose；推荐安装 qa-expert / test-engineer）
 - Model Tier: deep / opus
 - **必须使用 `run_in_background: true`**：测试用例生成不需要交互，主线程等待完成通知后验证 gate 即可
 - 项目上下文从 config.project_context + config.test_suites + Phase 1 Steering Documents 自动注入
@@ -45,32 +45,28 @@ TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 
 ## 门禁规则（严格）
 
-**Phase 4 只接受 ok 或 blocked**（warning 由 Hook 确定性阻断）。详见 `../autopilot/references/protocol.md`。
+**Phase 4 只接受 ok 或 blocked**（warning 由 Hook 确定性阻断）。详见 autopilot skill 的 protocol 文档。
 
 ### Phase 4 → Phase 5 特殊门禁
 
 **非 TDD 模式**：
 
-```
+```text
 - [ ] phase-4-testing.json 中 test_counts 的每个字段 ≥ config.phases.testing.gate.min_test_count_per_type
 - [ ] artifacts 列表中包含 config.phases.testing.gate.required_test_types 对应的文件
 - [ ] dry_run_results 的所有字段全部为 0（exit code）
+- [ ] 必须创建实际测试文件，禁止以任何理由跳过
+- [ ] `change_coverage.coverage_pct` ≥ 80%，否则 blocked
+- [ ] 测试金字塔: unit ≥ `min_unit_pct`%，e2e ≤ `max_e2e_pct`%
+- [ ] 每个测试用例必须追溯到 Phase 1 需求点（traceability matrix）
+- [ ] status 只允许 "ok" 或 "blocked"（禁止 "warning"）
 ```
 
 **TDD 模式**：
 
-```
+```text
 - [ ] phase-4-tdd-override.json 存在且 tdd_mode_override === true
 - [ ] 跳过 test_counts / dry_run 验证（测试在 Phase 5 per-task 创建）
 ```
 
-## 关键约束摘要
-
-- 必须创建实际测试文件，禁止以任何理由跳过
-- 每种 test_type ≥ `min_test_count_per_type` 个用例
-- `change_coverage.coverage_pct` ≥ 80%，否则 blocked
-- 测试金字塔: unit ≥ `min_unit_pct`%，e2e ≤ `max_e2e_pct`%
-- 每个测试用例必须追溯到 Phase 1 需求点（traceability matrix）
-- status 只允许 "ok" 或 "blocked"（禁止 "warning"）
-
-完整指令在参考文件中：`autopilot/templates/phase4-testing.md`（测试标准 + dry-run + 金字塔）
+完整指令详见 references/phase4-testing-template.md（测试标准 + dry-run + 金字塔）

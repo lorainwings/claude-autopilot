@@ -1,6 +1,6 @@
 ---
 name: autopilot-phase0-init
-description: "Use when the autopilot orchestrator main thread enters Phase 0 and must perform environment checks, load config, decide between fresh start and crash recovery, render the banner, seed the task tree, acquire the lockfile, and create the anchor commit before any downstream phase begins. Not for direct user invocation."
+description: "Use when the autopilot orchestrator main thread enters Phase 0 to bootstrap a session (env checks, config load, recovery decision, lockfile, anchor commit). Not for direct user invocation."
 user-invocable: false
 ---
 
@@ -17,22 +17,13 @@ user-invocable: false
 
 ## 执行步骤概览
 
-| Step | 职责 |
-|------|------|
-| 1 | 读取插件版本 |
-| 2 | 检查配置文件 |
-| 3 | 解析执行模式 |
-| 4 | 启动 GUI + Banner |
-| 4.5 | 事件文件初始化 |
-| 4.6 | 注入历史教训 |
-| 5 | 检查必需插件 |
-| 6 | 崩溃恢复 |
-| 6.1 | 事件文件恢复清理 |
-| 7 | 创建阶段任务 |
-| 8 | gitignore |
-| 9 | 创建锁文件 |
-| 10 | 创建锚定 Commit |
-| 10.5 | 发射 Phase 0 结束事件 |
+| 阶段簇 | 职责 |
+|--------|------|
+| Step 1-3 | 版本/配置/模式解析 |
+| Step 4-4.6 | GUI + Banner + 事件初始化 + 历史教训注入 |
+| Step 5-6.1 | 必需插件检查 + 崩溃恢复 + 事件文件清理 |
+| Step 7-8 | 阶段任务创建 + gitignore |
+| Step 9-10.5 | 锁文件 + 锚定 Commit + Phase 0 结束事件 |
 
 **执行前必须读取 `references/execution-steps.md` 获取完整协议、脚本调用、字段定义。**
 
@@ -53,4 +44,4 @@ Phase 0 完成后，主编排器获得：
 
 ## 锁文件管理
 
-`${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期（路径、JSON 格式、PID 冲突检测、创建/更新/删除操作、日志格式）详见 `references/lock-file-protocol.md`。日志遵循 `autopilot/references/log-format.md` 规范。
+`${session_cwd}/openspec/changes/.autopilot-active` 锁文件的完整生命周期（路径、JSON 格式、PID 冲突检测、创建/更新/删除操作、日志格式）详见 `references/lock-file-protocol.md`。

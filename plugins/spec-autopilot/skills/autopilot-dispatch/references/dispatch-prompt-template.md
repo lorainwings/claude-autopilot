@@ -100,7 +100,7 @@ Bash('bash {CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-predecessor-for-subagent.s
 dispatch 子 Agent 前，主线程先调用 `resolve-model-routing.sh` 获取模型路由决策：
 
 ```bash
-ROUTING_JSON=$(bash <plugin_scripts>/resolve-model-routing.sh "$PROJECT_ROOT" {phase_number} {complexity} {requirement_type} {retry_count} {critical})
+ROUTING_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/resolve-model-routing.sh "$PROJECT_ROOT" {phase_number} {complexity} {requirement_type} {retry_count} {critical})
 ```
 
 返回 JSON 包含：`selected_tier` / `selected_model` / `selected_effort` / `routing_reason` / `escalated_from` / `fallback_applied`

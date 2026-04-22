@@ -1,6 +1,6 @@
 ---
-name: autopilot-phase5.5-redteam
-description: "Use when the autopilot orchestrator has completed Phase 5 implementation and must run a Red Team adversarial critic pass before Phase 6 reporting begins, validating the implementation against attack scenarios. [ONLY for autopilot orchestrator]"
+name: autopilot-phase5-5-redteam
+description: "Use when the autopilot orchestrator has completed Phase 5 implementation and must run a Red Team adversarial critic pass before Phase 6 reporting begins, validating the implementation against attack scenarios. ONLY for autopilot orchestrator; not for direct user invocation."
 user-invocable: false
 ---
 
@@ -17,18 +17,12 @@ Phase 5.5 的 Critic Agent **必须**从 `autopilot.config.yaml` 的 `phases.red
 phases:
   redteam:
     enabled: true              # 是否启用 Phase 5.5（默认 true）
-    agent: ""                  # [必填] 推荐 OMC "code-reviewer" 或 Anthropic 官方 "red-team-critic"
+    agent: ""                  # [必填] 推荐 code-reviewer 或 red-team-critic（参见配置文档）
 ```
 
 ### Sub-Agent 名称硬解析协议（强制）
 
-1. 派发前主线程必须将 `config.phases.redteam.agent` 读取为字面量字符串
-2. 调用 `bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/validate-agent-registry.sh "<resolved_name>"` 校验
-3. 失败（exit 1）或字段为空 → 立即返回 blocked 信封，不派发
-4. `_config_validator.py` 硬阻断该字段值为 `"Explore"`（Red Team 需 Write 反例文件到 `tests/generated/`，Explore 只读）
-5. `auto-emit-agent-dispatch.sh` 的 Phase ≥ 2 兜底规则同样阻断 `subagent_type == Explore`
-
-> 禁止将 `config.phases.redteam.agent` 字面量直接传入 Task —— LLM 看到字面量会启发式选 `general-purpose`，导致预设身份丢失。
+见 CLAUDE.md §子 Agent 约束 第 10 条 + skills/autopilot-dispatch。
 
 ### 派发模式（前台 Task）
 
@@ -36,25 +30,6 @@ phases:
 
 - 原因：Phase 6 gate 判定依赖 `blocking_reproducers` 数值。后台派发会导致主线程在 Task 未完成时推进至 Phase 6，形成 gate bypass。
 - 例外：仅内部 checkpoint-writer 子任务可用 `run_in_background: true`（与其他 Phase 对齐）。
-
-## 阶段定位
-
-| Phase | 名称 | 角色 |
-|------|------|------|
-| 5 | Implement | 实现产出 |
-| **5.5** | **Red Team** | **本 Skill — 主动尝试破坏 Phase 5 产物** |
-| 6 | Report | 测试报告 + 代码评审 + 质量扫描 |
-
-> **注意**：Phase 5.5 是文档 phase 序号约定（运行时 phase 字段允许浮点 5.5），
-> 主 SKILL (`skills/autopilot/SKILL.md`) 的 phase 序列变更需由编排合并方完成，
-> 本 Skill 不直接修改主 SKILL，相关合并在主返回信封 `merge_hints` 中提示。
-
-## 设计哲学
-
-借鉴 **Cursor Vuln Hunter** 的"激进对抗"模式：
-- 不是评分，而是**主动制造可执行反例**
-- 任何无法被反例攻破的实现才被认为是稳健的
-- 反例自动追加到 `tests/generated/redteam-*.sh`，形成回归网
 
 ## 5 类破坏枚举
 
@@ -100,7 +75,11 @@ phases:
 - `redteam.recommendation` ∈ `{proceed_to_phase6, block_until_fixed}`
 - `blocking_reproducers > 0` 时 `recommendation` 必须为 `block_until_fixed`，且 `status` 必须为 `blocked`（否则信封 invalid → L2 阻断）
 
-### `openspec/changes/<change_name>/context/redteam-report.json`
+### 报告文件：redteam-report.json
+
+> **契约关系**：报告 = 真源；信封 = 派生。下方 `redteam-report.json` 为 Phase 5.5 输出真源；上方 Critic Agent 返回的 JSON 信封中的 `redteam.*` 字段由本报告聚合而成，不得独立编辑。
+
+路径：`openspec/changes/<change_name>/context/redteam-report.json`
 
 ```json
 {
@@ -127,7 +106,9 @@ phases:
 }
 ```
 
-### `tests/generated/redteam-<category>-<id>.sh`
+### 复现脚本：tests/generated/redteam-*.sh
+
+路径模板：`tests/generated/redteam-<category>-<id>.sh`
 
 每个 reproducer 必须可独立执行，遵守仓库测试约定（`set -uo pipefail`、使用 `_test_helpers.sh`）。
 

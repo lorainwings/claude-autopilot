@@ -288,7 +288,7 @@ test_suites:
 | `autopilot-phase2-3-openspec` | No | OpenSpec creation + Fast-Forward artifact generation |
 | `autopilot-phase4-testcase` | No | Test case design (TDD override + parallel grouping) |
 | `autopilot-phase5-implement` | No | Implementation orchestration (parallel/serial/TDD) + L2 verification |
-| `autopilot-phase5.5-redteam` | No | Red Team adversarial phase between Phase 5 and Phase 6 (5 破坏类别反例) |
+| `autopilot-phase5-5-redteam` | No | Red Team adversarial phase between Phase 5 and Phase 6 (5 破坏类别反例) |
 | `autopilot-phase6-report` | No | Test report generation with tri-path parallel execution |
 | `autopilot-phase7` | No | Summary display + archive + git autosquash + episode write |
 | `autopilot-recovery` | No | Crash recovery via checkpoint scanning + anchor_sha validation |

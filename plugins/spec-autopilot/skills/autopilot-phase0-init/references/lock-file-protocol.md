@@ -44,7 +44,7 @@ ${session_cwd}/openspec/changes/.autopilot-active
 
 ## 日志格式
 
-遵循 `../../autopilot/references/log-format.md` 规范：
+锁文件相关日志统一使用 `[LOCK]` 前缀，最小 4 行样例如下（与 autopilot 全局日志规范保持一致）：
 
 ```
 [LOCK] created: .autopilot-active
