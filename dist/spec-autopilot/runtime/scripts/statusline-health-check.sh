@@ -73,6 +73,31 @@ except Exception:
   fi
 fi
 
+# --- 检查 2.5: statusLine.command 中是否包含 spec-autopilot collector（或其链式调用）---
+# 仅检查 command 字符串是否引用了 spec-autopilot 自己的 statusline-collector.sh
+# 允许任意链式形式：CLAUDE_PLUGIN_ROOT env var / 绝对路径 / 市场安装路径
+# 判据：command 中存在路径片段 spec-autopilot[}]?/runtime/scripts/statusline-collector.sh
+#       （兼容 ${CLAUDE_PLUGIN_ROOT:-/.../spec-autopilot}/runtime/... 形态）
+if [ -f "$LOCAL_SETTINGS" ]; then
+  AUTOPILOT_IN_CHAIN=$(python3 -c "
+import json, sys, re
+try:
+    d = json.loads(open(sys.argv[1]).read())
+    cmd = d.get('statusLine', {}).get('command', '')
+    # 兼容 \${CLAUDE_PLUGIN_ROOT:-/.../spec-autopilot}/runtime/scripts/statusline-collector.sh
+    # 与裸路径 /.../spec-autopilot/runtime/scripts/statusline-collector.sh
+    if re.search(r'spec-autopilot[}]?/runtime/scripts/statusline-collector\.sh', cmd):
+        print('yes')
+    else:
+        print('no')
+except Exception:
+    print('no')
+" "$LOCAL_SETTINGS" 2>/dev/null || echo "no")
+  if [ "$AUTOPILOT_IN_CHAIN" != "yes" ]; then
+    ISSUES+=("autopilot_collector_not_in_chain")
+  fi
+fi
+
 # --- 检查 3: CLAUDE_PLUGIN_ROOT 是否已解析为有效路径 ---
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 FALLBACK_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
