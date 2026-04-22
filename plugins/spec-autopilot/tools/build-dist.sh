@@ -129,6 +129,29 @@ while IFS= read -r line; do
 done < "$MANIFEST"
 echo "📋 Manifest-driven copy: $MANIFEST_COUNT files → dist/runtime/scripts/"
 
+# 5a-ref-check. 引用一致性：skills/ 中被引用的脚本必须在 manifest 内
+#   防止源码中 skill 引用的脚本因 manifest 遗漏而 dist 缺失（v5.13.2 regression 场景）。
+REF_MISSING=""
+for script_path in "$PLUGIN_ROOT/runtime/scripts/"*.sh; do
+  script_name=$(basename "$script_path")
+  # 跳过 manifest 已声明的脚本
+  if grep -qxF "$script_name" "$MANIFEST" 2>/dev/null; then
+    continue
+  fi
+  # 检查是否被 skills/ 或 agents/ 引用（排除 deprecated 提示）
+  if grep -rq --include="*.md" "$script_name" "$PLUGIN_ROOT/skills/" "$PLUGIN_ROOT/agents/" 2>/dev/null; then
+    REF_MISSING="$REF_MISSING\n  - $script_name"
+  fi
+done
+if [ -n "$REF_MISSING" ]; then
+  echo ""
+  echo "❌ ERROR: 以下脚本被 skills/ 或 agents/ 引用，但未在 .dist-include 声明："
+  printf "%b\n" "$REF_MISSING"
+  echo ""
+  echo "   修复：将上述脚本添加到 runtime/scripts/.dist-include"
+  exit 1
+fi
+
 # 5a-schemas. runtime/schemas/ — JSON Schema 产物（供 L2 hook 运行时加载）
 #   按 manifest 逐项复制，避免把开发期临时 schema 误发布。
 SCHEMAS_MANIFEST="$PLUGIN_ROOT/runtime/schemas/.dist-include"
