@@ -18,6 +18,12 @@ if [ ! -t 0 ]; then
   STDIN_DATA=$(cat)
 fi
 
+# 清洗 stdin 中的 ANSI escape 序列：上游 chain 命令引号转义破损时，
+# 终端控制码会污染 model 等字段（曾出现 "claude-opus-4-7-cc[1m][1m]"）。
+if [ -n "$STDIN_DATA" ]; then
+  STDIN_DATA=$(printf '%s' "$STDIN_DATA" | LC_ALL=C sed $'s/\x1b\\[[0-9;]*[A-Za-z]//g')
+fi
+
 if [ -z "$STDIN_DATA" ]; then
   if [ "$SEED_MODE" = "true" ]; then
     # seed 模式下允许空 stdin，合成最小 payload

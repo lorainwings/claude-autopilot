@@ -30,9 +30,15 @@ export SCRIPT_DIR
 source "$SCRIPT_DIR/_common.sh"
 
 # --- Extract project root (pure bash, ~1ms) ---
-PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-if [ -z "$PROJECT_ROOT_QUICK" ]; then
-  PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Priority: $AUTOPILOT_PROJECT_ROOT (test fixtures / explicit override) >
+#           cwd from stdin > git rev-parse > pwd
+if [ -n "${AUTOPILOT_PROJECT_ROOT:-}" ] && [ -d "${AUTOPILOT_PROJECT_ROOT}" ]; then
+  PROJECT_ROOT_QUICK="$AUTOPILOT_PROJECT_ROOT"
+else
+  PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  if [ -z "$PROJECT_ROOT_QUICK" ]; then
+    PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  fi
 fi
 
 # --- Layer 0 bypass: no active autopilot session ---

@@ -43,7 +43,7 @@ esac
 TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Determine project root
-PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-${AUTOPILOT_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
 
 # --- Resolve GUI context fields ---
 LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"

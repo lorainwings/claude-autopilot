@@ -113,13 +113,51 @@ if "$schema" not in data:
 existing = data.get("statusLine") or {}
 existing_cmd = existing.get("command", "") if isinstance(existing, dict) else ""
 
+# 幂等性检测：递归（含 base64 嵌套）扫描 existing_cmd 中是否已存在 spec-autopilot collector。
+# 历史上 chain 模式只做顶层 substring 匹配，导致已被其他插件 base64 包装后再次安装时无法识别，
+# 形成多层嵌套（命令崩溃 + collector 永不被调用）。
+import re as _re
+import base64 as _b64
+
+_TARGET = "spec-autopilot/runtime/scripts/statusline-collector.sh"
+# 鲁棒匹配：路径中间可能夹有 `${CLAUDE_PLUGIN_ROOT:-...}` 的 `}`、空格或其他字符
+_TARGET_RE = _re.compile(r"spec-autopilot[^'\"\s]*runtime/scripts/statusline-collector\.sh")
+
+
+def _contains_autopilot(text: str, depth: int = 0) -> bool:
+    if not isinstance(text, str) or not text:
+        return False
+    if _TARGET in text or _TARGET_RE.search(text):
+        return True
+    if depth >= 4:
+        return False
+    # 在文本中寻找 base64 块（>=40 字符），逐个解码并递归查找
+    for blob in _re.findall(r"[A-Za-z0-9+/]{40,}={0,2}", text):
+        try:
+            decoded = _b64.b64decode(blob, validate=False).decode("utf-8", errors="ignore")
+        except Exception:
+            continue
+        if not decoded:
+            continue
+        if _contains_autopilot(decoded, depth + 1):
+            return True
+    return False
+
+
+_already_present = _contains_autopilot(existing_cmd)
+
 # 判定 chain 场景：mode=chain 且 existing 非空且不含 spec-autopilot collector
 needs_chain = (
     mode == "chain"
     and isinstance(existing_cmd, str)
     and existing_cmd.strip()
-    and "spec-autopilot/runtime/scripts/statusline-collector.sh" not in existing_cmd
+    and not _already_present
 )
+
+# 已存在（含嵌套）→ 直接 no-op，避免重复包装造成命令膨胀
+if _already_present and mode == "chain":
+    print("INFO: spec-autopilot statusline collector already configured (possibly nested); skipping re-install", file=sys.stderr)
+    raise SystemExit(0)
 
 if needs_chain:
     # 构造 chain 命令：两个 collector 各自读取 stdin 并 join 输出

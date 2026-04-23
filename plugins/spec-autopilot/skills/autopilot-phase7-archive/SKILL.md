@@ -181,9 +181,9 @@ rm -f ${session_cwd}/openspec/changes/.autopilot-active
 git tag -d autopilot-phase5-start 2>/dev/null
 ```
 
-### Step 9: Allure 服务提示（若 Step 2.5 启动了服务）
+### Step 9: Allure 服务提示（确定性输出，始终展示）
 
-若 `${change_dir}context/allure-serve.pid` 存在，输出 Allure 服务运行提示与停止命令。
+无论 Allure 服务是否存活，都必须输出一行 `[ALLURE]` 状态提示，避免用户在 Summary Box 之外看不到任何 Allure 状态线索。
 
 ```bash
 # TODO(P1): 抽为 ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-allure-hint.sh；
@@ -192,7 +192,6 @@ git tag -d autopilot-phase5-start 2>/dev/null
 Bash('
   PID_FILE="openspec/changes/{change_name}/context/allure-serve.pid"
   PREVIEW_FILE="openspec/changes/{change_name}/context/allure-preview.json"
-  P6_CHECKPOINT="openspec/changes/{change_name}/context/phase-results/phase-6-report.json"
   if [ -f "$PID_FILE" ]; then
     ALLURE_PID=$(cat "$PID_FILE")
     if kill -0 "$ALLURE_PID" 2>/dev/null; then
@@ -200,24 +199,51 @@ Bash('
       if [ -f "$PREVIEW_FILE" ]; then
         ALLURE_URL=$(python3 -c "import json; print(json.load(open(\"$PREVIEW_FILE\")).get(\"url\",\"\"))" 2>/dev/null || echo "")
       fi
-      # 测试统计由 Step 2.6 的 collect-test-report-data 统一收集，此处仅展示 PID + URL + 停止命令
       echo "[ALLURE] 预览服务运行中 (PID: $ALLURE_PID)"
       [ -n "$ALLURE_URL" ] && echo "  报告地址: $ALLURE_URL"
-      echo "  查看完报告后运行以下命令停止:"
-      echo "    kill $ALLURE_PID"
+      echo "  查看完报告后运行以下命令停止: kill $ALLURE_PID"
     else
       rm -f "$PID_FILE"
+      echo "[ALLURE] 预览服务进程已退出 (stale PID 已清理)"
+      echo "  重启命令: bash \$CLAUDE_PLUGIN_ROOT/runtime/scripts/start-allure-serve.sh openspec/changes/{change_name}"
     fi
+  else
+    echo "[ALLURE] 预览服务未启动 (无 allure-results 产物或上游 Phase 4/5/6 未触发自愈)"
+    echo "  手动启动: bash \$CLAUDE_PLUGIN_ROOT/runtime/scripts/start-allure-serve.sh openspec/changes/{change_name}"
   fi
 ')
 ```
 
-> **设计意图**：不自动 kill Allure 服务，确保 Summary Box 中的链接在用户查看期间始终可用。用户查看完后自行停止。
+> **设计意图**：原版本 PID 文件不存在时静默无输出，导致用户不知道 Allure 是否启动过。新版本三态全展示（运行中 / 已退出 / 未启动），并附手动启动命令兜底。
 
 ---
 
-## Summary Box 渲染
+## Summary Box 渲染（强制 Step）
 
 **执行前读取**: `references/summary-box.md`（确定性地址收集 + 模板 + 渲染规则）
 
-Phase 7 汇总展示时，输出 Summary Box（遵循 `references/log-format.md`）。从磁盘文件确定性读取 Allure URL、GUI URL、Services 地址，渲染固定宽度线框。
+Phase 7 汇总展示时，输出 Summary Box（遵循 `references/log-format.md`）。**必须**通过以下确定性 Bash 调用渲染，禁止仅依赖 references 中的代码块由 AI 自行决定是否执行：
+
+```bash
+CHANGE_DIR="openspec/changes/{change_name}"
+BASE_PORT=$(python3 -c "import yaml; cfg=yaml.safe_load(open('.claude/autopilot.config.yaml')); print(cfg.get('phases',{}).get('reporting',{}).get('allure',{}).get('serve_port',4040))" 2>/dev/null || echo 4040)
+
+# Step S1: 确定性地址收集（含 Allure 自愈）
+URLS_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/collect-summary-urls.sh "$CHANGE_DIR" "$BASE_PORT")
+
+# Step S2: 渲染 Summary Box，从磁盘文件确定性读取 Allure URL、GUI URL、Services 地址
+#         模板与字段填充规则详见 references/summary-box.md
+echo "$URLS_JSON" | python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read() or '{}')
+allure = data.get('allure_url') or 'unavailable'
+gui    = data.get('gui_url') or 'unavailable'
+svcs   = data.get('services') or {}
+# AI 在此基础上叠加 Phase 状态行 / Duration / Pass Rate / TDD 行
+print('[SUMMARY-URLS] allure=' + allure + ' gui=' + gui + ' services=' + str(len(svcs)))
+"
+```
+
+> **设计意图（根因修复）**：原方案把 `collect-summary-urls.sh` 调用埋在 references/summary-box.md 的代码块中，依赖 AI "执行前读取" 后是否真的执行。现把调用提升为 SKILL.md 顶层强制 Step，且把 `CHANGE_DIR` 提取为变量显式传入，避免 `{change_name}` 占位符未被替换时静默失败。
+
+> Summary Box 完整模板渲染（含 Phase 状态行、Quick Links 子框）：见 `references/summary-box.md`。AI 仍需按照该模板组装最终 Summary Box，但 Allure URL / GUI URL / Services 字段**必须**来自上方 `URLS_JSON` 的解析结果，禁止再独立读取 `allure-preview.json`。

@@ -150,6 +150,31 @@ fi
 
 TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试不可变 | REFACTOR 回归保护
 
+#### 路径 C 收尾：TDD Test Report 线框（强制）
+
+所有 task 的 RED→GREEN→REFACTOR 循环完成后、派发 Phase 5.5 Red Team 之前，**必须**渲染 TDD Test Report 线框。设计意图：TDD 模式下用户在 Phase 5 结束即可访问 Allure 报告，看到完整 RED→GREEN 变迁；不必再等到 Phase 6 才出现 URL。
+
+```bash
+CHANGE_DIR="openspec/changes/{change_name}"
+TDD_DIR="$CHANGE_DIR/reports/allure-results/tdd"
+MERGED_DIR="$CHANGE_DIR/reports/allure-results"
+BASE_PORT=$(python3 -c "import yaml; cfg=yaml.safe_load(open('.claude/autopilot.config.yaml')); print(cfg.get('phases',{}).get('reporting',{}).get('allure',{}).get('serve_port',4040))" 2>/dev/null || echo 4040)
+
+# 合并 TDD 各阶段产物到统一 allure-results（供 start-allure-serve.sh 找到）
+if [[ -d "$TDD_DIR" ]]; then
+  mkdir -p "$MERGED_DIR"
+  for stage in red green refactor; do
+    if [[ -d "$TDD_DIR/$stage" ]]; then
+      cp -an "$TDD_DIR/$stage"/*.json "$MERGED_DIR/" 2>/dev/null || true
+    fi
+  done
+fi
+
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/render-test-report-frame.sh "$CHANGE_DIR" "Phase 5 TDD Test Report" "$BASE_PORT"
+```
+
+> 脚本职责：合并 `allure-results/tdd/{red,green,refactor}` → 自愈启动 Allure 服务 → 渲染线框（含 URL）。失败时线框 Allure 行展示 `unavailable`，不阻断 Phase 5.5 派发。
+
 > **强制约束**：路径 A/B **互斥**。Phase 5 JSON 信封构造由 dispatch skill 内部读取 protocol 章节。
 
 ### Phase 5→6 特殊门禁

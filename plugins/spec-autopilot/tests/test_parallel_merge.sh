@@ -71,9 +71,14 @@ assert_exit "anchor_sha empty → exit 0 (fallback HEAD~1)" 0 $exit_code
 assert_contains "anchor_sha empty → fallback detects scope" "$output" "outside task scope"
 
 # 39d. 无锁文件 → 脚本在 Layer 0 bypass（has_active_autopilot 失败）
+# 注意：setup_autopilot_fixture 在 REPO_ROOT 也创建了 fixture 锁文件并 export
+# AUTOPILOT_PROJECT_ROOT=REPO_ROOT。本子用例需要让 Layer 0 检查与 stdin cwd 解析
+# 都指向 ANCHOR_TEST_DIR，确保 "无锁文件" 语义一致。
 rm "$ANCHOR_TEST_DIR/openspec/changes/.autopilot-active"
 exit_code=0
-output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+output=$(AUTOPILOT_PROJECT_ROOT="$ANCHOR_TEST_DIR" \
+  mk_merge_input "$ANCHOR_TEST_DIR" | \
+  AUTOPILOT_PROJECT_ROOT="$ANCHOR_TEST_DIR" bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
 assert_exit "no lock file → exit 0 (bypass)" 0 $exit_code
 assert_not_contains "no lock file → no block" "$output" "block"
 
