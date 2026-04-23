@@ -171,6 +171,96 @@ assert_output_contains "non-bot author: IS_BOT_AUTHOR=false" IS_BOT_AUTHOR false
 assert_output_contains "non-bot author: SKIP_WHOLE_CI=false" SKIP_WHOLE_CI false
 assert_output_contains "non-bot author: IS_POST_RELEASE_BOT=false" IS_POST_RELEASE_BOT false
 
+# ── Scenario 9: PR 事件 + release-please 分支（PR #118 复现）──
+# GitHub PR 事件下 github.sha 是自动生成的 merge commit (message="Merge X into Y"),
+# commit-message 与 range 检查均失效，必须靠分支名信号兜底
+echo "--- Scenario 9: PR event on release-please branch (PR #118 regression) ---"
+# 构造一个完全无 release 痕迹的 HEAD（普通 dev commit）模拟 GitHub merge commit
+git config user.name "developer"
+git config user.email "dev@example.com"
+echo "v9" > file.txt
+git add file.txt
+git commit -q -m "Merge abc123 into def456"
+MERGE_HEAD=$(git rev-parse HEAD)
+
+# 不带分支名 → 不应跳过（仅靠 message/range 时的旧行为）
+assert_check "PR baseline (no branch hint): SKIP_DIST_STALE=false" skip_dist_stale 1 "" "$MERGE_HEAD"
+
+# 注入 release-please 分支名 → 必须跳过（新行为）
+GITHUB_HEAD_REF=release-please--branches--main \
+  bash "$DETECT_SCRIPT" --check=skip_dist_stale "" "$MERGE_HEAD" >/dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo -e "  \033[32mPASS\033[0m: PR on release-please branch: SKIP_DIST_STALE=true"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: PR on release-please branch: expected skip but got exit=$rc"
+  FAIL=$((FAIL + 1))
+fi
+
+# 验证 IS_RELEASE_PLEASE_BRANCH 字段输出
+out=$(GITHUB_HEAD_REF=release-please--branches--main bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
+  echo -e "  \033[32mPASS\033[0m: GITHUB_HEAD_REF detected → IS_RELEASE_PLEASE_BRANCH=true"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: GITHUB_HEAD_REF detection failed"
+  FAIL=$((FAIL + 1))
+fi
+
+# ── Scenario 10: push 直推 release-please 分支（GITHUB_REF_NAME 路径）──
+echo "--- Scenario 10: push event on release-please branch ---"
+out=$(GITHUB_HEAD_REF='' GITHUB_REF_NAME=release-please--branches--main bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
+  echo -e "  \033[32mPASS\033[0m: GITHUB_REF_NAME detected → IS_RELEASE_PLEASE_BRANCH=true"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: GITHUB_REF_NAME detection failed"
+  FAIL=$((FAIL + 1))
+fi
+
+# 普通分支不应误判
+out=$(GITHUB_HEAD_REF='' GITHUB_REF_NAME=feature/foo bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=false$"; then
+  echo -e "  \033[32mPASS\033[0m: regular branch → IS_RELEASE_PLEASE_BRANCH=false"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: regular branch incorrectly flagged"
+  FAIL=$((FAIL + 1))
+fi
+
+# ── Scenario 11: 安全加固 — 人类伪造 release-please-* 分支名（actor 校验拦截）──
+echo "--- Scenario 11: spoofed release-please branch by human (actor guard) ---"
+# 人类用户在 CI 环境下伪造分支名 → actor 不是 bot → 不应跳过
+out=$(GITHUB_HEAD_REF=release-please--evil GITHUB_ACTOR=evil-user bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=false$"; then
+  echo -e "  \033[32mPASS\033[0m: spoofed branch + human actor → IS_RELEASE_PLEASE_BRANCH=false"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: spoofed branch was incorrectly accepted"
+  FAIL=$((FAIL + 1))
+fi
+
+# 真正 release-please bot PR：分支名 + bot actor 双因子通过
+out=$(GITHUB_HEAD_REF=release-please--branches--main GITHUB_ACTOR='github-actions[bot]' bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
+  echo -e "  \033[32mPASS\033[0m: legit release-please bot PR → IS_RELEASE_PLEASE_BRANCH=true"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: legit release-please PR rejected"
+  FAIL=$((FAIL + 1))
+fi
+
+# 本地测试场景（无 GITHUB_ACTOR）退化为只看分支名，便于开发自检
+out=$(GITHUB_HEAD_REF=release-please--branches--main bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
+  echo -e "  \033[32mPASS\033[0m: local test (no GITHUB_ACTOR) → degrades to branch-only check"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: local test fallback failed"
+  FAIL=$((FAIL + 1))
+fi
+
 # ── 汇总 ──
 echo ""
 echo "=== ci-detect-release-context: $PASS passed, $FAIL failed ==="
