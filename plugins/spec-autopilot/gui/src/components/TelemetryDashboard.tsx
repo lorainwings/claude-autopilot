@@ -114,6 +114,18 @@ export const TelemetryDashboard = memo(function TelemetryDashboard() {
               </div>
             </details>
           </div>
+        ) : serverHealth.statusLineInstalled ? (
+          // 兜底分支：store 已累积到 status_snapshot（statusLineInstalled=true），
+          // 但 selectorr 尚未计算出 latestStatus（例如 snapshot 传输中 / 事件合并延迟）。
+          // 避免误导用户去重装 statusLine 脚本。
+          <div className="space-y-2 text-[11px] font-mono">
+            <div className="px-2 py-1 bg-surface border border-cyan/30 rounded text-[10px] text-cyan">
+              已接入 statusLine · 等待快照同步
+            </div>
+            <div className="text-[10px] text-text-muted">
+              Claude Code 已向后端写入遥测数据，GUI 即将显示最新快照。
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="text-[11px] font-mono text-text-muted">未接入 statusLine 或当前会话暂无遥测</div>

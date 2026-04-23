@@ -4,9 +4,21 @@ description: "Use when autopilot orchestrator enters Phase 1 to understand requi
 user-invocable: false
 ---
 
-# Autopilot Phase 1 — 需求理解与多轮决策（主线程）
+# Autopilot Phase 1 — 需求理解与多轮决策
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
+
+## 主线程职责边界（Hard Boundary）
+
+| ✅ 主线程允许 | ❌ 主线程禁止 |
+|---|---|
+| 调用 Skill 加载本协议 | 自行 Read PRD / 业务源码 / GUI 组件 / runtime 脚本"做勘察" |
+| Bash 调用 `runtime/scripts/*` 确定性脚本（emit/checkpoint/validate）| 自行 Glob/Grep/WebFetch/WebSearch 做调研 |
+| **Task 派发** ScanAgent / ResearchAgent / SynthesizerAgent / BA / PackagerAgent | 自行总结现状、自行写需求/方案 |
+| 解析子 Agent JSON 信封字段 → AskUserQuestion 让用户决策 | 自行假设答案、自行合成 requirement-packet |
+| 写 Phase 1 checkpoint + git fixup（后台 Agent） | 自行 Read `requirements-analysis.md` / `research-findings.md` 全文 |
+
+**反模式**：主线程在 AskUserQuestion 之前已经"已勘察现状：xxx 已有 yyy"——这是典型的应派发未派发，**立即停止并改走 Step 2-3 的并行调研派发链路**。
 
 **核心原则**: 绝不假设，始终列出选项由用户决策。
 

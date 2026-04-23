@@ -2,10 +2,11 @@
  * session-context.ts — 会话上下文解析
  */
 
-import { readFile } from "node:fs/promises";
-import { EVENTS_FILE, LOCK_FILE, PLUGIN_JSON } from "../config";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { EVENTS_FILE, LOCK_FILE, PLUGIN_JSON, SESSIONS_DIR } from "../config";
 import { pluginVersionCache, setPluginVersionCache } from "../state";
-import type { AutopilotMode } from "../types";
+import type { AutopilotMode, RawStatusRecord } from "../types";
 import { normalizeMode, safeJsonParse } from "../utils";
 import { readJsonLinesCached } from "./file-cache";
 
@@ -57,8 +58,51 @@ export async function inferLatestLegacyContext(): Promise<{ sessionId: string | 
   return { sessionId: null, changeName: "unknown", mode: "full" };
 }
 
+/**
+ * 从 logs/sessions/<session_key>/raw/statusline.jsonl 中选择"最近活跃" session。
+ * 依据：statusline 文件 mtime 最新者 → 读最后一条记录拿 session_id。
+ * 用于 lockfile 缺失 / legacy events 未写的首次安装场景，解除 GUI 遥测对 autopilot 锁文件的强耦合。
+ */
+export async function inferLatestSessionFromDisk(): Promise<{ sessionId: string | null; changeName: string; mode: AutopilotMode }> {
+  let entries: string[] = [];
+  try {
+    entries = await readdir(SESSIONS_DIR);
+  } catch {
+    return { sessionId: null, changeName: "unknown", mode: "full" };
+  }
+
+  let best: { path: string; mtimeMs: number } | null = null;
+  for (const entry of entries) {
+    const statusPath = join(SESSIONS_DIR, entry, "raw", "statusline.jsonl");
+    try {
+      const st = await stat(statusPath);
+      if (!st.isFile() || st.size === 0) continue;
+      if (!best || st.mtimeMs > best.mtimeMs) {
+        best = { path: statusPath, mtimeMs: st.mtimeMs };
+      }
+    } catch {
+      // 跳过不存在/不可读
+    }
+  }
+  if (!best) return { sessionId: null, changeName: "unknown", mode: "full" };
+
+  const records = await readJsonLinesCached<RawStatusRecord>(best.path);
+  for (let i = records.length - 1; i >= 0; i--) {
+    const rec = records[i];
+    if (rec && typeof rec.session_id === "string" && rec.session_id) {
+      return { sessionId: rec.session_id, changeName: "unknown", mode: "full" };
+    }
+  }
+  return { sessionId: null, changeName: "unknown", mode: "full" };
+}
+
 export async function getCurrentSessionContext() {
   const lockContext = await readLockContext();
   if (lockContext.sessionId) return lockContext;
-  return inferLatestLegacyContext();
+  const legacyContext = await inferLatestLegacyContext();
+  if (legacyContext.sessionId) return legacyContext;
+  // Fallback: 没有 lockfile 也没有 legacy events 时，扫描磁盘 statusline.jsonl
+  // 消除 autopilot 未跑过 Phase 0 即 GUI 永远拿不到遥测的问题
+  return inferLatestSessionFromDisk();
 }
+
