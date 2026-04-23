@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.14.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.0...spec-autopilot-v5.14.1) (2026-04-23)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复主线程"应派发未派发"+ GUI 遥测顽固空态 ([394aa2f](https://github.com/lorainwings/claude-autopilot/commit/394aa2f2a04ba44f6d83ab7ca5a542d161f5a9b4))
+* **spec-autopilot:** 修复主线程应派发未派发 + GUI 遥测顽固空态 ([c2ca496](https://github.com/lorainwings/claude-autopilot/commit/c2ca49623a2991fdc5f151246fbfafce13a1dbbb))
+
 ## [5.14.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.4...spec-autopilot-v5.14.0) (2026-04-22)
 
 
