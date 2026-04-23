@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.15.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.1...spec-autopilot-v5.15.0) (2026-04-23)
+
+
+### Added
+
+* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([b2ef138](https://github.com/lorainwings/claude-autopilot/commit/b2ef138f4c172e764e2cc3f144fea24fca090a73))
+* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([31f71dd](https://github.com/lorainwings/claude-autopilot/commit/31f71ddb7867526857593f8c64c38b3e8e9eb01f))
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 hook project-root 解析不尊重 AUTOPILOT_PROJECT_ROOT ([3c7c0e1](https://github.com/lorainwings/claude-autopilot/commit/3c7c0e11333bd1efce93604b4d24ca9ed389aa71))
+* **spec-autopilot:** 修复 statusline 安装幂等性与 ANSI 污染 ([32a4e0b](https://github.com/lorainwings/claude-autopilot/commit/32a4e0b567e55ec1839a25d0b10362d2d25a18ad))
+
 ## [5.14.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.0...spec-autopilot-v5.14.1) (2026-04-23)
 
 
