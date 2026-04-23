@@ -8,6 +8,8 @@ user-invocable: false
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
+> **派发铁律**：主线程**必须**通过 `Task(subagent_type=autopilot-phase6-report)` 派发本协议；**严禁**主线程自行运行测试、生成报告或撰写质量扫描结论。主线程仅负责派发与信封解析。
+
 Phase 6 执行测试报告生成，支持三路并行（测试 + 代码审查 + 质量扫描）和 Allure 集成。
 
 **执行前读取**: `references/phase6-code-review.md` 与 `references/quality-scans.md`；并行 dispatch 协议详见 autopilot skill 的 parallel-phase6 章节。

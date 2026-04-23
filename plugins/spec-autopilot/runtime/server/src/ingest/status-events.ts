@@ -1,5 +1,12 @@
 /**
  * status-events.ts — Statusline 记录归一化
+ *
+ * 注意：statusline.jsonl 已按 session_key 做目录隔离（logs/sessions/<key>/raw/statusline.jsonl），
+ * 因此本文件内所有记录天然属于同一 session。历史上这里对 `record.session_id === sessionId` 做
+ * 严格过滤，会在 lockfile session 与当前 Claude Code UI 会话漂移时丢弃全部记录，
+ * 导致 GUI 遥测顽固显示"未接入 statusLine 或当前会话暂无遥测"。
+ * 现改为：只要记录自带 session_id 就信任文件-per-session 隔离，不再按 lockfile session 强过滤；
+ * 事件的 session_id 采用记录自身的 session_id（失配时回退到传入的 sessionId）。
  */
 
 import { join } from "node:path";
@@ -13,12 +20,13 @@ export function normalizeStatusRecords(
   fallback: { changeName: string; mode: AutopilotMode },
 ): AutopilotEvent[] {
   return records
-    .filter((record) => record.session_id === sessionId)
+    .filter((record) => typeof record.session_id === "string" && record.session_id.length > 0)
     .map((record) => {
       const data = record.data || {};
       const timestamp = toIso(record.captured_at);
       const ctx = phaseLookup(timestamp);
       const mode = ctx.mode || fallback.mode;
+      const effectiveSessionId = record.session_id || sessionId;
       const payload: Record<string, unknown> = {
         model: data.model,
         cwd: data.cwd ?? record.cwd,
@@ -36,7 +44,7 @@ export function normalizeStatusRecords(
         mode,
         timestamp,
         change_name: ctx.changeName || fallback.changeName,
-        session_id: sessionId,
+        session_id: effectiveSessionId,
         phase_label: ctx.phaseLabel,
         total_phases: ctx.totalPhases || totalPhases(mode),
         sequence: 0,
@@ -44,7 +52,7 @@ export function normalizeStatusRecords(
         event_id: `status-${hashText(`${record.captured_at}|${JSON.stringify(data)}`)}`,
         ingest_seq: 0,
         source: "statusline",
-        raw_ref: join("logs", "sessions", sanitizeSessionKey(sessionId), "raw", "statusline.jsonl"),
+        raw_ref: join("logs", "sessions", sanitizeSessionKey(effectiveSessionId), "raw", "statusline.jsonl"),
       };
     });
 }

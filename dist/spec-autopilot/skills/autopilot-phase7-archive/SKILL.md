@@ -8,6 +8,8 @@ user-invocable: false
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
+> **派发铁律**：主线程**必须**通过 `Task(subagent_type=autopilot-phase7-archive)` 派发本协议；**严禁**主线程自行做汇总展示、知识提取、Allure 预览、Archive Readiness 业务判定或 git autosquash。主线程仅负责派发、解析信封、根据 readiness 决策归档/阻断、调用确定性脚本清理锁文件。
+
 > **执行步骤编号约定**：本 SKILL 中 `Step -1 / 0 / 0.5 / 1.6 / 6.5` 等含负数为前置事件、小数为子步骤，对应 Phase 7 协议文档中各阶段编号；非顺序连续不视为缺失。
 
 **执行前读取**: `references/log-format.md`（Summary Box 渲染规范）

@@ -67,6 +67,7 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
 
   const sessionId = context.sessionId;
   const sessionKey = sanitizeSessionKey(sessionId);
+
   const legacyRaw = await readJsonLinesCached<Record<string, unknown>>(EVENTS_FILE);
   const legacyEvents = normalizeLegacyEvents(legacyRaw, sessionId, { changeName: context.changeName, mode: context.mode });
   const phaseLookup = buildPhaseLookup(legacyEvents);

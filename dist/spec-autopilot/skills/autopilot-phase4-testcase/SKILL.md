@@ -8,6 +8,8 @@ user-invocable: false
 
 > **前置条件自检**：本 Skill 仅在 autopilot 编排主线程中使用。如果当前上下文不是 autopilot 编排流程，请立即停止并忽略本 Skill。
 
+> **派发铁律**：主线程**必须**通过 `Task(subagent_type=autopilot-phase4-testcase)` 派发本协议；**严禁**主线程自行设计测试用例、自行 Read 业务源码归纳测试矩阵。Skill 加载仅用于注入协议，真正的用例设计在子 Agent 中执行。
+
 Phase 4 在 full 模式下执行测试用例设计，具有特殊的 TDD 跳过逻辑和严格门禁规则。
 
 **执行前读取**: 参见 autopilot skill 的 parallel-phase4 章节（由编排主线程已加载，子 SKILL 无需重复读取）+ 详见 autopilot skill 的 protocol 文档（特殊门禁定义）
