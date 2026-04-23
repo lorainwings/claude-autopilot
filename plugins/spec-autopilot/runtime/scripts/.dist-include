@@ -133,3 +133,6 @@ test-health-score.sh
 
 # ── Phase 1 research plan matrix (maturity × project_type → plan envelope) ──
 select-research-plan.sh
+
+# ── Test Report frame rendering (Phase 4/5 TDD/7 共享 Allure URL 展示) ──
+render-test-report-frame.sh

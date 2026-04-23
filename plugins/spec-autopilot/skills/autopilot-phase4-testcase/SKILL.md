@@ -72,3 +72,18 @@ TDD_RESULT=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/check-tdd-mode.sh)
 ```
 
 完整指令详见 references/phase4-testing-template.md（测试标准 + dry-run + 金字塔）
+
+## Phase 4 收尾：Test Report 线框（强制）
+
+**执行位置**: 子 Agent 门禁校验通过、checkpoint 写入后，进入 Phase 5 前的最后一步。
+
+Phase 4 即使未执行真实测试（仅设计用例 / dry-run 校验），也**必须**渲染 Test Report 线框，展示 Allure 预览服务地址（若可用）或 `unavailable` 占位。设计意图：让用户在测试用例设计完成的第一时间知晓报告访问入口的存活状态，而非等到 Phase 6 才出现。
+
+```bash
+CHANGE_DIR="openspec/changes/{change_name}"
+BASE_PORT=$(python3 -c "import yaml; cfg=yaml.safe_load(open('.claude/autopilot.config.yaml')); print(cfg.get('phases',{}).get('reporting',{}).get('allure',{}).get('serve_port',4040))" 2>/dev/null || echo 4040)
+bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/render-test-report-frame.sh "$CHANGE_DIR" "Phase 4 Test Report" "$BASE_PORT"
+```
+
+> 脚本职责：自愈启动 Allure 服务（若存在 allure-results）→ 读取 URL / PID / 测试总数 → 渲染固定宽度 50 字符线框。即使无结果也展示线框，Allure 行渲染为 `unavailable`。
+> TDD 模式（`skipped_tdd`）下本步骤仍执行：此时扫描无 allure-results，线框展示 `pending (tests not yet executed)` + `Allure unavailable`，给用户一个"Phase 4 已确认但测试将在 Phase 5 TDD 中产生"的可观察信号。
