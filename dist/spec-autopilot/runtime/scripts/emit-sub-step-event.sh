@@ -24,7 +24,7 @@ if [ -z "$PHASE" ] || [ -z "$STEP_ID" ] || [ -z "$STEP_LABEL" ]; then
 fi
 
 # Determine project root
-PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-${AUTOPILOT_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
 
 # Guard: no active autopilot → silent exit
 if ! has_active_autopilot "$PROJECT_ROOT"; then

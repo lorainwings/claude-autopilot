@@ -56,7 +56,7 @@ if [ "$EVENT_TYPE" = "gate_step" ]; then
   fi
 
   TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
-  PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  PROJECT_ROOT="${PROJECT_ROOT_QUICK:-${AUTOPILOT_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
   LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"
 
   CHANGE_NAME="${AUTOPILOT_CHANGE_NAME:-}"
@@ -109,7 +109,7 @@ fi
 TIMESTAMP=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Determine project root
-PROJECT_ROOT="${PROJECT_ROOT_QUICK:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+PROJECT_ROOT="${PROJECT_ROOT_QUICK:-${AUTOPILOT_PROJECT_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
 
 # --- v5.0: Resolve GUI context fields ---
 LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"

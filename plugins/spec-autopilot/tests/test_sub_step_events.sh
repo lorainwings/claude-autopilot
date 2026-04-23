@@ -63,6 +63,10 @@ if [ -n "$SAVED_LOCK" ]; then
   mkdir -p "$REPO_ROOT/openspec/changes"
   echo "$SAVED_LOCK" > "$REPO_ROOT/openspec/changes/.autopilot-active"
 fi
+# Restore AUTOPILOT_PROJECT_ROOT (unset above for test 3 isolation;
+# subsequent tests rely on it because the plugin has its own .git boundary
+# which would otherwise misroute git rev-parse fallbacks).
+export AUTOPILOT_PROJECT_ROOT="$REPO_ROOT"
 # File should be empty (0 bytes) — no event written
 FILE_SIZE=$(wc -c < "$EVENTS_FILE" | tr -d ' ')
 if [ "$FILE_SIZE" = "0" ]; then
