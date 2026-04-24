@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.15.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.0...spec-autopilot-v5.15.1) (2026-04-24)
+
+
+### Fixed
+
+* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([9835ddc](https://github.com/lorainwings/claude-autopilot/commit/9835ddc730cb68de1c821e084c39b12dcf10d096))
+* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([f73461c](https://github.com/lorainwings/claude-autopilot/commit/f73461c689911034c40ec64a7f60d401b9f12ac3))
+
+
+### Changed
+
+* **spec-autopilot:** 收敛 hook 副作用 + 合并会话 jsonl + marker JSON 化 ([5c3a4fe](https://github.com/lorainwings/claude-autopilot/commit/5c3a4fe10c02c486df523b2f60920c9bb46af186))
+* **spec-autopilot:** 收敛 hook 副作用、合并会话 jsonl、active-agent marker JSON 化 ([63e2047](https://github.com/lorainwings/claude-autopilot/commit/63e204756f444effaea31b4c3a768d87e7c8fd14))
+
 ## [5.15.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.1...spec-autopilot-v5.15.0) (2026-04-23)
 
 
