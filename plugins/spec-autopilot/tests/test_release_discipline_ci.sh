@@ -9,6 +9,16 @@ source "$TEST_DIR/_test_helpers.sh"
 
 CHECK_SCRIPT="$REPO_ROOT/scripts/check-release-discipline.sh"
 
+# 隔离 GitHub Actions 环境变量：当本测试在 release-please--* 分支 CI 中运行时，
+# GITHUB_HEAD_REF / GITHUB_REF_NAME / GITHUB_ACTOR 会泄漏给子进程，
+# 触发 ci-detect-release-context.sh 把每个用例都判定为 "release-please context"
+# 而提前 exit 0 + 输出 "skipping discipline check"，导致所有断言失败。
+# 通过 env -u 在每次调用 CHECK_SCRIPT 时显式 unset 来锁住测试语义。
+run_check() {
+  env -u GITHUB_HEAD_REF -u GITHUB_REF_NAME -u GITHUB_ACTOR -u GITHUB_REF \
+    bash "$CHECK_SCRIPT" "$@"
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "SKIP: jq not found"
   exit 0
@@ -65,7 +75,7 @@ git -C "$FAIL_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q 
 HEAD_FAIL="$(git -C "$FAIL_REPO" rev-parse HEAD)"
 
 fail_exit=0
-fail_output=$(cd "$FAIL_REPO" && bash "$CHECK_SCRIPT" "$BASE_FAIL" "$HEAD_FAIL" 2>&1) || fail_exit=$?
+fail_output=$(cd "$FAIL_REPO" && run_check "$BASE_FAIL" "$HEAD_FAIL" 2>&1) || fail_exit=$?
 assert_exit "1a. missing changelog is info-only (passes)" 0 "$fail_exit"
 assert_contains "1b. output shows dev commit OK" "$fail_output" "dev commit"
 
@@ -111,7 +121,7 @@ git -C "$PASS_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q 
 HEAD_PASS="$(git -C "$PASS_REPO" rev-parse HEAD)"
 
 pass_exit=0
-pass_output=$(cd "$PASS_REPO" && bash "$CHECK_SCRIPT" "$BASE_PASS" "$HEAD_PASS" 2>&1) || pass_exit=$?
+pass_output=$(cd "$PASS_REPO" && run_check "$BASE_PASS" "$HEAD_PASS" 2>&1) || pass_exit=$?
 assert_exit "2a. synced release metadata passes" 0 $pass_exit
 assert_contains "2b. success output emitted" "$pass_output" "All release discipline checks passed"
 
@@ -165,7 +175,7 @@ git -C "$MISMATCH_REPO" -c user.name="Test" -c user.email="test@test.com" commit
 HEAD_MISMATCH="$(git -C "$MISMATCH_REPO" rev-parse HEAD)"
 
 mismatch_exit=0
-mismatch_output=$(cd "$MISMATCH_REPO" && bash "$CHECK_SCRIPT" "$BASE_MISMATCH" "$HEAD_MISMATCH" 2>&1) || mismatch_exit=$?
+mismatch_output=$(cd "$MISMATCH_REPO" && run_check "$BASE_MISMATCH" "$HEAD_MISMATCH" 2>&1) || mismatch_exit=$?
 [ "$mismatch_exit" -ne 0 ]
 assert_exit "3a. ph package.json/plugin.json mismatch is rejected" 0 $?
 assert_contains "3b. failure mentions plugin.json mismatch" "$mismatch_output" ".claude-plugin/plugin.json version mismatch"
@@ -197,7 +207,7 @@ git -C "$SYNC_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q 
 HEAD_SYNC="$(git -C "$SYNC_REPO" rev-parse HEAD)"
 
 sync_exit=0
-sync_output=$(cd "$SYNC_REPO" && bash "$CHECK_SCRIPT" "$BASE_SYNC" "$HEAD_SYNC" 2>&1) || sync_exit=$?
+sync_output=$(cd "$SYNC_REPO" && run_check "$BASE_SYNC" "$HEAD_SYNC" 2>&1) || sync_exit=$?
 assert_exit "4a. ph synced version bump passes" 0 $sync_exit
 assert_contains "4b. success output emitted" "$sync_output" "All release discipline checks passed"
 
