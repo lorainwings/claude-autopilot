@@ -24,19 +24,17 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$TMP_DIR/logs" "$TMP_DIR/logs/sessions/sess-agg/raw" "$TMP_DIR/openspec/changes"
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"agg-test","session_id":"sess-agg","mode":"full"}
 EOF
-cat > "$TMP_DIR/logs/events.jsonl" <<EOF
+cat >"$TMP_DIR/logs/events.jsonl" <<EOF
 {"type":"phase_start","phase":1,"mode":"full","timestamp":"2026-03-17T00:00:00Z","change_name":"agg-test","session_id":"sess-agg","phase_label":"Requirements","total_phases":8,"sequence":1,"payload":{}}
 EOF
-cat > "$TMP_DIR/logs/sessions/sess-agg/raw/hooks.jsonl" <<EOF
+cat >"$TMP_DIR/logs/sessions/sess-agg/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:01Z","session_id":"sess-agg","cwd":"$TMP_DIR","transcript_path":"$TMP_DIR/transcript.jsonl","active_agent_id":"phase1-agent","data":{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_result":{"stdout":"hello"}}}
-EOF
-cat > "$TMP_DIR/logs/sessions/sess-agg/raw/statusline.jsonl" <<EOF
 {"source":"statusline","captured_at":"2026-03-17T00:00:02Z","session_id":"sess-agg","cwd":"$TMP_DIR","transcript_path":"$TMP_DIR/transcript.jsonl","data":{"model":"claude-sonnet","cwd":"$TMP_DIR","transcript_path":"$TMP_DIR/transcript.jsonl","cost_usd":"0.42","context_window":{"percent":31}}}
 EOF
-cat > "$TMP_DIR/transcript.jsonl" <<EOF
+cat >"$TMP_DIR/transcript.jsonl" <<EOF
 {"timestamp":"2026-03-17T00:00:03Z","role":"user","content":[{"text":"请开始 autopilot"}]}
 {"timestamp":"2026-03-17T00:00:04Z","role":"assistant","content":[{"text":"开始执行"}]}
 EOF
@@ -71,15 +69,15 @@ assert_contains "api/info exposes current session" "$INFO_JSON" '"sessionId":"se
 # ── P1: 跨 session journal 独立性测试 ──
 # 创建第二个 session (sess-b) 数据，验证两个 journal 文件都存在
 mkdir -p "$TMP_DIR/logs/sessions/sess-b/raw"
-cat > "$TMP_DIR/logs/sessions/sess-b/raw/hooks.jsonl" <<EOF
+cat >"$TMP_DIR/logs/sessions/sess-b/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"SessionStart","captured_at":"2026-03-17T01:00:00Z","session_id":"sess-b","data":{}}
 EOF
 
 # 切换到 sess-b
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-b","session_id":"sess-b","mode":"full"}
 EOF
-cat > "$TMP_DIR/logs/events.jsonl" <<'LEGACY'
+cat >"$TMP_DIR/logs/events.jsonl" <<'LEGACY'
 {"type":"phase_start","phase":1,"mode":"full","timestamp":"2026-03-17T00:00:00Z","change_name":"agg-test","session_id":"sess-agg","phase_label":"Requirements","total_phases":8,"sequence":1,"payload":{}}
 {"type":"phase_start","phase":0,"mode":"full","timestamp":"2026-03-17T01:00:00Z","change_name":"test-b","session_id":"sess-b","phase_label":"Environment Setup","total_phases":8,"sequence":1,"payload":{}}
 LEGACY
@@ -112,7 +110,7 @@ fi
 # ── P0: 路径脱敏验证 ──
 EVENTS_FOR_SANITIZE=$(curl -s --max-time 2 http://localhost:9527/api/events)
 # 检查返回值中不含原始用户路径（$TMP_DIR 以 /tmp 或 /var 开头，不含 /Users/）
-if grep -q '"/Users/[^"]*"' <<< "$EVENTS_FOR_SANITIZE"; then
+if grep -q '"/Users/[^"]*"' <<<"$EVENTS_FOR_SANITIZE"; then
   red "  FAIL: API 返回中包含未脱敏的 /Users/ 路径"
   FAIL=$((FAIL + 1))
 else
@@ -122,7 +120,7 @@ fi
 
 # ── P2: /api/raw-tail 游标增量验证 ──
 # 切回 sess-agg 来测试 raw-tail
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"agg-test","session_id":"sess-agg","mode":"full"}
 EOF
 sleep 2
@@ -135,7 +133,7 @@ assert_contains "raw-tail returns cursor" "$RAW_TAIL" '"cursor"'
 CURSOR=$(echo "$RAW_TAIL" | grep -o '"cursor":[0-9]*' | head -1 | cut -d: -f2)
 if [ -n "$CURSOR" ] && [ "$CURSOR" -gt 0 ]; then
   RAW_TAIL_EMPTY=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR")
-  if grep -q '"lines":\[\]' <<< "$RAW_TAIL_EMPTY"; then
+  if grep -q '"lines":\[\]' <<<"$RAW_TAIL_EMPTY"; then
     green "  PASS: 游标到末尾后返回空行"
     PASS=$((PASS + 1))
   else
@@ -148,4 +146,5 @@ else
 fi
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -1,8 +1,9 @@
 /**
  * status-events.ts — Statusline 记录归一化
  *
- * 注意：statusline.jsonl 已按 session_key 做目录隔离（logs/sessions/<key>/raw/statusline.jsonl），
- * 因此本文件内所有记录天然属于同一 session。历史上这里对 `record.session_id === sessionId` 做
+ * 注意：所有原始记录写入 logs/sessions/<key>/raw/events.jsonl（v5.x 起由 hooks.jsonl + statusline.jsonl 合并），
+ * 按 source 字段区分来源。本文件消费 source="statusline" 的记录。天然按 session_key 目录隔离。
+ * 历史上这里对 `record.session_id === sessionId` 做
  * 严格过滤，会在 lockfile session 与当前 Claude Code UI 会话漂移时丢弃全部记录，
  * 导致 GUI 遥测顽固显示"未接入 statusLine 或当前会话暂无遥测"。
  * 现改为：只要记录自带 session_id 就信任文件-per-session 隔离，不再按 lockfile session 强过滤；
@@ -52,7 +53,7 @@ export function normalizeStatusRecords(
         event_id: `status-${hashText(`${record.captured_at}|${JSON.stringify(data)}`)}`,
         ingest_seq: 0,
         source: "statusline",
-        raw_ref: join("logs", "sessions", sanitizeSessionKey(effectiveSessionId), "raw", "statusline.jsonl"),
+        raw_ref: join("logs", "sessions", sanitizeSessionKey(effectiveSessionId), "raw", "events.jsonl"),
       };
     });
 }

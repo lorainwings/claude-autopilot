@@ -25,7 +25,7 @@ assert_contains "1a. no agents dir → agents_found false" "$output" '"agents_fo
 
 # 1b. Create agents dir with agent definition
 mkdir -p "$TMPDIR/.claude/agents"
-cat > "$TMPDIR/.claude/agents/backend-developer.md" << 'EOF'
+cat >"$TMPDIR/.claude/agents/backend-developer.md" <<'EOF'
 # Backend Developer Agent
 
 priority: high
@@ -46,7 +46,7 @@ assert_contains "1c. priority map has backend-developer" "$output" '"backend-dev
 
 # 2a. Plugin CLAUDE.md scanned
 mkdir -p "$TMPDIR/plugins/test-plugin"
-cat > "$TMPDIR/plugins/test-plugin/CLAUDE.md" << 'EOF'
+cat >"$TMPDIR/plugins/test-plugin/CLAUDE.md" <<'EOF'
 # Test Plugin Rules
 禁止 `console.log`
 必须 `strict mode`
@@ -57,7 +57,7 @@ assert_contains "2a. plugin rules extracted (forbidden)" "$output" 'console.log'
 assert_contains "2a. plugin rules extracted (required)" "$output" 'strict mode'
 
 # === 3. rules-scanner: phase-local rules ===
-cat > "$TMPDIR/phase-rules.md" << 'EOF'
+cat >"$TMPDIR/phase-rules.md" <<'EOF'
 # Phase 5 Local Rules
 禁止 `eval()`
 EOF
@@ -77,7 +77,7 @@ echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z","session_i
   >"$REPO_ROOT/openspec/changes/.autopilot-active"
 
 # Write a rules-scanner cache for the dispatch hook to consume
-cat > "$REPO_ROOT/logs/.rules-scanner-cache.json" << 'CACHE'
+cat >"$REPO_ROOT/logs/.rules-scanner-cache.json" <<'CACHE'
 {
   "agents_found": true,
   "agent_priority_map": {
@@ -114,7 +114,7 @@ else
 fi
 
 # === 6. Dispatch record: missing agents dir → fallback_reason recorded ===
-cat > "$REPO_ROOT/logs/.rules-scanner-cache.json" << 'CACHE'
+cat >"$REPO_ROOT/logs/.rules-scanner-cache.json" <<'CACHE'
 {
   "agents_found": false,
   "agent_priority_map": {},
@@ -174,9 +174,9 @@ V6_ENVELOPE='{"status":"ok","summary":"impl done","artifacts":["src/api/handler.
 cat >"$V6_ENV/logs/agent-dispatch-record.json" <<'JSON'
 [{"agent_id":"phase5-api","agent_class":"default","phase":5,"selection_reason":"agent_policy_match","resolved_priority":"normal","owned_artifacts":["src/api/"],"background":false,"scanned_sources":[],"required_validators":["json_envelope"]}]
 JSON
-echo "phase5-api" >"$V6_ENV/logs/.active-agent-phase-5"
+set_active_agent_state "$V6_ENV" "" "5" "phase5-api"
 result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 7a. agent marker 精确匹配 dispatch record → 通过"
   PASS=$((PASS + 1))
 else
@@ -185,14 +185,14 @@ else
 fi
 
 # 7b. agent marker 无匹配 dispatch record → governance correlation missing
-echo "phase5-nonexistent" >"$V6_ENV/logs/.active-agent-phase-5"
+set_active_agent_state "$V6_ENV" "" "5" "phase5-nonexistent"
 result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
 assert_contains "7b. 无匹配 record → correlation missing block" "$result" "correlation missing"
 
 # 7c. 无 agent marker → phase-only 回退
-rm -f "$V6_ENV/logs/.active-agent-phase-5" "$V6_ENV/logs/.active-agent-id" 2>/dev/null || true
+reset_active_agent_state "$V6_ENV"
 result=$(run_v6_validator "$V6_ENV" 5 "$V6_ENVELOPE")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 7c. 无 agent marker → phase-only 回退 → 通过"
   PASS=$((PASS + 1))
 else
@@ -203,8 +203,8 @@ fi
 rm -rf "$V6_ENV" 2>/dev/null || true
 
 # Cleanup
-rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/.agent-dispatch-ts-"* 2>/dev/null || true
-rm -f "$REPO_ROOT/logs/.active-agent-phase-"* "$REPO_ROOT/logs/.active-agent-session-"* 2>/dev/null || true
+reset_active_agent_state "$REPO_ROOT"
+
 rm -f "$REPO_ROOT/logs/agent-dispatch-record.json" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/.rules-scanner-cache.json" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/events.jsonl" 2>/dev/null || true
@@ -214,4 +214,5 @@ rmdir "$REPO_ROOT/logs" 2>/dev/null || true
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

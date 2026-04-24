@@ -68,7 +68,7 @@ fi
 
 # Check serial_task section doesn't have old fields
 serial_section=$(sed -n '/serial_task:/,/^    [a-z]/p' "$SCHEMA_FILE" | head -5)
-if ! grep -q 'max_iterations' <<< "$serial_section"; then
+if ! grep -q 'max_iterations' <<<"$serial_section"; then
   green "  PASS: config-schema serial_task has no max_iterations"
   PASS=$((PASS + 1))
 else
@@ -76,7 +76,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-if ! grep -q 'fallback_enabled' <<< "$serial_section"; then
+if ! grep -q 'fallback_enabled' <<<"$serial_section"; then
   green "  PASS: config-schema serial_task has no fallback_enabled"
   PASS=$((PASS + 1))
 else
@@ -107,4 +107,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

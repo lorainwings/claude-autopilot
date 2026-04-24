@@ -82,7 +82,7 @@ for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
   if [ -n "$FILTER" ]; then
     MATCHED=false
     for pattern in "$@"; do
-      if grep -q "$pattern" <<< "$test_name"; then
+      if grep -q "$pattern" <<<"$test_name"; then
         MATCHED=true
         break
       fi
@@ -99,8 +99,8 @@ for test_file in "$TEST_DIR"/test_*.sh "$TEST_DIR"/integration/test_*.sh; do
     exit_code=$?
   fi
 
-  pass=$(grep -o 'PASS:' <<< "$output" | wc -l | tr -d ' ')
-  fail=$(grep -o 'FAIL:' <<< "$output" | wc -l | tr -d ' ')
+  pass=$(grep -o 'PASS:' <<<"$output" | wc -l | tr -d ' ')
+  fail=$(grep -o 'FAIL:' <<<"$output" | wc -l | tr -d ' ')
   TOTAL_PASS=$((TOTAL_PASS + pass))
 
   # 分层统计
@@ -173,5 +173,8 @@ if [ "$_HOOKS_PATH" = "/dev/null" ]; then
 fi
 
 [ "$TOTAL_FAIL" -gt 0 ] && exit 1
-[ "$RAN" -eq 0 ] && { echo "WARNING: No test files found or matched"; exit 1; }
+[ "$RAN" -eq 0 ] && {
+  echo "WARNING: No test files found or matched"
+  exit 1
+}
 exit 0

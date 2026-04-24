@@ -7,6 +7,7 @@
 # ── Core helpers (sourced by hook scripts) ──
 _common.sh
 _hook_preamble.sh
+_agent_state.sh
 _config_validator.py
 _constraint_loader.py
 _envelope_parser.py

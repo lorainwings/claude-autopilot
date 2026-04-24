@@ -29,7 +29,7 @@ assert_contains '1. issues 含 settings_missing' "$HC_OUT" 'settings_missing'
 echo "# 2. health-check: stale command path"
 PROJ2="$TMP_DIR/proj2"
 mkdir -p "$PROJ2/.claude"
-cat > "$PROJ2/.claude/settings.local.json" <<JSON
+cat >"$PROJ2/.claude/settings.local.json" <<JSON
 {
   "statusLine": {
     "type": "command",
@@ -48,7 +48,7 @@ echo "# 3. health-check: all good"
 PROJ3="$TMP_DIR/proj3"
 mkdir -p "$PROJ3/.claude" "$PROJ3/logs/sessions"
 # 写入正确配置（使用真实 collector 路径）
-cat > "$PROJ3/.claude/settings.local.json" <<JSON
+cat >"$PROJ3/.claude/settings.local.json" <<JSON
 {
   "statusLine": {
     "type": "command",
@@ -84,7 +84,7 @@ PROJ5="$TMP_DIR/proj5"
 mkdir -p "$PROJ5/.claude" "$PROJ5/openspec"
 git -C "$PROJ5" init -q 2>/dev/null || true
 # 写入 stale 配置（路径不存在）
-cat > "$PROJ5/.claude/settings.local.json" <<JSON
+cat >"$PROJ5/.claude/settings.local.json" <<JSON
 {
   "statusLine": {
     "type": "command",
@@ -156,7 +156,7 @@ echo "# 9. install-config: backup existing settings"
 PROJ9="$TMP_DIR/proj9"
 mkdir -p "$PROJ9/.claude"
 git -C "$PROJ9" init -q 2>/dev/null || true
-echo '{"existing": true}' > "$PROJ9/.claude/settings.local.json"
+echo '{"existing": true}' >"$PROJ9/.claude/settings.local.json"
 bash "$SCRIPT_DIR/install-statusline-config.sh" --project-root "$PROJ9" --scope local >/dev/null 2>&1
 BAK_FILE="$PROJ9/.claude/settings.local.json.bak"
 assert_file_exists "9. backup file created" "$BAK_FILE"
@@ -167,4 +167,5 @@ fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

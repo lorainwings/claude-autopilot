@@ -119,12 +119,12 @@ assert_file_contains "4i: Phase 5 默认直接进入执行" "$PHASE5_IMPL" '默�
 # 5a. full 模式: Phase 1 ok → Phase 2 应该可以直接推进（无需人工确认）
 FULL_TEST_DIR=$(mktemp -d)
 mkdir -p "$FULL_TEST_DIR/openspec/changes/test-full/context/phase-results"
-echo '{"change":"test-full","mode":"full"}' > "$FULL_TEST_DIR/openspec/changes/.autopilot-active"
-echo '{"status":"ok","summary":"Requirements confirmed"}' > "$FULL_TEST_DIR/openspec/changes/test-full/context/phase-results/phase-1-requirements.json"
+echo '{"change":"test-full","mode":"full"}' >"$FULL_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Requirements confirmed"}' >"$FULL_TEST_DIR/openspec/changes/test-full/context/phase-results/phase-1-requirements.json"
 
 exit_code=0
-output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\"},\"cwd\":\"$FULL_TEST_DIR\"}" \
-  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:2 -->\\nPhase 2\"},\"cwd\":\"$FULL_TEST_DIR\"}" |
+  bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "5a: full: Phase 1 ok → Phase 2 允许 (exit 0)" 0 $exit_code
 assert_not_contains "5b: full: Phase 2 无 deny" "$output" "deny"
 rm -rf "$FULL_TEST_DIR"
@@ -132,12 +132,12 @@ rm -rf "$FULL_TEST_DIR"
 # 5c. lite 模式: Phase 1 ok → Phase 5 应该可以直接推进
 LITE_TEST_DIR=$(mktemp -d)
 mkdir -p "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results"
-echo '{"change":"test-lite","mode":"lite"}' > "$LITE_TEST_DIR/openspec/changes/.autopilot-active"
-echo '{"status":"ok","summary":"Requirements confirmed"}' > "$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results/phase-1-requirements.json"
+echo '{"change":"test-lite","mode":"lite"}' >"$LITE_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Requirements confirmed"}' >"$LITE_TEST_DIR/openspec/changes/test-lite/context/phase-results/phase-1-requirements.json"
 
 exit_code=0
-output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:5 -->\\nPhase 5\"},\"cwd\":\"$LITE_TEST_DIR\"}" \
-  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:5 -->\\nPhase 5\"},\"cwd\":\"$LITE_TEST_DIR\"}" |
+  bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "5c: lite: Phase 1 ok → Phase 5 允许 (exit 0)" 0 $exit_code
 assert_not_contains "5d: lite: Phase 5 无 deny" "$output" "deny"
 rm -rf "$LITE_TEST_DIR"
@@ -145,12 +145,12 @@ rm -rf "$LITE_TEST_DIR"
 # 5e. minimal 模式: Phase 1 ok → Phase 5 应该可以直接推进
 MIN_TEST_DIR=$(mktemp -d)
 mkdir -p "$MIN_TEST_DIR/openspec/changes/test-min/context/phase-results"
-echo '{"change":"test-min","mode":"minimal"}' > "$MIN_TEST_DIR/openspec/changes/.autopilot-active"
-echo '{"status":"ok","summary":"Requirements confirmed"}' > "$MIN_TEST_DIR/openspec/changes/test-min/context/phase-results/phase-1-requirements.json"
+echo '{"change":"test-min","mode":"minimal"}' >"$MIN_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"status":"ok","summary":"Requirements confirmed"}' >"$MIN_TEST_DIR/openspec/changes/test-min/context/phase-results/phase-1-requirements.json"
 
 exit_code=0
-output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:5 -->\\nPhase 5\"},\"cwd\":\"$MIN_TEST_DIR\"}" \
-  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+output=$(echo "{\"tool_name\":\"Task\",\"tool_input\":{\"prompt\":\"<!-- autopilot-phase:5 -->\\nPhase 5\"},\"cwd\":\"$MIN_TEST_DIR\"}" |
+  bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "5e: minimal: Phase 1 ok → Phase 5 允许 (exit 0)" 0 $exit_code
 assert_not_contains "5f: minimal: Phase 5 无 deny" "$output" "deny"
 rm -rf "$MIN_TEST_DIR"
@@ -170,4 +170,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

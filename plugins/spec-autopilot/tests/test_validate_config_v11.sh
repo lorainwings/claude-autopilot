@@ -13,7 +13,7 @@ CONFIG_V11_DIR=$(mktemp -d)
 
 # 31a. v1.1 config with new fields → valid=true
 mkdir -p "$CONFIG_V11_DIR/valid/.claude"
-cat > "$CONFIG_V11_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$CONFIG_V11_DIR/valid/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.1"
 services:
   backend:
@@ -86,4 +86,5 @@ rm -rf "$CONFIG_V11_DIR"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

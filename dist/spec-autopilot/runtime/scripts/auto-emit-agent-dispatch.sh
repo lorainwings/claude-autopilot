@@ -95,6 +95,8 @@ if [ -n "$_EXPECTED_KEY" ]; then
   fi
 fi
 
+# --- Layer 0a project-recognition guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT_QUICK" || exit 0
 # --- Layer 0 bypass: no active autopilot session ---
 has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
 
@@ -279,21 +281,23 @@ except Exception as e:
   fi
 fi
 
-# --- Write active agent marker (for WS4 tool_use correlation) ---
-# Uses per-phase marker file to reduce collision in parallel dispatch.
-# Global file is also written for backward compat (last-writer-wins in parallel).
+# --- Write active agent state (consolidated marker — replaces 4 legacy dotfiles) ---
 ACTIVE_AGENT_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$ACTIVE_AGENT_DIR" 2>/dev/null || true
-echo "$AGENT_ID" >"$ACTIVE_AGENT_DIR/.active-agent-id" 2>/dev/null || true
-echo "$AGENT_ID" >"$ACTIVE_AGENT_DIR/.active-agent-phase-${PHASE}" 2>/dev/null || true
+# shellcheck source=_agent_state.sh
+source "$SCRIPT_DIR/_agent_state.sh"
+_SESSION_KEY_FOR_STATE=""
 if [ -n "$SESSION_ID" ]; then
-  SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$SESSION_ID")
-  echo "$AGENT_ID" >"$SESSION_AGENT_FILE" 2>/dev/null || true
+  _SESSION_KEY_FOR_STATE=$(sanitize_session_key "$SESSION_ID")
+fi
+if ! agent_state_dispatch "$PROJECT_ROOT" "$_SESSION_KEY_FOR_STATE" "$PHASE" "$AGENT_ID"; then
+  # State write failed; downstream tool/correlation events will lack agent_id.
+  # Continue to emit dispatch event (visibility) but stderr token already
+  # surfaced the AUTOPILOT_AGENT_STATE_* code for ops debugging.
+  echo "auto-emit-agent-dispatch: agent_state_dispatch failed for agent=$AGENT_ID phase=$PHASE; downstream correlation may degrade" >&2
 fi
 
-# --- Record dispatch timestamp for duration calculation (millisecond precision) ---
-DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"
-python3 -c "import time; print(int(time.time()*1000))" >"$DISPATCH_TS_FILE" 2>/dev/null || date +%s000 >"$DISPATCH_TS_FILE" 2>/dev/null || true
+# Dispatch timestamp is persisted inside .active-agent-state.json (see dispatch_ts map).
 
 # --- Build dispatch payload with full audit trail (governance WS-E) ---
 DISPATCH_PAYLOAD=$(python3 -c "

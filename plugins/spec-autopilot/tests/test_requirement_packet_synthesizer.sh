@@ -28,9 +28,9 @@ SCHEMA_FILE="$PLUGIN_ROOT/runtime/schemas/requirement-packet.schema.json"
 echo "=== Phase 1 Task 6: requirement-packet synthesizer (PackagerAgent) ==="
 
 # --- Pre-flight ------------------------------------------------------------
-assert_file_exists "phase1-requirements.md present"       "$PHASE1_DOC"
+assert_file_exists "phase1-requirements.md present" "$PHASE1_DOC"
 assert_file_exists "autopilot-phase1-requirements SKILL present" "$SKILL_DOC"
-assert_file_exists "requirement-packet.schema.json present"      "$SCHEMA_FILE"
+assert_file_exists "requirement-packet.schema.json present" "$SCHEMA_FILE"
 
 PHASE1_BODY="$(cat "$PHASE1_DOC")"
 SKILL_BODY="$(cat "$SKILL_DOC")"
@@ -80,7 +80,7 @@ REQUIRED_KEYS="goal scope non_goals acceptance_criteria risks decisions needs_cl
 required_actual=$(jq -r '.required | join(" ")' "$SCHEMA_FILE" 2>/dev/null || echo "")
 all_present=1
 for key in $REQUIRED_KEYS; do
-  if ! grep -qw "$key" <<< "$required_actual"; then
+  if ! grep -qw "$key" <<<"$required_actual"; then
     all_present=0
     red "  FAIL: required missing key '$key'"
     FAIL=$((FAIL + 1))
@@ -94,9 +94,9 @@ fi
 ac_type=$(jq -r '.properties.acceptance_criteria.type' "$SCHEMA_FILE" 2>/dev/null)
 ac_item_required=$(jq -r '.properties.acceptance_criteria.items.required | join(",")' \
   "$SCHEMA_FILE" 2>/dev/null || echo "")
-if [ "$ac_type" = "array" ] \
-   && grep -q "text" <<< "$ac_item_required" \
-   && grep -q "testable" <<< "$ac_item_required"; then
+if [ "$ac_type" = "array" ] &&
+  grep -q "text" <<<"$ac_item_required" &&
+  grep -q "testable" <<<"$ac_item_required"; then
   green "  PASS: acceptance_criteria is array with text+testable per item"
   PASS=$((PASS + 1))
 else
@@ -105,7 +105,7 @@ else
 fi
 
 nc_pattern=$(jq -r '.properties.needs_clarification.items.pattern' "$SCHEMA_FILE" 2>/dev/null || echo "")
-if grep -q 'NEEDS CLARIFICATION' <<< "$nc_pattern"; then
+if grep -q 'NEEDS CLARIFICATION' <<<"$nc_pattern"; then
   green "  PASS: needs_clarification pattern enforces [NEEDS CLARIFICATION: prefix"
   PASS=$((PASS + 1))
 else
@@ -114,7 +114,7 @@ else
 fi
 
 sha_pattern=$(jq -r '.properties.sha256.pattern' "$SCHEMA_FILE" 2>/dev/null || echo "")
-if grep -Eq '\[0-9a-f\]|\[a-f0-9\]' <<< "$sha_pattern"; then
+if grep -Eq '\[0-9a-f\]|\[a-f0-9\]' <<<"$sha_pattern"; then
   green "  PASS: sha256 pattern constrains to hex characters"
   PASS=$((PASS + 1))
 else
@@ -129,14 +129,14 @@ fi
 FIXTURE_DIR="$(mktemp -d)"
 trap 'rm -rf "$FIXTURE_DIR"' EXIT
 
-cat > "$FIXTURE_DIR/research-findings.md" <<'EOF'
+cat >"$FIXTURE_DIR/research-findings.md" <<'EOF'
 # Research Findings
 - The system MUST validate user email on submit.
 - The system MUST reject duplicate account signups.
 - The system SHOULD log failed login attempts to audit trail.
 EOF
 
-cat > "$FIXTURE_DIR/requirements-analysis.md" <<'EOF'
+cat >"$FIXTURE_DIR/requirements-analysis.md" <<'EOF'
 # Requirements
 ## Acceptance Criteria
 - Email validation rejects malformed addresses.
@@ -144,12 +144,12 @@ cat > "$FIXTURE_DIR/requirements-analysis.md" <<'EOF'
 - Failed login attempts are written to audit log.
 EOF
 
-cat > "$FIXTURE_DIR/verdict.json" <<'EOF'
+cat >"$FIXTURE_DIR/verdict.json" <<'EOF'
 { "coverage_ok": true, "confidence": 0.9, "requires_human": false }
 EOF
 
 # Simulated PackagerAgent output (all three testable verbs preserved).
-cat > "$FIXTURE_DIR/requirement-packet.json" <<'EOF'
+cat >"$FIXTURE_DIR/requirement-packet.json" <<'EOF'
 {
   "goal": "Harden account flow",
   "scope": ["signup", "login"],
@@ -181,7 +181,7 @@ VALIDATOR_SCRIPT="$PLUGIN_ROOT/runtime/scripts/validate-requirement-packet.sh"
 if [ -x "$VALIDATOR_SCRIPT" ] || [ -f "$VALIDATOR_SCRIPT" ]; then
   # E1. sha256 64 字符 hex 被接受（status != blocked, 无 "格式无效" error）
   FULL_SHA_PACKET="$FIXTURE_DIR/packet-full-sha.json"
-  cat > "$FULL_SHA_PACKET" <<'EOF'
+  cat >"$FULL_SHA_PACKET" <<'EOF'
 {
   "change_name": "demo",
   "discussion_rounds": 2,
@@ -211,7 +211,7 @@ EOF
 
   # E2. 16 字符 legacy hash 触发 warning（不阻断，但产生 upgrade 提示）
   LEGACY_HASH_PACKET="$FIXTURE_DIR/packet-legacy-hash.json"
-  cat > "$LEGACY_HASH_PACKET" <<'EOF'
+  cat >"$LEGACY_HASH_PACKET" <<'EOF'
 {
   "change_name": "demo",
   "discussion_rounds": 2,
@@ -241,7 +241,7 @@ EOF
 
   # E3. AC 字符串形态被拒绝
   STRING_AC_PACKET="$FIXTURE_DIR/packet-string-ac.json"
-  cat > "$STRING_AC_PACKET" <<'EOF'
+  cat >"$STRING_AC_PACKET" <<'EOF'
 {
   "change_name": "demo",
   "discussion_rounds": 2,
@@ -269,7 +269,7 @@ EOF
 
   # E4. AC 使用 description 旧字段名被拒绝
   DESC_AC_PACKET="$FIXTURE_DIR/packet-desc-ac.json"
-  cat > "$DESC_AC_PACKET" <<'EOF'
+  cat >"$DESC_AC_PACKET" <<'EOF'
 {
   "change_name": "demo",
   "discussion_rounds": 2,
@@ -297,7 +297,7 @@ EOF
 
   # E5. AC 含 {text, testable} 但缺 testable 被拒绝
   MISSING_TESTABLE_PACKET="$FIXTURE_DIR/packet-missing-testable.json"
-  cat > "$MISSING_TESTABLE_PACKET" <<'EOF'
+  cat >"$MISSING_TESTABLE_PACKET" <<'EOF'
 {
   "change_name": "demo",
   "discussion_rounds": 2,
@@ -325,8 +325,8 @@ EOF
 
   # E6. schema ↔ validator 契约一致：schema sha256 pattern 与 validator 64 字符校验一致
   SCHEMA_SHA_PATTERN=$(jq -r '.properties.sha256.pattern' "$SCHEMA_FILE" 2>/dev/null || echo "")
-  if grep -Eq '\{64\}' <<<"$SCHEMA_SHA_PATTERN" \
-     && grep -q 'len(declared_hash) == 64\|64 字符' "$VALIDATOR_SCRIPT"; then
+  if grep -Eq '\{64\}' <<<"$SCHEMA_SHA_PATTERN" &&
+    grep -q 'len(declared_hash) == 64\|64 字符' "$VALIDATOR_SCRIPT"; then
     green "  PASS: E6. schema sha256 pattern (64 chars) aligns with validator"
     PASS=$((PASS + 1))
   else
@@ -336,9 +336,9 @@ EOF
 
   # E7. schema ↔ validator 契约一致：schema AC items required=[text,testable] 与 validator 一致
   SCHEMA_AC_REQ=$(jq -r '.properties.acceptance_criteria.items.required | sort | join(",")' "$SCHEMA_FILE" 2>/dev/null || echo "")
-  if [ "$SCHEMA_AC_REQ" = "testable,text" ] \
-     && grep -q "c.get('text')" "$VALIDATOR_SCRIPT" \
-     && grep -q "c.get('testable')" "$VALIDATOR_SCRIPT"; then
+  if [ "$SCHEMA_AC_REQ" = "testable,text" ] &&
+    grep -q "c.get('text')" "$VALIDATOR_SCRIPT" &&
+    grep -q "c.get('testable')" "$VALIDATOR_SCRIPT"; then
     green "  PASS: E7. schema AC required fields align with validator"
     PASS=$((PASS + 1))
   else

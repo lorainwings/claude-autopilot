@@ -20,7 +20,7 @@ trap 'rm -rf "$TMPDIR_TEST"' EXIT
 # ── verify-test-driven-l2.sh tests ──
 
 # 1a. valid RED→GREEN evidence → ok
-cat > "$TMPDIR_TEST/task-1.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-1.json" <<'EOF'
 {
   "task_number": 1,
   "status": "ok",
@@ -40,7 +40,7 @@ assert_contains "1a. red_verified true" "$output" '"red_verified":true'
 assert_contains "1a. green_verified true" "$output" '"green_verified":true'
 
 # 1b. missing test_driven_evidence → warn
-cat > "$TMPDIR_TEST/task-2.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-2.json" <<'EOF'
 {
   "task_number": 2,
   "status": "ok"
@@ -53,7 +53,7 @@ assert_contains "1b. status is warn" "$output" '"status":"warn"'
 assert_contains "1b. message mentions missing" "$output" "missing"
 
 # 1c. RED skipped → warn with reason
-cat > "$TMPDIR_TEST/task-3.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-3.json" <<'EOF'
 {
   "task_number": 3,
   "status": "ok",
@@ -72,7 +72,7 @@ assert_contains "1c. status is warn" "$output" '"status":"warn"'
 assert_contains "1c. message mentions skipped" "$output" "RED skipped"
 
 # 1d. GREEN not verified → warn
-cat > "$TMPDIR_TEST/task-4.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-4.json" <<'EOF'
 {
   "task_number": 4,
   "status": "ok",
@@ -113,7 +113,7 @@ done
 # Regression test: sub-agent self-reports red=true, green=true but layer is L1.
 # Before fix: script returned status:"ok" — mixing up L1/L2 boundary.
 # After fix: script detects non-L2 layer and returns status:"warn".
-cat > "$TMPDIR_TEST/task-5.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-5.json" <<'EOF'
 {
   "task_number": 5,
   "status": "ok",
@@ -133,7 +133,7 @@ assert_contains "1g. message mentions L1" "$output" "L1"
 assert_not_contains "1g. must NOT be ok" "$output" '"status":"ok"'
 
 # 1h. NEGATIVE: unknown verification_layer → must be warn
-cat > "$TMPDIR_TEST/task-6.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-6.json" <<'EOF'
 {
   "task_number": 6,
   "status": "ok",
@@ -152,7 +152,7 @@ assert_contains "1h. status is warn" "$output" '"status":"warn"'
 assert_not_contains "1h. must NOT be ok" "$output" '"status":"ok"'
 
 # 1i. NEGATIVE: no verification_layer field at all → defaults to unknown → warn
-cat > "$TMPDIR_TEST/task-7.json" <<'EOF'
+cat >"$TMPDIR_TEST/task-7.json" <<'EOF'
 {
   "task_number": 7,
   "status": "ok",
@@ -227,4 +227,5 @@ assert_contains "2c. WARNING about RED skipped" "$stderr_content" "RED skipped"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

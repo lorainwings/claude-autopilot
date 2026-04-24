@@ -19,8 +19,8 @@ else
 fi
 
 # 12b. _common.sh is sourced by both hook scripts
-if grep -q 'source.*_common.sh' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" && \
-   grep -q 'source.*_common.sh' "$SCRIPT_DIR/save-state-before-compact.sh"; then
+if grep -q 'source.*_common.sh' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" &&
+  grep -q 'source.*_common.sh' "$SCRIPT_DIR/save-state-before-compact.sh"; then
   green "  PASS: both hook scripts source _common.sh"
   PASS=$((PASS + 1))
 else
@@ -30,4 +30,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -79,11 +79,11 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
 JSON
 
 # 不写入任何 agent marker（模拟旧场景无 marker）
-rm -f "$TMP_PROJECT/logs/.active-agent-id" 2>/dev/null || true
-rm -f "$TMP_PROJECT/logs/.active-agent-phase-5" 2>/dev/null || true
+reset_active_agent_state "$TMP_PROJECT"
+clear_active_agent_phase "$TMP_PROJECT" "5"
 
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 1a. 单 phase 单 agent 无 marker → phase-only 匹配通过"
   PASS=$((PASS + 1))
 else
@@ -92,9 +92,9 @@ else
 fi
 
 # 写入 phase marker（精确匹配路径）
-echo "phase5-backend-impl" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-backend-impl"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 1b. 单 phase 单 agent 有 marker → 精确匹配通过"
   PASS=$((PASS + 1))
 else
@@ -135,9 +135,9 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
 JSON
 
 # 2a. Backend agent 产出 backend 文件 → 应通过
-echo "phase5-backend-impl" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-backend-impl"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_BACKEND")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 2a. backend agent 产出 src/api/ → 精确匹配 backend record → 通过"
   PASS=$((PASS + 1))
 else
@@ -146,9 +146,9 @@ else
 fi
 
 # 2b. Frontend agent 产出 frontend 文件 → 应通过
-echo "phase5-frontend-impl" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-frontend-impl"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_FRONTEND")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 2b. frontend agent 产出 src/ui/ → 精确匹配 frontend record → 通过"
   PASS=$((PASS + 1))
 else
@@ -157,9 +157,9 @@ else
 fi
 
 # 2c. Frontend agent 产出 backend 文件 → 应该被 boundary violation block
-echo "phase5-frontend-impl" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-frontend-impl"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_BACKEND")
-if grep -q '"block"' <<< "$result" && grep -q "boundary violation" <<< "$result"; then
+if grep -q '"block"' <<<"$result" && grep -q "boundary violation" <<<"$result"; then
   green "  PASS: 2c. frontend agent 产出 src/api/ → boundary violation block"
   PASS=$((PASS + 1))
 else
@@ -171,10 +171,10 @@ fi
 # backend agent 产出 backend 文件但匹配到 frontend record → 旧逻辑会 boundary violation
 # 新逻辑无 marker → phase-only 回退取最后一条 = frontend，也会 boundary violation（行为相同）
 # 这证明 marker 的重要性: 有 marker 时才能精确关联
-rm -f "$TMP_PROJECT/logs/.active-agent-phase-5" 2>/dev/null || true
-rm -f "$TMP_PROJECT/logs/.active-agent-id" 2>/dev/null || true
+clear_active_agent_phase "$TMP_PROJECT" "5"
+reset_active_agent_state "$TMP_PROJECT"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_BACKEND")
-if grep -q '"block"' <<< "$result"; then
+if grep -q '"block"' <<<"$result"; then
   green "  PASS: 2d. 无 marker + phase-only 回退 → 取最后一条 frontend record → boundary violation（预期行为）"
   PASS=$((PASS + 1))
 else
@@ -187,9 +187,9 @@ fi
 # ============================================================
 
 # 3a. 有 agent marker 但 dispatch record 中无对应 agent_id → block
-echo "phase5-unknown-agent" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-unknown-agent"
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if grep -q '"block"' <<< "$result" && grep -q "correlation missing" <<< "$result"; then
+if grep -q '"block"' <<<"$result" && grep -q "correlation missing" <<<"$result"; then
   green "  PASS: 3a. agent marker 存在但无匹配 dispatch record → governance correlation missing block"
   PASS=$((PASS + 1))
 else
@@ -198,14 +198,14 @@ else
 fi
 
 # 3b. 有 agent marker + phase 不匹配 → block
-echo "phase5-backend-impl" >"$TMP_PROJECT/logs/.active-agent-phase-3"
-rm -f "$TMP_PROJECT/logs/.active-agent-phase-5" 2>/dev/null || true
-rm -f "$TMP_PROJECT/logs/.active-agent-id" 2>/dev/null || true
+set_active_agent_state "$TMP_PROJECT" "" "3" "phase5-backend-impl"
+clear_active_agent_phase "$TMP_PROJECT" "5"
+reset_active_agent_state "$TMP_PROJECT"
 # Phase 3 的 marker 不会被 phase 5 validator 读取
 # 但 dispatch record 中有 phase5-backend-impl 在 phase 5
 # 无 marker → phase-only 回退 → 取最后一条 frontend record
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_FRONTEND")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 3b. phase marker 不匹配 → phase-only 回退 → frontend envelope + frontend record → 通过"
   PASS=$((PASS + 1))
 else
@@ -280,12 +280,12 @@ JSON
 echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z","session_id":"sess-abc-123"}' \
   >"$TMP_PROJECT/openspec/changes/.autopilot-active"
 # session marker 指向 session-agent（有 owned_artifacts ["src/"]）
-echo "phase5-session-agent" >"$TMP_PROJECT/logs/.active-agent-session-sess-abc-123"
+set_active_agent_state "$TMP_PROJECT" "sess-abc-123" "5" "phase5-session-agent"
 # phase marker 指向 phase-agent（owned_artifacts 为空）
-echo "phase5-phase-agent" >"$TMP_PROJECT/logs/.active-agent-phase-5"
+set_active_agent_state "$TMP_PROJECT" "" "5" "phase5-phase-agent"
 
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 5. session marker 优先 → session-agent (有 src/ owned) → 通过"
   PASS=$((PASS + 1))
 else
@@ -300,8 +300,22 @@ fi
 # 构造: lock file 指向 sess-new，dispatch record 仅含 sess-old 同 agent_id 同 phase
 echo '{"change":"test","pid":"99999","started":"2026-01-01T00:00:00Z","session_id":"sess-new"}' \
   >"$TMP_PROJECT/openspec/changes/.autopilot-active"
-echo "phase5-backend-impl" >"$TMP_PROJECT/logs/.active-agent-session-sess-new"
-rm -f "$TMP_PROJECT/logs/.active-agent-session-sess-old" 2>/dev/null || true
+# 防御性清理 state，避免其他测试残留；再 set sess-new
+reset_active_agent_state "$TMP_PROJECT"
+set_active_agent_state "$TMP_PROJECT" "sess-new" "5" "phase5-backend-impl"
+# 正向断言：state.sessions 只含 sess-new，不含 sess-old（证明新 state schema 天然隔离）
+STATE_JSON="$TMP_PROJECT/logs/.active-agent-state.json"
+if [ -f "$STATE_JSON" ] && python3 -c "
+import json, sys
+s = json.load(open('$STATE_JSON')).get('sessions', {})
+sys.exit(0 if ('sess-new' in s and 'sess-old' not in s) else 1)
+" 2>/dev/null; then
+  green "  PASS: 6-pre. state.sessions has sess-new and excludes sess-old"
+  PASS=$((PASS + 1))
+else
+  red "  FAIL: 6-pre. state.sessions layout unexpected"
+  FAIL=$((FAIL + 1))
+fi
 
 cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
 [
@@ -321,7 +335,7 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
 JSON
 
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if grep -q '"block"' <<< "$result" && grep -q "correlation missing" <<< "$result"; then
+if grep -q '"block"' <<<"$result" && grep -q "correlation missing" <<<"$result"; then
   green "  PASS: 6a. 跨 session 串用保护 → sess-new marker + sess-old record → governance correlation missing block"
   PASS=$((PASS + 1))
 else
@@ -348,7 +362,7 @@ cat >"$TMP_PROJECT/logs/agent-dispatch-record.json" <<'JSON'
 JSON
 
 result=$(run_validator_in "$TMP_PROJECT" 5 "$ENVELOPE_OK")
-if [ -z "$result" ] || ! grep -q '"block"' <<< "$result"; then
+if [ -z "$result" ] || ! grep -q '"block"' <<<"$result"; then
   green "  PASS: 6b. 同 session record → session_id + agent_id + phase 精确匹配 → 通过"
   PASS=$((PASS + 1))
 else
@@ -362,4 +376,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

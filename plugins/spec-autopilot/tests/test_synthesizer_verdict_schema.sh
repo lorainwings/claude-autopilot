@@ -31,7 +31,7 @@ REQUIRED_KEYS="coverage_ok conflicts confidence requires_human ambiguities ratio
 required_actual=$(jq -r '.required | join(" ")' "$SCHEMA_FILE" 2>/dev/null || echo "")
 all_present=1
 for key in $REQUIRED_KEYS; do
-  if ! grep -qw "$key" <<< "$required_actual"; then
+  if ! grep -qw "$key" <<<"$required_actual"; then
     all_present=0
     red "  FAIL: 2: required missing key '$key'"
     FAIL=$((FAIL + 1))
@@ -57,7 +57,7 @@ fi
 
 # 4. ambiguities pattern 含 NEEDS CLARIFICATION
 amb_pattern=$(jq -r '.properties.ambiguities.items.pattern' "$SCHEMA_FILE" 2>/dev/null || echo "")
-if grep -q 'NEEDS CLARIFICATION' <<< "$amb_pattern"; then
+if grep -q 'NEEDS CLARIFICATION' <<<"$amb_pattern"; then
   green "  PASS: 4: ambiguities pattern enforces NEEDS CLARIFICATION prefix"
   PASS=$((PASS + 1))
 else

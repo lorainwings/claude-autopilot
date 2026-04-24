@@ -31,35 +31,31 @@ mkdir -p "$TMP_DIR/logs/sessions/sess-1/raw" \
   "$TMP_DIR/logs/sessions/sess-3/raw" \
   "$TMP_DIR/openspec/changes"
 
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-1","session_id":"sess-1","mode":"full"}
 EOF
 
-cat > "$TMP_DIR/logs/events.jsonl" <<'LEGACY'
+cat >"$TMP_DIR/logs/events.jsonl" <<'LEGACY'
 {"type":"phase_start","phase":0,"mode":"full","timestamp":"2026-03-17T00:00:00Z","change_name":"test-1","session_id":"sess-1","phase_label":"Environment Setup","total_phases":8,"sequence":1,"payload":{}}
 {"type":"phase_start","phase":1,"mode":"full","timestamp":"2026-03-17T01:00:00Z","change_name":"test-2","session_id":"sess-2","phase_label":"Requirements","total_phases":8,"sequence":1,"payload":{}}
 {"type":"phase_start","phase":2,"mode":"lite","timestamp":"2026-03-17T02:00:00Z","change_name":"test-3","session_id":"sess-3","phase_label":"OpenSpec","total_phases":5,"sequence":1,"payload":{}}
 LEGACY
 
-# sess-1: 正常 hooks
-cat > "$TMP_DIR/logs/sessions/sess-1/raw/hooks.jsonl" <<EOF
+# sess-1: 合并 hooks + statusline（v5.x 起统一写入 events.jsonl，原先分两次写入会覆盖）
+cat >"$TMP_DIR/logs/sessions/sess-1/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:01Z","session_id":"sess-1","data":{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_result":{"stdout":"hello"}}}
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:02Z","session_id":"sess-1","data":{"tool_name":"Read","tool_input":{"file_path":"/tmp/test.ts"},"tool_result":{"content":"file content"}}}
-EOF
-
-# sess-1: statusline
-cat > "$TMP_DIR/logs/sessions/sess-1/raw/statusline.jsonl" <<EOF
 {"source":"statusline","captured_at":"2026-03-17T00:00:03Z","session_id":"sess-1","data":{"model":"claude-sonnet","cost_usd":"0.10","context_window":{"percent":20}}}
 EOF
 
 # sess-2: hooks
-cat > "$TMP_DIR/logs/sessions/sess-2/raw/hooks.jsonl" <<EOF
+cat >"$TMP_DIR/logs/sessions/sess-2/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"SessionStart","captured_at":"2026-03-17T01:00:01Z","session_id":"sess-2","data":{}}
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T01:00:02Z","session_id":"sess-2","data":{"tool_name":"Write","tool_input":{"file_path":"/tmp/out.ts"},"tool_result":{}}}
 EOF
 
 # sess-3: 含损坏行的 hooks
-cat > "$TMP_DIR/logs/sessions/sess-3/raw/hooks.jsonl" <<EOF
+cat >"$TMP_DIR/logs/sessions/sess-3/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T02:00:01Z","session_id":"sess-3","data":{"tool_name":"Bash","tool_input":{"command":"ls"},"tool_result":{"stdout":"ok"}}}
 {CORRUPTED_JSON_LINE_MISSING_CLOSE_BRACE
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T02:00:03Z","session_id":"sess-3","data":{"tool_name":"Edit","tool_input":{"file_path":"/tmp/a.ts"},"tool_result":{}}}
@@ -104,7 +100,7 @@ assert_contains "1b. sess-1 has tool_use events" "$EVENTS_1" '"type":"tool_use"'
 assert_contains "1c. sess-1 events belong to sess-1" "$EVENTS_1" '"session_id":"sess-1"'
 
 # 切换到 sess-2
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-2","session_id":"sess-2","mode":"full"}
 EOF
 sleep 2
@@ -117,7 +113,7 @@ assert_contains "1e. sess-2 events belong to sess-2" "$EVENTS_2" '"session_id":"
 assert_not_contains "1f. sess-2 no sess-1 events" "$EVENTS_2" '"session_id":"sess-1"'
 
 # 切换到 sess-3
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-3","session_id":"sess-3","mode":"lite"}
 EOF
 sleep 2
@@ -130,7 +126,7 @@ assert_contains "1h. sess-3 events belong to sess-3" "$EVENTS_3" '"session_id":"
 assert_not_contains "1i. sess-3 no sess-2 events" "$EVENTS_3" '"session_id":"sess-2"'
 
 # 切回 sess-1 验证 journal 完整
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-1","session_id":"sess-1","mode":"full"}
 EOF
 sleep 2
@@ -151,7 +147,7 @@ echo ""
 echo "  [2] Corrupted JSON line tolerance"
 
 # 切换到 sess-3（含损坏行）
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-3","session_id":"sess-3","mode":"lite"}
 EOF
 sleep 2
@@ -187,7 +183,7 @@ echo ""
 echo "  [3] raw-tail incremental cursor"
 
 # 切回 sess-1
-cat > "$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
+cat >"$TMP_DIR/openspec/changes/.autopilot-active" <<EOF
 {"change":"test-1","session_id":"sess-1","mode":"full"}
 EOF
 sleep 2
@@ -207,7 +203,7 @@ fi
 
 # 第二轮：使用上一轮 cursor 读取，应返回空（已到 EOF）
 TAIL_2=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR_1")
-if grep -q '"lines":\[\]' <<< "$TAIL_2"; then
+if grep -q '"lines":\[\]' <<<"$TAIL_2"; then
   green "  PASS: 3c. at EOF returns empty lines"
   PASS=$((PASS + 1))
 else
@@ -216,14 +212,14 @@ else
 fi
 
 # 追加新行后应能读到新内容
-cat >> "$TMP_DIR/logs/sessions/sess-1/raw/hooks.jsonl" <<EOF
+cat >>"$TMP_DIR/logs/sessions/sess-1/raw/events.jsonl" <<EOF
 {"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:10Z","session_id":"sess-1","data":{"tool_name":"Grep","tool_input":{"pattern":"foo"},"tool_result":{"matches":1}}}
 EOF
 
 TAIL_3=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR_1")
 assert_contains "3d. new data after append" "$TAIL_3" '"lines"'
 # 新数据的 lines 不应为空
-if grep -q '"lines":\[\]' <<< "$TAIL_3"; then
+if grep -q '"lines":\[\]' <<<"$TAIL_3"; then
   red "  FAIL: 3e. should have new lines after append"
   FAIL=$((FAIL + 1))
 else
@@ -279,7 +275,7 @@ if [ -f "$JOURNAL_PATH" ]; then
   BAD_LINES=$(while IFS= read -r line; do
     [ -z "$line" ] && continue
     echo "$line" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null || echo "BAD"
-  done < "$JOURNAL_PATH" | grep -c "BAD" || true)
+  done <"$JOURNAL_PATH" | grep -c "BAD" || true)
   if [ "$BAD_LINES" -eq 0 ]; then
     green "  PASS: 4b. all journal lines are valid JSON"
     PASS=$((PASS + 1))
@@ -331,7 +327,7 @@ echo ""
 echo "  [6] Path sanitization"
 
 ALL_EVENTS=$(curl -s --max-time 2 http://localhost:9527/api/events)
-if grep -q '"/Users/[^"]*"' <<< "$ALL_EVENTS"; then
+if grep -q '"/Users/[^"]*"' <<<"$ALL_EVENTS"; then
   red "  FAIL: 6a. API leaks /Users/ paths"
   FAIL=$((FAIL + 1))
 else
@@ -339,7 +335,7 @@ else
   PASS=$((PASS + 1))
 fi
 
-if grep -q '"/home/[^"]*"' <<< "$ALL_EVENTS"; then
+if grep -q '"/home/[^"]*"' <<<"$ALL_EVENTS"; then
   red "  FAIL: 6b. API leaks /home/ paths"
   FAIL=$((FAIL + 1))
 else
@@ -356,11 +352,11 @@ echo "  [7] Oversized single-line JSONL raw-tail"
 
 # 创建一个超过 256KB 的单行 JSONL（无换行符）
 HUGE_VALUE=$(python3 -c "print('x' * 300000)")
-printf '{"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:20Z","session_id":"sess-1","data":{"tool_name":"Bash","tool_input":{"command":"%s"},"tool_result":{"stdout":"ok"}}}' "$HUGE_VALUE" >> "$TMP_DIR/logs/sessions/sess-1/raw/hooks.jsonl"
+printf '{"source":"hook","hook_name":"PostToolUse","captured_at":"2026-03-17T00:00:20Z","session_id":"sess-1","data":{"tool_name":"Bash","tool_input":{"command":"%s"},"tool_result":{"stdout":"ok"}}}' "$HUGE_VALUE" >>"$TMP_DIR/logs/sessions/sess-1/raw/events.jsonl"
 # 不加换行符 — 模拟正在写入的超长行
 
 # raw-tail 从文件末尾附近开始读，应得到空 lines（超长行无完整换行）
-HUGE_FILE_SIZE=$(wc -c < "$TMP_DIR/logs/sessions/sess-1/raw/hooks.jsonl" | xargs)
+HUGE_FILE_SIZE=$(wc -c <"$TMP_DIR/logs/sessions/sess-1/raw/events.jsonl" | xargs)
 # 使用一个已知位置作为 cursor（在超长行之前的位置）
 TAIL_HUGE=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$CURSOR_3")
 HUGE_CURSOR=$(echo "$TAIL_HUGE" | grep -o '"cursor":[0-9]*' | head -1 | cut -d: -f2)
@@ -379,11 +375,11 @@ HEALTH_CHECK=$(curl -s --max-time 2 http://localhost:9527/api/info)
 assert_contains "7b. server still responsive after oversized line" "$HEALTH_CHECK" '"sessionId"'
 
 # 现在给超长行加上换行，再追加一个正常行
-printf '\n{"source":"hook","hook_name":"SessionEnd","captured_at":"2026-03-17T00:00:21Z","session_id":"sess-1","data":{}}\n' >> "$TMP_DIR/logs/sessions/sess-1/raw/hooks.jsonl"
+printf '\n{"source":"hook","hook_name":"SessionEnd","captured_at":"2026-03-17T00:00:21Z","session_id":"sess-1","data":{}}\n' >>"$TMP_DIR/logs/sessions/sess-1/raw/events.jsonl"
 
 # 再次读取，应能获取到新的正常行
 TAIL_AFTER=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=$HUGE_CURSOR")
-if grep -q '"lines":\[\]' <<< "$TAIL_AFTER"; then
+if grep -q '"lines":\[\]' <<<"$TAIL_AFTER"; then
   # 可能 cursor 已经跳过了，再用 cursor 0 重读验证文件仍可解析
   TAIL_FULL=$(curl -s --max-time 2 "http://localhost:9527/api/raw-tail?kind=hooks&cursor=0&lines=500")
   assert_contains "7c. full re-read still works" "$TAIL_FULL" '"lines"'

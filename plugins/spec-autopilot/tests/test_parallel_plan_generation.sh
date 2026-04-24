@@ -122,7 +122,7 @@ echo '40f. emit-parallel-event.sh 基本功能'
 EMIT_TEST_DIR=$(mktemp -d)
 mkdir -p "$EMIT_TEST_DIR/logs"
 mkdir -p "$EMIT_TEST_DIR/openspec/changes"
-echo '{"change":"test","session_id":"s1"}' > "$EMIT_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"change":"test","session_id":"s1"}' >"$EMIT_TEST_DIR/openspec/changes/.autopilot-active"
 
 EMIT_OUTPUT=$(bash "$EMIT_SCRIPT" "$EMIT_TEST_DIR" 5 full parallel_plan '{"scheduler_decision":"batch_parallel","total_tasks":3}' 2>/dev/null)
 exit_f=$?

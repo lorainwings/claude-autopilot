@@ -19,14 +19,14 @@ trap 'rm -rf "$TMPDIR"' EXIT
 mkdir -p "$TMPDIR/.claude"
 mkdir -p "$TMPDIR/openspec/changes/test-fixture/context/phase-results"
 echo '{"change":"test-fixture","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 
 # Phase 1 checkpoint (ok) — required for all checks
 echo '{"status":"ok","summary":"Req done","decisions":[{"point":"x","choice":"y"}]}' \
-  > "$TMPDIR/openspec/changes/test-fixture/context/phase-results/phase-1-test.json"
+  >"$TMPDIR/openspec/changes/test-fixture/context/phase-results/phase-1-test.json"
 # Phase 4 checkpoint (ok) — triggers IN_PHASE5=yes (no Phase 5 checkpoint)
 echo '{"status":"ok","summary":"Tests designed","test_counts":{"unit":5},"sad_path_counts":{"unit":2},"dry_run_results":{"unit":0},"test_pyramid":{"unit_pct":100,"e2e_pct":0},"change_coverage":{"change_points":["A"],"tested_points":["A"],"coverage_pct":100,"untested_points":[]},"artifacts":["t.py"]}' \
-  > "$TMPDIR/openspec/changes/test-fixture/context/phase-results/phase-4-test.json"
+  >"$TMPDIR/openspec/changes/test-fixture/context/phase-results/phase-4-test.json"
 
 TDD_STAGE_FILE="$TMPDIR/openspec/changes/test-fixture/context/.tdd-stage"
 
@@ -37,7 +37,7 @@ make_write_input() {
 }
 
 # === RED stage tests ===
-echo "RED" > "$TDD_STAGE_FILE"
+echo "RED" >"$TDD_STAGE_FILE"
 
 # 52a. RED + implementation file → block
 exit_code=0
@@ -59,7 +59,7 @@ assert_exit "52c. RED + __tests__ dir file → exit 0" 0 $exit_code
 assert_not_contains "52c. RED + __tests__ dir file → no block" "$output" "block"
 
 # === GREEN stage tests ===
-echo "GREEN" > "$TDD_STAGE_FILE"
+echo "GREEN" >"$TDD_STAGE_FILE"
 
 # 52d. GREEN + test file → block
 exit_code=0
@@ -75,7 +75,7 @@ assert_exit "52e. GREEN + impl file → exit 0" 0 $exit_code
 assert_not_contains "52e. GREEN + impl file → no block" "$output" "block"
 
 # === REFACTOR stage tests ===
-echo "REFACTOR" > "$TDD_STAGE_FILE"
+echo "REFACTOR" >"$TDD_STAGE_FILE"
 
 # 52f. REFACTOR + any file → pass (no TDD blocking)
 exit_code=0
@@ -98,4 +98,5 @@ assert_exit "52g. no .tdd-stage + impl file → exit 0" 0 $exit_code
 assert_not_contains "52g. no .tdd-stage → no block" "$output" "block"
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -13,7 +13,7 @@ setup_autopilot_fixture
 # ── 工具函数 ──
 extract_json_field() {
   local json="$1" field="$2"
-  python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" <<< "$json" 2>/dev/null || echo ""
+  python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" <<<"$json" 2>/dev/null || echo ""
 }
 
 EMPTY_ROOT=$(mktemp -d)
@@ -68,7 +68,7 @@ echo "--- B. escalate_on_failure_to 覆盖 ---"
 ESC_ROOT=$(mktemp -d)
 mkdir -p "$ESC_ROOT/.claude"
 
-cat > "$ESC_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$ESC_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -116,7 +116,7 @@ echo "--- C. 事件发射 ---"
 EVT_ROOT=$(mktemp -d)
 mkdir -p "$EVT_ROOT/openspec/changes"
 mkdir -p "$EVT_ROOT/logs"
-echo '{"change":"test-routing","session_id":"test-session-123"}' > "$EVT_ROOT/openspec/changes/.autopilot-active"
+echo '{"change":"test-routing","session_id":"test-session-123"}' >"$EVT_ROOT/openspec/changes/.autopilot-active"
 
 # C1. 发射 model_routing 事件
 routing_json='{"selected_tier":"deep","selected_model":"opus","selected_effort":"high","routing_reason":"test","escalated_from":null,"fallback_applied":false}'
@@ -129,7 +129,7 @@ assert_contains "C1. 事件包含 routing_reason" "$output" "routing_reason"
 
 # C2. 事件写入 events.jsonl
 if [ -f "$EVT_ROOT/logs/events.jsonl" ]; then
-  line_count=$(wc -l < "$EVT_ROOT/logs/events.jsonl")
+  line_count=$(wc -l <"$EVT_ROOT/logs/events.jsonl")
   if [ "$line_count" -ge 1 ]; then
     green "  PASS: C2. 事件已写入 events.jsonl ($line_count 行)"
     PASS=$((PASS + 1))
@@ -177,7 +177,7 @@ echo "--- E. enabled=false ---"
 DISABLED_ROOT=$(mktemp -d)
 mkdir -p "$DISABLED_ROOT/.claude"
 
-cat > "$DISABLED_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$DISABLED_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: false
@@ -213,4 +213,5 @@ rm -rf "$DISABLED_ROOT"
 teardown_autopilot_fixture
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

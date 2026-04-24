@@ -35,6 +35,8 @@ PROJECT_ROOT_QUICK=$(echo "$STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]
 if [ -z "$PROJECT_ROOT_QUICK" ]; then
   PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
+# Layer 0a: project-recognition guard (non-autopilot projects exit early)
+is_autopilot_project "$PROJECT_ROOT_QUICK" || exit 0
 if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
   exit 0
 fi

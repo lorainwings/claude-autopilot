@@ -154,18 +154,17 @@ fi
 if [ "$IN_PHASE5" = "yes" ]; then
   OWNERSHIP_DIR="$PHASE_RESULTS/phase5-ownership"
   if [ -d "$OWNERSHIP_DIR" ]; then
-    # Resolve current agent ID from session marker file
+    # Resolve current agent ID via consolidated state file (session → global fallback)
+    # shellcheck source=_agent_state.sh
+    source "$SCRIPT_DIR/_agent_state.sh"
     CURRENT_AGENT_ID=""
+    _SID=""
     if [[ "$STDIN_DATA" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
       _SID="${BASH_REMATCH[1]}"
-      _SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT_QUICK" "$_SID")
-      if [ -f "$_SESSION_AGENT_FILE" ]; then
-        CURRENT_AGENT_ID=$(head -1 "$_SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
-      fi
     fi
-    if [ -z "$CURRENT_AGENT_ID" ] && [ -f "$PROJECT_ROOT_QUICK/logs/.active-agent-id" ]; then
-      CURRENT_AGENT_ID=$(head -1 "$PROJECT_ROOT_QUICK/logs/.active-agent-id" 2>/dev/null | tr -d '[:space:]')
-    fi
+    _SKEY=""
+    [ -n "$_SID" ] && _SKEY=$(sanitize_session_key "$_SID")
+    CURRENT_AGENT_ID=$(agent_state_get_agent_id "$PROJECT_ROOT_QUICK" "$_SKEY" "")
 
     if [ -n "$CURRENT_AGENT_ID" ]; then
       # Find ownership file: try {agent_id}.json first, then scan all files

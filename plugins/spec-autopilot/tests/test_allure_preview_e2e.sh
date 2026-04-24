@@ -24,7 +24,7 @@ trap 'rm -rf "$TMPDIR_TEST"' EXIT
 # Create a mock allure wrapper that simulates `npx allure generate` and `npx allure open`
 MOCK_BIN="$TMPDIR_TEST/mock-bin"
 mkdir -p "$MOCK_BIN"
-cat > "$MOCK_BIN/npx" <<'MOCK_NPX'
+cat >"$MOCK_BIN/npx" <<'MOCK_NPX'
 #!/usr/bin/env bash
 # Mock npx: intercepts `npx allure generate` and `npx allure open`
 if [[ "$1" == "allure" && "$2" == "generate" ]]; then
@@ -62,7 +62,7 @@ chmod +x "$MOCK_BIN/npx"
 
 # The Step 2.5.0 decision script (extracted from SKILL.md, runs standalone)
 # This is the exact logic the main thread AI would execute
-cat > "$TMPDIR_TEST/step250.sh" <<'STEP250'
+cat >"$TMPDIR_TEST/step250.sh" <<'STEP250'
 #!/usr/bin/env bash
 set -euo pipefail
 CHANGE_DIR="$1"
@@ -130,8 +130,8 @@ setup_change() {
 # E2E-1. allure-results at project root, no allure-report → mock generate creates report
 setup_change "$TMPDIR_TEST/e2e1" "feat"
 mkdir -p "$TMPDIR_TEST/e2e1/allure-results"
-echo '{}' > "$TMPDIR_TEST/e2e1/allure-results/result.json"
-echo '{"pass_rate":95}' > "$TMPDIR_TEST/e2e1/openspec/changes/feat/context/phase-results/phase-6-report.json"
+echo '{}' >"$TMPDIR_TEST/e2e1/allure-results/result.json"
+echo '{"pass_rate":95}' >"$TMPDIR_TEST/e2e1/openspec/changes/feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/e2e1" && PATH="$MOCK_BIN:$PATH" bash "$TMPDIR_TEST/step250.sh" "openspec/changes/feat" 2>&1) || exit_code=$?
@@ -149,8 +149,8 @@ fi
 # E2E-2. allure-results at change-level reports/, no project root → discovered + generated
 setup_change "$TMPDIR_TEST/e2e2" "feat"
 mkdir -p "$TMPDIR_TEST/e2e2/openspec/changes/feat/reports/allure-results"
-echo '{}' > "$TMPDIR_TEST/e2e2/openspec/changes/feat/reports/allure-results/result.json"
-echo '{"pass_rate":90}' > "$TMPDIR_TEST/e2e2/openspec/changes/feat/context/phase-results/phase-6-report.json"
+echo '{}' >"$TMPDIR_TEST/e2e2/openspec/changes/feat/reports/allure-results/result.json"
+echo '{"pass_rate":90}' >"$TMPDIR_TEST/e2e2/openspec/changes/feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/e2e2" && PATH="$MOCK_BIN:$PATH" bash "$TMPDIR_TEST/step250.sh" "openspec/changes/feat" 2>&1) || exit_code=$?
@@ -168,10 +168,10 @@ fi
 # E2E-3. allure-report already exists → skip generate, return EXISTS
 setup_change "$TMPDIR_TEST/e2e3" "feat"
 mkdir -p "$TMPDIR_TEST/e2e3/allure-results"
-echo '{}' > "$TMPDIR_TEST/e2e3/allure-results/result.json"
+echo '{}' >"$TMPDIR_TEST/e2e3/allure-results/result.json"
 mkdir -p "$TMPDIR_TEST/e2e3/allure-report"
-echo '<html>existing</html>' > "$TMPDIR_TEST/e2e3/allure-report/index.html"
-echo '{"pass_rate":100}' > "$TMPDIR_TEST/e2e3/openspec/changes/feat/context/phase-results/phase-6-report.json"
+echo '<html>existing</html>' >"$TMPDIR_TEST/e2e3/allure-report/index.html"
+echo '{"pass_rate":100}' >"$TMPDIR_TEST/e2e3/openspec/changes/feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/e2e3" && PATH="$MOCK_BIN:$PATH" bash "$TMPDIR_TEST/step250.sh" "openspec/changes/feat" 2>&1) || exit_code=$?
@@ -181,7 +181,7 @@ assert_not_contains "E2E-3. no GENERATED" "$output" "GENERATED"
 
 # E2E-4. no allure-results anywhere → NO_RESULTS
 setup_change "$TMPDIR_TEST/e2e4" "feat"
-echo '{"pass_rate":80}' > "$TMPDIR_TEST/e2e4/openspec/changes/feat/context/phase-results/phase-6-report.json"
+echo '{"pass_rate":80}' >"$TMPDIR_TEST/e2e4/openspec/changes/feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/e2e4" && PATH="$MOCK_BIN:$PATH" bash "$TMPDIR_TEST/step250.sh" "openspec/changes/feat" 2>&1) || exit_code=$?
@@ -191,9 +191,9 @@ assert_contains "E2E-4. returns NO_RESULTS" "$output" "NO_RESULTS"
 # E2E-5. stale checkpoint path + real change-level results → fallback discovers + generates
 setup_change "$TMPDIR_TEST/e2e5" "feat"
 mkdir -p "$TMPDIR_TEST/e2e5/openspec/changes/feat/reports/allure-results"
-echo '{}' > "$TMPDIR_TEST/e2e5/openspec/changes/feat/reports/allure-results/result.json"
+echo '{}' >"$TMPDIR_TEST/e2e5/openspec/changes/feat/reports/allure-results/result.json"
 echo '{"pass_rate":85,"allure_results_dir":"/nonexistent/stale/path"}' \
-  > "$TMPDIR_TEST/e2e5/openspec/changes/feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/e2e5/openspec/changes/feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/e2e5" && PATH="$MOCK_BIN:$PATH" bash "$TMPDIR_TEST/step250.sh" "openspec/changes/feat" 2>&1) || exit_code=$?
@@ -203,12 +203,12 @@ assert_not_contains "E2E-5. stale path not in output" "$output" "stale"
 
 # E2E-6. allure generate fails (mock returns error) → FAILED
 setup_change "$TMPDIR_TEST/e2e6" "feat"
-mkdir -p "$TMPDIR_TEST/e2e6/allure-results-empty"  # exists but wrong name
+mkdir -p "$TMPDIR_TEST/e2e6/allure-results-empty" # exists but wrong name
 echo '{"pass_rate":70,"allure_results_dir":"'"$TMPDIR_TEST/e2e6/allure-results-empty"'"}' \
-  > "$TMPDIR_TEST/e2e6/openspec/changes/feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/e2e6/openspec/changes/feat/context/phase-results/phase-6-report.json"
 # Create a failing mock — allure-results-empty exists as dir but has no results
 # The real scenario: directory exists but allure generate still fails
-cat > "$MOCK_BIN/npx_fail" <<'MOCK_FAIL'
+cat >"$MOCK_BIN/npx_fail" <<'MOCK_FAIL'
 #!/usr/bin/env bash
 if [[ "$1" == "allure" && "$2" == "generate" ]]; then
   echo "Error: No allure results found" >&2
@@ -229,14 +229,14 @@ assert_exit "E2E-6. checkpoint dir exists → exit 0" 0 $exit_code
 # Setup: Phase 5 task checkpoint exists with L1 evidence (no L2) → hook warns on stderr
 setup_change "$TMPDIR_TEST/e2e7" "feat"
 echo '{"change":"feat","pid":"99999","started":"2026-01-01T00:00:00Z","mode":"full"}' \
-  > "$TMPDIR_TEST/e2e7/openspec/changes/.autopilot-active"
+  >"$TMPDIR_TEST/e2e7/openspec/changes/.autopilot-active"
 # Phase 4 checkpoint (predecessor for Phase 5 in full mode)
 echo '{"status":"ok","phase":4}' \
-  > "$TMPDIR_TEST/e2e7/openspec/changes/feat/context/phase-results/phase-4-testing.json"
+  >"$TMPDIR_TEST/e2e7/openspec/changes/feat/context/phase-results/phase-4-testing.json"
 # Phase 5 task checkpoint with L1 evidence only
 mkdir -p "$TMPDIR_TEST/e2e7/openspec/changes/feat/context/phase-results/phase5-tasks"
 echo '{"task_number":1,"status":"ok","test_driven_evidence":{"red_verified":true,"green_verified":true,"verification_layer":"L1_sub_agent"}}' \
-  > "$TMPDIR_TEST/e2e7/openspec/changes/feat/context/phase-results/phase5-tasks/task-1.json"
+  >"$TMPDIR_TEST/e2e7/openspec/changes/feat/context/phase-results/phase5-tasks/task-1.json"
 
 # Dispatch a Phase 5 task (task 2) → hook should audit task-1.json and warn about L1 layer
 exit_code=0
@@ -258,12 +258,12 @@ assert_contains "E2E-7. mentions L1 layer issue" "$stderr_content" "L1"
 # E2E-8. Same setup but with L2 evidence → no L2-AUDIT warning
 setup_change "$TMPDIR_TEST/e2e8" "feat"
 echo '{"change":"feat","pid":"99999","started":"2026-01-01T00:00:00Z","mode":"full"}' \
-  > "$TMPDIR_TEST/e2e8/openspec/changes/.autopilot-active"
+  >"$TMPDIR_TEST/e2e8/openspec/changes/.autopilot-active"
 echo '{"status":"ok","phase":4}' \
-  > "$TMPDIR_TEST/e2e8/openspec/changes/feat/context/phase-results/phase-4-testing.json"
+  >"$TMPDIR_TEST/e2e8/openspec/changes/feat/context/phase-results/phase-4-testing.json"
 mkdir -p "$TMPDIR_TEST/e2e8/openspec/changes/feat/context/phase-results/phase5-tasks"
 echo '{"task_number":1,"status":"ok","test_driven_evidence":{"red_verified":true,"green_verified":true,"verification_layer":"L2_main_thread"}}' \
-  > "$TMPDIR_TEST/e2e8/openspec/changes/feat/context/phase-results/phase5-tasks/task-1.json"
+  >"$TMPDIR_TEST/e2e8/openspec/changes/feat/context/phase-results/phase5-tasks/task-1.json"
 
 exit_code=0
 HOOK_INPUT=$(python3 -c "
@@ -282,4 +282,5 @@ assert_not_contains "E2E-8. no L2-AUDIT warning" "$stderr_content" "L2-AUDIT"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

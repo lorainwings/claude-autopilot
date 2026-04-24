@@ -32,6 +32,8 @@ else
   PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
+# --- Project-recognition guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT" || exit 0
 # --- Fast path: skip if no active autopilot session ---
 if ! has_active_autopilot "$PROJECT_ROOT"; then
   exit 0
@@ -111,16 +113,12 @@ fi
 if [ -z "$CURRENT_SESSION_ID" ] && [ -f "$PROJECT_ROOT/openspec/changes/.autopilot-active" ]; then
   CURRENT_SESSION_ID=$(read_lock_json_field "$PROJECT_ROOT/openspec/changes/.autopilot-active" "session_id" "")
 fi
-ACTIVE_AGENT_FILE="$PROJECT_ROOT/logs/.active-agent-id"
-if [ -n "$CURRENT_SESSION_ID" ]; then
-  SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$CURRENT_SESSION_ID")
-  if [ -f "$SESSION_AGENT_FILE" ]; then
-    CURRENT_AGENT_ID=$(head -1 "$SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
-  fi
-fi
-if [ -z "$CURRENT_AGENT_ID" ] && [ -f "$ACTIVE_AGENT_FILE" ]; then
-  CURRENT_AGENT_ID=$(head -1 "$ACTIVE_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
-fi
+# Resolve active agent via consolidated state file (session → global fallback)
+# shellcheck source=_agent_state.sh
+source "$SCRIPT_DIR/_agent_state.sh"
+_SKEY_FOR_STATE=""
+[ -n "$CURRENT_SESSION_ID" ] && _SKEY_FOR_STATE=$(sanitize_session_key "$CURRENT_SESSION_ID")
+CURRENT_AGENT_ID=$(agent_state_get_agent_id "$PROJECT_ROOT" "$_SKEY_FOR_STATE" "")
 
 # --- Resolve context fields (pure bash fast path — avoid python3 forks) ---
 LOCK_FILE="$PROJECT_ROOT/openspec/changes/.autopilot-active"

@@ -43,7 +43,7 @@ fi
 # === 3. Validate TDD checkpoint structure with test_intent ===
 mkdir -p "$TMPDIR/phase5-tasks"
 # 3a. Valid checkpoint with test_intent and failing_signal
-cat > "$TMPDIR/phase5-tasks/task-1.json" << 'TASK'
+cat >"$TMPDIR/phase5-tasks/task-1.json" <<'TASK'
 {
   "task_number": 1,
   "task_title": "实现用户登录",
@@ -83,7 +83,7 @@ assert_contains "3b. valid checkpoint has failing_signal" "$output" '"has_failin
 assert_contains "3c. valid checkpoint has assertion_message" "$output" '"has_assertion_message": true'
 
 # 3d. Checkpoint without test_intent → detectable gap
-cat > "$TMPDIR/phase5-tasks/task-2.json" << 'TASK'
+cat >"$TMPDIR/phase5-tasks/task-2.json" <<'TASK'
 {
   "task_number": 2,
   "task_title": "实现注册功能",
@@ -132,4 +132,5 @@ assert_contains "4b. task-2 missing test_intent flagged" "$output" 'task-2: miss
 assert_contains "4c. task-2 missing failing_signal flagged" "$output" 'task-2: missing failing_signal'
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -51,7 +51,7 @@ fi
 # 4d. Verify markdown structure
 if [ -f "$SNAPSHOT_FILE" ]; then
   CONTENT=$(cat "$SNAPSHOT_FILE")
-  if grep -q "Phase 1 Context Snapshot" <<< "$CONTENT"; then
+  if grep -q "Phase 1 Context Snapshot" <<<"$CONTENT"; then
     green "  PASS: 4d. markdown has Phase 1 header"
     PASS=$((PASS + 1))
   else
@@ -119,12 +119,12 @@ fi
 COMPACT_TEST_DIR="$REPO_ROOT/openspec/changes/compact-test"
 mkdir -p "$COMPACT_TEST_DIR/context/phase-results"
 echo '{"status":"ok","summary":"Done","decisions":[{"point":"x","choice":"y"}]}' \
-  > "$COMPACT_TEST_DIR/context/phase-results/phase-1-requirements.json"
+  >"$COMPACT_TEST_DIR/context/phase-results/phase-1-requirements.json"
 echo '{"step":"agent_dispatched","status":"in_progress"}' \
-  > "$COMPACT_TEST_DIR/context/phase-results/phase-3-progress.json"
+  >"$COMPACT_TEST_DIR/context/phase-results/phase-3-progress.json"
 # Lock file pointing to compact-test
 echo '{"change":"compact-test","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z","anchor_sha":"abc123"}' \
-  > "$REPO_ROOT/openspec/changes/.autopilot-active"
+  >"$REPO_ROOT/openspec/changes/.autopilot-active"
 FIXTURE_LOCK_CREATED=true
 
 # Run save-state
@@ -161,4 +161,5 @@ rm -rf "$CHANGE_DIR" 2>/dev/null || true
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -3,7 +3,7 @@
 # Generic raw hook capture bridge for GUI observability.
 # Usage: capture-hook-event.sh <hook_name>
 # Input: raw Claude hook JSON from stdin
-# Output: silent; appends wrapped record to logs/sessions/<session>/raw/hooks.jsonl
+# Output: silent; appends wrapped record to logs/sessions/<session>/raw/events.jsonl
 
 set -uo pipefail
 
@@ -42,7 +42,7 @@ except Exception:
 # --- Project relevance guard: only capture in autopilot projects ---
 # Uses the resolved PROJECT_ROOT (from stdin cwd), not the script runner's pwd.
 # Non-autopilot projects skip silently — no logs/sessions/ directory created.
-[ -d "$PROJECT_ROOT/openspec" ] || [ -f "$PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
+is_autopilot_project "$PROJECT_ROOT" || exit 0
 
 SESSION_ID=$(python3 -c '
 import json, sys
@@ -64,12 +64,9 @@ RAW_DIR="$SESSION_DIR/raw"
 mkdir -p "$RAW_DIR" 2>/dev/null || exit 0
 
 ACTIVE_AGENT_ID=""
-ACTIVE_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$SESSION_ID")
-if [ -f "$ACTIVE_AGENT_FILE" ]; then
-  ACTIVE_AGENT_ID=$(head -1 "$ACTIVE_AGENT_FILE" 2>/dev/null | tr -d '[:space:]')
-elif [ -f "$PROJECT_ROOT/logs/.active-agent-id" ]; then
-  ACTIVE_AGENT_ID=$(head -1 "$PROJECT_ROOT/logs/.active-agent-id" 2>/dev/null | tr -d '[:space:]')
-fi
+# shellcheck source=_agent_state.sh
+source "$SCRIPT_DIR/_agent_state.sh"
+ACTIVE_AGENT_ID=$(agent_state_get_agent_id "$PROJECT_ROOT" "$SESSION_KEY" "")
 
 export AUTOPILOT_CAPTURE_HOOK_NAME="$HOOK_NAME"
 export AUTOPILOT_CAPTURE_PROJECT_ROOT="$PROJECT_ROOT"
@@ -116,7 +113,7 @@ record = {
     "data": data,
 }
 
-hooks_file = raw_dir / "hooks.jsonl"
+hooks_file = raw_dir / "events.jsonl"
 with hooks_file.open("a", encoding="utf-8") as fh:
     fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 

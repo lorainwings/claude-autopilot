@@ -17,9 +17,9 @@ source "$TEST_DIR/_test_helpers.sh"
 echo "--- Phase 1 redesign: config schema v2 contract ---"
 
 # 1. config-schema.md must declare phases.requirements.synthesizer.agent
-if grep -nF 'synthesizer:' "$SCHEMA_FILE" >/dev/null \
-  && awk '/^[[:space:]]*synthesizer:/{flag=1; next} flag && /agent:/{print; exit} flag && /^[^[:space:]]/{exit}' \
-       "$SCHEMA_FILE" | grep -qF 'agent:'; then
+if grep -nF 'synthesizer:' "$SCHEMA_FILE" >/dev/null &&
+  awk '/^[[:space:]]*synthesizer:/{flag=1; next} flag && /agent:/{print; exit} flag && /^[^[:space:]]/{exit}' \
+    "$SCHEMA_FILE" | grep -qF 'agent:'; then
   green "  PASS: 1: config-schema declares synthesizer.agent under phases.requirements"
   PASS=$((PASS + 1))
 else

@@ -13,7 +13,7 @@ CONFIG_TEST_DIR=$(mktemp -d)
 
 # 21a. Valid config → valid=true
 mkdir -p "$CONFIG_TEST_DIR/valid/.claude"
-cat > "$CONFIG_TEST_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$CONFIG_TEST_DIR/valid/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -56,7 +56,7 @@ fi
 
 # 21b. Missing fields → valid=false with missing_keys
 mkdir -p "$CONFIG_TEST_DIR/partial/.claude"
-cat > "$CONFIG_TEST_DIR/partial/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$CONFIG_TEST_DIR/partial/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 phases:
   requirements:
@@ -85,7 +85,7 @@ assert_contains "validate-config no file → file_not_found" "$output" "file_not
 
 # 21e. Invalid default_mode enum → enum_errors non-empty
 mkdir -p "$CONFIG_TEST_DIR/bad_enum/.claude"
-cat > "$CONFIG_TEST_DIR/bad_enum/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$CONFIG_TEST_DIR/bad_enum/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "turbo"
 services:
@@ -123,7 +123,7 @@ assert_contains "21e. enum_errors mentions turbo" "$output" "turbo"
 
 # 21f. Valid default_mode enum → no enum_errors
 mkdir -p "$CONFIG_TEST_DIR/good_enum/.claude"
-cat > "$CONFIG_TEST_DIR/good_enum/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$CONFIG_TEST_DIR/good_enum/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "lite"
 services:
@@ -166,7 +166,7 @@ XREF_TEST_DIR=$(mktemp -d)
 
 # 21g. required_test_types without matching test_suites → cross_ref_warning
 mkdir -p "$XREF_TEST_DIR/type_mismatch/.claude"
-cat > "$XREF_TEST_DIR/type_mismatch/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/type_mismatch/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -197,7 +197,7 @@ assert_contains "21g. required_test_types mismatch warns about visual" "$output"
 
 # 21h. domain_agents with parallel.enabled=false → warning
 mkdir -p "$XREF_TEST_DIR/domain_no_par/.claude"
-cat > "$XREF_TEST_DIR/domain_no_par/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/domain_no_par/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -231,7 +231,7 @@ assert_contains "21h. domain_agents+parallel.enabled=false" "$output" "domain_ag
 
 # 21h2. domain_agents with quoted slash keys (real schema format) → per-domain warnings
 mkdir -p "$XREF_TEST_DIR/domain_slash/.claude"
-cat > "$XREF_TEST_DIR/domain_slash/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/domain_slash/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -270,7 +270,7 @@ assert_contains "21h2c. default_agent also warned" "$output" "custom-fallback"
 
 # 21h3. inline mapping format (schema multi-stack example) → per-domain warnings
 mkdir -p "$XREF_TEST_DIR/domain_inline/.claude"
-cat > "$XREF_TEST_DIR/domain_inline/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/domain_inline/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -306,7 +306,7 @@ assert_contains "21h3b. inline mapping apps/web/ agent warned" "$output" "react-
 
 # 21i. tdd_mode=true with empty test_suites → warning
 mkdir -p "$XREF_TEST_DIR/tdd_no_suites/.claude"
-cat > "$XREF_TEST_DIR/tdd_no_suites/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/tdd_no_suites/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -334,7 +334,7 @@ assert_contains "21i. tdd_mode with empty test_suites" "$output" "tdd_mode"
 
 # 21j. hook_floors.min_change_coverage_pct > coverage_target → warning
 mkdir -p "$XREF_TEST_DIR/floor_cov/.claude"
-cat > "$XREF_TEST_DIR/floor_cov/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/floor_cov/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -368,7 +368,7 @@ assert_contains "21j. hook_floors coverage > gate coverage" "$output" "min_chang
 # 21k. research.agent="Explore" → HARD BLOCK (valid=false, enum_errors)
 # P1 fail-closed: Explore agents are read-only and cannot write research files
 mkdir -p "$XREF_TEST_DIR/explore_deprecated/.claude"
-cat > "$XREF_TEST_DIR/explore_deprecated/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/explore_deprecated/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -419,7 +419,7 @@ fi
 
 # 21k2. case insensitive — lowercase "explore" also blocked
 mkdir -p "$XREF_TEST_DIR/explore_lowercase/.claude"
-cat > "$XREF_TEST_DIR/explore_lowercase/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/explore_lowercase/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -458,7 +458,7 @@ fi
 
 # 21l. research.agent="general-purpose" → valid=true (happy path)
 mkdir -p "$XREF_TEST_DIR/explore_ok/.claude"
-cat > "$XREF_TEST_DIR/explore_ok/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/explore_ok/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -499,7 +499,7 @@ assert_not_contains "21l. general-purpose → no Explore error" "$output" "Explo
 
 # 21m. Phase 1 三路独立 agent 字段：auto_scan.agent="Explore" → HARD BLOCK
 mkdir -p "$XREF_TEST_DIR/autoscan_explore/.claude"
-cat > "$XREF_TEST_DIR/autoscan_explore/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/autoscan_explore/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -542,7 +542,7 @@ assert_contains "21m. error cites auto_scan.agent" "$output" "auto_scan.agent"
 
 # 21n. web_search.agent="Explore" → HARD BLOCK
 mkdir -p "$XREF_TEST_DIR/websearch_explore/.claude"
-cat > "$XREF_TEST_DIR/websearch_explore/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/websearch_explore/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -585,7 +585,7 @@ assert_contains "21n. error cites web_search.agent" "$output" "web_search.agent"
 
 # 21o. redteam.agent="Explore" → HARD BLOCK (Phase 5.5 Red Team 需 Write 反例)
 mkdir -p "$XREF_TEST_DIR/redteam_explore/.claude"
-cat > "$XREF_TEST_DIR/redteam_explore/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/redteam_explore/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -628,7 +628,7 @@ assert_contains "21o. error cites redteam.agent" "$output" "redteam.agent"
 
 # 21p. 三路 + redteam 全部合法值 → valid=true (happy path)
 mkdir -p "$XREF_TEST_DIR/threepaths_ok/.claude"
-cat > "$XREF_TEST_DIR/threepaths_ok/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$XREF_TEST_DIR/threepaths_ok/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -678,4 +678,5 @@ rm -rf "$XREF_TEST_DIR"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

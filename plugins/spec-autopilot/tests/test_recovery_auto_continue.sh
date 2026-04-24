@@ -31,7 +31,7 @@ TMPDIR_REC=$(mktemp -d)
   git init -q
   git config user.email "test@test.com"
   git config user.name "Test"
-  echo "init" > README.md
+  echo "init" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit"
 
@@ -41,17 +41,17 @@ TMPDIR_REC=$(mktemp -d)
 
   # 创建 change 目录和 checkpoint
   mkdir -p openspec/changes/test-recovery/context/phase-results
-  echo '{"status":"ok","summary":"req done"}' > openspec/changes/test-recovery/context/phase-results/phase-1-requirements.json
-  echo "{\"change\":\"test-recovery\",\"mode\":\"full\",\"anchor_sha\":\"$ANCHOR_SHA\"}" > openspec/changes/.autopilot-active
+  echo '{"status":"ok","summary":"req done"}' >openspec/changes/test-recovery/context/phase-results/phase-1-requirements.json
+  echo "{\"change\":\"test-recovery\",\"mode\":\"full\",\"anchor_sha\":\"$ANCHOR_SHA\"}" >openspec/changes/.autopilot-active
 
   # 创建一个 fixup commit
-  echo "code" > src.txt
+  echo "code" >src.txt
   git add -A
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-recovery — Phase 1"
 
   # 创建 config
   mkdir -p .claude
-  cat > .claude/autopilot.config.yaml << 'YAML'
+  cat >.claude/autopilot.config.yaml <<'YAML'
 default_mode: full
 context_management:
   auto_continue_on_recovery: true
@@ -99,4 +99,5 @@ assert_contains "4a: gate 文档 auto_continue action" "$gate_content" 'auto_con
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

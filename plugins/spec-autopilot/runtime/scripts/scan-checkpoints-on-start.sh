@@ -17,8 +17,19 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PROJECT_ROOT=""
+if [ ! -t 0 ]; then
+  _STDIN_DATA=$(cat)
+  _STDIN_CWD=$(echo "$_STDIN_DATA" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+  if [ -n "$_STDIN_CWD" ]; then
+    PROJECT_ROOT=$(git -C "$_STDIN_CWD" rev-parse --show-toplevel 2>/dev/null || echo "$_STDIN_CWD")
+  fi
+fi
+[ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
+
+# --- Project relevance guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT" || exit 0
 
 if [ ! -d "$CHANGES_DIR" ]; then
   exit 0

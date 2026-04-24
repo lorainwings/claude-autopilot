@@ -33,10 +33,10 @@ setup_change_dir() {
 # 1a. allure-results/ at project root → discovered
 setup_change_dir "$TMPDIR_TEST/proj1" "test-feat"
 mkdir -p "$TMPDIR_TEST/proj1/allure-results"
-echo '{}' > "$TMPDIR_TEST/proj1/allure-results/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj1/allure-results/result1.json"
 # Write Phase 6 checkpoint without allure_results_dir (simulating gap)
 echo '{"report_format":"allure","report_path":"allure-report/index.html","pass_rate":95,"suite_results":[]}' \
-  > "$TMPDIR_TEST/proj1/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj1/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj1" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-1" 2>/dev/null) || exit_code=$?
@@ -54,9 +54,9 @@ fi
 # 1b. allure-results/ at change level reports/ → discovered
 setup_change_dir "$TMPDIR_TEST/proj2" "test-feat"
 mkdir -p "$TMPDIR_TEST/proj2/openspec/changes/test-feat/reports/allure-results"
-echo '{}' > "$TMPDIR_TEST/proj2/openspec/changes/test-feat/reports/allure-results/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj2/openspec/changes/test-feat/reports/allure-results/result1.json"
 echo '{"report_format":"custom","report_path":"test-report.html","pass_rate":90,"suite_results":[]}' \
-  > "$TMPDIR_TEST/proj2/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj2/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj2" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-2" 2>/dev/null) || exit_code=$?
@@ -73,9 +73,9 @@ fi
 # 1c. allure_results_dir in checkpoint → highest priority
 setup_change_dir "$TMPDIR_TEST/proj3" "test-feat"
 mkdir -p "$TMPDIR_TEST/proj3/custom-allure-output"
-echo '{}' > "$TMPDIR_TEST/proj3/custom-allure-output/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj3/custom-allure-output/result1.json"
 echo '{"report_format":"allure","report_path":"allure-report/index.html","pass_rate":100,"suite_results":[],"allure_results_dir":"'"$TMPDIR_TEST/proj3/custom-allure-output"'"}' \
-  > "$TMPDIR_TEST/proj3/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj3/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj3" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-3" 2>/dev/null) || exit_code=$?
@@ -91,7 +91,7 @@ fi
 # 1d. no allure-results anywhere → format stays as checkpoint value
 setup_change_dir "$TMPDIR_TEST/proj4" "test-feat"
 echo '{"report_format":"custom","report_path":"test-report.html","pass_rate":85,"suite_results":[]}' \
-  > "$TMPDIR_TEST/proj4/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj4/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj4" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-4" 2>/dev/null) || exit_code=$?
@@ -107,11 +107,11 @@ fi
 # 1e. allure-preview.json exists → allure_preview_url propagated
 setup_change_dir "$TMPDIR_TEST/proj5" "test-feat"
 echo '{"report_format":"allure","report_path":"allure-report/index.html","pass_rate":98,"suite_results":[]}' \
-  > "$TMPDIR_TEST/proj5/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj5/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 echo '{"url":"http://localhost:4040","pid":12345,"port":4040}' \
-  > "$TMPDIR_TEST/proj5/openspec/changes/test-feat/context/allure-preview.json"
+  >"$TMPDIR_TEST/proj5/openspec/changes/test-feat/context/allure-preview.json"
 mkdir -p "$TMPDIR_TEST/proj5/allure-results"
-echo '{}' > "$TMPDIR_TEST/proj5/allure-results/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj5/allure-results/result1.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj5" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-5" 2>/dev/null) || exit_code=$?
@@ -127,7 +127,7 @@ fi
 # 1f. minimal mode → format forced to none
 setup_change_dir "$TMPDIR_TEST/proj6" "test-feat"
 echo '{"report_format":"allure","report_path":"allure-report/index.html","pass_rate":100,"suite_results":[]}' \
-  > "$TMPDIR_TEST/proj6/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj6/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj6" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "minimal" "sess-6" 2>/dev/null) || exit_code=$?
@@ -146,10 +146,10 @@ fi
 # After fix: stale path fails -d check, fallback discovers reports/allure-results/.
 setup_change_dir "$TMPDIR_TEST/proj7" "test-feat"
 mkdir -p "$TMPDIR_TEST/proj7/openspec/changes/test-feat/reports/allure-results"
-echo '{}' > "$TMPDIR_TEST/proj7/openspec/changes/test-feat/reports/allure-results/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj7/openspec/changes/test-feat/reports/allure-results/result1.json"
 # Checkpoint points to non-existent stale directory
 echo '{"report_format":"custom","report_path":"test-report.html","pass_rate":90,"suite_results":[],"allure_results_dir":"/tmp/stale-nonexistent-dir-12345"}' \
-  > "$TMPDIR_TEST/proj7/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj7/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj7" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-7" 2>/dev/null) || exit_code=$?
@@ -170,9 +170,9 @@ fi
 # 1h. NEGATIVE: stale checkpoint allure_results_dir + real project-root allure-results → fallback wins
 setup_change_dir "$TMPDIR_TEST/proj8" "test-feat"
 mkdir -p "$TMPDIR_TEST/proj8/allure-results"
-echo '{}' > "$TMPDIR_TEST/proj8/allure-results/result1.json"
+echo '{}' >"$TMPDIR_TEST/proj8/allure-results/result1.json"
 echo '{"report_format":"custom","report_path":"test-report.html","pass_rate":85,"suite_results":[],"allure_results_dir":"nonexistent-allure-dir"}' \
-  > "$TMPDIR_TEST/proj8/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
+  >"$TMPDIR_TEST/proj8/openspec/changes/test-feat/context/phase-results/phase-6-report.json"
 
 exit_code=0
 output=$(cd "$TMPDIR_TEST/proj8" && bash "$EMIT_SCRIPT" "openspec/changes" "test-feat" "full" "sess-8" 2>/dev/null) || exit_code=$?
@@ -189,4 +189,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -9,6 +9,8 @@ source "$TEST_DIR/_fixtures.sh"
 
 echo "--- auto-emit-agent hooks ---"
 setup_autopilot_fixture
+# Ensure no stale active-agent state leaks across local re-runs
+reset_active_agent_state "$REPO_ROOT"
 
 # 1a. auto-emit-agent-dispatch.sh syntax check
 if bash -n "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; then
@@ -29,36 +31,48 @@ else
 fi
 
 # 1c. dispatch hook exits 0 on empty stdin (no-op)
-RESULT=$(echo "" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
+RESULT=$(
+  echo "" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null
+  echo $?
+)
 assert_exit "1c. dispatch empty stdin → exit 0" 0 "$RESULT"
 
 # 1d. complete hook exits 0 on empty stdin (no-op)
-RESULT=$(echo "" | bash "$SCRIPT_DIR/auto-emit-agent-complete.sh" 2>/dev/null; echo $?)
+RESULT=$(
+  echo "" | bash "$SCRIPT_DIR/auto-emit-agent-complete.sh" 2>/dev/null
+  echo $?
+)
 assert_exit "1d. complete empty stdin → exit 0" 0 "$RESULT"
 
 # 1e. dispatch hook exits 0 for non-autopilot Task (no phase marker)
 NON_AUTOPILOT_JSON='{"tool_name":"Task","tool_input":{"prompt":"Do something normal","description":"normal task"},"cwd":"'"$REPO_ROOT"'"}'
-RESULT=$(echo "$NON_AUTOPILOT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
+RESULT=$(
+  echo "$NON_AUTOPILOT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null
+  echo $?
+)
 assert_exit "1e. dispatch non-autopilot Task → exit 0" 0 "$RESULT"
-# 1e'. 内容校验：non-autopilot Task 不应生成 .active-agent-id（hook 跳过）
-if [ ! -f "$REPO_ROOT/logs/.active-agent-id" ]; then
-  green "  PASS: 1e'. non-autopilot Task did NOT create .active-agent-id (skipped correctly)"
+# 1e'. 内容校验：non-autopilot Task 不应生成 active-agent-state.json（hook 跳过）
+if [ ! -f "$REPO_ROOT/logs/.active-agent-state.json" ]; then
+  green "  PASS: 1e'. non-autopilot Task did NOT create active-agent state (skipped correctly)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 1e'. non-autopilot Task unexpectedly created .active-agent-id"
+  red "  FAIL: 1e'. non-autopilot Task unexpectedly created active-agent-state.json"
   FAIL=$((FAIL + 1))
 fi
 
 # 1f. dispatch hook exits 0 for checkpoint-writer Task
 CHECKPOINT_JSON='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 --> <!-- checkpoint-writer --> write checkpoint","description":"checkpoint writer"},"cwd":"'"$REPO_ROOT"'"}'
-RESULT=$(echo "$CHECKPOINT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
+RESULT=$(
+  echo "$CHECKPOINT_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null
+  echo $?
+)
 assert_exit "1f. dispatch checkpoint-writer → exit 0 (skipped)" 0 "$RESULT"
-# 1f'. 内容校验：checkpoint-writer 也应被跳过，不写 .active-agent-id
-if [ ! -f "$REPO_ROOT/logs/.active-agent-id" ]; then
-  green "  PASS: 1f'. checkpoint-writer Task did NOT create .active-agent-id (skipped correctly)"
+# 1f'. 内容校验：checkpoint-writer 也应被跳过，不写 active-agent-state.json
+if [ ! -f "$REPO_ROOT/logs/.active-agent-state.json" ]; then
+  green "  PASS: 1f'. checkpoint-writer Task did NOT create active-agent state (skipped correctly)"
   PASS=$((PASS + 1))
 else
-  red "  FAIL: 1f'. checkpoint-writer Task unexpectedly created .active-agent-id"
+  red "  FAIL: 1f'. checkpoint-writer Task unexpectedly created active-agent-state.json"
   FAIL=$((FAIL + 1))
 fi
 
@@ -66,7 +80,10 @@ fi
 VALID_JSON='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:2 --> Generate OpenSpec","description":"OpenSpec generation"},"cwd":"'"$REPO_ROOT"'"}'
 # Create logs dir and events.jsonl for the test
 mkdir -p "$REPO_ROOT/logs" 2>/dev/null || true
-RESULT=$(echo "$VALID_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null; echo $?)
+RESULT=$(
+  echo "$VALID_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null
+  echo $?
+)
 assert_exit "1g. dispatch valid autopilot Task → exit 0" 0 "$RESULT"
 # 1g'. 内容校验：events.jsonl 应包含 agent dispatch 相关事件并带 phase 字段
 EVENTS_FILE="$REPO_ROOT/logs/events.jsonl"
@@ -78,34 +95,55 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# 1h. Verify .active-agent-id file was written
-if [ -f "$REPO_ROOT/logs/.active-agent-id" ]; then
-  AGENT_ID=$(cat "$REPO_ROOT/logs/.active-agent-id")
-  if grep -q "phase2" <<< "$AGENT_ID"; then
-    green "  PASS: 1h. .active-agent-id contains phase2 agent_id"
+# 1h. Verify active-agent-state.json was written with a phase2 agent_id
+STATE_FILE="$REPO_ROOT/logs/.active-agent-state.json"
+if [ -f "$STATE_FILE" ]; then
+  AGENT_ID=$(python3 -c "import json,sys; print(json.load(open('$STATE_FILE')).get('global',{}).get('agent_id',''))" 2>/dev/null || echo "")
+  if grep -q "phase2" <<<"$AGENT_ID"; then
+    green "  PASS: 1h. active-agent-state.json global.agent_id contains phase2"
     PASS=$((PASS + 1))
   else
-    red "  FAIL: 1h. .active-agent-id wrong content: $AGENT_ID"
+    red "  FAIL: 1h. state global.agent_id wrong content: $AGENT_ID"
+    FAIL=$((FAIL + 1))
+  fi
+  # 1h'. phases["2"] 必须写入 (覆盖生产 agent_state_dispatch 对 phases 的更新)
+  PHASE2_AID=$(python3 -c "import json,sys; print(json.load(open('$STATE_FILE')).get('phases',{}).get('2',''))" 2>/dev/null || echo "")
+  if grep -q "phase2" <<<"$PHASE2_AID"; then
+    green "  PASS: 1h'. state phases[\"2\"] points to phase2 agent"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 1h'. state phases[\"2\"] missing or wrong: $PHASE2_AID"
     FAIL=$((FAIL + 1))
   fi
 else
-  red "  FAIL: 1h. .active-agent-id file not created"
+  red "  FAIL: 1h. .active-agent-state.json file not created"
   FAIL=$((FAIL + 1))
 fi
 
-# 1i. Verify dispatch timestamp file was written
-DISPATCH_TS_FILE=$(find "$REPO_ROOT/logs" -name ".agent-dispatch-ts-phase2*" 2>/dev/null | head -1)
-if [ -n "$DISPATCH_TS_FILE" ] && [ -f "$DISPATCH_TS_FILE" ]; then
-  green "  PASS: 1i. dispatch timestamp file exists"
-  PASS=$((PASS + 1))
+# 1i. Verify dispatch_ts entry exists for the dispatched agent_id
+if [ -f "$STATE_FILE" ]; then
+  DISPATCH_TS=$(python3 -c "
+import json
+state = json.load(open('$STATE_FILE'))
+ts_map = state.get('dispatch_ts', {})
+for k, v in ts_map.items():
+    if 'phase2' in k:
+        print(v); break
+" 2>/dev/null || echo "")
+  if [ -n "$DISPATCH_TS" ]; then
+    green "  PASS: 1i. dispatch_ts recorded for phase2 agent"
+    PASS=$((PASS + 1))
+  else
+    red "  FAIL: 1i. no phase2 dispatch_ts entry in state"
+    FAIL=$((FAIL + 1))
+  fi
 else
-  red "  FAIL: 1i. dispatch timestamp file not created"
+  red "  FAIL: 1i. .active-agent-state.json file not created (pre-req)"
   FAIL=$((FAIL + 1))
 fi
 
 # Cleanup
-rm -f "$REPO_ROOT/logs/.active-agent-id" "$REPO_ROOT/logs/.agent-dispatch-ts-"* 2>/dev/null || true
-rm -f "$REPO_ROOT/logs/.active-agent-phase-"* "$REPO_ROOT/logs/.active-agent-session-"* 2>/dev/null || true
+rm -f "$REPO_ROOT/logs/.active-agent-state.json" "$REPO_ROOT/logs/.active-agent-state.json.lock" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/agent-dispatch-record.json" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/events.jsonl" 2>/dev/null || true
 rm -f "$REPO_ROOT/logs/.event_sequence" 2>/dev/null || true
@@ -121,7 +159,7 @@ echo "--- Phase 1 research pre-marker guards (config-driven) ---"
 TMP_PROJECT=$(mktemp -d)
 trap 'rm -rf "$TMP_PROJECT"' EXIT
 mkdir -p "$TMP_PROJECT/.claude" "$TMP_PROJECT/openspec/changes"
-cat > "$TMP_PROJECT/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$TMP_PROJECT/.claude/autopilot.config.yaml" <<'YAML'
 phases:
   requirements:
     agent: "my-analyst"
@@ -132,7 +170,7 @@ phases:
       web_search:
         agent: "my-websearcher"
 YAML
-echo '{"change":"test","pid":"99999"}' > "$TMP_PROJECT/openspec/changes/.autopilot-active"
+echo '{"change":"test","pid":"99999"}' >"$TMP_PROJECT/openspec/changes/.autopilot-active"
 
 # 2a. dispatch agent matches config → 放行
 MATCH_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"my-researcher","description":"tech research","prompt":"调研 输出: openspec/changes/foo/context/research-findings.md"},"cwd":"'"$TMP_PROJECT"'"}'
@@ -225,11 +263,11 @@ fi
 # 2f. config 缺失字段 → block 并提示运行 setup
 TMP_NOCONFIG=$(mktemp -d)
 mkdir -p "$TMP_NOCONFIG/.claude" "$TMP_NOCONFIG/openspec/changes"
-cat > "$TMP_NOCONFIG/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$TMP_NOCONFIG/.claude/autopilot.config.yaml" <<'YAML'
 phases:
   requirements: {}
 YAML
-echo '{"change":"test","pid":"99999"}' > "$TMP_NOCONFIG/openspec/changes/.autopilot-active"
+echo '{"change":"test","pid":"99999"}' >"$TMP_NOCONFIG/openspec/changes/.autopilot-active"
 NOCONFIG_JSON='{"tool_name":"Task","tool_input":{"subagent_type":"foo","description":"research","prompt":"输出 research-findings.md"},"cwd":"'"$TMP_NOCONFIG"'"}'
 OUT=$(echo "$NOCONFIG_JSON" | bash "$SCRIPT_DIR/auto-emit-agent-dispatch.sh" 2>/dev/null || true)
 if echo "$OUT" | grep -q '"decision":"block"' && echo "$OUT" | grep -q 'autopilot-setup'; then
@@ -254,4 +292,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

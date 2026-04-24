@@ -45,7 +45,7 @@ assert_contains "5b. JSON contains blocked" "$SPECIAL" "blocked"
 # ── 6. assert_file_contains 不受 SIGPIPE 影响 (直接 grep 文件) ──
 echo "── 6. assert_file_contains ──"
 TMPFILE=$(mktemp)
-python3 -c "print('x' * 100000 + 'FILE_NEEDLE' + 'y' * 100000)" > "$TMPFILE"
+python3 -c "print('x' * 100000 + 'FILE_NEEDLE' + 'y' * 100000)" >"$TMPFILE"
 assert_file_contains "6a. large file contains FILE_NEEDLE" "$TMPFILE" "FILE_NEEDLE"
 assert_file_not_contains "6b. large file missing ABSENT" "$TMPFILE" "ABSENT"
 rm -f "$TMPFILE"

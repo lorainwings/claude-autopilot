@@ -9,20 +9,21 @@ POLL_SCRIPT="$SCRIPT_DIR/poll-gate-decision.sh"
 
 setup_poll_project() {
   local tmpdir
-  local port="${1:-$(python3 - <<'PY'
+  local port="${1:-$(
+    python3 - <<'PY'
 import socket
 s = socket.socket()
 s.bind(("127.0.0.1", 0))
 print(s.getsockname()[1])
 s.close()
 PY
-)}"
+  )}"
   tmpdir=$(mktemp -d)
   local project_root="$tmpdir/project"
   local change_dir="$project_root/openspec/changes/test-feature/"
 
   mkdir -p "${change_dir}context" "$project_root/.claude" "$project_root/logs"
-  cat > "$project_root/.claude/autopilot.config.yaml" <<EOF
+  cat >"$project_root/.claude/autopilot.config.yaml" <<EOF
 gui:
   port: $port
   decision_poll_timeout: 30
@@ -80,7 +81,7 @@ create_mock_gui_bootstrap() {
   local port="${2:-9527}"
   local ws_port=$((port + 1))
   local mock_script="$project_root/mock-start-gui-server.sh"
-  cat > "$mock_script" <<EOF
+  cat >"$mock_script" <<EOF
 #!/usr/bin/env bash
 set -eu
 project_root="\${@: -1}"
@@ -100,14 +101,14 @@ CHANGE_DIR="$PROJECT_ROOT/openspec/changes/test-feature/"
 OUTPUT_FILE="$PROJECT_ROOT/output.json"
 GUI_PORT=$(get_configured_gui_port "$PROJECT_ROOT")
 GUI_PID=$(start_mock_gui_server "$GUI_PORT" "$PROJECT_ROOT")
-PROJECT_ROOT_QUICK="$PROJECT_ROOT" bash "$POLL_SCRIPT" "$CHANGE_DIR" 5 full '{"blocked_step":8,"error_message":"quality floor"}' > "$OUTPUT_FILE" 2>&1 &
+PROJECT_ROOT_QUICK="$PROJECT_ROOT" bash "$POLL_SCRIPT" "$CHANGE_DIR" 5 full '{"blocked_step":8,"error_message":"quality floor"}' >"$OUTPUT_FILE" 2>&1 &
 PID=$!
 
 sleep 1
 REQUEST_JSON=$(cat "${CHANGE_DIR}context/decision-request.json")
 assert_contains "full Phase 5 request marks override disallowed" "$REQUEST_JSON" '"override_allowed": false'
 
-cat > "${CHANGE_DIR}context/decision.json" <<'EOF'
+cat >"${CHANGE_DIR}context/decision.json" <<'EOF'
 {"action":"override","phase":5,"reason":"force it"}
 EOF
 sleep 1
@@ -120,7 +121,7 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-cat > "${CHANGE_DIR}context/decision.json" <<'EOF'
+cat >"${CHANGE_DIR}context/decision.json" <<'EOF'
 {"action":"retry","phase":5,"reason":"rerun gate"}
 EOF
 sleep 1
@@ -139,14 +140,14 @@ CHANGE_DIR="$PROJECT_ROOT/openspec/changes/test-feature/"
 OUTPUT_FILE="$PROJECT_ROOT/output.json"
 GUI_PORT=$(get_configured_gui_port "$PROJECT_ROOT")
 GUI_PID=$(start_mock_gui_server "$GUI_PORT" "$PROJECT_ROOT")
-PROJECT_ROOT_QUICK="$PROJECT_ROOT" bash "$POLL_SCRIPT" "$CHANGE_DIR" 5 minimal '{"blocked_step":2,"error_message":"manual approval"}' > "$OUTPUT_FILE" 2>&1 &
+PROJECT_ROOT_QUICK="$PROJECT_ROOT" bash "$POLL_SCRIPT" "$CHANGE_DIR" 5 minimal '{"blocked_step":2,"error_message":"manual approval"}' >"$OUTPUT_FILE" 2>&1 &
 PID=$!
 
 sleep 1
 REQUEST_JSON=$(cat "${CHANGE_DIR}context/decision-request.json")
 assert_contains "minimal Phase 5 request keeps override allowed" "$REQUEST_JSON" '"override_allowed": true'
 
-cat > "${CHANGE_DIR}context/decision.json" <<'EOF'
+cat >"${CHANGE_DIR}context/decision.json" <<'EOF'
 {"action":"override","phase":5,"reason":"allowed in minimal"}
 EOF
 wait "$PID"
@@ -180,7 +181,7 @@ rm -rf "$(dirname "$PROJECT_ROOT")"
 PROJECT_ROOT=$(setup_poll_project)
 CHANGE_DIR="$PROJECT_ROOT/openspec/changes/test-feature/"
 GUI_PORT=$(get_configured_gui_port "$PROJECT_ROOT")
-cat > "$PROJECT_ROOT/.claude/autopilot.config.yaml" <<EOF
+cat >"$PROJECT_ROOT/.claude/autopilot.config.yaml" <<EOF
 gui:
   port: $GUI_PORT
   decision_poll_timeout: 2

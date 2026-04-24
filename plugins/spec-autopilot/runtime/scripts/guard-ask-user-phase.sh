@@ -33,6 +33,9 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/_common.sh"
 
+# --- Project relevance guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT" || exit 0
+
 # --- Check if autopilot is active ---
 LOCK_FILE="${PROJECT_ROOT}/openspec/changes/.autopilot-active"
 [ -f "$LOCK_FILE" ] || exit 0

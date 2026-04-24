@@ -156,19 +156,26 @@ export function createHttpServer() {
             headers: { "Content-Type": "application/json", ...corsHeaders(req) },
           });
         }
-        const fileName = kind === "hooks" ? "hooks.jsonl" : kind === "statusline" ? "statusline.jsonl" : null;
-        if (!fileName) {
+        // 统一读取 events.jsonl，按 source 字段过滤出 hooks / statusline 子流
+        const sourceFilter = kind === "hooks" ? "hook" : kind === "statusline" ? "statusline" : null;
+        if (!sourceFilter) {
           return new Response(JSON.stringify({ lines: [] }), {
             headers: { "Content-Type": "application/json", ...corsHeaders(req) },
           });
         }
-        const filePath = join(SESSIONS_DIR, sessionKey, "raw", fileName);
+        const filePath = join(SESSIONS_DIR, sessionKey, "raw", "events.jsonl");
         try {
           const rawLines = (await readFile(filePath, "utf-8")).split("\n").filter(Boolean);
-          const lines = rawLines.map(l => {
-            try { return JSON.stringify(sanitizeForApi(JSON.parse(l))); }
-            catch { return sanitizePath(l); }
-          });
+          const lines: string[] = [];
+          for (const l of rawLines) {
+            try {
+              const parsed = JSON.parse(l);
+              if (parsed?.source !== sourceFilter) continue;
+              lines.push(JSON.stringify(sanitizeForApi(parsed)));
+            } catch {
+              // 丢弃无法解析的行：kind 过滤依赖 source 字段
+            }
+          }
           return new Response(JSON.stringify({ lines, filePath: sanitizePath(filePath) }), {
             headers: { "Content-Type": "application/json", ...corsHeaders(req) },
           });
@@ -188,12 +195,12 @@ export function createHttpServer() {
           return Response.json({ lines: [], cursor: 0, fileSize: 0 },
             { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
         }
-        const fileName = kind === "hooks" ? "hooks.jsonl" : kind === "statusline" ? "statusline.jsonl" : null;
-        if (!fileName) {
+        const sourceFilter = kind === "hooks" ? "hook" : kind === "statusline" ? "statusline" : null;
+        if (!sourceFilter) {
           return Response.json({ lines: [], cursor: 0, fileSize: 0 },
             { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
         }
-        const filePath = join(SESSIONS_DIR, sessionKey, "raw", fileName);
+        const filePath = join(SESSIONS_DIR, sessionKey, "raw", "events.jsonl");
         try {
           const file = Bun.file(filePath);
           const fileSize = file.size;
@@ -210,13 +217,33 @@ export function createHttpServer() {
             return Response.json({ lines: [], cursor: cursor + readSize, fileSize },
               { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
           }
-          const rawLines = safeText.split("\n").filter(Boolean).slice(-maxLines);
-          const sanitized = rawLines.map(l => {
-            try { return JSON.stringify(sanitizeForApi(JSON.parse(l))); }
-            catch { return sanitizePath(l); }
-          });
-          return Response.json({ lines: sanitized, cursor: nextCursor, fileSize },
-            { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
+          const rawLines = safeText.split("\n").filter(Boolean);
+          const sanitized: string[] = [];
+          let parseErrors = 0;
+          for (const l of rawLines) {
+            try {
+              const parsed = JSON.parse(l);
+              if (parsed?.source !== sourceFilter) continue;
+              sanitized.push(JSON.stringify(sanitizeForApi(parsed)));
+            } catch {
+              // kind 过滤依赖 source 字段，无法解析的行跳过
+              parseErrors++;
+            }
+          }
+          const tailed = sanitized.slice(-maxLines);
+          // raw_lines_scanned + parse_errors expose the gap between bytes consumed
+          // (cursor advance) and lines emitted (post source filter), so clients
+          // can distinguish "cursor moved a lot but few lines" from "stuck".
+          return Response.json(
+            {
+              lines: tailed,
+              cursor: nextCursor,
+              fileSize,
+              raw_lines_scanned: rawLines.length,
+              parse_errors: parseErrors,
+            },
+            { headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
+          );
         } catch {
           return Response.json({ lines: [], cursor: 0, fileSize: 0 },
             { headers: { "Content-Type": "application/json", ...corsHeaders(req) } });
