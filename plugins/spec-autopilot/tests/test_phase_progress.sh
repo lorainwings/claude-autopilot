@@ -90,4 +90,5 @@ rm -rf "$REPO_ROOT/openspec/changes/test-fixture" 2>/dev/null || true
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

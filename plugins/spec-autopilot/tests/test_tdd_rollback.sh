@@ -26,7 +26,7 @@ assert_contains "1b. no-arg produces error JSON" "$OUTPUT" '"status":"error"'
 # 1c. Non-REFACTOR stage → rejected
 TEMP_CHANGE_DIR=$(mktemp -d)
 mkdir -p "$TEMP_CHANGE_DIR/context"
-echo "green" > "$TEMP_CHANGE_DIR/context/.tdd-stage"
+echo "green" >"$TEMP_CHANGE_DIR/context/.tdd-stage"
 OUTPUT=$(bash "$ROLLBACK_SCRIPT" "$TEMP_CHANGE_DIR" 2>&1) || true
 assert_contains "1c. non-REFACTOR stage rejected" "$OUTPUT" "not REFACTOR"
 rm -rf "$TEMP_CHANGE_DIR"
@@ -34,7 +34,7 @@ rm -rf "$TEMP_CHANGE_DIR"
 # 1d. No .tdd-refactor-files → ok (nothing to rollback)
 TEMP_CHANGE_DIR=$(mktemp -d)
 mkdir -p "$TEMP_CHANGE_DIR/context"
-echo "refactor" > "$TEMP_CHANGE_DIR/context/.tdd-stage"
+echo "refactor" >"$TEMP_CHANGE_DIR/context/.tdd-stage"
 OUTPUT=$(bash "$ROLLBACK_SCRIPT" "$TEMP_CHANGE_DIR" 2>&1) || true
 assert_contains "1d. no refactor-files → ok" "$OUTPUT" '"status":"ok"'
 assert_contains "1d. mentions nothing to rollback" "$OUTPUT" "Nothing to rollback"
@@ -43,23 +43,23 @@ rm -rf "$TEMP_CHANGE_DIR"
 # 1e. .tdd-refactor-files with 2 files → only those 2 files rolled back, others untouched
 TEMP_CHANGE_DIR=$(mktemp -d)
 mkdir -p "$TEMP_CHANGE_DIR/context"
-echo "refactor" > "$TEMP_CHANGE_DIR/context/.tdd-stage"
+echo "refactor" >"$TEMP_CHANGE_DIR/context/.tdd-stage"
 # Set up a git repo for rollback testing
 GIT_TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_CHANGE_DIR" "$GIT_TMPDIR"' EXIT
 cd "$GIT_TMPDIR" || exit 1
 git init -q
-echo "original-a" > file_a.txt
-echo "original-b" > file_b.txt
-echo "original-c" > file_c.txt
+echo "original-a" >file_a.txt
+echo "original-b" >file_b.txt
+echo "original-c" >file_c.txt
 git add -A && git commit -q -m "init"
 # Modify files (simulating REFACTOR changes)
-echo "modified-a" > file_a.txt
-echo "modified-b" > file_b.txt
-echo "modified-c" > file_c.txt
+echo "modified-a" >file_a.txt
+echo "modified-b" >file_b.txt
+echo "modified-c" >file_c.txt
 # Only record file_a and file_b as refactor files
-echo "$GIT_TMPDIR/file_a.txt" > "$TEMP_CHANGE_DIR/context/.tdd-refactor-files"
-echo "$GIT_TMPDIR/file_b.txt" >> "$TEMP_CHANGE_DIR/context/.tdd-refactor-files"
+echo "$GIT_TMPDIR/file_a.txt" >"$TEMP_CHANGE_DIR/context/.tdd-refactor-files"
+echo "$GIT_TMPDIR/file_b.txt" >>"$TEMP_CHANGE_DIR/context/.tdd-refactor-files"
 OUTPUT=$(bash "$ROLLBACK_SCRIPT" "$TEMP_CHANGE_DIR" 2>&1) || true
 assert_contains "1e. rollback 2 files → ok" "$OUTPUT" '"status":"ok"'
 # file_a and file_b should be restored, file_c should remain modified
@@ -91,4 +91,5 @@ cd "$TEST_DIR" || exit 1
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

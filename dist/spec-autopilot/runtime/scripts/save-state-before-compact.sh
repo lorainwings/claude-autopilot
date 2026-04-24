@@ -43,6 +43,9 @@ fi
 
 CHANGES_DIR="$PROJECT_ROOT/openspec/changes"
 
+# --- Project relevance guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT" || exit 0
+
 # --- No changes dir → nothing to save ---
 if [ ! -d "$CHANGES_DIR" ]; then
   exit 0

@@ -863,14 +863,31 @@ def _sanitize_session_key(session_id):
 
 
 def _resolve_active_agent_id(root, hook_data, phase):
-    """从文件系统 marker 解析当前活跃 agent_id。
+    """从 consolidated state 文件解析当前活跃 agent_id。
 
     解析优先级（与 capture-hook-event.sh / statusline-collector.sh 一致）:
-      1. session-scoped marker: logs/.active-agent-session-{sanitized_key}
-      2. phase-scoped marker:   logs/.active-agent-phase-{N}
-      3. global marker:         logs/.active-agent-id
-    返回 agent_id 字符串，或 None 表示无法确定。
+      1. sessions[<sanitized_session_key>].agent_id
+      2. phases[<N>]
+      3. global.agent_id
+    统一读取 logs/.active-agent-state.json，返回 agent_id 字符串或 None。
     """
+    state_path = os.path.join(root, "logs", ".active-agent-state.json")
+    if not os.path.isfile(state_path):
+        return None
+    try:
+        # LOCK_SH for read consistency with _agent_state.sh writers
+        # (os.replace is atomic, but LOCK_SH future-proofs against non-atomic writers).
+        import fcntl
+
+        with open(state_path, encoding="utf-8") as _sf:
+            try:
+                fcntl.flock(_sf.fileno(), fcntl.LOCK_SH)
+            except OSError:
+                pass  # flock unsupported (e.g. some network FS) — degrade gracefully
+            state = json.load(_sf)
+    except (OSError, json.JSONDecodeError):
+        return None
+
     # 尝试从 hook 数据获取 session_id
     session_id = ""
     if isinstance(hook_data, dict):
@@ -886,40 +903,23 @@ def _resolve_active_agent_id(root, hook_data, phase):
             except (json.JSONDecodeError, OSError):
                 pass
 
-    # 1. session-scoped marker
+    # 1. session-scoped
     if session_id:
         session_key = _sanitize_session_key(session_id)
-        session_marker = os.path.join(root, "logs", f".active-agent-session-{session_key}")
-        if os.path.isfile(session_marker):
-            try:
-                with open(session_marker) as _sf:
-                    aid = _sf.read().strip()
-                if aid:
-                    return aid
-            except OSError:
-                pass
+        sess = state.get("sessions", {}).get(session_key, {})
+        aid = sess.get("agent_id")
+        if aid:
+            return aid
 
-    # 2. phase-scoped marker
-    phase_marker = os.path.join(root, "logs", f".active-agent-phase-{phase}")
-    if os.path.isfile(phase_marker):
-        try:
-            with open(phase_marker) as _pf:
-                aid = _pf.read().strip()
-            if aid:
-                return aid
-        except OSError:
-            pass
+    # 2. phase-scoped
+    aid = state.get("phases", {}).get(str(phase))
+    if aid:
+        return aid
 
-    # 3. global marker (last-writer-wins，并行场景不可靠但作为兜底)
-    global_marker = os.path.join(root, "logs", ".active-agent-id")
-    if os.path.isfile(global_marker):
-        try:
-            with open(global_marker) as _gf:
-                aid = _gf.read().strip()
-            if aid:
-                return aid
-        except OSError:
-            pass
+    # 3. global (last-writer-wins，并行场景不可靠但作为兜底)
+    aid = state.get("global", {}).get("agent_id")
+    if aid:
+        return aid
 
     return None
 

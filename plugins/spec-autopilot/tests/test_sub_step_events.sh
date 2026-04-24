@@ -20,11 +20,11 @@ SEQ_BACKUP=""
 if [ -f "$REPO_ROOT/logs/.event_sequence" ]; then
   SEQ_BACKUP=$(cat "$REPO_ROOT/logs/.event_sequence")
 fi
-echo "100" > "$REPO_ROOT/logs/.event_sequence"
+echo "100" >"$REPO_ROOT/logs/.event_sequence"
 
 # Clean events.jsonl for test isolation
 EVENTS_FILE="$REPO_ROOT/logs/events.jsonl"
-: > "$EVENTS_FILE"
+: >"$EVENTS_FILE"
 
 echo "--- 1. sub_step event normal write ---"
 OUTPUT=$(bash "$SCRIPT_DIR/emit-sub-step-event.sh" 0 "env-check" "Environment Check" '{"step_index":0,"total_steps":5}' 2>&1)
@@ -53,7 +53,7 @@ if [ -f "$REPO_ROOT/openspec/changes/.autopilot-active" ]; then
   rm -f "$REPO_ROOT/openspec/changes/.autopilot-active"
 fi
 unset AUTOPILOT_PROJECT_ROOT
-: > "$EVENTS_FILE"
+: >"$EVENTS_FILE"
 rm -rf "$REPO_ROOT/logs/.event_sequence.lk" 2>/dev/null || true
 OUTPUT=$(bash "$SCRIPT_DIR/emit-sub-step-event.sh" 0 "test-step" "Test Step" 2>&1)
 EXIT_CODE=$?
@@ -61,14 +61,14 @@ assert_exit "3. no active autopilot exits 0" 0 "$EXIT_CODE"
 # Restore lockfile
 if [ -n "$SAVED_LOCK" ]; then
   mkdir -p "$REPO_ROOT/openspec/changes"
-  echo "$SAVED_LOCK" > "$REPO_ROOT/openspec/changes/.autopilot-active"
+  echo "$SAVED_LOCK" >"$REPO_ROOT/openspec/changes/.autopilot-active"
 fi
 # Restore AUTOPILOT_PROJECT_ROOT (unset above for test 3 isolation;
 # subsequent tests rely on it because the plugin has its own .git boundary
 # which would otherwise misroute git rev-parse fallbacks).
 export AUTOPILOT_PROJECT_ROOT="$REPO_ROOT"
 # File should be empty (0 bytes) — no event written
-FILE_SIZE=$(wc -c < "$EVENTS_FILE" | tr -d ' ')
+FILE_SIZE=$(wc -c <"$EVENTS_FILE" | tr -d ' ')
 if [ "$FILE_SIZE" = "0" ]; then
   green "  PASS: 3a. no event written without active autopilot"
   PASS=$((PASS + 1))
@@ -79,7 +79,7 @@ fi
 # Fixture remains active for remaining tests
 
 echo "--- 4. gate_step event write ---"
-: > "$EVENTS_FILE"
+: >"$EVENTS_FILE"
 export AUTOPILOT_MODE=full
 OUTPUT=$(bash "$SCRIPT_DIR/emit-gate-event.sh" gate_step 3 1 "predecessor_check" "pass" "all clear" 2>&1)
 EXIT_CODE=$?
@@ -98,7 +98,7 @@ mkdir -p "$CHANGES_DIR/$CHANGE_NAME/logs"
 mkdir -p "$CHANGES_DIR/$CHANGE_NAME/context"
 
 # Reset sequence
-echo "200" > "$REPO_ROOT/logs/.event_sequence"
+echo "200" >"$REPO_ROOT/logs/.event_sequence"
 export PROJECT_ROOT_QUICK="$REPO_ROOT"
 
 OUTPUT=$(bash "$SCRIPT_DIR/emit-tdd-audit-event.sh" "$CHANGES_DIR" "$CHANGE_NAME" "full" "sess-001" 2>&1)
@@ -130,7 +130,7 @@ REPORT_CHANGE="test-report-fix"
 mkdir -p "$REPORT_CHANGES_DIR/$REPORT_CHANGE/logs"
 mkdir -p "$REPORT_CHANGES_DIR/$REPORT_CHANGE/context"
 
-echo "300" > "$REPO_ROOT/logs/.event_sequence"
+echo "300" >"$REPO_ROOT/logs/.event_sequence"
 
 OUTPUT=$(bash "$SCRIPT_DIR/emit-report-ready-event.sh" "$REPORT_CHANGES_DIR" "$REPORT_CHANGE" "lite" "sess-002" 2>&1)
 EXIT_CODE=$?
@@ -159,9 +159,10 @@ unset PROJECT_ROOT_QUICK
 
 # Restore sequence counter
 if [ -n "$SEQ_BACKUP" ]; then
-  echo "$SEQ_BACKUP" > "$REPO_ROOT/logs/.event_sequence"
+  echo "$SEQ_BACKUP" >"$REPO_ROOT/logs/.event_sequence"
 fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

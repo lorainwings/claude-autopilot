@@ -25,7 +25,7 @@ echo "--- guard-no-verify.sh: bypass detection ---"
 GUARD_TEST_REPO=$(mktemp -d)
 git -C "$GUARD_TEST_REPO" init -q 2>/dev/null
 mkdir -p "$GUARD_TEST_REPO/plugins/spec-autopilot/hooks"
-echo '{}' > "$GUARD_TEST_REPO/plugins/spec-autopilot/hooks/hooks.json"
+echo '{}' >"$GUARD_TEST_REPO/plugins/spec-autopilot/hooks/hooks.json"
 
 # Helper: run guard with a given command and cwd
 run_guard() {
@@ -37,37 +37,37 @@ run_guard() {
 
 # 1a. --no-verify must be blocked
 output=$(run_guard "git commit --no-verify -m \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1a. --no-verify blocked" 0 $?
 
 # 1b. -n short flag must be blocked
 output=$(run_guard "git commit -n -m \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1b. -n short flag blocked" 0 $?
 
 # 1c. -nm combined flags must be blocked
 output=$(run_guard "git commit -nm \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1c. -nm combined blocked" 0 $?
 
 # 1d. -amn combined flags must be blocked
 output=$(run_guard "git commit -amn \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1d. -amn combined blocked" 0 $?
 
 # 1e. -c commit.noVerify=true must be blocked
 output=$(run_guard "git -c commit.noVerify=true commit -m \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1e. -c commit.noVerify=true blocked" 0 $?
 
 # 1f. HUSKY=0 must be blocked
 output=$(run_guard "HUSKY=0 git commit -m \"test\"")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1f. HUSKY=0 blocked" 0 $?
 
 # 1g. push --no-verify must be blocked
 output=$(run_guard "git push --no-verify")
-grep -q '"deny"' <<< "$output"
+grep -q '"deny"' <<<"$output"
 assert_exit "1g. push --no-verify blocked" 0 $?
 
 echo ""
@@ -163,12 +163,12 @@ cp "$SETUP_SCRIPT" "$E2E_DIR/scripts/setup-hooks.sh"
 chmod +x "$E2E_DIR/scripts/setup-hooks.sh"
 
 # Realistic plugin structure (correct .claude-plugin/ subdirectory)
-echo '{"version": "1.0.0"}' > "$E2E_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
-echo '![](https://img.shields.io/badge/version-1.0.0-blue)' > "$E2E_DIR/plugins/spec-autopilot/README.md"
-echo '{}' > "$E2E_DIR/plugins/spec-autopilot/hooks/hooks.json"
-echo '#!/usr/bin/env bash' > "$E2E_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+echo '{"version": "1.0.0"}' >"$E2E_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-1.0.0-blue)' >"$E2E_DIR/plugins/spec-autopilot/README.md"
+echo '{}' >"$E2E_DIR/plugins/spec-autopilot/hooks/hooks.json"
+echo '#!/usr/bin/env bash' >"$E2E_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 chmod +x "$E2E_DIR/plugins/spec-autopilot/tools/build-dist.sh"
-cat > "$E2E_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+cat >"$E2E_DIR/.claude-plugin/marketplace.json" <<'MKJSON'
 {
   "plugins": [
     {"name": "spec-autopilot", "version": "1.0.0"}
@@ -191,7 +191,7 @@ hooks_path=$(git -C "$E2E_DIR" config --local core.hooksPath 2>/dev/null || echo
 assert_exit "5b. core.hooksPath = .githooks after setup" 0 $?
 
 # 5d. Simulate a plugin file change without CHANGELOG.md → info-only (release-please handles this)
-echo "// new code" > "$E2E_DIR/plugins/spec-autopilot/app.ts"
+echo "// new code" >"$E2E_DIR/plugins/spec-autopilot/app.ts"
 git -C "$E2E_DIR" add "$E2E_DIR/plugins/spec-autopilot/app.ts"
 
 commit_exit=0
@@ -201,7 +201,7 @@ commit_output=$(git -C "$E2E_DIR" -c user.name="Test" -c user.email="test@test.c
 assert_exit "5c. commit proceeds (info-only CHANGELOG check)" 0 "$commit_exit"
 
 # Verify: info message about CHANGELOG is shown
-grep -q "CHANGELOG.md not updated" <<< "$commit_output"
+grep -q "CHANGELOG.md not updated" <<<"$commit_output"
 assert_exit "5d. info message mentions CHANGELOG.md" 0 $?
 
 # ============================================
@@ -227,21 +227,21 @@ chmod +x "$DRIFT_DIR/.githooks/pre-push"
 cp "$SETUP_SCRIPT" "$DRIFT_DIR/scripts/setup-hooks.sh"
 
 # Plugin at 2.0.0, marketplace deliberately stale at 1.0.0
-echo '{"version": "2.0.0"}' > "$DRIFT_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
-echo '![](https://img.shields.io/badge/version-2.0.0-blue)' > "$DRIFT_DIR/plugins/spec-autopilot/README.md"
-cat > "$DRIFT_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+echo '{"version": "2.0.0"}' >"$DRIFT_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-2.0.0-blue)' >"$DRIFT_DIR/plugins/spec-autopilot/README.md"
+cat >"$DRIFT_DIR/.claude-plugin/marketplace.json" <<'MKJSON'
 {
   "plugins": [
     {"name": "spec-autopilot", "version": "1.0.0"}
   ]
 }
 MKJSON
-echo -e "# Changelog\n\n## [2.0.0] - 2026-01-01\n\n### Added\n- init" > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md"
+echo -e "# Changelog\n\n## [2.0.0] - 2026-01-01\n\n### Added\n- init" >"$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md"
 
 # Stub build-dist.sh + dist dir so pre-commit build step succeeds
 mkdir -p "$DRIFT_DIR/plugins/spec-autopilot/tools"
 mkdir -p "$DRIFT_DIR/dist/spec-autopilot"
-echo '#!/usr/bin/env bash' > "$DRIFT_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+echo '#!/usr/bin/env bash' >"$DRIFT_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 chmod +x "$DRIFT_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 
 git -C "$DRIFT_DIR" add -A
@@ -251,8 +251,8 @@ git -C "$DRIFT_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q 
 (cd "$DRIFT_DIR" && bash scripts/setup-hooks.sh) >/dev/null 2>&1
 
 # Stage a plugin change + CHANGELOG update
-echo "// new feature" > "$DRIFT_DIR/plugins/spec-autopilot/feature.ts"
-cat > "$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
+echo "// new feature" >"$DRIFT_DIR/plugins/spec-autopilot/feature.ts"
+cat >"$DRIFT_DIR/plugins/spec-autopilot/CHANGELOG.md" <<'CLOG'
 # Changelog
 
 ## [Unreleased]
@@ -281,7 +281,7 @@ if command -v jq &>/dev/null; then
   fi
 
   # 6b. Error output mentions version mismatch
-  if grep -q "Version mismatch" <<< "$drift_output"; then
+  if grep -q "Version mismatch" <<<"$drift_output"; then
     green "  PASS: 6b. error output mentions 'Version mismatch'"
     PASS=$((PASS + 1))
   else
@@ -316,28 +316,28 @@ git -C "$PREREL_DIR" init -q
 cp "$GITHOOKS_DIR/pre-commit" "$PREREL_DIR/.githooks/pre-commit"
 chmod +x "$PREREL_DIR/.githooks/pre-commit"
 cp "$SETUP_SCRIPT" "$PREREL_DIR/scripts/setup-hooks.sh"
-echo '#!/usr/bin/env bash' > "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
+echo '#!/usr/bin/env bash' >"$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 chmod +x "$PREREL_DIR/plugins/spec-autopilot/tools/build-dist.sh"
 
 # Plugin at pre-release version 1.0.0-beta.1, all files consistent
-echo '{"version": "1.0.0-beta.1"}' > "$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
-echo '![](https://img.shields.io/badge/version-1.0.0--beta.1-blue)' > "$PREREL_DIR/plugins/spec-autopilot/README.md"
-cat > "$PREREL_DIR/.claude-plugin/marketplace.json" << 'MKJSON'
+echo '{"version": "1.0.0-beta.1"}' >"$PREREL_DIR/plugins/spec-autopilot/.claude-plugin/plugin.json"
+echo '![](https://img.shields.io/badge/version-1.0.0--beta.1-blue)' >"$PREREL_DIR/plugins/spec-autopilot/README.md"
+cat >"$PREREL_DIR/.claude-plugin/marketplace.json" <<'MKJSON'
 {
   "plugins": [
     {"name": "spec-autopilot", "version": "1.0.0-beta.1"}
   ]
 }
 MKJSON
-echo -e "# Changelog\n\n## [1.0.0-beta.1] - 2026-01-01\n\n### Added\n- beta" > "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md"
+echo -e "# Changelog\n\n## [1.0.0-beta.1] - 2026-01-01\n\n### Added\n- beta" >"$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md"
 
 git -C "$PREREL_DIR" add -A
 git -C "$PREREL_DIR" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 (cd "$PREREL_DIR" && bash scripts/setup-hooks.sh) >/dev/null 2>&1
 
 # Stage a change + CHANGELOG with [Unreleased] (read-only mode: no auto-bump)
-echo "// beta feature" > "$PREREL_DIR/plugins/spec-autopilot/beta.ts"
-cat > "$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md" << 'CLOG'
+echo "// beta feature" >"$PREREL_DIR/plugins/spec-autopilot/beta.ts"
+cat >"$PREREL_DIR/plugins/spec-autopilot/CHANGELOG.md" <<'CLOG'
 # Changelog
 
 ## [Unreleased]

@@ -22,7 +22,7 @@ RESEARCH_SCHEMA="$SCHEMAS_DIR/phase1-research-envelope.schema.json"
 
 echo "=== Phase 1 early-interrupt protocol tests (D11 / Task 17) ==="
 
-assert_file_exists "scan envelope schema present"     "$SCAN_SCHEMA"
+assert_file_exists "scan envelope schema present" "$SCAN_SCHEMA"
 assert_file_exists "research envelope schema present" "$RESEARCH_SCHEMA"
 assert_file_exists "phase1-requirements SKILL.md present" "$SKILL_MD"
 
@@ -53,16 +53,20 @@ sys.exit(1 if 'interrupt' in p.get('required',[]) else 0)
 " "$1"
 }
 
-exit_code=0; schema_has_interrupt "$SCAN_SCHEMA" || exit_code=$?
+exit_code=0
+schema_has_interrupt "$SCAN_SCHEMA" || exit_code=$?
 assert_exit "scan schema: interrupt{severity,reason} present" 0 "$exit_code"
 
-exit_code=0; schema_has_interrupt "$RESEARCH_SCHEMA" || exit_code=$?
+exit_code=0
+schema_has_interrupt "$RESEARCH_SCHEMA" || exit_code=$?
 assert_exit "research schema: interrupt{severity,reason} present" 0 "$exit_code"
 
-exit_code=0; schema_interrupt_not_top_required "$SCAN_SCHEMA" || exit_code=$?
+exit_code=0
+schema_interrupt_not_top_required "$SCAN_SCHEMA" || exit_code=$?
 assert_exit "scan schema: interrupt NOT in top-level required" 0 "$exit_code"
 
-exit_code=0; schema_interrupt_not_top_required "$RESEARCH_SCHEMA" || exit_code=$?
+exit_code=0
+schema_interrupt_not_top_required "$RESEARCH_SCHEMA" || exit_code=$?
 assert_exit "research schema: interrupt NOT in top-level required" 0 "$exit_code"
 
 # severity enum strict equality
@@ -80,14 +84,14 @@ assert_exit "both schemas: severity enum is exactly [blocker,warning]" 0 "$?"
 # ---------------------------------------------------------------------------
 
 assert_file_contains "SKILL.md: 早停 interrupt 协议 step header" "$SKILL_MD" "早停 interrupt 协议"
-assert_file_contains "SKILL.md: 立即中断未完成路 wording"          "$SKILL_MD" "立即中断未完成路"
-assert_file_contains "SKILL.md: Task abort wording"                "$SKILL_MD" "Task abort"
-assert_file_contains "SKILL.md: AskUserQuestion instruction"       "$SKILL_MD" "AskUserQuestion"
-assert_file_contains "SKILL.md: interrupt.reason reference"        "$SKILL_MD" "interrupt.reason"
-assert_file_contains "SKILL.md: blocker severity branch"           "$SKILL_MD" "severity == \"blocker\""
-assert_file_contains "SKILL.md: warning severity branch"           "$SKILL_MD" "severity == \"warning\""
-assert_file_contains "SKILL.md: warning 仅记录 log-only flow"       "$SKILL_MD" "仅记录"
-assert_file_contains "SKILL.md: 禁止忽略 interrupt"                 "$SKILL_MD" "忽略 interrupt"
+assert_file_contains "SKILL.md: 立即中断未完成路 wording" "$SKILL_MD" "立即中断未完成路"
+assert_file_contains "SKILL.md: Task abort wording" "$SKILL_MD" "Task abort"
+assert_file_contains "SKILL.md: AskUserQuestion instruction" "$SKILL_MD" "AskUserQuestion"
+assert_file_contains "SKILL.md: interrupt.reason reference" "$SKILL_MD" "interrupt.reason"
+assert_file_contains "SKILL.md: blocker severity branch" "$SKILL_MD" "severity == \"blocker\""
+assert_file_contains "SKILL.md: warning severity branch" "$SKILL_MD" "severity == \"warning\""
+assert_file_contains "SKILL.md: warning 仅记录 log-only flow" "$SKILL_MD" "仅记录"
+assert_file_contains "SKILL.md: 禁止忽略 interrupt" "$SKILL_MD" "忽略 interrupt"
 
 # ---------------------------------------------------------------------------
 # Hook smoke: validate that interrupt payloads flow through L2 as expected

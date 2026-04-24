@@ -24,7 +24,7 @@ mkdir -p "$TMPDIR_49_REPO"
   git config user.name "Test"
 
   # Initial commit (--no-verify instead of hooksPath=/dev/null to avoid polluting any repo config)
-  echo "initial" > README.md
+  echo "initial" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit" 2>/dev/null
 
@@ -34,21 +34,21 @@ mkdir -p "$TMPDIR_49_REPO"
 
   # Simulate Phase 5 creating files
   mkdir -p openspec/changes/test-change/context/phase-results
-  echo '{"status":"ok","phase":5,"summary":"impl done"}' > openspec/changes/test-change/context/phase-results/phase-5-implementation.json
-  echo "1741500000" > openspec/changes/test-change/context/phase-results/phase5-start-time.txt
-  echo "main code" > src_file.txt
+  echo '{"status":"ok","phase":5,"summary":"impl done"}' >openspec/changes/test-change/context/phase-results/phase-5-implementation.json
+  echo "1741500000" >openspec/changes/test-change/context/phase-results/phase5-start-time.txt
+  echo "main code" >src_file.txt
   git add -A 2>/dev/null
   git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 5" 2>/dev/null
 
   # Simulate Phase 7 step 0: write in_progress checkpoint
-  echo '{"status":"in_progress","phase":7,"description":"Archive and cleanup"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"in_progress","phase":7,"description":"Archive and cleanup"}' >openspec/changes/test-change/context/phase-results/phase-7-summary.json
   git add -A 2>/dev/null
   git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 7 start" 2>/dev/null
 
   # --- NEW flow (v3.3.2): cleanup BEFORE git add -A ---
 
   # Step 4a: Update phase-7-summary.json to "ok"
-  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"test-change","mode":"full"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"test-change","mode":"full"}' >openspec/changes/test-change/context/phase-results/phase-7-summary.json
 
   # Step 4a: Delete phase5-start-time.txt
   rm -f openspec/changes/test-change/context/phase-results/phase5-start-time.txt
@@ -100,7 +100,7 @@ mkdir -p "$TMPDIR_49_REPO"
   # Check 6: should be exactly 2 commits (initial + squashed autopilot)
   COMMIT_COUNT=$(git rev-list --count HEAD)
   echo "COMMIT_COUNT=$COMMIT_COUNT"
-) > "$TMPDIR_49_OUT" 2>&1
+) >"$TMPDIR_49_OUT" 2>&1
 
 RESULTS_49=$(cat "$TMPDIR_49_OUT")
 
@@ -134,7 +134,7 @@ mkdir -p "$TMPDIR_49B_REPO"
   git config user.name "Test"
 
   # --no-verify instead of hooksPath=/dev/null to avoid polluting any repo config
-  echo "initial" > README.md
+  echo "initial" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit" 2>/dev/null
 
@@ -142,13 +142,13 @@ mkdir -p "$TMPDIR_49B_REPO"
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/test-change/context/phase-results
-  echo '{"status":"ok","phase":5,"summary":"impl done"}' > openspec/changes/test-change/context/phase-results/phase-5-implementation.json
-  echo "1741500000" > openspec/changes/test-change/context/phase-results/phase5-start-time.txt
-  echo "main code" > src_file.txt
+  echo '{"status":"ok","phase":5,"summary":"impl done"}' >openspec/changes/test-change/context/phase-results/phase-5-implementation.json
+  echo "1741500000" >openspec/changes/test-change/context/phase-results/phase5-start-time.txt
+  echo "main code" >src_file.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 5" 2>/dev/null
 
-  echo '{"status":"in_progress","phase":7,"description":"Archive and cleanup"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"in_progress","phase":7,"description":"Archive and cleanup"}' >openspec/changes/test-change/context/phase-results/phase-7-summary.json
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 7 start" 2>/dev/null
 
@@ -163,7 +163,7 @@ mkdir -p "$TMPDIR_49B_REPO"
   git commit -q --no-verify --amend -m "feat(autopilot): test-change — old flow" 2>/dev/null
 
   # Step 4c (old): Update checkpoint AFTER squash
-  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"test-change","mode":"full"}' > openspec/changes/test-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"test-change","mode":"full"}' >openspec/changes/test-change/context/phase-results/phase-7-summary.json
 
   # Step 7 (old): Delete start-time AFTER squash
   rm -f openspec/changes/test-change/context/phase-results/phase5-start-time.txt
@@ -187,7 +187,7 @@ mkdir -p "$TMPDIR_49B_REPO"
   else
     echo "OLD_COMMITTED_START_TIME=false"
   fi
-) > "$TMPDIR_49B_OUT" 2>&1
+) >"$TMPDIR_49B_OUT" 2>&1
 
 RESULTS_49B=$(cat "$TMPDIR_49B_OUT")
 
@@ -214,7 +214,7 @@ mkdir -p "$TMPDIR_49C_REPO"
   git config user.email "test@test.com"
   git config user.name "Test"
 
-  echo "initial" > README.md
+  echo "initial" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit" 2>/dev/null
 
@@ -222,12 +222,12 @@ mkdir -p "$TMPDIR_49C_REPO"
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/lite-change/context/phase-results
-  echo '{"status":"ok","phase":5,"summary":"impl done"}' > openspec/changes/lite-change/context/phase-results/phase-5-implementation.json
-  echo "main code" > src_file.txt
+  echo '{"status":"ok","phase":5,"summary":"impl done"}' >openspec/changes/lite-change/context/phase-results/phase-5-implementation.json
+  echo "main code" >src_file.txt
   git add -A 2>/dev/null
   git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start lite-change — Phase 5" 2>/dev/null
 
-  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"lite-change","mode":"lite"}' > openspec/changes/lite-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"lite-change","mode":"lite"}' >openspec/changes/lite-change/context/phase-results/phase-7-summary.json
   git add -A 2>/dev/null
   git diff --cached --quiet || git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start lite-change — final" 2>/dev/null
 
@@ -242,7 +242,7 @@ mkdir -p "$TMPDIR_49C_REPO"
 
   COMMITTED_MODE=$(git show HEAD:openspec/changes/lite-change/context/phase-results/phase-7-summary.json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")
   echo "LITE_COMMITTED_MODE=$COMMITTED_MODE"
-) > "$TMPDIR_49C_OUT" 2>&1
+) >"$TMPDIR_49C_OUT" 2>&1
 
 RESULTS_49C=$(cat "$TMPDIR_49C_OUT")
 
@@ -264,7 +264,7 @@ mkdir -p "$TMPDIR_49D_REPO"
   git config user.email "test@test.com"
   git config user.name "Test"
 
-  echo "initial" > README.md
+  echo "initial" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit" 2>/dev/null
 
@@ -272,12 +272,12 @@ mkdir -p "$TMPDIR_49D_REPO"
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/minimal-change/context/phase-results
-  echo '{"status":"ok","phase":5,"summary":"impl done"}' > openspec/changes/minimal-change/context/phase-results/phase-5-implementation.json
-  echo "main code" > src_file.txt
+  echo '{"status":"ok","phase":5,"summary":"impl done"}' >openspec/changes/minimal-change/context/phase-results/phase-5-implementation.json
+  echo "main code" >src_file.txt
   git add -A 2>/dev/null
   git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start minimal-change — Phase 5" 2>/dev/null
 
-  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"minimal-change","mode":"minimal"}' > openspec/changes/minimal-change/context/phase-results/phase-7-summary.json
+  echo '{"status":"ok","phase":7,"description":"Archive complete","archived_change":"minimal-change","mode":"minimal"}' >openspec/changes/minimal-change/context/phase-results/phase-7-summary.json
   git add -A 2>/dev/null
   git diff --cached --quiet || git commit -q --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start minimal-change — final" 2>/dev/null
 
@@ -292,7 +292,7 @@ mkdir -p "$TMPDIR_49D_REPO"
 
   COMMITTED_MODE=$(git show HEAD:openspec/changes/minimal-change/context/phase-results/phase-7-summary.json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")
   echo "MIN_COMMITTED_MODE=$COMMITTED_MODE"
-) > "$TMPDIR_49D_OUT" 2>&1
+) >"$TMPDIR_49D_OUT" 2>&1
 
 RESULTS_49D=$(cat "$TMPDIR_49D_OUT")
 
@@ -304,4 +304,5 @@ rm -rf "$TMPDIR_49D"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

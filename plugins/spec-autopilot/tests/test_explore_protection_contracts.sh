@@ -134,7 +134,7 @@ fi
 TMPDIR_EC=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_EC"' EXIT
 mkdir -p "$TMPDIR_EC/.claude"
-cat > "$TMPDIR_EC/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$TMPDIR_EC/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -172,4 +172,5 @@ fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

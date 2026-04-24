@@ -19,7 +19,7 @@ fi
 
 # 2b. Range validation rejects out-of-bound values
 TEMP_CONFIG=$(mktemp)
-cat > "$TEMP_CONFIG" << 'YAML'
+cat >"$TEMP_CONFIG" <<'YAML'
 version: "5.1.2"
 services: {}
 phases:
@@ -44,8 +44,8 @@ assert_contains "2b. out-of-range min_qa_rounds=99 detected" "$OUTPUT" "out of r
 rm -f "$TEMP_CONFIG"
 
 # 2c. _post_task_validator.py contains min_qa_rounds check logic (v7.1: uses discussion_rounds)
-if grep -q 'min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py" && \
-   grep -q 'discussion rounds.*less than min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py"; then
+if grep -q 'min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py" &&
+  grep -q 'discussion rounds.*less than min_qa_rounds' "$SCRIPT_DIR/_post_task_validator.py"; then
   green "  PASS: 2c. _post_task_validator.py has min_qa_rounds block logic"
   PASS=$((PASS + 1))
 else
@@ -55,4 +55,5 @@ fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

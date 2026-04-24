@@ -59,11 +59,17 @@ export async function inferLatestLegacyContext(): Promise<{ sessionId: string | 
 }
 
 /**
- * 从 logs/sessions/<session_key>/raw/statusline.jsonl 中选择"最近活跃" session。
- * 依据：statusline 文件 mtime 最新者 → 读最后一条记录拿 session_id。
+ * 从 logs/sessions/<session_key>/raw/events.jsonl 中选择"最近活跃" session。
+ * 依据：events 文件 mtime 最新者 → 读最后一条 statusline source 记录拿 session_id。
  * 用于 lockfile 缺失 / legacy events 未写的首次安装场景，解除 GUI 遥测对 autopilot 锁文件的强耦合。
  */
-export async function inferLatestSessionFromDisk(): Promise<{ sessionId: string | null; changeName: string; mode: AutopilotMode }> {
+export async function inferLatestSessionFromDisk(): Promise<{
+  sessionId: string | null;
+  changeName: string;
+  mode: AutopilotMode;
+  /** Non-null iff sessionId was derived from disk scan — indicates trust level. */
+  inference_source?: "statusline" | "hook_fallback";
+}> {
   let entries: string[] = [];
   try {
     entries = await readdir(SESSIONS_DIR);
@@ -73,7 +79,7 @@ export async function inferLatestSessionFromDisk(): Promise<{ sessionId: string 
 
   let best: { path: string; mtimeMs: number } | null = null;
   for (const entry of entries) {
-    const statusPath = join(SESSIONS_DIR, entry, "raw", "statusline.jsonl");
+    const statusPath = join(SESSIONS_DIR, entry, "raw", "events.jsonl");
     try {
       const st = await stat(statusPath);
       if (!st.isFile() || st.size === 0) continue;
@@ -89,8 +95,29 @@ export async function inferLatestSessionFromDisk(): Promise<{ sessionId: string 
   const records = await readJsonLinesCached<RawStatusRecord>(best.path);
   for (let i = records.length - 1; i >= 0; i--) {
     const rec = records[i];
+    // events.jsonl 混合了 source=hook 与 source=statusline 记录，优先取 statusline
+    if (rec && rec.source === "statusline" && typeof rec.session_id === "string" && rec.session_id) {
+      return {
+        sessionId: rec.session_id,
+        changeName: "unknown",
+        mode: "full",
+        inference_source: "statusline",
+      };
+    }
+  }
+  // 回退：任何有 session_id 的记录都能代表这是 active session。
+  // Hook records lag statusline and may include read-only events, so the
+  // inferred session is less authoritative — callers can gate on
+  // inference_source === "hook_fallback" to degrade UI confidence.
+  for (let i = records.length - 1; i >= 0; i--) {
+    const rec = records[i];
     if (rec && typeof rec.session_id === "string" && rec.session_id) {
-      return { sessionId: rec.session_id, changeName: "unknown", mode: "full" };
+      return {
+        sessionId: rec.session_id,
+        changeName: "unknown",
+        mode: "full",
+        inference_source: "hook_fallback",
+      };
     }
   }
   return { sessionId: null, changeName: "unknown", mode: "full" };
@@ -101,7 +128,7 @@ export async function getCurrentSessionContext() {
   if (lockContext.sessionId) return lockContext;
   const legacyContext = await inferLatestLegacyContext();
   if (legacyContext.sessionId) return legacyContext;
-  // Fallback: 没有 lockfile 也没有 legacy events 时，扫描磁盘 statusline.jsonl
+  // Fallback: 没有 lockfile 也没有 legacy events 时，扫描磁盘 events.jsonl
   // 消除 autopilot 未跑过 Phase 0 即 GUI 永远拿不到遥测的问题
   return inferLatestSessionFromDisk();
 }

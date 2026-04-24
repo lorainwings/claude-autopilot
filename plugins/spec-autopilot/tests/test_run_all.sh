@@ -14,13 +14,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cat > "$PASS_TEST" <<'EOF'
+cat >"$PASS_TEST" <<'EOF'
 #!/usr/bin/env bash
 echo "  PASS: temp runner pass"
 exit 0
 EOF
 
-cat > "$FAIL_TEST" <<'EOF'
+cat >"$FAIL_TEST" <<'EOF'
 #!/usr/bin/env bash
 echo "  FAIL: temp hidden failure"
 exit 0

@@ -12,6 +12,7 @@
 #
 # Auto-exits (exit 0) if:
 #   - stdin is empty (not a hook invocation)
+#   - project is not an autopilot project (no openspec/ nor autopilot.config.yaml)
 #   - no active autopilot session (Layer 0 bypass, ~1ms)
 
 set -uo pipefail
@@ -40,6 +41,11 @@ else
     PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   fi
 fi
+
+# --- Layer 0a project-recognition guard: non-autopilot projects exit early ---
+# Prevents pollution when this plugin is enabled globally but the user works in
+# unrelated projects (no openspec/ nor .claude/autopilot.config.yaml).
+is_autopilot_project "$PROJECT_ROOT_QUICK" || exit 0
 
 # --- Layer 0 bypass: no active autopilot session ---
 has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0

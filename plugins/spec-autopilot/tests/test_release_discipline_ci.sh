@@ -33,11 +33,11 @@ seed_repo() {
   mkdir -p "$repo/plugins/spec-autopilot"
   mkdir -p "$repo/.claude-plugin"
 
-  cat > "$repo/plugins/spec-autopilot/.claude-plugin/plugin.json" << 'JSON'
+  cat >"$repo/plugins/spec-autopilot/.claude-plugin/plugin.json" <<'JSON'
 {"version":"1.0.0"}
 JSON
 
-  cat > "$repo/.claude-plugin/marketplace.json" << 'JSON'
+  cat >"$repo/.claude-plugin/marketplace.json" <<'JSON'
 {
   "plugins": [
     {"name": "spec-autopilot", "version": "1.0.0"}
@@ -45,11 +45,11 @@ JSON
 }
 JSON
 
-  cat > "$repo/plugins/spec-autopilot/README.md" << 'MD'
+  cat >"$repo/plugins/spec-autopilot/README.md" <<'MD'
 ![](https://img.shields.io/badge/version-1.0.0-blue)
 MD
 
-  cat > "$repo/plugins/spec-autopilot/CHANGELOG.md" << 'MD'
+  cat >"$repo/plugins/spec-autopilot/CHANGELOG.md" <<'MD'
 # Changelog
 
 ## [1.0.0] - 2026-03-20
@@ -69,7 +69,7 @@ git -C "$FAIL_REPO" add -A
 git -C "$FAIL_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 BASE_FAIL="$(git -C "$FAIL_REPO" rev-parse HEAD)"
 
-echo "// new code" > "$FAIL_REPO/plugins/spec-autopilot/app.ts"
+echo "// new code" >"$FAIL_REPO/plugins/spec-autopilot/app.ts"
 git -C "$FAIL_REPO" add "$FAIL_REPO/plugins/spec-autopilot/app.ts"
 git -C "$FAIL_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q -m "feat: code without release metadata"
 HEAD_FAIL="$(git -C "$FAIL_REPO" rev-parse HEAD)"
@@ -87,21 +87,21 @@ git -C "$PASS_REPO" add -A
 git -C "$PASS_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 BASE_PASS="$(git -C "$PASS_REPO" rev-parse HEAD)"
 
-echo "// new code" > "$PASS_REPO/plugins/spec-autopilot/app.ts"
-cat > "$PASS_REPO/plugins/spec-autopilot/.claude-plugin/plugin.json" << 'JSON'
+echo "// new code" >"$PASS_REPO/plugins/spec-autopilot/app.ts"
+cat >"$PASS_REPO/plugins/spec-autopilot/.claude-plugin/plugin.json" <<'JSON'
 {"version":"1.0.1"}
 JSON
-cat > "$PASS_REPO/.claude-plugin/marketplace.json" << 'JSON'
+cat >"$PASS_REPO/.claude-plugin/marketplace.json" <<'JSON'
 {
   "plugins": [
     {"name": "spec-autopilot", "version": "1.0.1"}
   ]
 }
 JSON
-cat > "$PASS_REPO/plugins/spec-autopilot/README.md" << 'MD'
+cat >"$PASS_REPO/plugins/spec-autopilot/README.md" <<'MD'
 ![](https://img.shields.io/badge/version-1.0.1-blue)
 MD
-cat > "$PASS_REPO/plugins/spec-autopilot/CHANGELOG.md" << 'MD'
+cat >"$PASS_REPO/plugins/spec-autopilot/CHANGELOG.md" <<'MD'
 # Changelog
 
 ## [Unreleased]
@@ -133,15 +133,15 @@ seed_ph_repo() {
   mkdir -p "$repo/plugins/parallel-harness"
   mkdir -p "$repo/.claude-plugin"
 
-  cat > "$repo/plugins/parallel-harness/package.json" << 'JSON'
+  cat >"$repo/plugins/parallel-harness/package.json" <<'JSON'
 {"version":"1.0.0"}
 JSON
 
-  cat > "$repo/plugins/parallel-harness/.claude-plugin/plugin.json" << 'JSON'
+  cat >"$repo/plugins/parallel-harness/.claude-plugin/plugin.json" <<'JSON'
 {"version":"1.0.0"}
 JSON
 
-  cat > "$repo/.claude-plugin/marketplace.json" << 'JSON'
+  cat >"$repo/.claude-plugin/marketplace.json" <<'JSON'
 {
   "plugins": [
     {"name": "parallel-harness", "version": "1.0.0"}
@@ -158,12 +158,12 @@ git -C "$MISMATCH_REPO" add -A
 git -C "$MISMATCH_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 BASE_MISMATCH="$(git -C "$MISMATCH_REPO" rev-parse HEAD)"
 
-echo "// new code" > "$MISMATCH_REPO/plugins/parallel-harness/app.ts"
+echo "// new code" >"$MISMATCH_REPO/plugins/parallel-harness/app.ts"
 # 只升 package.json，漏改 plugin.json
-cat > "$MISMATCH_REPO/plugins/parallel-harness/package.json" << 'JSON'
+cat >"$MISMATCH_REPO/plugins/parallel-harness/package.json" <<'JSON'
 {"version":"1.1.0"}
 JSON
-cat > "$MISMATCH_REPO/.claude-plugin/marketplace.json" << 'JSON'
+cat >"$MISMATCH_REPO/.claude-plugin/marketplace.json" <<'JSON'
 {
   "plugins": [
     {"name": "parallel-harness", "version": "1.1.0"}
@@ -188,14 +188,14 @@ git -C "$SYNC_REPO" add -A
 git -C "$SYNC_REPO" -c user.name="Test" -c user.email="test@test.com" commit -q -m "initial"
 BASE_SYNC="$(git -C "$SYNC_REPO" rev-parse HEAD)"
 
-echo "// new code" > "$SYNC_REPO/plugins/parallel-harness/app.ts"
-cat > "$SYNC_REPO/plugins/parallel-harness/package.json" << 'JSON'
+echo "// new code" >"$SYNC_REPO/plugins/parallel-harness/app.ts"
+cat >"$SYNC_REPO/plugins/parallel-harness/package.json" <<'JSON'
 {"version":"1.1.0"}
 JSON
-cat > "$SYNC_REPO/plugins/parallel-harness/.claude-plugin/plugin.json" << 'JSON'
+cat >"$SYNC_REPO/plugins/parallel-harness/.claude-plugin/plugin.json" <<'JSON'
 {"version":"1.1.0"}
 JSON
-cat > "$SYNC_REPO/.claude-plugin/marketplace.json" << 'JSON'
+cat >"$SYNC_REPO/.claude-plugin/marketplace.json" <<'JSON'
 {
   "plugins": [
     {"name": "parallel-harness", "version": "1.1.0"}

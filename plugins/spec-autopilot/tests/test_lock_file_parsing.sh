@@ -11,7 +11,7 @@ setup_autopilot_fixture
 
 # 13a. parse_lock_file reads JSON format
 TMPDIR_TEST=$(mktemp -d)
-echo '{"change":"test-feature","pid":12345,"started":"2026-01-01T00:00:00Z"}' > "$TMPDIR_TEST/.autopilot-active"
+echo '{"change":"test-feature","pid":12345,"started":"2026-01-01T00:00:00Z"}' >"$TMPDIR_TEST/.autopilot-active"
 source "$SCRIPT_DIR/_common.sh"
 lock_result=$(parse_lock_file "$TMPDIR_TEST/.autopilot-active")
 if [ "$lock_result" = "test-feature" ]; then
@@ -23,7 +23,7 @@ else
 fi
 
 # 13b. parse_lock_file reads legacy plain text format
-echo "legacy-change-name" > "$TMPDIR_TEST/.autopilot-active"
+echo "legacy-change-name" >"$TMPDIR_TEST/.autopilot-active"
 lock_result=$(parse_lock_file "$TMPDIR_TEST/.autopilot-active")
 if [ "$lock_result" = "legacy-change-name" ]; then
   green "  PASS: parse_lock_file reads legacy plain text format"
@@ -47,4 +47,5 @@ rm -rf "$TMPDIR_TEST"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

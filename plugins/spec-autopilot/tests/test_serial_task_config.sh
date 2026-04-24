@@ -13,7 +13,7 @@ SERIAL_TEST_DIR=$(mktemp -d)
 
 # 42a. Config with serial_task.max_retries_per_task → valid=true
 mkdir -p "$SERIAL_TEST_DIR/valid/.claude"
-cat > "$SERIAL_TEST_DIR/valid/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$SERIAL_TEST_DIR/valid/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.2"
 services:
   backend:
@@ -51,7 +51,7 @@ fi
 
 # 42b. Config missing serial_task.max_retries_per_task → missing_keys
 mkdir -p "$SERIAL_TEST_DIR/missing/.claude"
-cat > "$SERIAL_TEST_DIR/missing/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$SERIAL_TEST_DIR/missing/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.2"
 services:
   backend:
@@ -85,7 +85,7 @@ assert_contains "missing serial_task → reported in missing_keys" "$missing" "s
 HAS_PYYAML=$(python3 -c "import yaml; print('yes')" 2>/dev/null || echo "no")
 if [ "$HAS_PYYAML" = "yes" ]; then
   mkdir -p "$SERIAL_TEST_DIR/range/.claude"
-  cat > "$SERIAL_TEST_DIR/range/.claude/autopilot.config.yaml" << 'YAML'
+  cat >"$SERIAL_TEST_DIR/range/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.2"
 services:
   backend:
@@ -117,7 +117,7 @@ YAML
 
   # 42d. max_retries_per_task=0 (below min) → range_errors
   mkdir -p "$SERIAL_TEST_DIR/range_low/.claude"
-  cat > "$SERIAL_TEST_DIR/range_low/.claude/autopilot.config.yaml" << 'YAML'
+  cat >"$SERIAL_TEST_DIR/range_low/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.2"
 services:
   backend:
@@ -158,7 +158,7 @@ assert_not_contains "max_retries_per_task=3 → no range error" "$range_err" "ma
 
 # 42f. Config with old ralph_loop keys → should report missing serial_task
 mkdir -p "$SERIAL_TEST_DIR/old_config/.claude"
-cat > "$SERIAL_TEST_DIR/old_config/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$SERIAL_TEST_DIR/old_config/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 services:
   backend:
@@ -202,4 +202,5 @@ rm -rf "$SERIAL_TEST_DIR"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

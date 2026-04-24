@@ -20,19 +20,19 @@ setup_clean_test() {
   mkdir -p "$pr" "$cs" "$change_dir/context" "$tmpdir/logs"
 
   # Create some phase artifacts across phases 1-7
-  echo '{"status":"ok"}' > "$pr/phase-1-requirements.json"
-  echo '{"status":"ok"}' > "$pr/phase-2-openspec.json"
-  echo '{"status":"ok"}' > "$pr/phase-3-ff.json"
-  echo '{"status":"ok"}' > "$pr/phase-4-testing.json"
-  echo '{"status":"ok"}' > "$pr/phase-5-implement.json"
-  echo '{"status":"ok"}' > "$pr/phase-6-report.json"
-  echo '{"status":"ok"}' > "$pr/phase-7-summary.json"
+  echo '{"status":"ok"}' >"$pr/phase-1-requirements.json"
+  echo '{"status":"ok"}' >"$pr/phase-2-openspec.json"
+  echo '{"status":"ok"}' >"$pr/phase-3-ff.json"
+  echo '{"status":"ok"}' >"$pr/phase-4-testing.json"
+  echo '{"status":"ok"}' >"$pr/phase-5-implement.json"
+  echo '{"status":"ok"}' >"$pr/phase-6-report.json"
+  echo '{"status":"ok"}' >"$pr/phase-7-summary.json"
 
   # Context snapshots
-  echo "Phase 1 context" > "$cs/phase-1-context.md"
-  echo "Phase 2 context" > "$cs/phase-2-context.md"
-  echo "Phase 3 context" > "$cs/phase-3-context.md"
-  echo "Phase 5 context" > "$cs/phase-5-context.md"
+  echo "Phase 1 context" >"$cs/phase-1-context.md"
+  echo "Phase 2 context" >"$cs/phase-2-context.md"
+  echo "Phase 3 context" >"$cs/phase-3-context.md"
+  echo "Phase 5 context" >"$cs/phase-5-context.md"
 
   echo "$tmpdir"
 }
@@ -44,7 +44,7 @@ CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
 CS="$CHANGE/context/phase-context-snapshots"
 # Run script directly with change_dir
-bash "$CLEAN_SCRIPT" 3 full "$CHANGE" > /dev/null 2>&1
+bash "$CLEAN_SCRIPT" 3 full "$CHANGE" >/dev/null 2>&1
 # Phase 1-2 should survive
 assert_file_exists "1a. phase-1 survives" "$PR/phase-1-requirements.json"
 assert_file_exists "1b. phase-2 survives" "$PR/phase-2-openspec.json"
@@ -70,7 +70,7 @@ echo "  2. Context snapshots cleaned"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 CS="$CHANGE/context/phase-context-snapshots"
-bash "$CLEAN_SCRIPT" 3 full "$CHANGE" > /dev/null 2>&1
+bash "$CLEAN_SCRIPT" 3 full "$CHANGE" >/dev/null 2>&1
 assert_file_exists "2a. phase-1-context survives" "$CS/phase-1-context.md"
 assert_file_exists "2b. phase-2-context survives" "$CS/phase-2-context.md"
 if [ ! -f "$CS/phase-3-context.md" ]; then
@@ -88,10 +88,10 @@ TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
 mkdir -p "$PR/phase5-tasks"
-echo '{"task":1}' > "$PR/phase5-tasks/task-1.json"
-echo '{"task":2}' > "$PR/phase5-tasks/task-2.json"
-echo "red" > "$CHANGE/context/.tdd-stage"
-bash "$CLEAN_SCRIPT" 5 full "$CHANGE" > /dev/null 2>&1
+echo '{"task":1}' >"$PR/phase5-tasks/task-1.json"
+echo '{"task":2}' >"$PR/phase5-tasks/task-2.json"
+echo "red" >"$CHANGE/context/.tdd-stage"
+bash "$CLEAN_SCRIPT" 5 full "$CHANGE" >/dev/null 2>&1
 if [ ! -d "$PR/phase5-tasks" ]; then
   green "  PASS: 3a. phase5-tasks dir removed"
   PASS=$((PASS + 1))
@@ -113,9 +113,9 @@ echo "  4. Phase 6 special cleanup (phase-6.5 files)"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
-echo '{"status":"ok"}' > "$PR/phase-6.5-code-review.json"
-echo '{"status":"ok"}' > "$PR/phase-6.5-quality-scan.json"
-bash "$CLEAN_SCRIPT" 6 full "$CHANGE" > /dev/null 2>&1
+echo '{"status":"ok"}' >"$PR/phase-6.5-code-review.json"
+echo '{"status":"ok"}' >"$PR/phase-6.5-quality-scan.json"
+bash "$CLEAN_SCRIPT" 6 full "$CHANGE" >/dev/null 2>&1
 if [ ! -f "$PR/phase-6.5-code-review.json" ]; then
   green "  PASS: 4a. phase-6.5-code-review removed"
   PASS=$((PASS + 1))
@@ -137,9 +137,9 @@ echo "  5. .json.tmp residual cleanup"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
-echo "temp" > "$PR/phase-2-openspec.json.tmp"
-echo "temp" > "$PR/phase-4-testing.json.tmp"
-bash "$CLEAN_SCRIPT" 1 full "$CHANGE" > /dev/null 2>&1
+echo "temp" >"$PR/phase-2-openspec.json.tmp"
+echo "temp" >"$PR/phase-4-testing.json.tmp"
+bash "$CLEAN_SCRIPT" 1 full "$CHANGE" >/dev/null 2>&1
 if [ ! -f "$PR/phase-2-openspec.json.tmp" ]; then
   green "  PASS: 5a. tmp residual removed"
   PASS=$((PASS + 1))
@@ -153,7 +153,7 @@ rm -rf "$TMPDIR"
 echo "  6. Events filtering"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
-cat > "$TMPDIR/logs/events.jsonl" <<'EOF'
+cat >"$TMPDIR/logs/events.jsonl" <<'EOF'
 {"type":"phase_start","phase":0,"mode":"full"}
 {"type":"phase_end","phase":0,"mode":"full"}
 {"type":"phase_start","phase":1,"mode":"full"}
@@ -163,8 +163,8 @@ cat > "$TMPDIR/logs/events.jsonl" <<'EOF'
 {"type":"phase_start","phase":3,"mode":"full"}
 EOF
 # Clean from phase 2 — should keep phase 0 and 1 events
-bash "$CLEAN_SCRIPT" 2 full "$CHANGE" > /dev/null 2>&1
-LINE_COUNT=$(wc -l < "$TMPDIR/logs/events.jsonl" | tr -d ' ')
+bash "$CLEAN_SCRIPT" 2 full "$CHANGE" >/dev/null 2>&1
+LINE_COUNT=$(wc -l <"$TMPDIR/logs/events.jsonl" | tr -d ' ')
 if [ "$LINE_COUNT" -eq 4 ]; then
   green "  PASS: 6a. events filtered correctly (kept 4 lines for phase 0+1)"
   PASS=$((PASS + 1))
@@ -189,7 +189,7 @@ echo "  8. Lite mode cleanup"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
-bash "$CLEAN_SCRIPT" 5 lite "$CHANGE" > /dev/null 2>&1
+bash "$CLEAN_SCRIPT" 5 lite "$CHANGE" >/dev/null 2>&1
 # Phase 1 should survive (not in cleanup range)
 assert_file_exists "8a. phase-1 survives in lite" "$PR/phase-1-requirements.json"
 # Phase 5+ should be cleaned
@@ -207,7 +207,7 @@ echo "  9. Clean from phase 1 removes all"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
-bash "$CLEAN_SCRIPT" 1 full "$CHANGE" > /dev/null 2>&1
+bash "$CLEAN_SCRIPT" 1 full "$CHANGE" >/dev/null 2>&1
 REMAINING=$(find "$PR" -name "phase-*.json" 2>/dev/null | wc -l | tr -d ' ')
 if [ "$REMAINING" -eq 0 ]; then
   green "  PASS: 9a. all phase files removed"
@@ -223,9 +223,9 @@ echo "  10. Interim and progress files cleaned"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
 PR="$CHANGE/context/phase-results"
-echo '{"status":"in_progress","stage":"research_complete"}' > "$PR/phase-1-interim.json"
-echo '{"step":"gate_passed"}' > "$PR/phase-3-progress.json"
-bash "$CLEAN_SCRIPT" 1 full "$CHANGE" > /dev/null 2>&1
+echo '{"status":"in_progress","stage":"research_complete"}' >"$PR/phase-1-interim.json"
+echo '{"step":"gate_passed"}' >"$PR/phase-3-progress.json"
+bash "$CLEAN_SCRIPT" 1 full "$CHANGE" >/dev/null 2>&1
 if [ ! -f "$PR/phase-1-interim.json" ]; then
   green "  PASS: 10a. interim file removed"
   PASS=$((PASS + 1))
@@ -246,12 +246,12 @@ rm -rf "$TMPDIR"
 echo "  11. Atomic events write — no .tmp residuals"
 TMPDIR=$(setup_clean_test)
 CHANGE="$TMPDIR/openspec/changes/test-feature"
-cat > "$TMPDIR/logs/events.jsonl" <<'EOF'
+cat >"$TMPDIR/logs/events.jsonl" <<'EOF'
 {"type":"phase_start","phase":0,"mode":"full"}
 {"type":"phase_start","phase":1,"mode":"full"}
 {"type":"phase_start","phase":2,"mode":"full"}
 EOF
-bash "$CLEAN_SCRIPT" 2 full "$CHANGE" > /dev/null 2>&1
+bash "$CLEAN_SCRIPT" 2 full "$CHANGE" >/dev/null 2>&1
 TMP_COUNT=$(find "$TMPDIR/logs" -name "*.tmp" 2>/dev/null | wc -l | tr -d ' ')
 if [ "$TMP_COUNT" -eq 0 ]; then
   green "  PASS: 11a. no .tmp residuals after events filtering"
@@ -297,11 +297,11 @@ git init -q
 # Use -C to ensure config targets the temp repo, not the parent repo
 git -C "$REPO" config user.email test@example.com
 git -C "$REPO" config user.name test
-echo "base" > tracked.txt
+echo "base" >tracked.txt
 git add tracked.txt
 git commit -q --no-verify -m init
-echo "user-change" > tracked.txt
-echo '{"status":"ok"}' > "$PR/phase-5-implement.json"
+echo "user-change" >tracked.txt
+echo '{"status":"ok"}' >"$PR/phase-5-implement.json"
 OUTPUT=$(bash "$CLEAN_SCRIPT" 5 full "$CHANGE" --git-target-sha HEAD 2>/dev/null)
 STATUS=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])" 2>/dev/null)
 STASH_RESTORED=$(printf '%s' "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['stash_restored'])" 2>/dev/null)
@@ -365,4 +365,5 @@ fi
 rm -rf "$TMPDIR"
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

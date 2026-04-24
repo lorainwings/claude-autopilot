@@ -25,7 +25,7 @@ assert_contains "1. 无参数包含错误信息" "$OUTPUT" "缺少必需参数"
 echo "--- 2. worktree 路径不存在 ---"
 TMPDIR_BASE=$(mktemp -d)
 FAKE_CP="$TMPDIR_BASE/cp.json"
-echo '{"tdd_cycle":[]}' > "$FAKE_CP"
+echo '{"tdd_cycle":[]}' >"$FAKE_CP"
 EXITCODE=0
 OUTPUT=$(bash "$SCRIPT" --worktree-path "/nonexistent/path" --test-command "true" --task-checkpoint "$FAKE_CP" 2>&1 || true)
 bash "$SCRIPT" --worktree-path "/nonexistent/path" --test-command "true" --task-checkpoint "$FAKE_CP" >/dev/null 2>&1 || EXITCODE=$?
@@ -46,7 +46,7 @@ rm -rf "$TMPDIR_BASE"
 # --- 4. 有效 checkpoint + 测试通过 → status ok ---
 echo "--- 4. 有效 checkpoint + 测试通过 ---"
 TMPDIR_BASE=$(mktemp -d)
-cat > "$TMPDIR_BASE/cp.json" <<'CPEOF'
+cat >"$TMPDIR_BASE/cp.json" <<'CPEOF'
 {
   "tdd_cycle": [
     {
@@ -67,7 +67,7 @@ rm -rf "$TMPDIR_BASE"
 # --- 5. 有效 checkpoint + 测试失败 → status blocked ---
 echo "--- 5. 有效 checkpoint + 测试失败 ---"
 TMPDIR_BASE=$(mktemp -d)
-cat > "$TMPDIR_BASE/cp.json" <<'CPEOF'
+cat >"$TMPDIR_BASE/cp.json" <<'CPEOF'
 {
   "tdd_cycle": [
     {
@@ -87,7 +87,7 @@ rm -rf "$TMPDIR_BASE"
 # --- 6. checkpoint 中 test_intent 为空 → status warn ---
 echo "--- 6. test_intent 为空 ---"
 TMPDIR_BASE=$(mktemp -d)
-cat > "$TMPDIR_BASE/cp.json" <<'CPEOF'
+cat >"$TMPDIR_BASE/cp.json" <<'CPEOF'
 {
   "tdd_cycle": [
     {
@@ -107,7 +107,7 @@ rm -rf "$TMPDIR_BASE"
 # --- 7. checkpoint 中 failing_signal 缺失 → status warn ---
 echo "--- 7. failing_signal 缺失 ---"
 TMPDIR_BASE=$(mktemp -d)
-cat > "$TMPDIR_BASE/cp.json" <<'CPEOF'
+cat >"$TMPDIR_BASE/cp.json" <<'CPEOF'
 {
   "tdd_cycle": [
     {
@@ -126,7 +126,7 @@ rm -rf "$TMPDIR_BASE"
 # --- 8. 多 cycle 部分失败 → status blocked + failures 列表 ---
 echo "--- 8. 多 cycle 部分失败 ---"
 TMPDIR_BASE=$(mktemp -d)
-cat > "$TMPDIR_BASE/cp.json" <<'CPEOF'
+cat >"$TMPDIR_BASE/cp.json" <<'CPEOF'
 {
   "tdd_cycle": [
     {

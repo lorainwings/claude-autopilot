@@ -21,9 +21,9 @@ assert_exit "1. _phase_graph.py --test" 0 "$code"
 echo ""
 echo "2. Gap-aware 语义: P1=ok P2=failed P3=ok → last_valid=1"
 TMP=$(mktemp -d)
-echo '{"status":"ok","summary":"test"}' > "$TMP/phase-1-req.json"
-echo '{"status":"failed","summary":"test"}' > "$TMP/phase-2-spec.json"
-echo '{"status":"ok","summary":"test"}' > "$TMP/phase-3-ff.json"
+echo '{"status":"ok","summary":"test"}' >"$TMP/phase-1-req.json"
+echo '{"status":"failed","summary":"test"}' >"$TMP/phase-2-spec.json"
+echo '{"status":"ok","summary":"test"}' >"$TMP/phase-3-ff.json"
 
 # _phase_graph.py
 PG_RESULT=$(python3 "$SCRIPT_DIR/_phase_graph.py" get_last_valid "$TMP" full)

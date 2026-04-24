@@ -16,7 +16,7 @@ setup_autopilot_fixture
 
 TMPDIR_BG=$(mktemp -d)
 mkdir -p "$TMPDIR_BG/openspec/changes/test-bg/context/phase-results"
-echo '{"change_name":"test-bg","pid":'"$$"',"started":"2026-01-01T00:00:00Z"}' > "$TMPDIR_BG/openspec/changes/.autopilot-active"
+echo '{"change_name":"test-bg","pid":'"$$"',"started":"2026-01-01T00:00:00Z"}' >"$TMPDIR_BG/openspec/changes/.autopilot-active"
 BG_STDIN='{"tool_name":"Agent","tool_input":{"prompt":"<!-- autopilot-phase:5 --> implement task","run_in_background":true,"agent":"general-purpose"},"tool_response":"Running in background","cwd":"'"$TMPDIR_BG"'"}'
 
 # 45a: validate-json-envelope bypasses background agent
@@ -58,7 +58,7 @@ assert_not_contains "decision-format: background agent → no block" "$OUT45f" "
 
 # 45g: foreground agent still validates (run_in_background absent)
 FG_STDIN='{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 --> implement task"},"tool_response":"done","cwd":"'"$TMPDIR_BG"'"}'
-echo '{"status":"ok"}' > "$TMPDIR_BG/openspec/changes/test-bg/context/phase-results/phase-4-testing.json"
+echo '{"status":"ok"}' >"$TMPDIR_BG/openspec/changes/test-bg/context/phase-results/phase-4-testing.json"
 OUT45g=$(echo "$FG_STDIN" | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null)
 assert_contains "foreground task still validates → block" "$OUT45g" "block"
 
@@ -66,4 +66,5 @@ rm -rf "$TMPDIR_BG"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

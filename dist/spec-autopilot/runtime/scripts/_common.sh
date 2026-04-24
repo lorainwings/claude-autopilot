@@ -5,6 +5,20 @@
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   source "$SCRIPT_DIR/_common.sh"
 
+# --- Check if current project is an autopilot project (project-recognition guard) ---
+# Usage: is_autopilot_project [project_root]
+# Returns: exit 0 if project has openspec/ OR .claude/autopilot.config.yaml, exit 1 otherwise
+# Purpose: Unified guard for hook scripts to silently early-return on non-autopilot projects,
+#          preventing pollution when this plugin is enabled globally but the user works in
+#          unrelated projects. Distinct from has_active_autopilot (which checks runtime lock).
+# Performance: Pure bash, no fork (~0.1ms)
+is_autopilot_project() {
+  local project_root="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  [ -d "$project_root/openspec" ] && return 0
+  [ -f "$project_root/.claude/autopilot.config.yaml" ] && return 0
+  return 1
+}
+
 # --- Check if autopilot session is active (lock file exists) ---
 # Usage: has_active_autopilot [project_root]
 # Returns: exit 0 if active, exit 1 if not
@@ -496,15 +510,14 @@ sanitize_session_key() {
   [ -n "$sanitized" ] && echo "$sanitized" || echo "unknown"
 }
 
-# --- Get session-scoped active agent marker path ---
-# Usage: get_session_agent_marker_file <project_root> <session_id>
-# Returns: marker file path on stdout
+# --- Session-scoped agent marker (DEPRECATED, kept as thin wrapper) ---
+# Historical helpers used to return a per-session dotfile path for active-agent markers.
+# Active-agent state is now consolidated into logs/.active-agent-state.json; use
+# _agent_state.sh helpers (agent_state_get_agent_id, etc.) instead. This stub remains
+# in case downstream skills still call it — it now returns the consolidated state path.
 get_session_agent_marker_file() {
   local project_root="$1"
-  local session_id="${2:-unknown}"
-  local session_key
-  session_key=$(sanitize_session_key "$session_id")
-  echo "$project_root/logs/.active-agent-session-${session_key}"
+  echo "$project_root/logs/.active-agent-state.json"
 }
 
 # --- Auto-increment event sequence counter ---

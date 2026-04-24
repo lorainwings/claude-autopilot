@@ -168,26 +168,19 @@ else
   fi
 fi
 
-# --- Compute duration from dispatch timestamp (millisecond precision) ---
-DURATION_MS=0
-DISPATCH_TS_FILE="$PROJECT_ROOT/logs/.agent-dispatch-ts-${AGENT_ID}"
-if [ -f "$DISPATCH_TS_FILE" ]; then
-  DISPATCH_TS=$(head -1 "$DISPATCH_TS_FILE" 2>/dev/null | tr -d '[:space:]')
-  if [ -n "$DISPATCH_TS" ]; then
-    NOW_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "$(date +%s)000")
-    DURATION_MS=$((NOW_MS - DISPATCH_TS))
-    [ "$DURATION_MS" -lt 0 ] && DURATION_MS=0
-  fi
-  # Cleanup dispatch timestamp file
-  rm -f "$DISPATCH_TS_FILE" 2>/dev/null || true
-fi
-
-# --- Clear active agent markers ---
-rm -f "$PROJECT_ROOT/logs/.active-agent-id" 2>/dev/null || true
-rm -f "$PROJECT_ROOT/logs/.active-agent-phase-${PHASE}" 2>/dev/null || true
+# --- Compute duration + clear active agent state (consolidated marker) ---
+# shellcheck source=_agent_state.sh
+source "$SCRIPT_DIR/_agent_state.sh"
+_SESSION_KEY_FOR_STATE=""
 if [ -n "$SESSION_ID" ]; then
-  SESSION_AGENT_FILE=$(get_session_agent_marker_file "$PROJECT_ROOT" "$SESSION_ID")
-  rm -f "$SESSION_AGENT_FILE" 2>/dev/null || true
+  _SESSION_KEY_FOR_STATE=$(sanitize_session_key "$SESSION_ID")
+fi
+DURATION_MS=0
+DISPATCH_TS=$(agent_state_complete "$PROJECT_ROOT" "$_SESSION_KEY_FOR_STATE" "$PHASE" "$AGENT_ID")
+if [ -n "$DISPATCH_TS" ]; then
+  NOW_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "$(date +%s)000")
+  DURATION_MS=$((NOW_MS - DISPATCH_TS))
+  [ "$DURATION_MS" -lt 0 ] && DURATION_MS=0
 fi
 
 # --- Build payload JSON (use python3 for safe construction) ---

@@ -72,12 +72,12 @@ TMPDIR_ANCHOR_LOCK=$(mktemp -d)
   git init -q
   git config user.email "test@test.com"
   git config user.name "Test"
-  echo "init" > README.md
+  echo "init" >README.md
   git add README.md
   git commit -q --no-verify -m "initial commit"
 ) 2>/dev/null
 # lock file 放在 git repo 外面，避免脏工作区检查误判
-echo '{"change":"test","anchor_sha":"invalid_sha"}' > "$TMPDIR_ANCHOR_LOCK/lock.json"
+echo '{"change":"test","anchor_sha":"invalid_sha"}' >"$TMPDIR_ANCHOR_LOCK/lock.json"
 
 # 5c: 有效的 git repo + lock file → 成功重建
 exit_code=0
@@ -105,8 +105,8 @@ assert_contains "5d2: rebuild-anchor commit subject keeps start marker" "$REBUIL
 # 5e: rebuild-anchor 在脏工作区时应该失败（v6.0 新增）
 (
   cd "$TMPDIR_ANCHOR" || exit 1
-  echo "dirty" > untracked_file.txt
-  git add untracked_file.txt  # stage but don't commit
+  echo "dirty" >untracked_file.txt
+  git add untracked_file.txt # stage but don't commit
 ) 2>/dev/null
 exit_code=0
 bash "$SCRIPT_DIR/rebuild-anchor.sh" "$TMPDIR_ANCHOR" "$TMPDIR_ANCHOR_LOCK/lock.json" 2>/dev/null || exit_code=$?
@@ -123,4 +123,5 @@ assert_contains "7b: archive-readiness overall=blocked → 硬阻断" "$phase7_c
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

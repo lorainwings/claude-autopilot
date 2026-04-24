@@ -58,7 +58,7 @@ assert_file_contains "1h. RANGE_RULES has clarity_threshold_overrides.small" \
 
 # 1i. Range validation rejects out-of-bound clarity_threshold
 TEMP_CONFIG=$(mktemp)
-cat > "$TEMP_CONFIG" << 'YAML'
+cat >"$TEMP_CONFIG" <<'YAML'
 version: "5.3.3"
 services: {}
 phases:
@@ -85,7 +85,7 @@ rm -f "$TEMP_CONFIG"
 
 # 1j. Range validation rejects out-of-bound max_rounds
 TEMP_CONFIG2=$(mktemp)
-cat > "$TEMP_CONFIG2" << 'YAML'
+cat >"$TEMP_CONFIG2" <<'YAML'
 version: "5.3.3"
 services: {}
 phases:
@@ -271,7 +271,7 @@ assert_file_contains "8c. cross-ref: challenge agent activation order" \
 
 # 8d. Cross-ref: soft_warning >= max_rounds actually triggers warning
 TEMP_XREF=$(mktemp)
-cat > "$TEMP_XREF" << 'YAML'
+cat >"$TEMP_XREF" <<'YAML'
 version: "5.3.3"
 services: {}
 phases:
@@ -487,7 +487,7 @@ console.log(results.join(','));
 " 2>/dev/null)
 
 # Parse results
-IFS=',' read -ra CASES <<< "$STORE_BEHAVIORAL_RESULT"
+IFS=',' read -ra CASES <<<"$STORE_BEHAVIORAL_RESULT"
 ALL_BEHAVIORAL_PASS=true
 for case_result in "${CASES[@]}"; do
   CASE_ID="${case_result%%:*}"
@@ -509,4 +509,5 @@ fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

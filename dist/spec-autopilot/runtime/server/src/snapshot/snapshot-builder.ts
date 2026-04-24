@@ -72,22 +72,36 @@ export async function buildSnapshot(): Promise<SessionSnapshot> {
   const legacyEvents = normalizeLegacyEvents(legacyRaw, sessionId, { changeName: context.changeName, mode: context.mode });
   const phaseLookup = buildPhaseLookup(legacyEvents);
 
-  const rawHooks = await readSessionRawRecords<RawHookRecord>(sessionKey, "hooks.jsonl");
-  const rawStatus = await readSessionRawRecords<RawStatusRecord>(sessionKey, "statusline.jsonl");
+  const rawAllWithNulls = await readSessionRawRecords<RawHookRecord | RawStatusRecord | null>(
+    sessionKey,
+    "events.jsonl",
+  );
+  // Pre-filter null/non-object records (parse failures) before source discrimination,
+  // so downstream filters can assert non-null and type-narrow on a single field.
+  const rawAll = rawAllWithNulls.filter(
+    (r): r is RawHookRecord | RawStatusRecord => r != null && typeof r === "object",
+  );
+  const rawHooks = rawAll.filter((r): r is RawHookRecord => r.source === "hook");
+  const rawStatus = rawAll.filter((r): r is RawStatusRecord => r.source === "statusline");
 
   const hookEvents = normalizeHookRecords(rawHooks, sessionId, phaseLookup, { changeName: context.changeName, mode: context.mode });
   const statusEvents = normalizeStatusRecords(rawStatus, sessionId, phaseLookup, { changeName: context.changeName, mode: context.mode });
   const transcriptDescriptors = collectTranscriptDescriptors(rawHooks, rawStatus);
 
-  // D3: 从 .active-agent-session-{key} marker 文件读取当前活跃 agent_id，
+  // D3: 从 consolidated .active-agent-state.json 读取当前活跃 agent_id，
   // 为缺少 agentId 的 agent 类型 descriptor 补充关联
-  const agentMarkerPath = join(configProjectRoot || process.cwd(), "logs", `.active-agent-session-${sessionKey}`);
+  const agentStatePath = join(configProjectRoot || process.cwd(), "logs", ".active-agent-state.json");
   let fallbackAgentId: string | undefined;
-  if (existsSync(agentMarkerPath)) {
+  if (existsSync(agentStatePath)) {
     try {
-      fallbackAgentId = readFileSync(agentMarkerPath, "utf-8").trim() || undefined;
+      const state = JSON.parse(readFileSync(agentStatePath, "utf-8")) as {
+        sessions?: Record<string, { agent_id?: string }>;
+        global?: { agent_id?: string };
+      };
+      const sessionEntry = state.sessions?.[sessionKey];
+      fallbackAgentId = sessionEntry?.agent_id?.trim() || state.global?.agent_id?.trim() || undefined;
     } catch {
-      // 读取失败忽略
+      // 读取/解析失败忽略
     }
   }
   if (fallbackAgentId) {

@@ -55,8 +55,8 @@ else
   FAIL=$((FAIL + 1))
 fi
 # Both source tags must appear in the conflict few-shot
-if grep -E -q -- "source:\s*scan" "$PARALLEL_DOC" \
-   && grep -E -q -- "source:\s*research" "$PARALLEL_DOC"; then
+if grep -E -q -- "source:\s*scan" "$PARALLEL_DOC" &&
+  grep -E -q -- "source:\s*research" "$PARALLEL_DOC"; then
   green "  PASS: few-shot lists both scan + research sources"
   PASS=$((PASS + 1))
 else
@@ -72,7 +72,7 @@ assert_contains "positive example uses research: evidence_refs prefix" \
   "$PARALLEL_BODY" "research:"
 # merged_decision_points entry must coexist with evidence_refs containing
 # at least one cross-source merged item (regex spans a small window).
-if python3 - "$PARALLEL_DOC" <<'PY'
+if python3 - "$PARALLEL_DOC" <<'PY'; then
 import re, sys, pathlib
 body = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
 # Find any merged_decision_points JSON-ish block whose evidence_refs list
@@ -84,7 +84,6 @@ pat = re.compile(
 )
 sys.exit(0 if pat.search(body) else 1)
 PY
-then
   green "  PASS: merged entry shows evidence_refs merging scan + research"
   PASS=$((PASS + 1))
 else

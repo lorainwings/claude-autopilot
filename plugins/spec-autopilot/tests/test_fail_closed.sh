@@ -24,8 +24,8 @@ echo ""
 echo "--- 9. Fail-closed consistency check ---"
 
 # 9a. validate-json-envelope.sh should block autopilot tasks with fail-closed behavior
-if grep -q 'decision.*block' "$SCRIPT_DIR/validate-json-envelope.sh" && \
-   grep -q 'python3 is required' "$SCRIPT_DIR/validate-json-envelope.sh"; then
+if grep -q 'decision.*block' "$SCRIPT_DIR/validate-json-envelope.sh" &&
+  grep -q 'python3 is required' "$SCRIPT_DIR/validate-json-envelope.sh"; then
   green "  PASS: validate-json-envelope.sh has fail-closed block for missing python3"
   PASS=$((PASS + 1))
 else
@@ -34,8 +34,8 @@ else
 fi
 
 # 9b. check-predecessor-checkpoint.sh should deny autopilot tasks (verified by checking source)
-if grep -q 'permissionDecision.*deny' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" && \
-   grep -q 'python3 is required' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
+if grep -q 'permissionDecision.*deny' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" &&
+  grep -q 'python3 is required' "$SCRIPT_DIR/check-predecessor-checkpoint.sh"; then
   green "  PASS: check-predecessor-checkpoint.sh has fail-closed deny for missing python3"
   PASS=$((PASS + 1))
 else
@@ -44,8 +44,8 @@ else
 fi
 
 # 9c. Both scripts use bash marker pre-check before python3
-if grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" && \
-   grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/validate-json-envelope.sh"; then
+if grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/check-predecessor-checkpoint.sh" &&
+  grep -q 'autopilot-phase:\[0-9\]' "$SCRIPT_DIR/validate-json-envelope.sh"; then
   green "  PASS: both scripts use pure bash marker pre-check"
   PASS=$((PASS + 1))
 else
@@ -54,8 +54,8 @@ else
 fi
 
 # 9d. unified-write-edit-check.sh uses require_python3 (not raw command -v python3)
-if grep -q 'require_python3' "$SCRIPT_DIR/unified-write-edit-check.sh" && \
-   ! grep -q 'command -v python3.*exit 0' "$SCRIPT_DIR/unified-write-edit-check.sh"; then
+if grep -q 'require_python3' "$SCRIPT_DIR/unified-write-edit-check.sh" &&
+  ! grep -q 'command -v python3.*exit 0' "$SCRIPT_DIR/unified-write-edit-check.sh"; then
   green "  PASS: unified-write-edit-check.sh uses require_python3 fail-closed pattern"
   PASS=$((PASS + 1))
 else
@@ -65,4 +65,5 @@ fi
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

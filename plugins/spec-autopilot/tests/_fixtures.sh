@@ -11,7 +11,7 @@ FIXTURE_LOCK_CREATED=false
 setup_autopilot_fixture() {
   mkdir -p "$FIXTURE_LOCK_DIR"
   if [ ! -f "$FIXTURE_LOCK_FILE" ]; then
-    echo '{"change":"test-fixture","pid":"99999","started":"2026-01-01T00:00:00Z"}' > "$FIXTURE_LOCK_FILE"
+    echo '{"change":"test-fixture","pid":"99999","started":"2026-01-01T00:00:00Z"}' >"$FIXTURE_LOCK_FILE"
     FIXTURE_LOCK_CREATED=true
   fi
   # P0-2 fix: export AUTOPILOT_PROJECT_ROOT so scripts resolve to the same root

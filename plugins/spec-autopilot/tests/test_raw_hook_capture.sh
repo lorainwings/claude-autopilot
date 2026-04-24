@@ -10,17 +10,17 @@ TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 mkdir -p "$TMP_DIR/logs"
-mkdir -p "$TMP_DIR/openspec"  # mark as autopilot project for capture-hook-event.sh guard
-echo "phase5-impl" > "$TMP_DIR/logs/.active-agent-session-sess_1"
+mkdir -p "$TMP_DIR/openspec" # mark as autopilot project for capture-hook-event.sh guard
+set_active_agent_state "$TMP_DIR" "sess_1" "5" "phase5-impl"
 
 HOOK_JSON='{"session_id":"sess:1","cwd":"'"$TMP_DIR"'","transcript_path":"'"$TMP_DIR"'/transcript.jsonl","tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_result":{"stdout":"hello"}}'
 echo "$HOOK_JSON" | bash "$SCRIPT_DIR/capture-hook-event.sh" PostToolUse
 EXIT_CODE=$?
 assert_exit "raw hook capture exits 0" 0 "$EXIT_CODE"
 
-RAW_FILE="$TMP_DIR/logs/sessions/sess_1/raw/hooks.jsonl"
+RAW_FILE="$TMP_DIR/logs/sessions/sess_1/raw/events.jsonl"
 META_FILE="$TMP_DIR/logs/sessions/sess_1/meta.json"
-assert_file_exists "raw hooks.jsonl created" "$RAW_FILE"
+assert_file_exists "raw events.jsonl created" "$RAW_FILE"
 assert_file_exists "session meta.json created" "$META_FILE"
 
 RAW_CONTENT=$(cat "$RAW_FILE" 2>/dev/null || true)
@@ -29,4 +29,5 @@ assert_contains "raw hook stores transcript_path" "$RAW_CONTENT" '"transcript_pa
 assert_contains "raw hook stores session-scoped active agent" "$RAW_CONTENT" '"active_agent_id": "phase5-impl"'
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -96,24 +96,24 @@ chmod +x "$fix_plugin/tools/build-dist.sh"
 # 为 manifest 中每个文件创建占位脚本
 while IFS= read -r entry; do
   if [ ! -f "$fix_plugin/runtime/scripts/$entry" ]; then
-    printf '#!/usr/bin/env bash\necho "stub: %s"\n' "$entry" > "$fix_plugin/runtime/scripts/$entry"
+    printf '#!/usr/bin/env bash\necho "stub: %s"\n' "$entry" >"$fix_plugin/runtime/scripts/$entry"
   fi
 done < <(parse_manifest)
 
 # 额外放入 dev-only 文件（不应出现在 dist）
-printf 'dev-only\n' > "$fix_plugin/runtime/scripts/mock-event-emitter.js"
-printf '{"devDependencies":{}}\n' > "$fix_plugin/runtime/scripts/package.json"
-printf 'lockfile\n' > "$fix_plugin/runtime/scripts/tsconfig.json"
+printf 'dev-only\n' >"$fix_plugin/runtime/scripts/mock-event-emitter.js"
+printf '{"devDependencies":{}}\n' >"$fix_plugin/runtime/scripts/package.json"
+printf 'lockfile\n' >"$fix_plugin/runtime/scripts/tsconfig.json"
 
 # 最小化 hooks/skills/plugin 配置
 cp "$HOOKS_JSON" "$fix_plugin/hooks/hooks.json"
-printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$fix_plugin/.claude-plugin/plugin.json"
-printf '# CLAUDE\n' > "$fix_plugin/CLAUDE.md"
-printf '{ "name": "gui" }\n' > "$fix_plugin/gui/package.json"
-printf '<!doctype html><title>f</title>\n' > "$fix_plugin/gui-dist/index.html"
+printf '{ "name": "spec-autopilot", "version": "test" }\n' >"$fix_plugin/.claude-plugin/plugin.json"
+printf '# CLAUDE\n' >"$fix_plugin/CLAUDE.md"
+printf '{ "name": "gui" }\n' >"$fix_plugin/gui/package.json"
+printf '<!doctype html><title>f</title>\n' >"$fix_plugin/gui-dist/index.html"
 
 # 用假 bun（不需要真实 GUI 构建）
-cat > "$fix_root/bin/bun" <<'BEOF'
+cat >"$fix_root/bin/bun" <<'BEOF'
 #!/usr/bin/env bash
 echo "0.0.0-stub"
 BEOF

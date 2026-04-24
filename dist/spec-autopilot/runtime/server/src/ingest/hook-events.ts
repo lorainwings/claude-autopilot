@@ -40,7 +40,7 @@ export function normalizeHookRecords(
         tool_result: (data.tool_result as Record<string, unknown> | undefined) || {},
       };
       if (record.active_agent_id) toolPayload.agent_id = record.active_agent_id;
-      const rawRef = join("logs", "sessions", sanitizeSessionKey(sessionId), "raw", "hooks.jsonl");
+      const rawRef = join("logs", "sessions", sanitizeSessionKey(sessionId), "raw", "events.jsonl");
       result.push({
         type: "tool_use",
         phase,
@@ -91,7 +91,7 @@ export function normalizeHookRecords(
       event_id: `hook-${hashText(`${hookName}|${record.captured_at}|${JSON.stringify(data)}`)}`,
       ingest_seq: 0,
       source: "hook",
-      raw_ref: join("logs", "sessions", sanitizeSessionKey(sessionId), "raw", "hooks.jsonl"),
+      raw_ref: join("logs", "sessions", sanitizeSessionKey(sessionId), "raw", "events.jsonl"),
     });
   }
   return result;

@@ -42,7 +42,7 @@ add_change_with_checkpoints() {
       7) slug="summary" ;;
       *) slug="unknown" ;;
     esac
-    echo "{\"status\":\"$status\"}" > "$pr/phase-${phase}-${slug}.json"
+    echo "{\"status\":\"$status\"}" >"$pr/phase-${phase}-${slug}.json"
   done
 }
 
@@ -133,7 +133,7 @@ rm -rf "$TMPDIR"
 echo "  6. Phase 1 interim detection"
 TMPDIR=$(setup_recovery_test)
 mkdir -p "$TMPDIR/openspec/changes/feat-interim/context/phase-results"
-echo '{"status":"in_progress","stage":"research_complete"}' > "$TMPDIR/openspec/changes/feat-interim/context/phase-results/phase-1-interim.json"
+echo '{"status":"in_progress","stage":"research_complete"}' >"$TMPDIR/openspec/changes/feat-interim/context/phase-results/phase-1-interim.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 INTERIM_STAGE=$(echo "$OUTPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); c=[x for x in d['changes'] if x['name']=='feat-interim'][0]; print(c['phase1_interim']['stage'])" 2>/dev/null)
 if [ "$INTERIM_STAGE" = "research_complete" ]; then
@@ -149,7 +149,7 @@ rm -rf "$TMPDIR"
 echo "  7. Progress file detection"
 TMPDIR=$(setup_recovery_test)
 add_change_with_checkpoints "$TMPDIR" "feat-progress" "1:ok"
-echo '{"step":"gate_passed","status":"in_progress"}' > "$TMPDIR/openspec/changes/feat-progress/context/phase-results/phase-2-progress.json"
+echo '{"step":"gate_passed","status":"in_progress"}' >"$TMPDIR/openspec/changes/feat-progress/context/phase-results/phase-2-progress.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 PROG_COUNT=$(echo "$OUTPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); c=[x for x in d['changes'] if x['name']=='feat-progress'][0]; print(len(c['progress_files']))" 2>/dev/null)
 if [ "$PROG_COUNT" = "1" ]; then
@@ -182,7 +182,7 @@ OUTPUT=$(bash "$RECOVERY_SCRIPT" "/nonexistent/path" "full" 2>/dev/null)
 assert_json_field "9a. status is error" "$OUTPUT" "status" "error"
 EXIT_CODE=$?
 # Script should always exit 0
-bash "$RECOVERY_SCRIPT" "/nonexistent/path" "full" > /dev/null 2>&1
+bash "$RECOVERY_SCRIPT" "/nonexistent/path" "full" >/dev/null 2>&1
 RC=$?
 if [ "$RC" -eq 0 ]; then
   green "  PASS: 9b. exit code is 0 even on error"
@@ -211,7 +211,7 @@ rm -rf "$TMPDIR"
 # 11. Lock file status reading
 echo "  11. Lock file status reading"
 TMPDIR=$(setup_recovery_test)
-echo '{"change":"test","mode":"lite","anchor_sha":"abc123","session_id":"999"}' > "$TMPDIR/openspec/changes/.autopilot-active"
+echo '{"change":"test","mode":"lite","anchor_sha":"abc123","session_id":"999"}' >"$TMPDIR/openspec/changes/.autopilot-active"
 add_change_with_checkpoints "$TMPDIR" "test" "1:ok"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 LOCK_EXISTS=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['lock_file']['exists'])" 2>/dev/null)
@@ -229,7 +229,7 @@ rm -rf "$TMPDIR"
 echo "  12. Non-git directory git_state"
 TMPDIR=$(mktemp -d)
 mkdir -p "$TMPDIR/openspec/changes/test/context/phase-results"
-echo '{"status":"ok"}' > "$TMPDIR/openspec/changes/test/context/phase-results/phase-1-requirements.json"
+echo '{"status":"ok"}' >"$TMPDIR/openspec/changes/test/context/phase-results/phase-1-requirements.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 REBASE=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['git_state']['rebase_in_progress'])" 2>/dev/null)
 MERGE=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['git_state']['merge_in_progress'])" 2>/dev/null)
@@ -260,7 +260,7 @@ rm -rf "$TMPDIR"
 # 14. Fix #2: Lockfile mode overrides CLI mode
 echo "  14. Lockfile mode overrides CLI mode"
 TMPDIR=$(setup_recovery_test)
-echo '{"change":"test","mode":"lite","anchor_sha":"","session_id":"999"}' > "$TMPDIR/openspec/changes/.autopilot-active"
+echo '{"change":"test","mode":"lite","anchor_sha":"","session_id":"999"}' >"$TMPDIR/openspec/changes/.autopilot-active"
 add_change_with_checkpoints "$TMPDIR" "test" "1:ok" "5:ok"
 # Pass "full" as CLI mode, but lockfile says "lite"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
@@ -278,7 +278,7 @@ rm -rf "$TMPDIR"
 echo "  15. Interim-only → has_checkpoints=true"
 TMPDIR=$(setup_recovery_test)
 mkdir -p "$TMPDIR/openspec/changes/feat-interim/context/phase-results"
-echo '{"status":"in_progress","stage":"research_complete"}' > "$TMPDIR/openspec/changes/feat-interim/context/phase-results/phase-1-interim.json"
+echo '{"status":"in_progress","stage":"research_complete"}' >"$TMPDIR/openspec/changes/feat-interim/context/phase-results/phase-1-interim.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 HAS_CK=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('has_checkpoints',False))" 2>/dev/null)
 if [ "$HAS_CK" = "True" ]; then
@@ -325,7 +325,7 @@ rm -rf "$TMPDIR"
 echo "  17. Progress-only at Phase 5 (lite mode)"
 TMPDIR=$(setup_recovery_test)
 add_change_with_checkpoints "$TMPDIR" "feat-p5" "1:ok"
-echo '{"step":"gate_passed","status":"in_progress"}' > "$TMPDIR/openspec/changes/feat-p5/context/phase-results/phase-5-progress.json"
+echo '{"step":"gate_passed","status":"in_progress"}' >"$TMPDIR/openspec/changes/feat-p5/context/phase-results/phase-5-progress.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "lite" 2>/dev/null)
 CONT_PHASE=$(echo "$OUTPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['recovery_options']['continue']['phase'])" 2>/dev/null)
 if [ "$CONT_PHASE" = "5" ]; then
@@ -350,7 +350,7 @@ rm -rf "$TMPDIR"
 echo "  18. Progress-only (no checkpoints) uses max progress phase"
 TMPDIR=$(setup_recovery_test)
 mkdir -p "$TMPDIR/openspec/changes/feat-prog-only/context/phase-results"
-echo '{"step":"agent_dispatched","status":"in_progress"}' > "$TMPDIR/openspec/changes/feat-prog-only/context/phase-results/phase-5-progress.json"
+echo '{"step":"agent_dispatched","status":"in_progress"}' >"$TMPDIR/openspec/changes/feat-prog-only/context/phase-results/phase-5-progress.json"
 OUTPUT=$(bash "$RECOVERY_SCRIPT" "$TMPDIR/openspec/changes" "lite" 2>/dev/null)
 RECOMMENDED=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('recommended_recovery_phase',0))" 2>/dev/null)
 if [ "$RECOMMENDED" = "5" ]; then
@@ -363,4 +363,5 @@ fi
 rm -rf "$TMPDIR"
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

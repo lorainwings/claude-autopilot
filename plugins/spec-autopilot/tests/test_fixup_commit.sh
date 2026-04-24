@@ -26,11 +26,11 @@ TMPDIR_51=$(mktemp -d)
   git init -q
   git commit --allow-empty -q -m "init"
   mkdir -p openspec/changes
-  echo '.autopilot-active' >> .gitignore
+  echo '.autopilot-active' >>.gitignore
   git add .gitignore && git commit -q -m "add gitignore"
 
   # Create lock file (should be ignored by git)
-  echo '{"change":"test"}' > openspec/changes/.autopilot-active
+  echo '{"change":"test"}' >openspec/changes/.autopilot-active
 
   # Attempt explicit add — should fail (exit 1)
   explicit_exit=0
@@ -49,7 +49,7 @@ TMPDIR_51=$(mktemp -d)
   else
     echo "LOCKFILE_NOT_STAGED=false"
   fi
-) > "$TMPDIR_51/output.txt" 2>&1
+) >"$TMPDIR_51/output.txt" 2>&1
 
 RESULTS_51=$(cat "$TMPDIR_51/output.txt")
 assert_contains "51c: explicit git add of ignored lockfile fails" "$RESULTS_51" "EXPLICIT_ADD_EXIT=1"
@@ -80,4 +80,5 @@ assert_contains "51h: fixup 阻断包含 BLOCKED" "$phase7_content" '\[BLOCKED\]
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

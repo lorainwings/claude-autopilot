@@ -41,6 +41,11 @@ if [ -n "$STDIN_DATA" ]; then
 fi
 [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
+# --- Project relevance guard: non-autopilot projects exit early ---
+# shellcheck source=_common.sh
+source "$SCRIPT_DIR/_common.sh"
+is_autopilot_project "$PROJECT_ROOT" || exit 0
+
 PID_FILE="$PROJECT_ROOT/logs/.gui-server.pid"
 
 # 没有 PID 文件 → 本项目没启过 GUI / 已停 → 静默退出，绝不误伤其它项目

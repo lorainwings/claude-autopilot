@@ -7,6 +7,10 @@ set -euo pipefail
 
 # --- Project relevance guard: only check in autopilot projects ---
 # Parse cwd from SessionStart stdin JSON for accurate project root resolution.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=_common.sh
+source "$SCRIPT_DIR/_common.sh"
+
 _STDIN_CWD=""
 if [ ! -t 0 ]; then
   _STDIN_DATA=$(cat)
@@ -17,7 +21,7 @@ if [ -n "$_STDIN_CWD" ]; then
 else
   _PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
-[ -d "$_PROJECT_ROOT/openspec" ] || [ -f "$_PROJECT_ROOT/.claude/autopilot.config.yaml" ] || exit 0
+is_autopilot_project "$_PROJECT_ROOT" || exit 0
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 MAX_LINES=500

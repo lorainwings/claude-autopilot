@@ -13,12 +13,12 @@ setup_autopilot_fixture
 # ── 工具函数 ──
 extract_json_field() {
   local json="$1" field="$2"
-  python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('$field', d.get('payload',{}).get('$field','')))" <<< "$json" 2>/dev/null || echo ""
+  python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('$field', d.get('payload',{}).get('$field','')))" <<<"$json" 2>/dev/null || echo ""
 }
 
 extract_payload_field() {
   local json="$1" field="$2"
-  python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('payload',{}).get('$field',''))" <<< "$json" 2>/dev/null || echo ""
+  python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('payload',{}).get('$field',''))" <<<"$json" 2>/dev/null || echo ""
 }
 
 # =============================================================================
@@ -29,7 +29,7 @@ echo "--- A. 三种事件类型发射 ---"
 
 EMIT_ROOT=$(mktemp -d)
 mkdir -p "$EMIT_ROOT/openspec/changes" "$EMIT_ROOT/logs"
-echo '{"change":"test-mr","session_id":"sess-mr-001","mode":"full"}' > "$EMIT_ROOT/openspec/changes/.autopilot-active"
+echo '{"change":"test-mr","session_id":"sess-mr-001","mode":"full"}' >"$EMIT_ROOT/openspec/changes/.autopilot-active"
 
 # A1. model_routing (默认)
 ROUTING_JSON='{"selected_tier":"deep","selected_model":"opus","selected_effort":"high","routing_reason":"Phase 1 default","escalated_from":null,"fallback_applied":false,"fallback_model":null}'
@@ -94,7 +94,7 @@ echo ""
 echo "--- B. events.jsonl 追加验证 ---"
 
 # B1. 检查 events.jsonl 有 3 条事件（A1 + A2 + A3）
-line_count=$(wc -l < "$EMIT_ROOT/logs/events.jsonl" | tr -d ' ')
+line_count=$(wc -l <"$EMIT_ROOT/logs/events.jsonl" | tr -d ' ')
 if [ "$line_count" -ge 3 ]; then
   green "  PASS: B1. events.jsonl 至少 3 行 (got $line_count)"
   PASS=$((PASS + 1))
@@ -124,7 +124,7 @@ echo "--- C. 向后兼容 ---"
 # C1. 不传 event_type 参数 → 默认 model_routing
 COMPAT_ROOT=$(mktemp -d)
 mkdir -p "$COMPAT_ROOT/openspec/changes" "$COMPAT_ROOT/logs"
-echo '{"change":"test-compat","session_id":"sess-compat","mode":"full"}' > "$COMPAT_ROOT/openspec/changes/.autopilot-active"
+echo '{"change":"test-compat","session_id":"sess-compat","mode":"full"}' >"$COMPAT_ROOT/openspec/changes/.autopilot-active"
 
 output=$(bash "$SCRIPT_DIR/emit-model-routing-event.sh" "$COMPAT_ROOT" 1 full '{"selected_tier":"fast","selected_model":"haiku"}' 2>/dev/null)
 event_type=$(extract_json_field "$output" "type")
@@ -161,4 +161,5 @@ rm -rf "$EMIT_ROOT"
 teardown_autopilot_fixture
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

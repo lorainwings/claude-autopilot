@@ -20,24 +20,24 @@ mkdir -p "$TMPDIR/.claude"
 CHANGE_DIR="$TMPDIR/openspec/changes/test-feature/context/phase-results"
 mkdir -p "$CHANGE_DIR"
 echo '{"change":"test-feature","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 
 # Phase 1-6 checkpoints (all ok)
 echo '{"status":"ok","summary":"Req done","decisions":[{"point":"x","choice":"y"}],"requirement_type":"feature"}' \
-  > "$CHANGE_DIR/phase-1-requirements.json"
+  >"$CHANGE_DIR/phase-1-requirements.json"
 echo '{"status":"ok","summary":"OpenSpec done","artifacts":["spec.md"],"alternatives":["alt1"]}' \
-  > "$CHANGE_DIR/phase-2-openspec.json"
+  >"$CHANGE_DIR/phase-2-openspec.json"
 echo '{"status":"ok","summary":"FF done","plan":"impl plan","test_strategy":"unit+e2e"}' \
-  > "$CHANGE_DIR/phase-3-ff.json"
+  >"$CHANGE_DIR/phase-3-ff.json"
 echo '{"status":"ok","summary":"Tests designed","test_counts":{"unit":5},"sad_path_counts":{"unit":2},"dry_run_results":{"unit":0},"test_pyramid":{"unit_pct":100,"e2e_pct":0},"change_coverage":{"change_points":["A"],"tested_points":["A"],"coverage_pct":100,"untested_points":[]},"artifacts":["t.py"]}' \
-  > "$CHANGE_DIR/phase-4-test.json"
+  >"$CHANGE_DIR/phase-4-test.json"
 echo '{"status":"ok","summary":"Impl done","test_results_path":"report.html","tasks_completed":[1],"zero_skip_check":{"passed":true},"artifacts":["src/main.py"]}' \
-  > "$CHANGE_DIR/phase-5-implementation.json"
+  >"$CHANGE_DIR/phase-5-implementation.json"
 echo '{"status":"ok","summary":"Tests pass","pass_rate":100,"report_path":"report.html","report_format":"html","artifacts":["report.html"]}' \
-  > "$CHANGE_DIR/phase-6-test-report.json"
+  >"$CHANGE_DIR/phase-6-test-report.json"
 
 # === Test 1: Blocking review findings → Phase 7 blocked ===
-cat > "$CHANGE_DIR/phase-6.5-code-review.json" << 'REVIEW'
+cat >"$CHANGE_DIR/phase-6.5-code-review.json" <<'REVIEW'
 {
   "status": "blocked",
   "summary": "Critical security issue found",
@@ -75,7 +75,7 @@ assert_contains "1b. Phase 7 blocked by review findings" "$output" "block"
 assert_contains "1c. blocking reason mentions review" "$output" "critical"
 
 # === Test 2: No blocking findings → Phase 7 passes ===
-cat > "$CHANGE_DIR/phase-6.5-code-review.json" << 'REVIEW'
+cat >"$CHANGE_DIR/phase-6.5-code-review.json" <<'REVIEW'
 {
   "status": "ok",
   "summary": "All clear",
@@ -107,7 +107,7 @@ assert_exit "3a. Phase 7 without review checkpoint → exit 0" 0 $exit_code
 assert_not_contains "3b. Phase 7 not blocked when no review" "$output" "Review findings block"
 
 # === Test 4: Review findings with resolved blocking → Phase 7 passes ===
-cat > "$CHANGE_DIR/phase-6.5-code-review.json" << 'REVIEW'
+cat >"$CHANGE_DIR/phase-6.5-code-review.json" <<'REVIEW'
 {
   "status": "ok",
   "summary": "Issues resolved",
@@ -133,4 +133,5 @@ assert_exit "4a. Phase 7 with resolved blocking findings → exit 0" 0 $exit_cod
 assert_not_contains "4b. Phase 7 not blocked when findings resolved" "$output" "Review findings block"
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

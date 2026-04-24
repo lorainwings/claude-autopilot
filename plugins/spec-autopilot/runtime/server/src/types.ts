@@ -18,6 +18,12 @@ export interface AutopilotEvent {
   event_id: string;
   ingest_seq: number;
   source: "legacy" | "hook" | "statusline" | "transcript";
+  /**
+   * Path to the raw NDJSON file backing this event. After hooks.jsonl + statusline.jsonl
+   * were merged into events.jsonl (v5.x), the file alone is no longer enough to
+   * locate the original record — clients should use `(raw_ref, source)` together
+   * and grep records by matching the `source` field inside the file.
+   */
   raw_ref?: string;
 }
 

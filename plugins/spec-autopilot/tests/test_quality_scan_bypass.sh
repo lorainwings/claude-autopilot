@@ -11,17 +11,18 @@ setup_autopilot_fixture
 
 # 36a. Quality scan prompt → validate-json-envelope skips
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:security -->\nRun security scan"},"tool_response":"Scan complete."}' \
-  | bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:security -->\nRun security scan"},"tool_response":"Scan complete."}' |
+  bash "$SCRIPT_DIR/validate-json-envelope.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Quality scan no autopilot-phase marker → exit 0 (skip)" 0 $exit_code
 assert_not_contains "Quality scan → no block" "$output" "block"
 
 # 36b. Quality scan prompt → check-predecessor-checkpoint skips
 exit_code=0
-output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:perf -->\nPerf audit"},"cwd":"/tmp"}' \
-  | bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
+output=$(echo '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-quality-scan:perf -->\nPerf audit"},"cwd":"/tmp"}' |
+  bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>/dev/null) || exit_code=$?
 assert_exit "Quality scan → predecessor check skips (exit 0)" 0 $exit_code
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

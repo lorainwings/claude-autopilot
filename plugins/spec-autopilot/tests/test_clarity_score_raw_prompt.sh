@@ -103,14 +103,14 @@ fi
 
 # 6. 空 prompt exit 2
 set +e
-"$SCORER" --prompt "" > /dev/null 2>&1
+"$SCORER" --prompt "" >/dev/null 2>&1
 EMPTY_EXIT=$?
 set -e
 assert_exit "6. empty prompt → exit 2" 2 "$EMPTY_EXIT"
 
 # 7. --prompt-file 读取
 TMP_FILE="$(mktemp)"
-printf '%s' "$SPECIFIC_PROMPT" > "$TMP_FILE"
+printf '%s' "$SPECIFIC_PROMPT" >"$TMP_FILE"
 FILE_JSON=$("$SCORER" --prompt-file "$TMP_FILE" 2>/dev/null || echo "")
 rm -f "$TMP_FILE"
 if python3 -c "import json,sys; d=json.loads(sys.argv[1]); sys.exit(0 if float(d['total_score']) > 0.55 else 1)" "$FILE_JSON"; then

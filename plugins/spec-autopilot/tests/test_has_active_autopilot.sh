@@ -22,7 +22,7 @@ exit_code=0
 assert_exit "no lock file → not active (exit 1)" 1 $exit_code
 
 # 26c. Lock file exists → active
-echo '{"change":"test"}' > "$HAS_TEST_DIR/openspec/changes/.autopilot-active"
+echo '{"change":"test"}' >"$HAS_TEST_DIR/openspec/changes/.autopilot-active"
 exit_code=0
 (source "$SCRIPT_DIR/_common.sh" && has_active_autopilot "$HAS_TEST_DIR") || exit_code=$?
 assert_exit "lock file exists → active (exit 0)" 0 $exit_code
@@ -31,4 +31,5 @@ rm -rf "$HAS_TEST_DIR"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

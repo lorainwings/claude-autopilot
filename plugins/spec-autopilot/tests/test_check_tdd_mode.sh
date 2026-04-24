@@ -21,7 +21,7 @@ trap 'rm -rf "$TMPDIR_ROOT"' EXIT
 echo "--- 1. tdd_mode=true + mode=full → TDD_SKIP ---"
 PROJ1="$TMPDIR_ROOT/proj1"
 mkdir -p "$PROJ1/.claude"
-cat > "$PROJ1/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ1/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
@@ -39,7 +39,7 @@ assert_contains "1a. tdd_mode=true + full → TDD_SKIP" "$output" "TDD_SKIP"
 echo "--- 2. tdd_mode=false → TDD_DISPATCH ---"
 PROJ2="$TMPDIR_ROOT/proj2"
 mkdir -p "$PROJ2/.claude"
-cat > "$PROJ2/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ2/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
@@ -56,7 +56,7 @@ assert_contains "2a. tdd_mode=false → TDD_DISPATCH" "$output" "TDD_DISPATCH"
 echo "--- 3. tdd_mode=true + mode=lite → TDD_DISPATCH ---"
 PROJ3="$TMPDIR_ROOT/proj3"
 mkdir -p "$PROJ3/.claude"
-cat > "$PROJ3/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ3/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "lite"
 phases:
@@ -83,7 +83,7 @@ assert_contains "4a. no config → TDD_DISPATCH" "$output" "TDD_DISPATCH"
 echo "--- 5. config without tdd_mode field → TDD_DISPATCH ---"
 PROJ5="$TMPDIR_ROOT/proj5"
 mkdir -p "$PROJ5/.claude"
-cat > "$PROJ5/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ5/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
@@ -102,7 +102,7 @@ echo "--- 6. lock file tdd_mode overrides config ---"
 PROJ6="$TMPDIR_ROOT/proj6"
 mkdir -p "$PROJ6/.claude" "$PROJ6/openspec/changes"
 # config 中 tdd_mode=false
-cat > "$PROJ6/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ6/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
@@ -110,7 +110,7 @@ phases:
     tdd_mode: false
 YAML
 # 锁文件中 tdd_mode=true + mode=full
-cat > "$PROJ6/openspec/changes/.autopilot-active" <<'JSON'
+cat >"$PROJ6/openspec/changes/.autopilot-active" <<'JSON'
 {"change":"test","pid":"12345","started":"2026-01-01T00:00:00Z","tdd_mode":true,"mode":"full"}
 JSON
 
@@ -123,14 +123,14 @@ assert_contains "6a. lock tdd_mode=true overrides config=false → TDD_SKIP" "$o
 echo "--- 7. lock file mode=lite overrides config full ---"
 PROJ7="$TMPDIR_ROOT/proj7"
 mkdir -p "$PROJ7/.claude" "$PROJ7/openspec/changes"
-cat > "$PROJ7/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ7/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
   implementation:
     tdd_mode: true
 YAML
-cat > "$PROJ7/openspec/changes/.autopilot-active" <<'JSON'
+cat >"$PROJ7/openspec/changes/.autopilot-active" <<'JSON'
 {"change":"test","pid":"12345","started":"2026-01-01T00:00:00Z","mode":"lite"}
 JSON
 
@@ -143,7 +143,7 @@ assert_contains "7a. lock mode=lite → TDD_DISPATCH even with tdd_mode=true con
 echo "--- 8. malformed config → TDD_DISPATCH ---"
 PROJ8="$TMPDIR_ROOT/proj8"
 mkdir -p "$PROJ8/.claude"
-echo "this is not valid YAML {{{{" > "$PROJ8/.claude/autopilot.config.yaml"
+echo "this is not valid YAML {{{{" >"$PROJ8/.claude/autopilot.config.yaml"
 
 output=$(bash "$SCRIPT_DIR/check-tdd-mode.sh" "$PROJ8" 2>/dev/null)
 assert_contains "8a. malformed config → TDD_DISPATCH" "$output" "TDD_DISPATCH"
@@ -154,7 +154,7 @@ assert_contains "8a. malformed config → TDD_DISPATCH" "$output" "TDD_DISPATCH"
 echo "--- 9. tdd_mode=true + mode=minimal → TDD_DISPATCH ---"
 PROJ9="$TMPDIR_ROOT/proj9"
 mkdir -p "$PROJ9/.claude"
-cat > "$PROJ9/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ9/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "minimal"
 phases:
@@ -172,14 +172,14 @@ assert_contains "9a. tdd_mode=true + minimal → TDD_DISPATCH" "$output" "TDD_DI
 echo "--- 10. P1 consistency: get_tdd_mode matches check-tdd-mode.sh ---"
 PROJ10="$TMPDIR_ROOT/proj10"
 mkdir -p "$PROJ10/.claude" "$PROJ10/openspec/changes"
-cat > "$PROJ10/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ10/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
   implementation:
     tdd_mode: false
 YAML
-cat > "$PROJ10/openspec/changes/.autopilot-active" <<'JSON'
+cat >"$PROJ10/openspec/changes/.autopilot-active" <<'JSON'
 {"change":"test","pid":"12345","started":"2026-01-01T00:00:00Z","tdd_mode":true,"mode":"full"}
 JSON
 
@@ -197,7 +197,7 @@ assert_contains "10b. get_tdd_mode → true (consistent)" "$get_result" "true"
 echo "--- 11. P2 auto-resolve: no arg uses resolve_project_root ---"
 PROJ11="$TMPDIR_ROOT/proj11"
 mkdir -p "$PROJ11/.claude" "$PROJ11/subdir/deep"
-cat > "$PROJ11/.claude/autopilot.config.yaml" <<'YAML'
+cat >"$PROJ11/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 default_mode: "full"
 phases:
@@ -215,4 +215,5 @@ assert_contains "11b. subdir as arg → TDD_DISPATCH (no config there)" "$output
 # ── Summary ──
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

@@ -18,7 +18,8 @@ for _ in $(seq 1 40); do
 done
 wait
 
-RESULT=$(python3 - "$SEQ_OUT" <<'PY'
+RESULT=$(
+  python3 - "$SEQ_OUT" <<'PY'
 import sys
 from collections import Counter
 vals=[int(line.strip()) for line in open(sys.argv[1]) if line.strip()]
@@ -53,4 +54,5 @@ else
 fi
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

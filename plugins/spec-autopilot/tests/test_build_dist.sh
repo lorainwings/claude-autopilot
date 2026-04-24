@@ -56,10 +56,10 @@ mkdir -p \
   "$tmp_root/bin"
 
 cp "$BUILD_SCRIPT" "$tmp_plugin/tools/build-dist.sh"
-printf '#!/usr/bin/env bash\necho "collect metrics"\n' > "$tmp_plugin/runtime/scripts/collect-metrics.sh"
-printf 'collect-metrics.sh\n' > "$tmp_plugin/runtime/scripts/.dist-include"
+printf '#!/usr/bin/env bash\necho "collect metrics"\n' >"$tmp_plugin/runtime/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' >"$tmp_plugin/runtime/scripts/.dist-include"
 chmod +x "$tmp_plugin/tools/build-dist.sh" "$tmp_plugin/runtime/scripts/collect-metrics.sh"
-cat > "$tmp_plugin/hooks/hooks.json" <<'EOF'
+cat >"$tmp_plugin/hooks/hooks.json" <<'EOF'
 {
   "hooks": [
     {
@@ -73,11 +73,11 @@ cat > "$tmp_plugin/hooks/hooks.json" <<'EOF'
   ]
 }
 EOF
-printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$tmp_plugin/.claude-plugin/plugin.json"
-printf '# CLAUDE\n' > "$tmp_plugin/CLAUDE.md"
-printf '{ "name": "gui-fixture" }\n' > "$tmp_plugin/gui/package.json"
-printf '<!doctype html><title>fixture</title>\n' > "$tmp_plugin/gui-dist/index.html"
-cat > "$tmp_root/bin/bun" <<'EOF'
+printf '{ "name": "spec-autopilot", "version": "test" }\n' >"$tmp_plugin/.claude-plugin/plugin.json"
+printf '# CLAUDE\n' >"$tmp_plugin/CLAUDE.md"
+printf '{ "name": "gui-fixture" }\n' >"$tmp_plugin/gui/package.json"
+printf '<!doctype html><title>fixture</title>\n' >"$tmp_plugin/gui-dist/index.html"
+cat >"$tmp_root/bin/bun" <<'EOF'
 #!/usr/bin/env bash
 echo "bun should not be invoked when gui/node_modules is missing"
 exit 99
@@ -109,18 +109,18 @@ mkdir -p \
   "$fail_root/bin"
 
 cp "$BUILD_SCRIPT" "$fail_plugin/tools/build-dist.sh"
-printf '#!/usr/bin/env bash\necho "collect"\n' > "$fail_plugin/runtime/scripts/collect-metrics.sh"
-printf 'collect-metrics.sh\n' > "$fail_plugin/runtime/scripts/.dist-include"
+printf '#!/usr/bin/env bash\necho "collect"\n' >"$fail_plugin/runtime/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' >"$fail_plugin/runtime/scripts/.dist-include"
 chmod +x "$fail_plugin/tools/build-dist.sh" "$fail_plugin/runtime/scripts/collect-metrics.sh"
-cat > "$fail_plugin/hooks/hooks.json" <<'HEOF'
+cat >"$fail_plugin/hooks/hooks.json" <<'HEOF'
 { "hooks": [{ "hooks": [{ "type": "command", "command": "runtime/scripts/collect-metrics.sh" }] }] }
 HEOF
-printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$fail_plugin/.claude-plugin/plugin.json"
-printf '# CLAUDE\n' > "$fail_plugin/CLAUDE.md"
-printf '{ "name": "gui" }\n' > "$fail_plugin/gui/package.json"
-printf '<!doctype html><title>f</title>\n' > "$fail_plugin/gui-dist/index.html"
+printf '{ "name": "spec-autopilot", "version": "test" }\n' >"$fail_plugin/.claude-plugin/plugin.json"
+printf '# CLAUDE\n' >"$fail_plugin/CLAUDE.md"
+printf '{ "name": "gui" }\n' >"$fail_plugin/gui/package.json"
+printf '<!doctype html><title>f</title>\n' >"$fail_plugin/gui-dist/index.html"
 # Fake bun that FAILS the build
-cat > "$fail_root/bin/bun" <<'BEOF'
+cat >"$fail_root/bin/bun" <<'BEOF'
 #!/usr/bin/env bash
 if [[ "$*" == *"build"* ]]; then
   echo "TypeError: crypto.getRandomValues is not a function" >&2
@@ -155,19 +155,19 @@ mkdir -p \
 # NOTE: NO $fc_plugin/gui-dist — simulating fresh clone where it's gitignored
 
 cp "$BUILD_SCRIPT" "$fc_plugin/tools/build-dist.sh"
-printf '#!/usr/bin/env bash\necho "collect"\n' > "$fc_plugin/runtime/scripts/collect-metrics.sh"
-printf 'collect-metrics.sh\n' > "$fc_plugin/runtime/scripts/.dist-include"
+printf '#!/usr/bin/env bash\necho "collect"\n' >"$fc_plugin/runtime/scripts/collect-metrics.sh"
+printf 'collect-metrics.sh\n' >"$fc_plugin/runtime/scripts/.dist-include"
 chmod +x "$fc_plugin/tools/build-dist.sh" "$fc_plugin/runtime/scripts/collect-metrics.sh"
-cat > "$fc_plugin/hooks/hooks.json" <<'FCEOF'
+cat >"$fc_plugin/hooks/hooks.json" <<'FCEOF'
 { "hooks": [{ "hooks": [{ "type": "command", "command": "runtime/scripts/collect-metrics.sh" }] }] }
 FCEOF
-printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$fc_plugin/.claude-plugin/plugin.json"
-printf '# CLAUDE\n' > "$fc_plugin/CLAUDE.md"
-printf '{ "name": "gui" }\n' > "$fc_plugin/gui/package.json"
+printf '{ "name": "spec-autopilot", "version": "test" }\n' >"$fc_plugin/.claude-plugin/plugin.json"
+printf '# CLAUDE\n' >"$fc_plugin/CLAUDE.md"
+printf '{ "name": "gui" }\n' >"$fc_plugin/gui/package.json"
 # gui-dist ONLY exists in dist/ as assets/gui, not plugins/ (fresh-clone scenario)
-printf '<!doctype html><title>fc</title>\n' > "$fc_dist/assets/gui/index.html"
+printf '<!doctype html><title>fc</title>\n' >"$fc_dist/assets/gui/index.html"
 # Fake bun that can't build
-cat > "$fc_root/bin/bun" <<'FCBEOF'
+cat >"$fc_root/bin/bun" <<'FCBEOF'
 #!/usr/bin/env bash
 echo "bun not available in CI"
 exit 99
@@ -198,16 +198,16 @@ setup_neg_fixture() {
     "$plugin/tools" \
     "$root/bin"
   cp "$BUILD_SCRIPT" "$plugin/tools/build-dist.sh"
-  printf '#!/usr/bin/env bash\necho "stub"\n' > "$plugin/runtime/scripts/collect-metrics.sh"
+  printf '#!/usr/bin/env bash\necho "stub"\n' >"$plugin/runtime/scripts/collect-metrics.sh"
   chmod +x "$plugin/tools/build-dist.sh" "$plugin/runtime/scripts/collect-metrics.sh"
-  cat > "$plugin/hooks/hooks.json" <<'NEOF'
+  cat >"$plugin/hooks/hooks.json" <<'NEOF'
 { "hooks": [{ "hooks": [{ "type": "command", "command": "runtime/scripts/collect-metrics.sh" }] }] }
 NEOF
-  printf '{ "name": "spec-autopilot", "version": "test" }\n' > "$plugin/.claude-plugin/plugin.json"
-  printf '# CLAUDE\n' > "$plugin/CLAUDE.md"
-  printf '{ "name": "gui" }\n' > "$plugin/gui/package.json"
-  printf '<!doctype html><title>f</title>\n' > "$plugin/gui-dist/index.html"
-  cat > "$root/bin/bun" <<'NBEOF'
+  printf '{ "name": "spec-autopilot", "version": "test" }\n' >"$plugin/.claude-plugin/plugin.json"
+  printf '# CLAUDE\n' >"$plugin/CLAUDE.md"
+  printf '{ "name": "gui" }\n' >"$plugin/gui/package.json"
+  printf '<!doctype html><title>f</title>\n' >"$plugin/gui-dist/index.html"
+  cat >"$root/bin/bun" <<'NBEOF'
 #!/usr/bin/env bash
 echo "0.0.0-stub"
 NBEOF
@@ -230,7 +230,7 @@ rm -rf "$neg1_root"
 echo "  neg: manifest references nonexistent file"
 neg2_root=$(mktemp -d)
 neg2_plugin=$(setup_neg_fixture "$neg2_root")
-printf 'collect-metrics.sh\nnonexistent-script.sh\n' > "$neg2_plugin/runtime/scripts/.dist-include"
+printf 'collect-metrics.sh\nnonexistent-script.sh\n' >"$neg2_plugin/runtime/scripts/.dist-include"
 neg2_output=$(PATH="$neg2_root/bin:$PATH" bash "$neg2_plugin/tools/build-dist.sh" 2>&1)
 neg2_exit=$?
 assert_exit "NEG-2. nonexistent manifest entry → exit 1" 1 "$neg2_exit"
@@ -242,9 +242,9 @@ echo "  neg: hooks reference not in manifest"
 neg3_root=$(mktemp -d)
 neg3_plugin=$(setup_neg_fixture "$neg3_root")
 # manifest 只有 guard.sh，但 hooks.json 引用 collect-metrics.sh
-printf '#!/usr/bin/env bash\necho "guard"\n' > "$neg3_plugin/runtime/scripts/guard.sh"
+printf '#!/usr/bin/env bash\necho "guard"\n' >"$neg3_plugin/runtime/scripts/guard.sh"
 chmod +x "$neg3_plugin/runtime/scripts/guard.sh"
-printf 'guard.sh\n' > "$neg3_plugin/runtime/scripts/.dist-include"
+printf 'guard.sh\n' >"$neg3_plugin/runtime/scripts/.dist-include"
 neg3_output=$(PATH="$neg3_root/bin:$PATH" bash "$neg3_plugin/tools/build-dist.sh" 2>&1)
 neg3_exit=$?
 assert_exit "NEG-3. hooks script not in manifest → exit 1" 1 "$neg3_exit"

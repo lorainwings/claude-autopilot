@@ -21,7 +21,7 @@ create_test_repo() {
     git config user.email "test@test.com"
     git config user.name "Test"
 
-    echo "initial" > README.md
+    echo "initial" >README.md
     git add README.md
     git commit -q --no-verify -m "initial commit" 2>/dev/null
   ) >/dev/null 2>&1
@@ -43,20 +43,20 @@ ANCHOR_FILE1="$(dirname "$REPO1")/.anchor"
 
   # Create phase-results with 2 checkpoints
   mkdir -p openspec/changes/test-change/context/phase-results
-  echo '{"status":"ok","phase":5}' > openspec/changes/test-change/context/phase-results/phase-5-implementation.json
-  echo '{"status":"ok","phase":6}' > openspec/changes/test-change/context/phase-results/phase-6-test-report.json
+  echo '{"status":"ok","phase":5}' >openspec/changes/test-change/context/phase-results/phase-5-implementation.json
+  echo '{"status":"ok","phase":6}' >openspec/changes/test-change/context/phase-results/phase-6-test-report.json
 
   # Create 2 fixup commits (matching checkpoint count)
-  echo "impl code" > src.txt
+  echo "impl code" >src.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 5" 2>/dev/null
 
-  echo "test report" > report.txt
+  echo "test report" >report.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change — Phase 6" 2>/dev/null
 
   echo "$ANCHOR_SHA"
-) > "$ANCHOR_FILE1" 2>/dev/null
+) >"$ANCHOR_FILE1" 2>/dev/null
 
 ANCHOR1=$(cat "$ANCHOR_FILE1")
 OUTPUT1=$(bash "$SCRIPT" "$REPO1" "$ANCHOR1" "test-change" 2>/dev/null)
@@ -85,16 +85,16 @@ ANCHOR_FILE2="$(dirname "$REPO2")/.anchor"
 
   # Create 3 checkpoints but only 1 fixup
   mkdir -p openspec/changes/test-change2/context/phase-results
-  echo '{"status":"ok","phase":4}' > openspec/changes/test-change2/context/phase-results/phase-4-test-design.json
-  echo '{"status":"ok","phase":5}' > openspec/changes/test-change2/context/phase-results/phase-5-implementation.json
-  echo '{"status":"ok","phase":6}' > openspec/changes/test-change2/context/phase-results/phase-6-test-report.json
+  echo '{"status":"ok","phase":4}' >openspec/changes/test-change2/context/phase-results/phase-4-test-design.json
+  echo '{"status":"ok","phase":5}' >openspec/changes/test-change2/context/phase-results/phase-5-implementation.json
+  echo '{"status":"ok","phase":6}' >openspec/changes/test-change2/context/phase-results/phase-6-test-report.json
 
-  echo "some code" > code.txt
+  echo "some code" >code.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change2 — Phase 5" 2>/dev/null
 
   echo "$ANCHOR_SHA"
-) > "$ANCHOR_FILE2" 2>/dev/null
+) >"$ANCHOR_FILE2" 2>/dev/null
 
 ANCHOR2=$(cat "$ANCHOR_FILE2")
 OUTPUT2=$(bash "$SCRIPT" "$REPO2" "$ANCHOR2" "test-change2" 2>/dev/null)
@@ -118,20 +118,20 @@ ANCHOR_FILE3="$(dirname "$REPO3")/.anchor"
 
   # 1 checkpoint
   mkdir -p openspec/changes/test-change3/context/phase-results
-  echo '{"status":"ok","phase":5}' > openspec/changes/test-change3/context/phase-results/phase-5-implementation.json
+  echo '{"status":"ok","phase":5}' >openspec/changes/test-change3/context/phase-results/phase-5-implementation.json
 
   # 1 autopilot fixup
-  echo "impl" > impl.txt
+  echo "impl" >impl.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change3 — Phase 5" 2>/dev/null
 
   # 1 non-autopilot fixup (manual user fixup)
-  echo "manual fix" > manual.txt
+  echo "manual fix" >manual.txt
   git add -A 2>/dev/null
   git commit -q --no-verify -m "fixup! manual: user correction" 2>/dev/null
 
   echo "$ANCHOR_SHA"
-) > "$ANCHOR_FILE3" 2>/dev/null
+) >"$ANCHOR_FILE3" 2>/dev/null
 
 ANCHOR3=$(cat "$ANCHOR_FILE3")
 OUTPUT3=$(bash "$SCRIPT" "$REPO3" "$ANCHOR3" "test-change3" 2>/dev/null)
@@ -144,7 +144,7 @@ import json, sys
 data = json.load(sys.stdin)
 fixups = data.get('non_autopilot_fixups', [])
 print('yes' if len(fixups) > 0 else 'no')
-" <<< "$OUTPUT3" 2>/dev/null || echo "no")
+" <<<"$OUTPUT3" 2>/dev/null || echo "no")
 assert_contains "3b: non_autopilot_fixups non-empty" "$HAS_NON_AP" "yes"
 
 assert_contains "3c: fixup list contains manual" "$OUTPUT3" "fixup! manual"
@@ -164,16 +164,16 @@ ANCHOR_FILE4="$(dirname "$REPO4")/.anchor"
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/test-change4/context/phase-results
-  echo '{"status":"ok","phase":5}' > openspec/changes/test-change4/context/phase-results/phase-5-implementation.json
+  echo '{"status":"ok","phase":5}' >openspec/changes/test-change4/context/phase-results/phase-5-implementation.json
   mkdir -p openspec/changes
-  echo '{"change":"test-change4","anchor_sha":"deadbeef","session_id":"sess-4"}' > openspec/changes/.autopilot-active
+  echo '{"change":"test-change4","anchor_sha":"deadbeef","session_id":"sess-4"}' >openspec/changes/.autopilot-active
 
-  echo "impl" > impl.txt
+  echo "impl" >impl.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change4 — Phase 5" 2>/dev/null
 
   echo "$ANCHOR_SHA"
-) > "$ANCHOR_FILE4" 2>/dev/null
+) >"$ANCHOR_FILE4" 2>/dev/null
 
 OUTPUT4=$(bash "$SCRIPT" "$REPO4" "deadbeef1234567890deadbeef1234567890dead" "test-change4" 2>/dev/null)
 
@@ -196,18 +196,18 @@ ANCHOR_FILE5="$(dirname "$REPO5")/.anchor"
   ANCHOR_SHA=$(git rev-parse HEAD)
 
   mkdir -p openspec/changes/test-change5/context/phase-results
-  echo '{"status":"ok","phase":5}' > openspec/changes/test-change5/context/phase-results/phase-5-implementation.json
+  echo '{"status":"ok","phase":5}' >openspec/changes/test-change5/context/phase-results/phase-5-implementation.json
 
-  echo "impl" > impl.txt
+  echo "impl" >impl.txt
   git add -A 2>/dev/null
   git commit -q --no-verify --fixup="$ANCHOR_SHA" -m "fixup! autopilot: start test-change5 — Phase 5" 2>/dev/null
 
-  echo "manual fix" > manual.txt
+  echo "manual fix" >manual.txt
   git add -A 2>/dev/null
   git commit -q --no-verify -m "fixup! manual: user correction" 2>/dev/null
 
   echo "$ANCHOR_SHA"
-) > "$ANCHOR_FILE5" 2>/dev/null
+) >"$ANCHOR_FILE5" 2>/dev/null
 
 ANCHOR5=$(cat "$ANCHOR_FILE5")
 OUTPUT5=$(bash "$SCRIPT" "$REPO5" "$ANCHOR5" "test-change5" true 2>/dev/null)
@@ -228,4 +228,5 @@ assert_contains "6c: error mentions usage" "$OUTPUT6" "Usage"
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

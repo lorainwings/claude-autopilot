@@ -26,7 +26,7 @@ assert_json_field "1. new lockfile action" "$OUT" "action" "created"
 # 2. Overwrite stale lockfile (PID dead) -> status ok, action overwritten
 #    Write a lockfile with a PID that is certainly not alive (PID 2147483647)
 mkdir -p "$TMPDIR_TEST/openspec/changes"
-echo '{"change":"old","pid":2147483647,"session_id":"old-session"}' > "$TMPDIR_TEST/openspec/changes/.autopilot-active"
+echo '{"change":"old","pid":2147483647,"session_id":"old-session"}' >"$TMPDIR_TEST/openspec/changes/.autopilot-active"
 LOCK_JSON2='{"change":"feat-xyz","pid":99998,"started":"2026-02-01T00:00:00Z","session_cwd":"'"$TMPDIR_TEST"'","anchor_sha":"","session_id":"test-session-2","mode":"full"}'
 OUT2=$(bash "$SCRIPT_DIR/create-lockfile.sh" "$TMPDIR_TEST" "$LOCK_JSON2")
 assert_json_field "2. overwrite stale status" "$OUT2" "status" "ok"
@@ -51,7 +51,7 @@ echo "  -- update-anchor-sha.sh --"
 
 # 4. Update anchor_sha -> status ok, verify field updated
 mkdir -p "$TMPDIR_TEST/openspec/changes"
-echo '{"change":"feat-update","pid":12345,"anchor_sha":"","session_id":"s1"}' > "$TMPDIR_TEST/openspec/changes/.autopilot-active"
+echo '{"change":"feat-update","pid":12345,"anchor_sha":"","session_id":"s1"}' >"$TMPDIR_TEST/openspec/changes/.autopilot-active"
 LOCK_PATH="$TMPDIR_TEST/openspec/changes/.autopilot-active"
 OUT4=$(bash "$SCRIPT_DIR/update-anchor-sha.sh" "$LOCK_PATH" "abc123def")
 assert_json_field "4. update anchor status" "$OUT4" "status" "ok"
@@ -73,4 +73,5 @@ assert_contains "5. invalid path returns error" "$OUT5" '"status"'
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

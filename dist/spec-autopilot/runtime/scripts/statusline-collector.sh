@@ -74,6 +74,15 @@ except Exception:
 ' <<<"$STDIN_DATA" 2>/dev/null) || PROJECT_ROOT="$(resolve_project_root)"
 [ -n "$PROJECT_ROOT" ] || PROJECT_ROOT="$(resolve_project_root)"
 
+# --- Project-recognition guard: statusLine telemetry only in autopilot projects ---
+# Without this, any project with statusLine enabled would create
+# logs/sessions/<key>/raw/events.jsonl, leaking state outside autopilot projects.
+# Emit a terse status line (so the top bar isn't blank) but skip collection.
+if ! is_autopilot_project "$PROJECT_ROOT"; then
+  printf "[autopilot] idle"
+  exit 0
+fi
+
 # Pre-extract session_id and sanitize using shared _common.sh function
 SESSION_ID=$(python3 -c 'import json,sys; d=json.loads(sys.stdin.read()); v=d.get("session_id",""); print(v if isinstance(v,str) and v else "unknown")' <<<"$STDIN_DATA" 2>/dev/null) || SESSION_ID="unknown"
 SESSION_KEY=$(sanitize_session_key "$SESSION_ID")
@@ -124,7 +133,7 @@ record = {
     "transcript_path": get_any(data, "transcript_path"),
     "data": data,
 }
-with (raw_dir / "statusline.jsonl").open("a", encoding="utf-8") as fh:
+with (raw_dir / "events.jsonl").open("a", encoding="utf-8") as fh:
     fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 meta = {
@@ -167,22 +176,16 @@ PY
 printf "%s" "${STATUS_LINE:-[autopilot] telemetry}"
 
 # --- v5.4: Emit model_effective event if autopilot is active ---
-# Correlates by session_id + agent_id (from .active-agent-id marker).
+# Correlates by session_id + agent_id (from .active-agent-state.json).
 # Dedup marker written ONLY after successful emit to avoid lost events.
 # seed 模式下跳过 —— model=pending 不是真实观测值
 if [ "$SEED_MODE" != "true" ] && has_active_autopilot "$PROJECT_ROOT" 2>/dev/null; then
   _OBSERVED_MODEL=$(python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('model',''))" <<<"$STDIN_DATA" 2>/dev/null) || _OBSERVED_MODEL=""
   if [ -n "$_OBSERVED_MODEL" ]; then
-    # Resolve active agent_id for precise correlation in parallel scenarios
-    # MUST use the same path as auto-emit-agent-dispatch.sh writer:
-    #   get_session_agent_marker_file() → logs/.active-agent-session-{sanitized_key}
-    _ACTIVE_AGENT_ID=""
-    if [ -n "$SESSION_KEY" ]; then
-      _SESSION_AGENT_FILE="$PROJECT_ROOT/logs/.active-agent-session-${SESSION_KEY}"
-      [ -f "$_SESSION_AGENT_FILE" ] && _ACTIVE_AGENT_ID=$(head -1 "$_SESSION_AGENT_FILE" 2>/dev/null | tr -d '[:space:]') || true
-    fi
-    # Fallback to global marker only if session-scoped marker not found
-    [ -z "$_ACTIVE_AGENT_ID" ] && [ -f "$PROJECT_ROOT/logs/.active-agent-id" ] && _ACTIVE_AGENT_ID=$(head -1 "$PROJECT_ROOT/logs/.active-agent-id" 2>/dev/null | tr -d '[:space:]') || true
+    # Resolve active agent_id via consolidated state file (session → global fallback)
+    # shellcheck source=_agent_state.sh
+    source "$SCRIPT_DIR/_agent_state.sh"
+    _ACTIVE_AGENT_ID=$(agent_state_get_agent_id "$PROJECT_ROOT" "$SESSION_KEY" "")
 
     _EVENTS_FILE="$PROJECT_ROOT/logs/events.jsonl"
     if [ -f "$_EVENTS_FILE" ]; then

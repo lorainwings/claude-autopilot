@@ -35,7 +35,7 @@ STOP_EXIT=$?
 assert_exit "1a. --stop without PID file returns non-zero" 1 "$STOP_EXIT"
 
 # 创建假 PID 文件（进程不存在的 PID）
-echo "99999999" > "$TMP_DIR/logs/.gui-server.pid"
+echo "99999999" >"$TMP_DIR/logs/.gui-server.pid"
 bash "$SCRIPT" --stop "$TMP_DIR" >/dev/null 2>&1
 STOP_EXIT2=$?
 assert_exit "1b. --stop with stale PID returns non-zero" 1 "$STOP_EXIT2"
@@ -171,8 +171,8 @@ else
 fi
 
 # 4d. 健康端点区分 http/ws/telemetry/transcript (TypeScript 对象键无引号)
-if grep -q 'http:' "$ROUTES_FILE" && grep -q 'ws:' "$ROUTES_FILE" && \
-   grep -q 'telemetry:' "$ROUTES_FILE" && grep -q 'transcript:' "$ROUTES_FILE"; then
+if grep -q 'http:' "$ROUTES_FILE" && grep -q 'ws:' "$ROUTES_FILE" &&
+  grep -q 'telemetry:' "$ROUTES_FILE" && grep -q 'transcript:' "$ROUTES_FILE"; then
   green "  PASS: 4d. health endpoint distinguishes http/ws/telemetry/transcript"
   PASS=$((PASS + 1))
 else

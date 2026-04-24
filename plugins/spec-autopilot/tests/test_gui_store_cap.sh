@@ -25,7 +25,7 @@ fi
 TMPFILE="$GUI_DIR/_test_cap_$$.ts"
 trap 'rm -f "$TMPFILE"' EXIT
 
-cat > "$TMPFILE" << 'TSEOF'
+cat >"$TMPFILE" <<'TSEOF'
 import { useStore } from "./src/store/index.ts";
 
 // Helper to create mock events

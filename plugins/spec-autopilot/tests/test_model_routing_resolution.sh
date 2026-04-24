@@ -13,7 +13,7 @@ setup_autopilot_fixture
 # ── 工具函数 ──
 extract_json_field() {
   local json="$1" field="$2"
-  python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" <<< "$json" 2>/dev/null || echo ""
+  python3 -c "import json,sys; print(json.load(sys.stdin).get('$field',''))" <<<"$json" 2>/dev/null || echo ""
 }
 
 # =============================================================================
@@ -67,7 +67,7 @@ LEGACY_ROOT=$(mktemp -d)
 mkdir -p "$LEGACY_ROOT/.claude"
 
 # B1. 旧格式 heavy/light 不再映射，会走 fallback（因为不在 TIER_MODEL_MAP 中）
-cat > "$LEGACY_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$LEGACY_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   phase_1: heavy
@@ -131,7 +131,7 @@ rm -rf "$LEGACY_ROOT"
 # B3. 环境变量覆盖测试
 ENV_ROOT=$(mktemp -d)
 mkdir -p "$ENV_ROOT/.claude"
-cat > "$ENV_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$ENV_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -186,7 +186,7 @@ rm -rf "$ENV_ROOT"
 # B3c. AUTOPILOT_PHASE1_EFFORT=low 单独覆盖 effort（不设 MODEL）
 ENV_ROOT2=$(mktemp -d)
 mkdir -p "$ENV_ROOT2/.claude"
-cat > "$ENV_ROOT2/.claude/autopilot.config.yaml" <<YAML
+cat >"$ENV_ROOT2/.claude/autopilot.config.yaml" <<YAML
 model_routing:
   enabled: true
   phases:
@@ -213,7 +213,7 @@ rm -rf "$ENV_ROOT2"
 # B3d. tier=auto + AUTOPILOT_PHASE1_EFFORT=low → effort 应被覆盖为 low
 ENV_ROOT3=$(mktemp -d)
 mkdir -p "$ENV_ROOT3/.claude"
-cat > "$ENV_ROOT3/.claude/autopilot.config.yaml" <<YAML
+cat >"$ENV_ROOT3/.claude/autopilot.config.yaml" <<YAML
 model_routing:
   enabled: true
   phases:
@@ -244,7 +244,7 @@ echo "--- C. 新格式对象化配置 ---"
 NEW_ROOT=$(mktemp -d)
 mkdir -p "$NEW_ROOT/.claude"
 
-cat > "$NEW_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$NEW_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -322,7 +322,7 @@ BAD_ROOT=$(mktemp -d)
 mkdir -p "$BAD_ROOT/.claude"
 
 # D1. 无效 tier 值
-cat > "$BAD_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$BAD_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -363,7 +363,7 @@ assert_contains "D1. model_routing_errors 包含 turbo" "$output" "turbo"
 assert_contains "D1. model_routing_errors 包含 gpt4" "$output" "gpt4"
 
 # D2. 无效顶层字符串
-cat > "$BAD_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$BAD_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing: turbo
 services: {}
@@ -437,7 +437,7 @@ echo "--- G. auto 继承父会话 ---"
 AUTO_ROOT=$(mktemp -d)
 mkdir -p "$AUTO_ROOT/.claude"
 
-cat > "$AUTO_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$AUTO_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   phase_1: auto
@@ -472,7 +472,7 @@ output=$(bash "$SCRIPT_DIR/resolve-model-routing.sh" "$AUTO_ROOT" 2 2>/dev/null)
 assert_json_field "G2. deep -> selected_tier=deep" "$output" "selected_tier" "deep"
 
 # G3. 新格式 auto
-cat > "$AUTO_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$AUTO_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -514,7 +514,7 @@ echo "--- H. fallback_model ---"
 FB_ROOT=$(mktemp -d)
 mkdir -p "$FB_ROOT/.claude"
 
-cat > "$FB_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$FB_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -549,7 +549,7 @@ assert_json_field "H1. fallback -> haiku" "$output" "selected_model" "haiku"
 assert_json_field "H1. fallback tier -> fast" "$output" "selected_tier" "fast"
 
 # H2. 无 fallback_model + 无效 tier -> 硬回退 sonnet
-cat > "$FB_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$FB_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -591,7 +591,7 @@ echo "--- I. Regex fallback 嵌套解析 ---"
 RGX_ROOT=$(mktemp -d)
 mkdir -p "$RGX_ROOT/.claude"
 
-cat > "$RGX_ROOT/.claude/autopilot.config.yaml" << 'YAML'
+cat >"$RGX_ROOT/.claude/autopilot.config.yaml" <<'YAML'
 version: "1.0"
 model_routing:
   enabled: true
@@ -712,4 +712,5 @@ rm -rf "$RGX_ROOT"
 teardown_autopilot_fixture
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

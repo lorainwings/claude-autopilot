@@ -61,17 +61,29 @@ evaluate_search_policy() {
   local req="$1"
   local force_kws="竞品 产品 UX 交互 体验 新功能 升级 迁移 安全 auth 加密 CORS XSS JWT migration"
   for kw in $force_kws; do
-    if grep -qi "$kw" <<< "$req"; then echo "search"; return; fi
+    if grep -qi "$kw" <<<"$req"; then
+      echo "search"
+      return
+    fi
   done
   local skip_kws="修复 fix 重构 refactor 样式 style bugfix"
   local is_internal=false
   for kw in $skip_kws; do
-    if grep -qi "$kw" <<< "$req"; then is_internal=true; break; fi
+    if grep -qi "$kw" <<<"$req"; then
+      is_internal=true
+      break
+    fi
   done
-  if [ "$is_internal" = false ]; then echo "search"; return; fi
+  if [ "$is_internal" = false ]; then
+    echo "search"
+    return
+  fi
   local new_kws="新依赖 新库 引入 integrate 新模式"
   for kw in $new_kws; do
-    if grep -qi "$kw" <<< "$req"; then echo "search"; return; fi
+    if grep -qi "$kw" <<<"$req"; then
+      echo "search"
+      return
+    fi
   done
   echo "skip"
 }
@@ -125,4 +137,5 @@ assert_contains "52y: P1 envelope has search_decision field" "$p1_envelope" 'sea
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

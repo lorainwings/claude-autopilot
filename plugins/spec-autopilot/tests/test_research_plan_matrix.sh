@@ -102,7 +102,7 @@ assert_exit "missing project-type exit 2" 2 "$?"
 
 # --- (12) output is valid JSON (python-parseable) ---
 OUT=$(run_plan ambiguous brownfield)
-if python3 -c "import json,sys;json.loads(sys.stdin.read())" <<< "$OUT" >/dev/null 2>&1; then
+if python3 -c "import json,sys;json.loads(sys.stdin.read())" <<<"$OUT" >/dev/null 2>&1; then
   green "  PASS: output is valid JSON"
   PASS=$((PASS + 1))
 else

@@ -45,7 +45,7 @@ mkdir -p "$TMP2/.claude"
 touch "$TMP2/.claude/autopilot.config.yaml"
 
 # Write a stale config with a non-existent absolute path
-cat > "$TMP2/.claude/settings.local.json" <<'STALE'
+cat >"$TMP2/.claude/settings.local.json" <<'STALE'
 {
   "statusLine": {
     "type": "command",
@@ -79,7 +79,7 @@ touch "$TMP3/.claude/autopilot.config.yaml"
 
 # Write a valid config pointing to the actual collector script
 REAL_COLLECTOR="$SCRIPT_DIR/statusline-collector.sh"
-cat > "$TMP3/.claude/settings.local.json" <<VALID
+cat >"$TMP3/.claude/settings.local.json" <<VALID
 {
   "statusLine": {
     "type": "command",
@@ -118,7 +118,7 @@ mkdir -p "$TMP4/.claude"
 touch "$TMP4/.claude/autopilot.config.yaml"
 
 # Write config with env var format (path may not exist locally, but that's OK)
-cat > "$TMP4/.claude/settings.local.json" <<'ENVVAR'
+cat >"$TMP4/.claude/settings.local.json" <<'ENVVAR'
 {
   "statusLine": {
     "type": "command",
@@ -146,4 +146,5 @@ fi
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

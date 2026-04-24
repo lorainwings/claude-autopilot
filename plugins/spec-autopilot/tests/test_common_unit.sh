@@ -17,7 +17,7 @@ trap "rm -rf $COMMON_TEST_DIR" EXIT
 source "$SCRIPT_DIR/_common.sh"
 
 # 19a. parse_lock_file with JSON format
-echo '{"change":"my-feature","pid":"12345","started":"2026-01-01T00:00:00Z"}' > "$COMMON_TEST_DIR/lock.json"
+echo '{"change":"my-feature","pid":"12345","started":"2026-01-01T00:00:00Z"}' >"$COMMON_TEST_DIR/lock.json"
 result=$(parse_lock_file "$COMMON_TEST_DIR/lock.json")
 if [ "$result" = "my-feature" ]; then
   green "  PASS: parse_lock_file JSON format"
@@ -28,7 +28,7 @@ else
 fi
 
 # 19b. parse_lock_file with legacy plain text
-echo "legacy-change-name" > "$COMMON_TEST_DIR/lock.txt"
+echo "legacy-change-name" >"$COMMON_TEST_DIR/lock.txt"
 result=$(parse_lock_file "$COMMON_TEST_DIR/lock.txt")
 if [ "$result" = "legacy-change-name" ]; then
   green "  PASS: parse_lock_file legacy plain text"
@@ -39,7 +39,7 @@ else
 fi
 
 # 19c. parse_lock_file with invalid/empty file
-echo "" > "$COMMON_TEST_DIR/lock_empty.txt"
+echo "" >"$COMMON_TEST_DIR/lock_empty.txt"
 result=$(parse_lock_file "$COMMON_TEST_DIR/lock_empty.txt")
 if [ -z "$result" ]; then
   green "  PASS: parse_lock_file empty file returns empty"
@@ -64,9 +64,9 @@ fi
 # 19e. find_active_change with lock file priority
 mkdir -p "$COMMON_TEST_DIR/changes/feature-a"
 mkdir -p "$COMMON_TEST_DIR/changes/feature-b"
-echo '{"change":"feature-a"}' > "$COMMON_TEST_DIR/changes/.autopilot-active"
+echo '{"change":"feature-a"}' >"$COMMON_TEST_DIR/changes/.autopilot-active"
 result=$(find_active_change "$COMMON_TEST_DIR/changes")
-if grep -q "feature-a" <<< "$result"; then
+if grep -q "feature-a" <<<"$result"; then
   green "  PASS: find_active_change lock file priority"
   PASS=$((PASS + 1))
 else
@@ -88,7 +88,7 @@ fi
 mkdir -p "$COMMON_TEST_DIR/changes2/_archived"
 mkdir -p "$COMMON_TEST_DIR/changes2/real-change"
 result=$(find_active_change "$COMMON_TEST_DIR/changes2")
-if grep -q "real-change" <<< "$result"; then
+if grep -q "real-change" <<<"$result"; then
   green "  PASS: find_active_change excludes _prefix"
   PASS=$((PASS + 1))
 else
@@ -98,7 +98,7 @@ fi
 
 # 19h. read_checkpoint_status with all statuses
 for status_val in ok warning blocked failed; do
-  echo "{\"status\":\"$status_val\"}" > "$COMMON_TEST_DIR/ckpt_${status_val}.json"
+  echo "{\"status\":\"$status_val\"}" >"$COMMON_TEST_DIR/ckpt_${status_val}.json"
   result=$(read_checkpoint_status "$COMMON_TEST_DIR/ckpt_${status_val}.json")
   if [ "$result" = "$status_val" ]; then
     green "  PASS: read_checkpoint_status '$status_val'"
@@ -110,7 +110,7 @@ for status_val in ok warning blocked failed; do
 done
 
 # 19i. read_checkpoint_status with invalid JSON
-echo "not json at all" > "$COMMON_TEST_DIR/ckpt_bad.json"
+echo "not json at all" >"$COMMON_TEST_DIR/ckpt_bad.json"
 result=$(read_checkpoint_status "$COMMON_TEST_DIR/ckpt_bad.json")
 if [ "$result" = "error" ]; then
   green "  PASS: read_checkpoint_status invalid JSON returns error"
@@ -122,9 +122,9 @@ fi
 
 # 19j. find_checkpoint
 mkdir -p "$COMMON_TEST_DIR/phase-results"
-echo '{"status":"ok"}' > "$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
+echo '{"status":"ok"}' >"$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
 result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
-if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<<"$result"; then
   green "  PASS: find_checkpoint finds phase-3"
   PASS=$((PASS + 1))
 else
@@ -143,12 +143,12 @@ else
 fi
 
 # 19k2. find_checkpoint excludes -progress.json
-echo '{"status":"in_progress"}' > "$COMMON_TEST_DIR/phase-results/phase-3-progress.json"
+echo '{"status":"in_progress"}' >"$COMMON_TEST_DIR/phase-results/phase-3-progress.json"
 # 让 progress 文件比正式 checkpoint 更新
 sleep 0.1
 touch "$COMMON_TEST_DIR/phase-results/phase-3-progress.json"
 result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
-if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<<"$result"; then
   green "  PASS: find_checkpoint excludes -progress.json"
   PASS=$((PASS + 1))
 else
@@ -157,9 +157,9 @@ else
 fi
 
 # 19k3. find_checkpoint excludes -interim.json
-echo '{"status":"partial"}' > "$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
+echo '{"status":"partial"}' >"$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
 result=$(find_checkpoint "$COMMON_TEST_DIR/phase-results" 3)
-if [ -n "$result" ] && grep -q "phase-3-ff.json" <<< "$result"; then
+if [ -n "$result" ] && grep -q "phase-3-ff.json" <<<"$result"; then
   green "  PASS: find_checkpoint excludes -interim.json"
   PASS=$((PASS + 1))
 else
@@ -178,13 +178,13 @@ else
   FAIL=$((FAIL + 1))
 fi
 # 恢复 ff.json 供后续测试使用
-echo '{"status":"ok"}' > "$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
+echo '{"status":"ok"}' >"$COMMON_TEST_DIR/phase-results/phase-3-ff.json"
 rm -f "$COMMON_TEST_DIR/phase-results/phase-3-progress.json" "$COMMON_TEST_DIR/phase-results/phase-3-interim.json"
 
 # 19l. scan_all_checkpoints returns JSON array with correct statuses
 mkdir -p "$COMMON_TEST_DIR/scan-results"
-echo '{"status":"ok"}' > "$COMMON_TEST_DIR/scan-results/phase-1-requirements.json"
-echo '{"status":"warning"}' > "$COMMON_TEST_DIR/scan-results/phase-2-openspec.json"
+echo '{"status":"ok"}' >"$COMMON_TEST_DIR/scan-results/phase-1-requirements.json"
+echo '{"status":"warning"}' >"$COMMON_TEST_DIR/scan-results/phase-2-openspec.json"
 result=$(scan_all_checkpoints "$COMMON_TEST_DIR/scan-results" "full")
 if echo "$result" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d[0]['status']=='ok' and d[0]['phase']==1" 2>/dev/null; then
   green "  PASS: scan_all_checkpoints phase-1 status=ok"
@@ -237,7 +237,7 @@ else
 fi
 
 # 19q. validate_checkpoint_integrity with valid checkpoint
-echo '{"status":"ok","summary":"test"}' > "$COMMON_TEST_DIR/ckpt_valid.json"
+echo '{"status":"ok","summary":"test"}' >"$COMMON_TEST_DIR/ckpt_valid.json"
 if validate_checkpoint_integrity "$COMMON_TEST_DIR/ckpt_valid.json"; then
   green "  PASS: validate_checkpoint_integrity valid checkpoint"
   PASS=$((PASS + 1))
@@ -247,7 +247,7 @@ else
 fi
 
 # 19r. validate_checkpoint_integrity removes corrupted file
-echo "not valid json" > "$COMMON_TEST_DIR/ckpt_corrupt.json"
+echo "not valid json" >"$COMMON_TEST_DIR/ckpt_corrupt.json"
 validate_checkpoint_integrity "$COMMON_TEST_DIR/ckpt_corrupt.json" 2>/dev/null
 if [ ! -f "$COMMON_TEST_DIR/ckpt_corrupt.json" ]; then
   green "  PASS: validate_checkpoint_integrity removes corrupted file"
@@ -258,8 +258,8 @@ else
 fi
 
 # 19s. validate_checkpoint_integrity cleans up .tmp files
-echo '{"status":"ok"}' > "$COMMON_TEST_DIR/ckpt_withtmp.json"
-echo "temp" > "$COMMON_TEST_DIR/ckpt_withtmp.tmp"
+echo '{"status":"ok"}' >"$COMMON_TEST_DIR/ckpt_withtmp.json"
+echo "temp" >"$COMMON_TEST_DIR/ckpt_withtmp.tmp"
 validate_checkpoint_integrity "$COMMON_TEST_DIR/ckpt_withtmp.json" 2>/dev/null
 if [ ! -f "$COMMON_TEST_DIR/ckpt_withtmp.tmp" ]; then
   green "  PASS: validate_checkpoint_integrity cleans .tmp"
@@ -319,7 +319,7 @@ fi
 rm -rf "$SEQ_TEST_DIR"
 
 # 19w. read_lock_json_field extracts field from JSON lock file
-echo '{"change":"my-feat","mode":"lite","anchor_sha":"abc123"}' > "$COMMON_TEST_DIR/lock_fields.json"
+echo '{"change":"my-feat","mode":"lite","anchor_sha":"abc123"}' >"$COMMON_TEST_DIR/lock_fields.json"
 result=$(read_lock_json_field "$COMMON_TEST_DIR/lock_fields.json" "mode")
 if [ "$result" = "lite" ]; then
   green "  PASS: read_lock_json_field extracts mode"
@@ -342,10 +342,10 @@ fi
 # 19y. get_last_valid_phase gap detection — Phase 3 missing, Phase 4 ok → returns 2
 GAP_TEST_DIR=$(mktemp -d)
 mkdir -p "$GAP_TEST_DIR/phase-results"
-echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-1-requirements.json"
-echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-2-openspec.json"
+echo '{"status":"ok"}' >"$GAP_TEST_DIR/phase-results/phase-1-requirements.json"
+echo '{"status":"ok"}' >"$GAP_TEST_DIR/phase-results/phase-2-openspec.json"
 # Phase 3 deliberately missing
-echo '{"status":"ok"}' > "$GAP_TEST_DIR/phase-results/phase-4-testing.json"
+echo '{"status":"ok"}' >"$GAP_TEST_DIR/phase-results/phase-4-testing.json"
 result=$(get_last_valid_phase "$GAP_TEST_DIR/phase-results" "full")
 if [ "$result" = "2" ]; then
   green "  PASS: 19y. gap detection — returns 2 (stops at missing Phase 3)"
@@ -359,7 +359,7 @@ rm -rf "$GAP_TEST_DIR"
 # 19z. validate_checkpoint_integrity creates .corrupted-backups/
 CORRUPT_TEST_DIR=$(mktemp -d)
 mkdir -p "$CORRUPT_TEST_DIR/phase-results"
-echo "not valid json" > "$CORRUPT_TEST_DIR/phase-results/bad-checkpoint.json"
+echo "not valid json" >"$CORRUPT_TEST_DIR/phase-results/bad-checkpoint.json"
 validate_checkpoint_integrity "$CORRUPT_TEST_DIR/phase-results/bad-checkpoint.json" 2>/dev/null
 if [ -d "$CORRUPT_TEST_DIR/phase-results/.corrupted-backups" ]; then
   green "  PASS: 19z. corrupted checkpoint backed up to .corrupted-backups/"
@@ -434,7 +434,7 @@ echo "  resolve_active_change_dir tests"
 # 19ae. Returns active change directory
 RACD_TMPDIR=$(mktemp -d)
 mkdir -p "$RACD_TMPDIR/openspec/changes/my-feature/context/phase-results"
-echo '{"change":"my-feature"}' > "$RACD_TMPDIR/openspec/changes/.autopilot-active"
+echo '{"change":"my-feature"}' >"$RACD_TMPDIR/openspec/changes/.autopilot-active"
 export AUTOPILOT_PROJECT_ROOT="$RACD_TMPDIR"
 result=$(resolve_active_change_dir)
 if [ "$result" = "$RACD_TMPDIR/openspec/changes/my-feature" ]; then
@@ -463,4 +463,5 @@ rm -rf "$RACD_TMPDIR2"
 
 teardown_autopilot_fixture
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

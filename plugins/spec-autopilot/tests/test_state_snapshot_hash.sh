@@ -41,7 +41,7 @@ add_snapshot_change() {
       7) slug="summary" ;;
       *) slug="unknown" ;;
     esac
-    echo "{\"status\":\"$status\",\"summary\":\"Phase $phase done\"}" > "$pr/phase-${phase}-${slug}.json"
+    echo "{\"status\":\"$status\",\"summary\":\"Phase $phase done\"}" >"$pr/phase-${phase}-${slug}.json"
   done
 }
 
@@ -50,7 +50,7 @@ echo "  1. Compact generates state-snapshot.json"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-snap" "1:ok" "2:ok"
 echo '{"change":"feat-snap","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z","anchor_sha":"abc123"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-snap/context/state-snapshot.json"
 if [ -f "$SNAP_FILE" ]; then
@@ -67,7 +67,7 @@ echo "  2. Snapshot contains all required control fields"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-fields" "1:ok" "2:ok" "3:ok"
 echo '{"change":"feat-fields","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z","anchor_sha":"def456"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-fields/context/state-snapshot.json"
 if [ -f "$SNAP_FILE" ]; then
@@ -126,7 +126,7 @@ echo "  3. Snapshot hash self-consistency"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-hash" "1:ok" "2:ok"
 echo '{"change":"feat-hash","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-hash/context/state-snapshot.json"
 HASH_CHECK=$(python3 -c "
@@ -156,7 +156,7 @@ echo "  4. Tampered snapshot → hash mismatch"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-tamper" "1:ok" "2:ok"
 echo '{"change":"feat-tamper","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-tamper/context/state-snapshot.json"
 # Tamper: change gate_frontier
@@ -195,18 +195,18 @@ echo "  5. Reinject uses state-snapshot.json when available"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-reinject" "1:ok" "2:ok"
 echo '{"change":"feat-reinject","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z","anchor_sha":"abc"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 # Now run reinject from that dir
 REINJECT_OUTPUT=$(cd "$TMPDIR" && bash "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null)
-if grep -q "STRUCTURED" <<< "$REINJECT_OUTPUT"; then
+if grep -q "STRUCTURED" <<<"$REINJECT_OUTPUT"; then
   green "  PASS: 5a. reinject uses structured path"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 5a. reinject did not use structured path"
   FAIL=$((FAIL + 1))
 fi
-if grep -q "verified" <<< "$REINJECT_OUTPUT"; then
+if grep -q "verified" <<<"$REINJECT_OUTPUT"; then
   green "  PASS: 5b. reinject shows hash verified"
   PASS=$((PASS + 1))
 else
@@ -220,7 +220,7 @@ echo "  6. Reinject fallback to markdown on tampered snapshot"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-fallback" "1:ok" "2:ok"
 echo '{"change":"feat-fallback","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 # Tamper the snapshot
 SNAP_FILE="$TMPDIR/openspec/changes/feat-fallback/context/state-snapshot.json"
@@ -233,14 +233,14 @@ with open(sys.argv[1], 'w') as f:
     json.dump(data, f)
 " "$SNAP_FILE" 2>/dev/null
 REINJECT_OUTPUT=$(cd "$TMPDIR" && bash "$SCRIPT_DIR/reinject-state-after-compact.sh" 2>/dev/null)
-if grep -q "LEGACY" <<< "$REINJECT_OUTPUT"; then
+if grep -q "LEGACY" <<<"$REINJECT_OUTPUT"; then
   green "  PASS: 6a. reinject falls back to legacy on tampered snapshot"
   PASS=$((PASS + 1))
 else
   red "  FAIL: 6a. reinject did not fall back to legacy"
   FAIL=$((FAIL + 1))
 fi
-if grep -q "hash verification" <<< "$REINJECT_OUTPUT"; then
+if grep -q "hash verification" <<<"$REINJECT_OUTPUT"; then
   green "  PASS: 6b. reinject warns about hash verification failure"
   PASS=$((PASS + 1))
 else
@@ -254,7 +254,7 @@ echo "  7. Recovery decision includes state_snapshot"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-rd" "1:ok" "2:ok"
 echo '{"change":"feat-rd","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 OUTPUT=$(bash "$SCRIPT_DIR/recovery-decision.sh" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 SNAP_EXISTS=$(echo "$OUTPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); c=[x for x in d['changes'] if x['name']=='feat-rd'][0]; ss=c.get('state_snapshot',{}); print(ss.get('exists',False))" 2>/dev/null)
@@ -280,7 +280,7 @@ echo "  8. Recovery uses snapshot for high-confidence resume"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-conf" "1:ok" "2:ok"
 echo '{"change":"feat-conf","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 OUTPUT=$(bash "$SCRIPT_DIR/recovery-decision.sh" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 REASON=$(echo "$OUTPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('recovery_reason',''))" 2>/dev/null)
@@ -306,7 +306,7 @@ echo "  9. Tampered snapshot → recovery_confidence=low (fail-closed)"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-fc" "1:ok" "2:ok"
 echo '{"change":"feat-fc","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 # Tamper the snapshot
 SNAP_FILE="$TMPDIR/openspec/changes/feat-fc/context/state-snapshot.json"
@@ -348,7 +348,7 @@ echo "  10. Requirement packet hash computed"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-rph" "1:ok" "2:ok"
 echo '{"change":"feat-rph","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-rph/context/state-snapshot.json"
 RPH=$(python3 -c "import json; d=json.load(open('$SNAP_FILE')); print(d.get('requirement_packet_hash',''))" 2>/dev/null)
@@ -400,7 +400,7 @@ echo "  12. Clean artifacts removes state-snapshot.json"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-clean" "1:ok" "2:ok"
 echo '{"change":"feat-clean","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 SNAP_FILE="$TMPDIR/openspec/changes/feat-clean/context/state-snapshot.json"
 STATE_MD="$TMPDIR/openspec/changes/feat-clean/context/autopilot-state.md"
@@ -427,7 +427,7 @@ echo "  13. Recovery decision outputs v6.0 enhanced fields"
 TMPDIR=$(setup_snapshot_test)
 add_snapshot_change "$TMPDIR" "feat-v6" "1:ok" "2:ok"
 echo '{"change":"feat-v6","mode":"full","pid":"99999","started":"2026-01-01T00:00:00Z"}' \
-  > "$TMPDIR/openspec/changes/.autopilot-active"
+  >"$TMPDIR/openspec/changes/.autopilot-active"
 echo '{"cwd":"'"$TMPDIR"'"}' | bash "$SCRIPT_DIR/save-state-before-compact.sh" 2>/dev/null
 OUTPUT=$(bash "$SCRIPT_DIR/recovery-decision.sh" "$TMPDIR/openspec/changes" "full" 2>/dev/null)
 V6_FIELDS=$(echo "$OUTPUT" | python3 -c "
@@ -455,4 +455,5 @@ fi
 rm -rf "$TMPDIR"
 
 echo "Results: $PASS passed, $FAIL failed"
-[ "$FAIL" -gt 0 ] && exit 1; exit 0
+[ "$FAIL" -gt 0 ] && exit 1
+exit 0

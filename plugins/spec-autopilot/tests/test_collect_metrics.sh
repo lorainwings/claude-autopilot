@@ -15,7 +15,7 @@ setup_metrics_project() {
   local phase_results="$change_dir/context/phase-results"
 
   mkdir -p "$phase_results"
-  cat > "$project_root/openspec/changes/.autopilot-active" <<'EOF'
+  cat >"$project_root/openspec/changes/.autopilot-active" <<'EOF'
 {"change":"test-feature","mode":"full","session_id":"metrics-test"}
 EOF
 
@@ -27,19 +27,19 @@ echo "--- collect-metrics latest checkpoint selection ---"
 PROJECT_ROOT=$(setup_metrics_project)
 PHASE_RESULTS="$PROJECT_ROOT/openspec/changes/test-feature/context/phase-results"
 
-cat > "$PHASE_RESULTS/phase-5-zeta.json" <<'EOF'
+cat >"$PHASE_RESULTS/phase-5-zeta.json" <<'EOF'
 {"status":"warning","_metrics":{"duration_seconds":7,"retry_count":1}}
 EOF
-cat > "$PHASE_RESULTS/phase-5-alpha.json" <<'EOF'
+cat >"$PHASE_RESULTS/phase-5-alpha.json" <<'EOF'
 {"status":"ok","_metrics":{"duration_seconds":42,"retry_count":3}}
 EOF
 touch -t 202601010101 "$PHASE_RESULTS/phase-5-zeta.json"
 touch -t 202601010102 "$PHASE_RESULTS/phase-5-alpha.json"
 
-cat > "$PHASE_RESULTS/phase-6.5-zeta.json" <<'EOF'
+cat >"$PHASE_RESULTS/phase-6.5-zeta.json" <<'EOF'
 {"status":"warning","_metrics":{"duration_seconds":5,"retry_count":0}}
 EOF
-cat > "$PHASE_RESULTS/phase-6.5-alpha.json" <<'EOF'
+cat >"$PHASE_RESULTS/phase-6.5-alpha.json" <<'EOF'
 {"status":"ok","_metrics":{"duration_seconds":17,"retry_count":0}}
 EOF
 touch -t 202601010101 "$PHASE_RESULTS/phase-6.5-zeta.json"
