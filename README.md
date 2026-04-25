@@ -14,6 +14,7 @@
 | [spec-autopilot](plugins/spec-autopilot/) | 5.15.0 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.9.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
+| [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
 
 ## Quick Install
 
@@ -30,7 +31,10 @@ claude plugin install parallel-harness@lorainwings-plugins --scope project
 # 4. Install daily-report (project-level)
 claude plugin install daily-report@lorainwings-plugins --scope project
 
-# 5. Restart Claude Code
+# 5. Install figma-handoff (project-level)
+claude plugin install figma-handoff@lorainwings-plugins --scope project
+
+# 6. Restart Claude Code
 ```
 
 ## What is spec-autopilot?
@@ -140,6 +144,27 @@ runtime/
 ```
 Phase 0: Init (first run) → Phase 1: Env Check → Phase 2: Collect (5-way parallel)
     → Phase 3: Generate + Review → Phase 4: Batch Submit
+```
+
+## What is figma-handoff?
+
+**figma-handoff** is a Claude Code Skill plugin that turns Figma design handoff into an objective, falsifiable pipeline. It solves the common "Figma MCP output looks similar but wrong" problem by enforcing pixel-diff hard gates instead of subjective visual review.
+
+### Key Features
+
+- **Forced Spec Acquisition** — Strict 5-step Figma MCP order (metadata → variables → code-connect → design-context → screenshot); skipping any step fails the gate
+- **Three Mapping Tables** — `tokens.md` / `node-map.md` / `component-policy.md` enforced before any code is written, with 100% token coverage requirement
+- **Translation Rules** — Stack-agnostic rules to translate React+Tailwind reference into the project stack (Vue/Vant, Element Plus, etc.)
+- **Pixel-Diff Hard Gate** — pixelmatch-based objective comparison (≤ 0.5% diff threshold) replacing subjective visual review
+- **Three-Step Iteration** — Static skeleton → data → interaction; each step independently gated by diff
+- **Independent Review** — Main agent forbidden from self-approving; review subagent dispatched in parallel
+- **Stack-Agnostic Skeleton** — `SKILL.md` is vendor-neutral; per-stack details live in `references/vendor-*.md`
+
+### Workflow
+
+```
+Stage 0 Spec → Stage 1 Mapping Tables → Stage 2 Translation (skeleton/data/interaction)
+    → Stage 3 Pixel Diff → Stage 4 Independent Review
 ```
 
 ## Documentation

@@ -165,6 +165,34 @@ if [ -n "$PH_SUBSTANTIVE" ]; then
 fi
 
 # ============================================
+# Part 3.5: figma-handoff 构建脚本 shellcheck（< 1s）
+# ============================================
+FH_CHANGED="no"
+if grep -q "plugins/figma-handoff/" <<< "$_CACHED_NAMES"; then
+  FH_CHANGED="yes"
+fi
+
+FH_SUBSTANTIVE=""
+if [ "$FH_CHANGED" = "yes" ]; then
+  FH_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^plugins/figma-handoff/' \
+    | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
+fi
+
+if [ -n "$FH_SUBSTANTIVE" ]; then
+  if command -v shellcheck >/dev/null 2>&1; then
+    echo "🔍 shellcheck figma-handoff build script..."
+    if ! shellcheck plugins/figma-handoff/tools/build-dist.sh; then
+      echo "❌ figma-handoff shellcheck failed."
+      exit 1
+    fi
+  else
+    echo "❌ shellcheck not found. Install: brew install shellcheck"
+    exit 1
+  fi
+fi
+
+# ============================================
 # Part 4: 基础设施变更提醒（不阻断，仅提示）
 # ============================================
 # Makefile / .githooks / scripts / .shellcheckrc / release-please 配置变更时，
@@ -173,7 +201,7 @@ INFRA_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^(Make
 
 if [ -n "$INFRA_STAGED" ]; then
   echo "→ 提示：基础设施文件已修改，CI 将触发全插件完整 lint。"
-  echo "         建议本地执行 'make lint' / 'make ph-lint' / 'make dr-lint' 提前验证。"
+  echo "         建议本地执行 'make lint' / 'make ph-lint' / 'make dr-lint' / 'make fh-lint' 提前验证。"
 fi
 
 exit 0

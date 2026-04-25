@@ -37,6 +37,14 @@
         { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
         "CLAUDE.md"
       ]
+    },
+    "plugins/figma-handoff": {
+      "release-type": "simple",
+      "component": "figma-handoff",
+      "extra-files": [
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
+        "CLAUDE.md"
+      ]
     }
   }
 }
