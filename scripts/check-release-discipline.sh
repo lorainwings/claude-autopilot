@@ -5,7 +5,7 @@
 # Usage:
 #   bash scripts/check-release-discipline.sh <base_ref> <head_ref> [plugin_filter]
 #
-# plugin_filter: spec-autopilot | parallel-harness | all (default)
+# plugin_filter: spec-autopilot | parallel-harness | daily-report | figma-handoff | all (default)
 # Checks the specified plugin(s).
 # Fails when:
 #   1. files under plugins/<plugin>/ changed but CHANGELOG / CHANGELOG-equivalent did not
@@ -19,9 +19,9 @@ HEAD_REF="${2:-HEAD}"
 PLUGIN_FILTER="${3:-all}"
 
 case "$PLUGIN_FILTER" in
-  spec-autopilot|parallel-harness|daily-report|all) ;;
+  spec-autopilot|parallel-harness|daily-report|figma-handoff|all) ;;
   *)
-    echo "❌ Invalid plugin_filter: '$PLUGIN_FILTER'. Must be spec-autopilot | parallel-harness | daily-report | all"
+    echo "❌ Invalid plugin_filter: '$PLUGIN_FILTER'. Must be spec-autopilot | parallel-harness | daily-report | figma-handoff | all"
     exit 1
     ;;
 esac
@@ -236,6 +236,9 @@ if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "parallel-harness" ]; th
 fi
 if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "daily-report" ]; then
   check_plugin "plugins/daily-report" "daily-report" "plugin_json"
+fi
+if [ "$PLUGIN_FILTER" = "all" ] || [ "$PLUGIN_FILTER" = "figma-handoff" ]; then
+  check_plugin "plugins/figma-handoff" "figma-handoff" "plugin_json"
 fi
 
 if [ "$OVERALL_FAIL" -eq 1 ]; then
