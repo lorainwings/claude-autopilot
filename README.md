@@ -11,7 +11,7 @@
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| [spec-autopilot](plugins/spec-autopilot/) | 5.15.0 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
+| [spec-autopilot](plugins/spec-autopilot/) | 5.15.1 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.9.0 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 | [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
