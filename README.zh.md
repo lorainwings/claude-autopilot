@@ -14,6 +14,7 @@
 | [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.15.0 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.9.0 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.3.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
+| [figma-handoff](plugins/figma-handoff/README.zh.md) | 0.1.0 | Figma → 前端代码像素级高保真还原工作流 — 强制规格采集、token 映射、转译铁律、像素 diff 硬门禁 |
 
 ## 快速安装
 
@@ -30,7 +31,10 @@ claude plugin install parallel-harness@lorainwings-plugins --scope project
 # 4. 安装 daily-report（项目级）
 claude plugin install daily-report@lorainwings-plugins --scope project
 
-# 5. 重启 Claude Code
+# 5. 安装 figma-handoff（项目级）
+claude plugin install figma-handoff@lorainwings-plugins --scope project
+
+# 6. 重启 Claude Code
 ```
 
 ## 什么是 spec-autopilot？
@@ -140,6 +144,27 @@ runtime/
 ```
 阶段 0: 初始化（首次）→ 阶段 1: 环境检查 → 阶段 2: 数据采集（5 路并行）
     → 阶段 3: 生成 + 审核 → 阶段 4: 批量提交
+```
+
+## 什么是 figma-handoff？
+
+**figma-handoff** 是一个 Claude Code Skill 插件，把 Figma 设计稿到前端代码的交付过程从"主观对比"变成"客观证伪"。它解决了"Figma MCP 输出看起来像但不对"的常见痛点，用像素 diff 硬门禁替代肉眼审查。
+
+### 核心特性
+
+- **强制规格采集** — Figma MCP 5 步严格顺序（metadata → variables → code-connect → design-context → screenshot），跳任意一步即 Fail
+- **三张映射表** — `tokens.md` / `node-map.md` / `component-policy.md` 写完才能动键盘，token 覆盖率要求 100%
+- **转译铁律** — 框架中性规则，把 React+Tailwind reference 翻译为项目目标栈（Vue/Vant、Element Plus 等）
+- **像素 diff 硬门禁** — 基于 pixelmatch 的客观比对（diff ≤ 0.5%），替代主观视觉审查
+- **三步迭代** — 静态骨架 → 数据态 → 交互态，每步独立 diff 门禁
+- **独立 review** — 主 agent 不得自评通过，并行派发 review subagent
+- **技术栈无关骨架** — `SKILL.md` 不锁栈，各栈细节下沉到 `references/vendor-*.md`
+
+### 工作流
+
+```
+阶段 0 规格采集 → 阶段 1 三表映射 → 阶段 2 转译（骨架/数据/交互）
+    → 阶段 3 像素 diff → 阶段 4 独立 review
 ```
 
 ## 文档

@@ -29,6 +29,13 @@
       "description": "Auto-generate and submit daily work reports from git commits and Lark chat history",
       "category": "productivity",
       "version": "1.3.0"
+    },
+    {
+      "name": "figma-handoff",
+      "source": "./dist/figma-handoff",
+      "description": "Pixel-faithful Figma design handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate. Solves the common Figma MCP low-fidelity problem with objective falsifiable gates.",
+      "category": "development",
+      "version": "0.1.0"
     }
   ]
 }

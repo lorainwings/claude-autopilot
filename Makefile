@@ -5,6 +5,7 @@
 SA  := plugins/spec-autopilot
 PH  := plugins/parallel-harness
 DR  := plugins/daily-report
+FH  := plugins/figma-handoff
 
 # lint 工具版本 — 与 .github/workflows/ci.yml 保持一致
 RUFF_VERSION  := 0.15.7
@@ -13,6 +14,7 @@ MYPY_VERSION  := 1.15.0
 .PHONY: hooks setup test build lint format typecheck smoke ci \
         ph-test ph-typecheck ph-build ph-build-only ph-lint ph-setup \
         dr-build dr-lint dr-ci \
+        fh-build fh-lint fh-ci \
         release release-dry \
         help
 
@@ -151,6 +153,23 @@ dr-lint: ## Lint daily-report build script (shellcheck)
 	fi
 
 dr-ci: dr-lint dr-build ## daily-report CI: lint → build
+
+# ── figma-handoff targets ─────────────────────────────────────────
+
+fh-build: hooks ## Build figma-handoff dist/ (pure file copy, no compile)
+	@bash $(FH)/tools/build-dist.sh
+
+fh-lint: ## Lint figma-handoff build script (shellcheck)
+	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \
+	echo "── shellcheck: figma-handoff ──"; \
+	if command -v shellcheck >/dev/null 2>&1; then \
+	  shellcheck $(FH)/tools/build-dist.sh; \
+	else \
+	  echo "❌ shellcheck not found. Install: brew install shellcheck"; \
+	  exit 1; \
+	fi
+
+fh-ci: fh-lint fh-build ## figma-handoff CI: lint → build
 
 # ── Release ────────────────────────────────────────────────────────
 

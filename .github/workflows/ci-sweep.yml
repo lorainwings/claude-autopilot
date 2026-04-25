@@ -121,6 +121,23 @@ jobs:
           make dr-build
           bash scripts/check-dist-freshness.sh daily-report --ci-git-check
 
+  # ── figma-handoff 全量 ──
+  fh-sweep:
+    name: sweep / figma-handoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Lint + Build
+        run: |
+          make fh-lint
+          make fh-build
+          bash scripts/check-dist-freshness.sh figma-handoff --ci-git-check
+
   # ── workflow lint (actionlint) ──
   workflow-lint:
     name: sweep / workflow lint
@@ -135,7 +152,7 @@ jobs:
   # ── Sweep summary ──
   sweep-summary:
     name: Sweep Summary
-    needs: [sa-sweep, ph-sweep, dr-sweep, workflow-lint]
+    needs: [sa-sweep, ph-sweep, dr-sweep, fh-sweep, workflow-lint]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -143,11 +160,12 @@ jobs:
       - name: Evaluate
         run: |
           FAILED=0
-          for job in sa-sweep ph-sweep dr-sweep workflow-lint; do
+          for job in sa-sweep ph-sweep dr-sweep fh-sweep workflow-lint; do
             case "$job" in
               sa-sweep)      R="${{ needs.sa-sweep.result }}" ;;
               ph-sweep)      R="${{ needs.ph-sweep.result }}" ;;
               dr-sweep)      R="${{ needs.dr-sweep.result }}" ;;
+              fh-sweep)      R="${{ needs.fh-sweep.result }}" ;;
               workflow-lint) R="${{ needs.workflow-lint.result }}" ;;
             esac
             if [ "$R" != "success" ]; then

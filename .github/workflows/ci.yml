@@ -35,6 +35,7 @@ jobs:
       run_sa: ${{ steps.summary.outputs.run_sa }}
       run_ph: ${{ steps.summary.outputs.run_ph }}
       run_dr: ${{ steps.summary.outputs.run_dr }}
+      run_fh: ${{ steps.summary.outputs.run_fh }}
       affected: ${{ steps.summary.outputs.affected }}
     steps:
       - uses: actions/checkout@v5
@@ -68,6 +69,7 @@ jobs:
             echo "run_sa=true"
             echo "run_ph=true"
             echo "run_dr=true"
+            echo "run_fh=true"
           } >> "$GITHUB_OUTPUT"
 
       - name: Detect changed paths
@@ -85,6 +87,9 @@ jobs:
             daily-report:
               - 'plugins/daily-report/**'
               - 'dist/daily-report/**'
+            figma-handoff:
+              - 'plugins/figma-handoff/**'
+              - 'dist/figma-handoff/**'
             shared:
               - 'scripts/**'
               - '.githooks/**'
@@ -104,11 +109,12 @@ jobs:
           SHARED="${{ steps.filter.outputs.shared }}"
 
           if [ "$FORCE" = "true" ] || [ "$SHARED" = "true" ]; then
-            SA=true; PH=true; DR=true
+            SA=true; PH=true; DR=true; FH=true
           else
             SA="${{ steps.filter.outputs.spec-autopilot }}"
             PH="${{ steps.filter.outputs.parallel-harness }}"
             DR="${{ steps.filter.outputs.daily-report }}"
+            FH="${{ steps.filter.outputs.figma-handoff }}"
           fi
 
           # 写入所有决策到 GITHUB_OUTPUT
@@ -116,12 +122,14 @@ jobs:
             echo "run_sa=$SA"
             echo "run_ph=$PH"
             echo "run_dr=$DR"
+            echo "run_fh=$FH"
           } >> "$GITHUB_OUTPUT"
 
           AFFECTED=""
           [ "$SA" = "true" ] && AFFECTED="spec-autopilot"
           [ "$PH" = "true" ] && AFFECTED="$AFFECTED parallel-harness"
           [ "$DR" = "true" ] && AFFECTED="$AFFECTED daily-report"
+          [ "$FH" = "true" ] && AFFECTED="$AFFECTED figma-handoff"
           AFFECTED=$(echo "$AFFECTED" | xargs)  # trim
 
           echo "affected=$AFFECTED" >> "$GITHUB_OUTPUT"
@@ -452,6 +460,61 @@ jobs:
           bash scripts/check-dist-freshness.sh daily-report --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
+  # Stage 2: figma-handoff CI
+  # ════════════════════════════════════════════════════════════════════
+  fh-lint:
+    name: figma-handoff / Lint
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_fh == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: make fh-lint
+
+  fh-build:
+    name: figma-handoff / Build dist
+    needs: [detect, release-discipline, fh-lint]
+    if: |
+      always() &&
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_fh == 'true' &&
+      (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
+      needs.fh-lint.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build dist
+        run: make fh-build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/figma-handoff/.claude-plugin
+          test -f dist/figma-handoff/.claude-plugin/plugin.json
+          test -d dist/figma-handoff/skills
+          test -f dist/figma-handoff/CLAUDE.md
+          echo "dist/figma-handoff structure OK"
+
+      - name: Check dist freshness
+        if: needs.detect.outputs.skip_dist_stale != 'true'
+        run: |
+          # L2 防御：见 sa-build 同名 step 注释
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale; then
+            echo "ℹ️  release/post-release commit detected at job level — skipping freshness check"
+            exit 0
+          fi
+          bash scripts/check-dist-freshness.sh figma-handoff --ci-git-check
+
+  # ════════════════════════════════════════════════════════════════════
   # Stage 3: Per-plugin Summary (允许其他插件独立通过)
   # ════════════════════════════════════════════════════════════════════
   sa-summary:
@@ -554,12 +617,44 @@ jobs:
           done
           [ "$FAILED" -eq 0 ] || exit 1
 
+  fh-summary:
+    name: figma-handoff / Summary
+    needs: [detect, release-discipline, fh-lint, fh-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_fh == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate FH results
+        run: |
+          echo "=== figma-handoff Summary ==="
+          FAILED=0
+
+          RD="${{ needs.release-discipline.result }}"
+          if [ "$RD" != "success" ] && [ "$RD" != "skipped" ]; then
+            echo "❌ release-discipline: $RD"
+            FAILED=1
+          fi
+
+          for job in fh-lint fh-build; do
+            case "$job" in
+              fh-lint)  RESULT="${{ needs.fh-lint.result }}" ;;
+              fh-build) RESULT="${{ needs.fh-build.result }}" ;;
+            esac
+            if [ "$RESULT" != "success" ]; then
+              echo "❌ $job: $RESULT"
+              FAILED=1
+            else
+              echo "✅ $job: $RESULT"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
   # ════════════════════════════════════════════════════════════════════
   # Stage 4: 统一 summary (branch protection 的唯一 required check)
   # ════════════════════════════════════════════════════════════════════
   summary:
     name: CI Summary
-    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary]
+    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary, fh-summary]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -634,6 +729,19 @@ jobs:
             fi
           else
             echo "⏭️  daily-report: skipped (not affected)"
+          fi
+
+          FH="${{ needs.detect.outputs.run_fh }}"
+          if [ "$FH" = "true" ]; then
+            FH_RESULT="${{ needs.fh-summary.result }}"
+            if [ "$FH_RESULT" != "success" ]; then
+              echo "❌ fh-summary: $FH_RESULT"
+              FAILED=1
+            else
+              echo "✅ fh-summary: $FH_RESULT"
+            fi
+          else
+            echo "⏭️  figma-handoff: skipped (not affected)"
           fi
 
           echo ""
