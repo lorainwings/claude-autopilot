@@ -1,6 +1,6 @@
 {
   "name": "figma-handoff",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pixel-faithful Figma design handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff gate. Solves the common Figma MCP low-fidelity problem by replacing subjective review with objective, falsifiable gates.",
   "author": {
     "name": "lorainwings",
