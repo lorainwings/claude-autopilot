@@ -101,19 +101,29 @@ _is_post_release_bot() {
 #  → _is_release_commit_message 失效；BASE_REF 又常为空 → _is_release_in_range 也失效。
 #  分支名检查是唯一不会被这两种边界绕过的信号。）
 #
-# 安全加固：双因子识别 — 分支名 + actor。release-please 通过 GITHUB_TOKEN 发 PR，
-# GITHUB_ACTOR 必为 github-actions[bot]；人类用户即便伪造分支名为 release-please--xxx，
-# 其 GITHUB_ACTOR 是真实用户名，不会被误放行。
+# 安全加固：双因子识别 — 分支名 + (actor 或 分支 tip 提交者)。
+# release-please 自动开 PR 时 GITHUB_ACTOR=github-actions[bot]；但人类协作者也可能
+# 手动 close → reopen 一个 bot PR，此时 GITHUB_ACTOR 退化为人类用户名（PR opener）。
+# 此时回退到第二信号：上游分支 tip 提交是否由 bot 创建 —— 人类无法在不窃取 bot token
+# 的情况下伪造 bot 提交者身份，因此回退仍能阻止纯人类伪造的攻击场景。
 # 仅当 GITHUB_ACTOR 未设置（如本地手动测试场景）时退化为只看分支名。
 _is_release_please_branch() {
   local ref="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}"
   [[ "$ref" == release-please--* ]] || return 1
-  # 在 GitHub Actions 环境下强制 actor 校验
-  if [ -n "${GITHUB_ACTOR:-}" ]; then
-    [[ "$GITHUB_ACTOR" == "github-actions[bot]" ]]
-  else
+  # 本地无 actor 时仅看分支名
+  if [ -z "${GITHUB_ACTOR:-}" ]; then
     return 0
   fi
+  # 主信号：actor 是 bot
+  if [[ "$GITHUB_ACTOR" == "github-actions[bot]" ]]; then
+    return 0
+  fi
+  # 回退信号：人类 actor 重开 bot PR — 校验上游分支 tip 是否由 bot 提交
+  local branch_author
+  branch_author=$(git log -1 --format='%an' "origin/${ref}" 2>/dev/null \
+              || git log -1 --format='%an' "${ref}" 2>/dev/null \
+              || echo "")
+  [[ "$branch_author" == "github-actions[bot]" ]]
 }
 
 # commit range 中是否包含 release 或 post-release 提交（处理 merge commit 场景）
