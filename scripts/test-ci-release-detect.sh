@@ -261,6 +261,51 @@ else
   FAIL=$((FAIL + 1))
 fi
 
+# ── Scenario 12: 人类 actor 重开 bot PR（PR #128 复现）──
+# 真实场景：lorainwings 手动 close → reopen 一个 release-please bot PR，
+# 此时 GITHUB_ACTOR=人类用户名，但分支 tip commit 仍由 bot 创建。
+# 通过 origin/<branch> 的 tip commit 作者回退识别为合法 release-please 上下文。
+echo "--- Scenario 12: human actor reopened bot release-please PR (PR #128 regression) ---"
+git checkout -q -b release-please--branches--main 2>/dev/null || git checkout -q release-please--branches--main
+git config user.name "github-actions[bot]"
+git config user.email "github-actions[bot]@users.noreply.github.com"
+echo "rp-bot-tip" > file.txt
+git add file.txt
+git commit -q -m "chore: release main"
+# 模拟 origin/<branch> 远程引用（CI 环境 actions/checkout 会拉到 origin/<branch>）
+git update-ref "refs/remotes/origin/release-please--branches--main" HEAD
+git checkout -q -
+
+out=$(GITHUB_HEAD_REF=release-please--branches--main GITHUB_ACTOR='lorainwings' \
+      bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
+  echo -e "  \033[32mPASS\033[0m: human reopened bot PR → IS_RELEASE_PLEASE_BRANCH=true (branch-tip fallback)"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: human reopened bot PR was incorrectly rejected"
+  FAIL=$((FAIL + 1))
+fi
+
+# 反面：人类 actor + 分支 tip 也是人类提交 → 拒绝（防止人类完全伪造）
+git checkout -q -b release-please--evil 2>/dev/null || git checkout -q release-please--evil
+git config user.name "evil-user"
+git config user.email "evil@example.com"
+echo "evil-tip" > file.txt
+git add file.txt
+git commit -q -m "chore: release main"
+git update-ref "refs/remotes/origin/release-please--evil" HEAD
+git checkout -q -
+
+out=$(GITHUB_HEAD_REF=release-please--evil GITHUB_ACTOR='evil-user' \
+      bash "$DETECT_SCRIPT" 2>/dev/null || true)
+if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=false$"; then
+  echo -e "  \033[32mPASS\033[0m: human actor + human-authored branch tip → rejected"
+  PASS=$((PASS + 1))
+else
+  echo -e "  \033[31mFAIL\033[0m: spoofed branch with human tip was incorrectly accepted"
+  FAIL=$((FAIL + 1))
+fi
+
 # ── 汇总 ──
 echo ""
 echo "=== ci-detect-release-context: $PASS passed, $FAIL failed ==="
