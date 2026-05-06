@@ -17,38 +17,26 @@ command -v python3 >/dev/null 2>&1 || {
 }
 
 export PH_STATUSLINE_STDIN="$STDIN_DATA"
+PH_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PH_SCRIPT_DIR
 
 STATUS_LINE="$(
 python3 - <<'PY' 2>/dev/null
 import json
 import os
 import re
-import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, os.environ.get("PH_SCRIPT_DIR", ""))
+from _ph_project_guard import is_parallel_harness_project, resolve_project_root
 
 
 def sanitize_session_key(value: str) -> str:
     key = re.sub(r"[^A-Za-z0-9._-]+", "-", value or "unknown")
     key = key.strip(".-")
     return key or "unknown"
-
-
-def resolve_project_root(cwd: str) -> str:
-    if cwd:
-        try:
-            root = subprocess.check_output(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=cwd,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            if root:
-                return root
-        except Exception:
-            pass
-        return cwd
-    return os.getcwd()
 
 
 stdin_data = os.environ.get("PH_STATUSLINE_STDIN", "")
@@ -64,6 +52,14 @@ except Exception:
 
 cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
 project_root = resolve_project_root(cwd)
+
+# Passive observer guard: never create .parallel-harness/ in projects that
+# do not actually use the plugin. Prevents user-scope statusLine from
+# polluting every git repo on the machine.
+if not is_parallel_harness_project(project_root):
+    print("[harness] ready")
+    raise SystemExit(0)
+
 session_id = payload.get("session_id") if isinstance(payload.get("session_id"), str) else "unknown"
 session_key = sanitize_session_key(session_id)
 timestamp = datetime.now(timezone.utc).isoformat()

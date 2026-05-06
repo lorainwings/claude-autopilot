@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -202,6 +202,19 @@ export async function executeHarnessRun(
 
   const intent = resolveIntent(args);
   const config = prepareConfig(loadRunConfig(PLUGIN_ROOT, args.configPath), args.workerAdapterMode);
+  const harnessDir = resolve(args.projectRoot, ".parallel-harness");
+  // Drop a .created-by anchor so passive observers (statusline-collector,
+  // record-skill-tool-event) can distinguish intentional usage from stray
+  // creations propagated by globally-installed hooks.
+  try {
+    mkdirSync(harnessDir, { recursive: true });
+    const marker = join(harnessDir, ".created-by");
+    if (!existsSync(marker)) {
+      writeFileSync(marker, "execute-harness\n", "utf8");
+    }
+  } catch {
+    // best-effort; never fail the run for a marker write
+  }
   const runExecutor = runtime || new OrchestratorRuntime({
     workerAdapter: selectWorkerAdapter(args.workerAdapterMode),
     dataDir: resolve(args.projectRoot, ".parallel-harness/data"),
