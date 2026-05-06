@@ -168,7 +168,9 @@ check_plugin_dist() {
 
     parallel-harness)
       for _dir in runtime skills config .claude-plugin; do
-        if [ -d "$src_dir/$_dir" ] && ! diff -rq "$src_dir/$_dir" "$dst_dir/$_dir" >/dev/null 2>&1; then
+        if [ -d "$src_dir/$_dir" ] && ! diff -rq \
+            --exclude=__pycache__ --exclude='*.pyc' \
+            "$src_dir/$_dir" "$dst_dir/$_dir" >/dev/null 2>&1; then
           stale=true
           break
         fi
