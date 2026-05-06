@@ -184,6 +184,42 @@ describe("project root resolution — monorepo subdirectory", () => {
     ).toBe(true);
     expect(existsSync(join(project.root, ".parallel-harness", "data"))).toBe(false);
   });
+
+  test("regression: stray .parallel-harness/ on shared tmp parents must not hijack resolution", () => {
+    // Reproduces the CI failure: a previous run (or another tool) leaves
+    // .parallel-harness/ at /tmp or some shared ancestor; the project
+    // under test is NOT inside any git repo. The guard must NOT walk
+    // up across the non-git boundary and must use cwd as-is.
+    const project = createTempProject();
+    const sharedParent = join(project.root, "shared-mount");
+    const realProject = join(sharedParent, "real-app");
+    mkdirSync(realProject, { recursive: true });
+    // Plant a stray sibling marker on the shared parent — exactly the
+    // /private/tmp/.parallel-harness/ scenario.
+    mkdirSync(join(sharedParent, ".parallel-harness"), { recursive: true });
+    // Settings in the real project legitimize it
+    mkdirSync(join(realProject, ".claude"), { recursive: true });
+    writeFileSync(
+      join(realProject, ".claude", "settings.local.json"),
+      JSON.stringify({ statusLine: { command: "/p/statusline-collector.sh" } }),
+    );
+
+    execFileSync("bash", [statuslineScriptPath], {
+      cwd: realProject,
+      encoding: "utf8",
+      input: JSON.stringify({
+        session_id: "sess-stray-parent-001",
+        cwd: realProject,
+      }),
+      env: { ...process.env, HOME: project.home },
+    });
+
+    // Data must land in realProject, NOT in sharedParent (the stray marker)
+    expect(
+      existsSync(join(realProject, ".parallel-harness", "data", "plugin-observability")),
+    ).toBe(true);
+    expect(existsSync(join(sharedParent, ".parallel-harness", "data"))).toBe(false);
+  });
 });
 
 describe("cleanup-stray-parallel-harness tool", () => {

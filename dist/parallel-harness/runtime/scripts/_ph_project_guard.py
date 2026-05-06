@@ -91,26 +91,46 @@ def _walk_up(start: Path) -> Iterable[Path]:
 def resolve_project_root(cwd: str) -> str:
     """Pick the directory that owns this project's ``.parallel-harness/``.
 
-    Resolution order:
+    Resolution order (constrained by the git repo boundary so we never
+    cross-mount onto a polluted ``/tmp/.parallel-harness/`` or a sibling
+    project's marker that happens to sit on a shared filesystem):
 
-    1. Nearest ancestor of ``cwd`` (inclusive) that already contains a
-       ``.parallel-harness/`` directory — anchors data to the repo that
-       previously owned it, even when the user is deep inside a
-       subdirectory.
-    2. ``git rev-parse --show-toplevel`` from ``cwd`` — stable default for
-       fresh single-package repos.
-    3. ``cwd`` itself (or the process cwd if the input is empty).
+    1. If ``cwd`` is inside a git repo:
+       - Walk from ``cwd`` upward toward the git toplevel. Stop at the
+         first ancestor (inclusive of toplevel) that contains a
+         ``.parallel-harness/`` directory — anchors monorepo subdirectories
+         correctly without leaking past the repo root.
+       - If none found, return the git toplevel itself.
+    2. If ``cwd`` is **not** inside any git repo (typical for ephemeral
+       tmpdirs): return ``cwd`` as-is. Never walk up — sharing ``/tmp``
+       with stray markers from other tools/users would otherwise hijack
+       the project root.
 
-    The previous implementation only consulted git toplevel, which caused
-    monorepo subdirectories to write into the parent repo's root.
+    The previous implementation walked all the way to ``/`` regardless of
+    git boundary, which caused ``mkdtemp`` based tests to be hijacked by
+    stray ``/tmp/.parallel-harness/`` markers.
     """
     start = Path(cwd).resolve() if cwd else Path(os.getcwd()).resolve()
-    for ancestor in _walk_up(start):
-        if (ancestor / ".parallel-harness").is_dir():
-            return str(ancestor)
-    git_root = _git_toplevel(start)
-    if git_root:
-        return git_root
+    git_root_str = _git_toplevel(start)
+
+    if git_root_str:
+        try:
+            git_root = Path(git_root_str).resolve()
+        except Exception:
+            return git_root_str
+        current = start
+        while True:
+            if (current / ".parallel-harness").is_dir():
+                return str(current)
+            if current == git_root:
+                return git_root_str
+            parent = current.parent
+            if parent == current:
+                # Reached filesystem root without hitting git boundary —
+                # shouldn't happen, but fall through gracefully.
+                return git_root_str
+            current = parent
+
     return str(start)
 
 
