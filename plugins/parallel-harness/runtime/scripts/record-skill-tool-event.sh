@@ -21,37 +21,29 @@ STDIN_FILE=$(mktemp "${TMPDIR:-/tmp}/ph-skill-hook.XXXXXX")
 printf "%s" "$STDIN_DATA" >"$STDIN_FILE"
 trap 'rm -f "$STDIN_FILE"' EXIT
 export PH_SKILL_STDIN_FILE="$STDIN_FILE"
+PH_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PH_SCRIPT_DIR
 
 python3 - <<'PY' >/dev/null 2>&1 || true
 import json
 import os
 import re
-import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, os.environ.get("PH_SCRIPT_DIR", ""))
+from _ph_project_guard import (
+    is_parallel_harness_project,
+    mark_created,
+    resolve_project_root,
+)
 
 
 def sanitize_session_key(value: str) -> str:
     key = re.sub(r"[^A-Za-z0-9._-]+", "-", value or "unknown")
     key = key.strip(".-")
     return key or "unknown"
-
-
-def resolve_project_root(cwd: str) -> str:
-    if cwd:
-        try:
-            root = subprocess.check_output(
-                ["git", "rev-parse", "--show-toplevel"],
-                cwd=cwd,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-            if root:
-                return root
-        except Exception:
-            pass
-        return cwd
-    return os.getcwd()
 
 
 def preview(value, limit: int = 240):
@@ -170,6 +162,7 @@ event = {
 
 base_dir = Path(project_root) / ".parallel-harness" / "data" / "plugin-observability" / "sessions" / session_key
 base_dir.mkdir(parents=True, exist_ok=True)
+mark_created(project_root, "record-skill-tool-event")
 raw_dir = base_dir / "raw"
 raw_dir.mkdir(parents=True, exist_ok=True)
 

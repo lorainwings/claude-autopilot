@@ -58,6 +58,12 @@ cp -r runtime       "$DIST_DIR/"
 cp -r skills        "$DIST_DIR/"
 cp -r config        "$DIST_DIR/"
 
+# Strip transient python caches that pytest / runtime imports leave behind in
+# runtime/scripts/. They are regenerated on every interpreter run and must
+# never ship in the marketplace artifact.
+find "$DIST_DIR" -type d -name __pycache__ -prune -exec rm -rf {} +
+find "$DIST_DIR" -type f -name "*.pyc" -delete
+
 # CLAUDE.md — 裁剪 dev-only 段落（如有标记）
 if grep -q "<!-- DEV-ONLY-BEGIN -->" CLAUDE.md 2>/dev/null; then
   sed '/<!-- DEV-ONLY-BEGIN -->/,/<!-- DEV-ONLY-END -->/d' CLAUDE.md > "$DIST_DIR/CLAUDE.md"
