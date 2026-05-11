@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.15.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.1...spec-autopilot-v5.15.2) (2026-05-11)
+
+
+### Fixed
+
+* **spec-autopilot:** 确定性脚本封装 checkpoint 写入与目录初始化 ([0683b6b](https://github.com/lorainwings/claude-autopilot/commit/0683b6b6bf477d6ad57ba2c908d60701c27615a8))
+
 ## [5.15.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.0...spec-autopilot-v5.15.1) (2026-04-24)
 
 
