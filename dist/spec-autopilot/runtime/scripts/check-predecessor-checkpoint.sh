@@ -258,6 +258,27 @@ if [ "$TARGET_PHASE" -eq 2 ]; then
   if [ "$phase1_status" != "ok" ] && [ "$phase1_status" != "warning" ]; then
     deny "Phase 1 checkpoint status is '$phase1_status'. Must be ok/warning before Phase 2."
   fi
+
+  # Verify lock file change field is no longer "pending"
+  lock_change=$(parse_lock_file "$CHANGES_DIR/.autopilot-active")
+  if [ "$lock_change" = "pending" ]; then
+    deny "Lock file 'change' field is still 'pending'. Phase 1 must call init-change-dir.sh to set the actual change name before Phase 2 can start. Run: bash \${CLAUDE_PLUGIN_ROOT}/runtime/scripts/init-change-dir.sh <project_root> <change_name>"
+  fi
+
+  # Run full Phase 1 completeness validation only when requirement-packet.json exists.
+  # (Gate does not deny on missing packet — that is the producer's responsibility.
+  #  This check catches schema violations when a packet is present.)
+  packet_file="${change_dir}context/requirement-packet.json"
+  if [ -f "$packet_file" ] && [ -x "$SCRIPT_DIR/validate-phase1-complete.sh" ]; then
+    p1_validation=$(bash "$SCRIPT_DIR/validate-phase1-complete.sh" "$PROJECT_ROOT" 2>/dev/null) || true
+    if [ -n "$p1_validation" ]; then
+      p1_valid=$(echo "$p1_validation" | python3 -c "import json,sys; print(json.load(sys.stdin).get('valid', False))" 2>/dev/null) || true
+      if [ "$p1_valid" = "False" ]; then
+        p1_reason=$(echo "$p1_validation" | python3 -c "import json,sys; print(json.load(sys.stdin).get('reason', 'unknown'))" 2>/dev/null) || true
+        deny "Phase 1 completeness check failed: $p1_reason"
+      fi
+    fi
+  fi
 fi
 
 # Phases 3/4 are full-mode only

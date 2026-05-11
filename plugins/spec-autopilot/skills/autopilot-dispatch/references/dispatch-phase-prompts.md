@@ -82,12 +82,22 @@
 
 - Agent: config.phases.openspec.agent（默认 Plan）
 - 运行模式: `run_in_background: true`（不占用主窗口上下文）
-- 任务：从需求推导 kebab-case 名称，执行 `openspec new change "<name>"`
-- 写入 context 文件（prd.md、discussion.md、ai-prompt.md）
+- 任务：初始化 OpenSpec change 目录并编写 proposal.md
+
+**关键事实**：`openspec new change "<name>"` 仅创建 `.openspec.yaml` 元数据文件（schema + created 两行），**不会**自动生成 proposal.md、context/ 或任何制品文件。子 Agent 必须自行编写所有制品。
+
+**子 Agent 必须按顺序执行的操作**：
+
+1. `Bash('openspec new change "<name>"')` — 初始化 change 目录（仅创建 .openspec.yaml）
+2. `Bash('mkdir -p openspec/changes/<name>/context/phase-results/')` — 创建 checkpoint 目录结构
+3. `Bash('openspec instructions proposal --change "<name>"')` — 获取 proposal 写作指引和模板
+4. 根据指引，Write `openspec/changes/<name>/proposal.md`（包含 Why / What Changes / Capabilities / Impact 章节）
+5. 返回 JSON 信封（最后一行）
+
 - **返回要求（必须严格遵守）**：执行完毕后，在输出的**最后一行**返回 JSON 信封：
 
   ```json
-  {"status": "ok", "summary": "已创建 OpenSpec change: <name>，包含 N 个文件", "artifacts": ["openspec/changes/<name>/proposal.md", ...]}
+  {"status": "ok", "summary": "已创建 OpenSpec change: <name>，包含 proposal.md", "artifacts": ["openspec/changes/<name>/proposal.md"]}
   ```
 
   > Hook 验证要求 `status` 和 `summary` 两个字段都必须存在，缺少任一将被 block。
@@ -96,11 +106,25 @@
 
 - Agent: config.phases.openspec.agent（默认 Plan）
 - 运行模式: `run_in_background: true`（不占用主窗口上下文）
-- 任务：按 openspec-ff-change 流程生成 proposal/specs/design/tasks
+- 任务：按 openspec instructions 指引依次生成 design.md、specs/、tasks.md
+
+**关键事实**：openspec CLI 不自动生成制品文件。`openspec instructions <artifact> --change <name>` 输出写作指引和模板，子 Agent 根据指引自行 Write 文件。
+
+**子 Agent 必须按顺序执行的操作**：
+
+1. `Bash('openspec instructions design --change "<name>"')` — 获取 design 写作指引
+2. Read `openspec/changes/<name>/proposal.md`（作为 design 的输入上下文）
+3. Write `openspec/changes/<name>/design.md`（技术设计文档）
+4. `Bash('openspec instructions specs --change "<name>"')` — 获取 specs 写作指引
+5. 按 proposal 中声明的 Capabilities 逐个 Write `openspec/changes/<name>/specs/<capability-name>.md`
+6. `Bash('openspec instructions tasks --change "<name>"')` — 获取 tasks 写作指引
+7. Read design.md + specs/ 作为输入，Write `openspec/changes/<name>/tasks.md`（实施任务清单）
+8. 返回 JSON 信封（最后一行）
+
 - **返回要求（必须严格遵守）**：执行完毕后，在输出的**最后一行**返回 JSON 信封：
 
   ```json
-  {"status": "ok", "summary": "已生成 OpenSpec 制品: proposal/design/specs/tasks", "artifacts": ["openspec/changes/<name>/proposal.md", "openspec/changes/<name>/design.md", ...]}
+  {"status": "ok", "summary": "已生成 OpenSpec 制品: design/specs/tasks", "artifacts": ["openspec/changes/<name>/design.md", "openspec/changes/<name>/specs/", "openspec/changes/<name>/tasks.md"]}
   ```
 
   > Hook 验证要求 `status` 和 `summary` 两个字段都必须存在，缺少任一将被 block。

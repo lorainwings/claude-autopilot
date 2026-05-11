@@ -443,7 +443,24 @@ LOOP:
 - Schema 校验：`runtime/schemas/requirement-packet.schema.json`（Schema 作为契约参考；当前由 `runtime/scripts/validate-requirement-packet.sh` 做字段级校验）；必填字段 `goal / scope / non_goals / acceptance_criteria / risks / decisions / needs_clarification / sha256` 全部存在，否则硬阻断。
 - 信息无损要求：`acceptance_criteria` 数量 ≥ `requirements-analysis.md` 与 `research-findings.md` 中可测试动词（MUST/SHOULD/SHALL）数，禁止隐式压缩。
 
-**Step 1.9.4** 主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段写入 `phase-1-requirements.json` checkpoint。
+**Step 1.9.4** PackagerAgent 完成后，主线程**仅 Read `requirement-packet.json`**（**不读原始 markdown**，即不 Read `requirements-analysis.md` / `research-findings.md` 正文），基于 packet 字段构造 checkpoint envelope，并**按顺序执行以下确定性 Bash 调用**（禁止 AI 自行 Write checkpoint 或 mkdir）：
+
+```bash
+# 1.9.4a: 初始化 change 目录结构 + 更新锁文件 change 字段（pending → 实际名称）
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/init-change-dir.sh "$PROJECT_ROOT" "{change_name}"')
+
+# 1.9.4b: 仅 Read requirement-packet.json 获取 sha256 和结构化字段（不读 markdown 正文）
+# 用于构造 checkpoint envelope
+
+# 1.9.4c: 通过确定性脚本写入 Phase 1 checkpoint（自动处理路径、timestamp、原子写入）
+Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-checkpoint.sh "$PROJECT_ROOT" 1 \'<envelope_json>\'')
+# envelope_json 示例: {"status":"ok","summary":"...","artifacts":[...],"change_name":"...","complexity":"..."}
+
+# 1.9.4d: git fixup commit（后台 Checkpoint Agent 或主线程 Bash）
+Bash('cd "$PROJECT_ROOT" && git add -A && git commit -m "fixup! autopilot: Phase 1 checkpoint [{change_name}]"')
+```
+
+> **禁止行为**：主线程不得自行 `Write("openspec/changes/.../context/phase-results/phase-1-requirements.json", ...)`。所有 checkpoint 写入必须通过 `write-checkpoint.sh` 确保路径正确和原子性。
 
 ---
 
@@ -490,8 +507,8 @@ LOOP:
 
 **写入路径**: `openspec/changes/{change_name}/context/requirement-packet.json`
 
-**同时写入 checkpoint**: 调用 Skill(`spec-autopilot:autopilot-gate`) checkpoint 管理写入 `phase-1-requirements.json`。
-写入最终 checkpoint 后，删除中间态文件：`rm -f ${phase_results}/phase-1-interim.json`。
+**Checkpoint 写入**: 通过 `write-checkpoint.sh` 确定性脚本写入 `context/phase-results/phase-1-requirements.json`（见 Step 1.9.4c）。
+写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f openspec/changes/{change_name}/context/phase-results/phase-1-interim.json')`。
 
 ### requirement-packet.json 约束
 

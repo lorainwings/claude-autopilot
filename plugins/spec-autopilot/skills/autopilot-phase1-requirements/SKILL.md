@@ -71,7 +71,25 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 6.5. **主动讨论协议** — 基于 verdict + BA 产出，构造决策卡片（方案/优劣/推荐），通过 AskUserQuestion 由用户决策。详见 references/phase1-requirements.md § 1.6。
 7. **多轮决策 LOOP**（弹性收敛） — 以混合清晰度评分（规则×0.6 + AI×0.4）作为退出条件。Medium/Large 遵循一次一问原则。挑战代理在第 4/6/8 轮自动激活视角转换。安全阀：soft=8 轮提醒，hard=15 轮上限。详见 references/phase1-clarity-scoring.md 与 references/phase1-challenge-agents.md。每轮决策完成后写入中间态 checkpoint（详见 references/phase1-requirements.md § 1.7）。
 8. **生成结构化提示词** → 必须通过 AskUserQuestion 工具展示提示词并让用户确认（严禁纯文字输出确认，详见 references/phase1-requirements.md § 1.8）。
-9. **派发 PackagerAgent**（`subagent_type` 复用 `phases.requirements.synthesizer.agent`）基于 `verdict.json + requirements-analysis.md` 全文合成 `requirement-packet.json`（schema: `runtime/schemas/requirement-packet.schema.json`，必填 `goal/scope/non_goals/acceptance_criteria/risks/decisions/needs_clarification/sha256`）；主线程仅 Read packet.json 后写入 `phase-1-requirements.json` checkpoint + git fixup（后台 Checkpoint Agent）。严禁主线程自行压缩信封合成 packet。详见 references/phase1-requirements.md § 1.9。
+9. **派发 PackagerAgent**（`subagent_type` 复用 `phases.requirements.synthesizer.agent`）基于 `verdict.json + requirements-analysis.md` 全文合成 `requirement-packet.json`（schema: `runtime/schemas/requirement-packet.schema.json`，必填 `goal/scope/non_goals/acceptance_criteria/risks/decisions/needs_clarification/sha256`）。
+
+   **PackagerAgent 完成后，主线程必须按顺序执行以下确定性 Bash 调用**（禁止 AI 自行 Write checkpoint 或 mkdir）：
+
+   ```bash
+   # Step 9.1: 初始化 change 目录 + 更新锁文件 change 字段（将 pending 改为实际名称）
+   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/init-change-dir.sh "$PROJECT_ROOT" "{change_name}"')
+
+   # Step 9.2: 主线程仅 Read packet.json 读取 sha256/hash 字段供 checkpoint 使用
+   #          （禁止主线程 Read packet 全文或正文字段）
+
+   # Step 9.3: 通过确定性脚本写入 Phase 1 checkpoint（自动处理路径、timestamp、原子写入）
+   Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-checkpoint.sh "$PROJECT_ROOT" 1 \'{"status":"ok","summary":"Phase 1 完成, N 个决策确认","artifacts":["context/requirement-packet.json","context/prd.md","context/phase1-verdict.json"],"change_name":"{change_name}","complexity":"{complexity}","requirement_type":"{requirement_type}"}\'')
+
+   # Step 9.4: git fixup commit（后台 Checkpoint Agent 执行）
+   ```
+
+   严禁主线程自行压缩信封合成 packet，严禁自行 Write checkpoint 到任意路径。详见 references/phase1-requirements.md § 1.9。
+
    写入最终 checkpoint 后，删除中间态文件：`Bash('rm -f ${phase_results}/phase-1-interim.json')`
 10. **可配置用户确认点**（`config.gates.user_confirmation.after_phase_1`，**默认 false**）：
     - 当配置为 `false` 时，Phase 1 checkpoint 写入成功后**必须直接进入后续 Phase**

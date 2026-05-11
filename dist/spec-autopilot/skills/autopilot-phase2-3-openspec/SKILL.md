@@ -25,22 +25,44 @@ Phase 2 与 Phase 3 共用以下派发约束：
 
 ## Phase 2: 创建 OpenSpec
 
-- 任务：从需求推导 kebab-case 名称，执行 `openspec new change "<name>"`，写入 context 文件（prd.md、discussion.md、ai-prompt.md）
+- 任务：从需求推导 kebab-case 名称，初始化 OpenSpec change 目录并编写 proposal.md
 
-示例 summary（artifacts 数组按实际产物展开）：
+**关键事实**：`openspec new change "<name>"` 仅创建 `.openspec.yaml` 元数据文件（2 行：schema + created），**不会**自动生成 proposal.md 或 context 文件。子 Agent 必须自行编写所有制品文件。
+
+**子 Agent 必须执行的操作步骤**：
+
+1. `Bash('openspec new change "<name>"')` — 初始化 change 目录
+2. `Bash('mkdir -p openspec/changes/<name>/context/phase-results/')` — 创建 checkpoint 目录
+3. `Bash('openspec instructions proposal --change "<name>"')` — 获取 proposal 写作指引
+4. 根据指引 Write `openspec/changes/<name>/proposal.md`
+5. 返回 JSON 信封
+
+示例 summary：
 
 ```json
-{"status": "ok", "summary": "已创建 OpenSpec change: <name>，包含 N 个文件", "artifacts": ["openspec/changes/<name>/proposal.md" /* 其余制品按实际产物展开 */]}
+{"status": "ok", "summary": "已创建 OpenSpec change: <name>，包含 proposal.md", "artifacts": ["openspec/changes/<name>/proposal.md"]}
 ```
 
 ## Phase 3: FF 生成制品
 
-- 任务：按 openspec-ff-change 流程生成 proposal/specs/design/tasks
+- 任务：按 openspec instructions 指引依次生成 design.md、specs/、tasks.md
 
-示例 summary（artifacts 数组按实际产物展开）：
+**关键事实**：openspec CLI 不自动生成制品文件。`openspec instructions <artifact> --change <name>` 输出写作指引和模板，子 Agent 根据指引自行 Write 文件。
+
+**子 Agent 必须执行的操作步骤**：
+
+1. `Bash('openspec instructions design --change "<name>"')` — 获取 design 写作指引
+2. Write `openspec/changes/<name>/design.md`
+3. `Bash('openspec instructions specs --change "<name>"')` — 获取 specs 写作指引
+4. Write `openspec/changes/<name>/specs/*.md`（按 proposal 中声明的 capabilities 逐个创建）
+5. `Bash('openspec instructions tasks --change "<name>"')` — 获取 tasks 写作指引
+6. Write `openspec/changes/<name>/tasks.md`
+7. 返回 JSON 信封
+
+示例 summary：
 
 ```json
-{"status": "ok", "summary": "已生成 OpenSpec 制品: proposal/design/specs/tasks", "artifacts": ["openspec/changes/<name>/proposal.md", "openspec/changes/<name>/design.md" /* 其余制品按实际产物展开 */]}
+{"status": "ok", "summary": "已生成 OpenSpec 制品: design/specs/tasks", "artifacts": ["openspec/changes/<name>/design.md", "openspec/changes/<name>/specs/", "openspec/changes/<name>/tasks.md"]}
 ```
 
 ## 共享约束

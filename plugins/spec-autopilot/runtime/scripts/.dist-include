@@ -73,6 +73,9 @@ write-phase-progress.sh
 validate-requirement-packet.sh
 validate-openspec-artifacts.sh
 validate-agent-registry.sh
+validate-phase1-complete.sh
+write-checkpoint.sh
+init-change-dir.sh
 check-phase1-gate.sh
 
 # ── Phase 1 clarity_score 解耦 (Task 15/C15) ──
