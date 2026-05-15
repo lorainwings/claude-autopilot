@@ -39,6 +39,7 @@ check-allure-install.sh
 check-security-tools-install.sh
 clean-phase-artifacts.sh
 collect-metrics.sh
+collect-phase-timing.sh
 emit-agent-event.sh
 emit-gate-event.sh
 emit-model-routing-event.sh
