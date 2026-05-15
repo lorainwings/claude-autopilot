@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.15.2]
+
+### Added
+
+* autopilot demo execution artifacts
+
+
 ## [5.15.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.0...spec-autopilot-v5.15.1) (2026-04-24)
 
 
