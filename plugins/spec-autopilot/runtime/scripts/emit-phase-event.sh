@@ -25,6 +25,19 @@ MODE="${3:-full}"
 PAYLOAD_JSON="${4:-}"
 [ -z "$PAYLOAD_JSON" ] && PAYLOAD_JSON='{}'
 
+# --- mode fallback: CLI arg > lock file > env var > default "full" ---
+# When MODE is still the default "full" (caller didn't pass explicit mode),
+# try to resolve the actual mode from the lock file or environment,
+# matching the same fallback pattern used for change_name and session_id.
+if [ "$MODE" = "full" ]; then
+  _LOCK_MODE="${AUTOPILOT_MODE:-}"
+  if [ -z "$_LOCK_MODE" ]; then
+    _LOCK_PROBE="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    _LOCK_MODE=$(read_lock_json_field "$_LOCK_PROBE/openspec/changes/.autopilot-active" "mode" "")
+  fi
+  [ -n "$_LOCK_MODE" ] && MODE="$_LOCK_MODE"
+fi
+
 if [ -z "$EVENT_TYPE" ] || [ -z "$PHASE" ]; then
   echo "Usage: emit-phase-event.sh <event_type> <phase> <mode> [payload_json]" >&2
   exit 1
