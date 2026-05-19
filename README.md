@@ -15,6 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/) | 1.9.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 | [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
+| [slim-task](plugins/slim-task/README.md) | 0.1.0 | Structured 6-phase task execution SOP — requirements clarification, impact scoping, DAG-based parallel dispatch, quality review |
 
 ## Quick Install
 
@@ -34,7 +35,10 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 # 5. Install figma-handoff (project-level)
 claude plugin install figma-handoff@lorainwings-plugins --scope project
 
-# 6. Restart Claude Code
+# 6. Install slim-task (project-level)
+claude plugin install slim-task@lorainwings-plugins --scope project
+
+# 7. Restart Claude Code
 ```
 
 ## What is spec-autopilot?

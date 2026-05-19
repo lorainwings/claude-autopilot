@@ -1,0 +1,22 @@
+{
+  "name": "slim-task",
+  "version": "0.1.0",
+  "description": "Structured 6-phase task execution SOP — requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, quality review, and commit confirmation",
+  "author": {
+    "name": "lorainwings",
+    "url": "https://github.com/lorainwings"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/slim-task",
+  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "task-management",
+    "sop",
+    "parallel-agents",
+    "dag",
+    "code-review",
+    "impact-scope"
+  ]
+}

@@ -193,6 +193,34 @@ if [ -n "$FH_SUBSTANTIVE" ]; then
 fi
 
 # ============================================
+# Part 3.6: slim-task 构建脚本 shellcheck（< 1s）
+# ============================================
+ST_CHANGED="no"
+if grep -q "plugins/slim-task/" <<< "$_CACHED_NAMES"; then
+  ST_CHANGED="yes"
+fi
+
+ST_SUBSTANTIVE=""
+if [ "$ST_CHANGED" = "yes" ]; then
+  ST_SUBSTANTIVE=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^plugins/slim-task/' \
+    | grep -vE '(CHANGELOG\.md|README\.md|README\.zh\.md|\.claude-plugin/plugin\.json|docs/|reports/)' || true)
+fi
+
+if [ -n "$ST_SUBSTANTIVE" ]; then
+  if command -v shellcheck >/dev/null 2>&1; then
+    echo "🔍 shellcheck slim-task build script..."
+    if ! shellcheck plugins/slim-task/tools/build-dist.sh; then
+      echo "❌ slim-task shellcheck failed."
+      exit 1
+    fi
+  else
+    echo "❌ shellcheck not found. Install: brew install shellcheck"
+    exit 1
+  fi
+fi
+
+# ============================================
 # Part 4: 基础设施变更提醒（不阻断，仅提示）
 # ============================================
 # Makefile / .githooks / scripts / .shellcheckrc / release-please 配置变更时，
@@ -201,7 +229,7 @@ INFRA_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^(Make
 
 if [ -n "$INFRA_STAGED" ]; then
   echo "→ 提示：基础设施文件已修改，CI 将触发全插件完整 lint。"
-  echo "         建议本地执行 'make lint' / 'make ph-lint' / 'make dr-lint' / 'make fh-lint' 提前验证。"
+  echo "         建议本地执行 'make lint' / 'make ph-lint' / 'make dr-lint' / 'make fh-lint' / 'make st-lint' 提前验证。"
 fi
 
 exit 0

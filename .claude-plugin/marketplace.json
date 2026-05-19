@@ -36,6 +36,13 @@
       "description": "Pixel-faithful Figma design handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate. Solves the common Figma MCP low-fidelity problem with objective falsifiable gates.",
       "category": "development",
       "version": "0.1.0"
+    },
+    {
+      "name": "slim-task",
+      "source": "./dist/slim-task",
+      "description": "Structured 6-phase task execution SOP — requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, quality review, commit confirmation",
+      "category": "development",
+      "version": "0.1.0"
     }
   ]
 }

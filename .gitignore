@@ -78,6 +78,7 @@ plugins/parallel-harness/BUILD_MANIFEST.json
 !dist/parallel-harness/
 !dist/daily-report/
 !dist/figma-handoff/
+!dist/slim-task/
 
 # spec-autopilot 运行时临时产物（候选清单、聚合报告、patch、mutation/health 报告）
 .cache/

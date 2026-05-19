@@ -36,6 +36,7 @@ jobs:
       run_ph: ${{ steps.summary.outputs.run_ph }}
       run_dr: ${{ steps.summary.outputs.run_dr }}
       run_fh: ${{ steps.summary.outputs.run_fh }}
+      run_st: ${{ steps.summary.outputs.run_st }}
       affected: ${{ steps.summary.outputs.affected }}
     steps:
       - uses: actions/checkout@v5
@@ -70,6 +71,7 @@ jobs:
             echo "run_ph=true"
             echo "run_dr=true"
             echo "run_fh=true"
+            echo "run_st=true"
           } >> "$GITHUB_OUTPUT"
 
       - name: Detect changed paths
@@ -90,6 +92,9 @@ jobs:
             figma-handoff:
               - 'plugins/figma-handoff/**'
               - 'dist/figma-handoff/**'
+            slim-task:
+              - 'plugins/slim-task/**'
+              - 'dist/slim-task/**'
             shared:
               - 'scripts/**'
               - '.githooks/**'
@@ -109,12 +114,13 @@ jobs:
           SHARED="${{ steps.filter.outputs.shared }}"
 
           if [ "$FORCE" = "true" ] || [ "$SHARED" = "true" ]; then
-            SA=true; PH=true; DR=true; FH=true
+            SA=true; PH=true; DR=true; FH=true; ST=true
           else
             SA="${{ steps.filter.outputs.spec-autopilot }}"
             PH="${{ steps.filter.outputs.parallel-harness }}"
             DR="${{ steps.filter.outputs.daily-report }}"
             FH="${{ steps.filter.outputs.figma-handoff }}"
+            ST="${{ steps.filter.outputs.slim-task }}"
           fi
 
           # 写入所有决策到 GITHUB_OUTPUT
@@ -123,6 +129,7 @@ jobs:
             echo "run_ph=$PH"
             echo "run_dr=$DR"
             echo "run_fh=$FH"
+            echo "run_st=$ST"
           } >> "$GITHUB_OUTPUT"
 
           AFFECTED=""
@@ -130,6 +137,7 @@ jobs:
           [ "$PH" = "true" ] && AFFECTED="$AFFECTED parallel-harness"
           [ "$DR" = "true" ] && AFFECTED="$AFFECTED daily-report"
           [ "$FH" = "true" ] && AFFECTED="$AFFECTED figma-handoff"
+          [ "$ST" = "true" ] && AFFECTED="$AFFECTED slim-task"
           AFFECTED=$(echo "$AFFECTED" | xargs)  # trim
 
           echo "affected=$AFFECTED" >> "$GITHUB_OUTPUT"
@@ -515,6 +523,60 @@ jobs:
           bash scripts/check-dist-freshness.sh figma-handoff --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
+  # Stage 2: slim-task CI
+  # ════════════════════════════════════════════════════════════════════
+  st-lint:
+    name: slim-task / Lint
+    needs: [detect]
+    if: >-
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_st == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
+        run: make st-lint
+
+  st-build:
+    name: slim-task / Build dist
+    needs: [detect, release-discipline, st-lint]
+    if: |
+      always() &&
+      needs.detect.outputs.skip_ci != 'true' &&
+      needs.detect.outputs.run_st == 'true' &&
+      (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
+      needs.st-lint.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build dist
+        run: make st-build
+
+      - name: Verify dist structure
+        run: |
+          test -d dist/slim-task/.claude-plugin
+          test -f dist/slim-task/.claude-plugin/plugin.json
+          test -d dist/slim-task/skills
+          test -f dist/slim-task/CLAUDE.md
+          echo "dist/slim-task structure OK"
+
+      - name: Check dist freshness
+        if: needs.detect.outputs.skip_dist_stale != 'true'
+        run: |
+          if bash scripts/ci-detect-release-context.sh --check=skip_dist_stale; then
+            echo "release/post-release commit detected at job level — skipping freshness check"
+            exit 0
+          fi
+          bash scripts/check-dist-freshness.sh slim-task --ci-git-check
+
+  # ════════════════════════════════════════════════════════════════════
   # Stage 3: Per-plugin Summary (允许其他插件独立通过)
   # ════════════════════════════════════════════════════════════════════
   sa-summary:
@@ -649,12 +711,44 @@ jobs:
           done
           [ "$FAILED" -eq 0 ] || exit 1
 
+  st-summary:
+    name: slim-task / Summary
+    needs: [detect, release-discipline, st-lint, st-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_st == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate ST results
+        run: |
+          echo "=== slim-task Summary ==="
+          FAILED=0
+
+          RD="${{ needs.release-discipline.result }}"
+          if [ "$RD" != "success" ] && [ "$RD" != "skipped" ]; then
+            echo "❌ release-discipline: $RD"
+            FAILED=1
+          fi
+
+          for job in st-lint st-build; do
+            case "$job" in
+              st-lint)  RESULT="${{ needs.st-lint.result }}" ;;
+              st-build) RESULT="${{ needs.st-build.result }}" ;;
+            esac
+            if [ "$RESULT" != "success" ]; then
+              echo "❌ $job: $RESULT"
+              FAILED=1
+            else
+              echo "✅ $job: $RESULT"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
   # ════════════════════════════════════════════════════════════════════
   # Stage 4: 统一 summary (branch protection 的唯一 required check)
   # ════════════════════════════════════════════════════════════════════
   summary:
     name: CI Summary
-    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary, fh-summary]
+    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary, fh-summary, st-summary]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -742,6 +836,19 @@ jobs:
             fi
           else
             echo "⏭️  figma-handoff: skipped (not affected)"
+          fi
+
+          ST="${{ needs.detect.outputs.run_st }}"
+          if [ "$ST" = "true" ]; then
+            ST_RESULT="${{ needs.st-summary.result }}"
+            if [ "$ST_RESULT" != "success" ]; then
+              echo "❌ st-summary: $ST_RESULT"
+              FAILED=1
+            else
+              echo "✅ st-summary: $ST_RESULT"
+            fi
+          else
+            echo "⏭️  slim-task: skipped (not affected)"
           fi
 
           echo ""

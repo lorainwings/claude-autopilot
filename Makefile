@@ -6,6 +6,7 @@ SA  := plugins/spec-autopilot
 PH  := plugins/parallel-harness
 DR  := plugins/daily-report
 FH  := plugins/figma-handoff
+ST  := plugins/slim-task
 
 # lint 工具版本 — 与 .github/workflows/ci.yml 保持一致
 RUFF_VERSION  := 0.15.7
@@ -15,6 +16,7 @@ MYPY_VERSION  := 1.15.0
         ph-test ph-typecheck ph-build ph-build-only ph-lint ph-setup \
         dr-build dr-lint dr-ci \
         fh-build fh-lint fh-ci \
+        st-build st-lint st-ci \
         release release-dry \
         help
 
@@ -170,6 +172,23 @@ fh-lint: ## Lint figma-handoff build script (shellcheck)
 	fi
 
 fh-ci: fh-lint fh-build ## figma-handoff CI: lint → build
+
+# ── slim-task targets ─────────────────────────────────────────────
+
+st-build: hooks ## Build slim-task dist/ (pure file copy, no compile)
+	@bash $(ST)/tools/build-dist.sh
+
+st-lint: ## Lint slim-task build script (shellcheck)
+	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \
+	echo "── shellcheck: slim-task ──"; \
+	if command -v shellcheck >/dev/null 2>&1; then \
+	  shellcheck $(ST)/tools/build-dist.sh; \
+	else \
+	  echo "❌ shellcheck not found. Install: brew install shellcheck"; \
+	  exit 1; \
+	fi
+
+st-ci: st-lint st-build ## slim-task CI: lint → build
 
 # ── Release ────────────────────────────────────────────────────────
 

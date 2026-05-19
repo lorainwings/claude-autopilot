@@ -45,6 +45,14 @@
         { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
         "CLAUDE.md"
       ]
+    },
+    "plugins/slim-task": {
+      "release-type": "simple",
+      "component": "slim-task",
+      "extra-files": [
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
+        "CLAUDE.md"
+      ]
     }
   }
 }
