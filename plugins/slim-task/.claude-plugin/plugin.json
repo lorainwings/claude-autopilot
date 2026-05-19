@@ -1,6 +1,6 @@
 {
   "name": "slim-task",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Structured 6-phase task execution SOP — requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, quality review, and commit confirmation",
   "author": {
     "name": "lorainwings",
