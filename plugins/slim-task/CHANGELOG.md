@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.2.0...slim-task-v0.3.0) (2026-05-20)
+
+
+### Added
+
+* **slim-task:** 升级为 7 阶段 SOP, 新增多语言/Worktree/Phase 5 盲审反作弊 ([40b151c](https://github.com/lorainwings/claude-autopilot/commit/40b151cffae4619b8b0dbd60132a5a6501182995))
+
 ## [0.2.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.1.0...slim-task-v0.2.0) (2026-05-19)
 
 
