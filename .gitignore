@@ -70,6 +70,7 @@ plugins/spec-autopilot/logs/
 
 # Worktrees
 .worktrees/
+.claude/worktrees/
 .parallel-harness
 
 # parallel-harness 动态构建产物（由 tools/build-dist.sh 生成）

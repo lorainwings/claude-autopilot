@@ -7,19 +7,22 @@
 ## 插件定位
 
 纯 Skill 型插件，无 TypeScript runtime、无 hooks。
-提供 6 阶段结构化 SOP，采用主检子执模式 + DAG 最大化并行，解决 AI 任务执行的 7 个常见问题。
+提供 7 阶段结构化 SOP（Phase 0-6），采用主检子执模式 + DAG 最大化并行 + Phase 5 独立审计盲审，解决 AI 任务执行的 8 个常见问题。
 
 ## 核心约束
 
-1. **主检子执**: 主 Agent 只做检查/决策/派发/验证，子 Agent 做实际编码
+1. **主检子执**: 主 Agent 只做检查/决策/派发/验证，子 Agent 做实际编码与质量审计
 2. **影响范围即合约**: 禁止修改 Phase 2 审批的影响范围表之外的文件
 3. **DAG 无上限并行**: 同层无依赖任务全部并行派发，不限数量
 4. **阶段门控**: 每个阶段转换必须有用户检查点
 5. **提交须授权**: commit/push 必须通过 AskUserQuestion 获得用户明确确认
+6. **语言一致性**: AI 对话、决策卡、生成文档、子 Agent prompt 按 `${LANG}` 配置输出（默认 `zh-CN`），Conventional Commits 前缀保持英文
+7. **Worktree 隔离可选**: 可通过 `--worktree` 开启独立 worktree 执行，禁止 auto-merge 回 main
+8. **Phase 5 盲审反作弊**: 质量检查由独立 auditor 子 Agent 在隔离 context 内执行，禁止注入实现 Agent 的过程信息
 
 ## 触发方式
 
-- Skill 触发词: `/slim-task`
+- Skill 触发词: `/slim-task [task] [--lang ...] [--worktree] [--base ...]`
 - 自然语言: "结构化任务"、"SOP 执行"、"拆分任务并行执行"
 
 ## 完全独立
@@ -63,5 +66,19 @@ plugins/slim-task/
 - 控制在 2000 words 以内
 - 只写原则和工作流，不写代码模板
 - 引用文档放在 `references/` 目录
+
+### 工程红线（Worktree 模式）
+
+1. **禁止 commit 仓库共享配置**：worktree 内 commit 必须排除 `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json`
+2. **禁止 auto-merge**：所有 worktree 分支只能由用户人工合并回 main，禁止主 Agent 自动 merge 或 push 到 origin/main
+3. **禁止 bare 化 worktree**：遵循根 CLAUDE.md `git-worktree.md` 红线
+4. **`.gitignore` 自检**：进入 worktree 前必须确认 `.claude/worktrees/` 已被忽略；缺失则向用户提示补齐
+
+### Phase 5 反作弊隔离
+
+1. **审计 Agent 与实现 Agent 必须隔离 context**：Phase 5 派发的 scope-auditor / practice-auditor / engineering-auditor / fixer 子 Agent 的 prompt 严禁注入 Phase 4 实现 Agent 的对话历史、思考记录、自评结论
+2. **审计 Agent 一律 `general-purpose` subagent_type 独立派发**：不复用 Phase 4 任何 Agent ID
+3. **审计产物落盘可追溯**：`.claude/slim-task/audits/{task-slug}/{scope,practice,engineering}-audit.json`
+4. **修复循环上限 3 次**：超过上限必须停下让用户人工介入，禁止无限自洗
 
 <!-- DEV-ONLY-END -->

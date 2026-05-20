@@ -8,7 +8,7 @@
 ## 项目概述
 
 - **仓库**: [lorainwings/claude-autopilot](https://github.com/lorainwings/claude-autopilot)
-- **定位**: Claude Code 插件市场 monorepo，托管三个独立插件
+- **定位**: Claude Code 插件市场 monorepo，托管五个独立插件
 - **许可**: MIT License
 
 | 插件 | 定位 | 运行时 |
@@ -16,6 +16,8 @@
 | **spec-autopilot** | 规格驱动的自动化交付流水线编排器 | Bash/Python + React GUI + TypeScript WebSocket |
 | **parallel-harness** | 并行 AI 工程控制平面 | TypeScript/Bun |
 | **daily-report** | 基于 git + 飞书的日报自动化生成器 | 纯 Skill (Markdown 指令) |
+| **figma-handoff** | Figma 设计稿到代码交付的 6 阶段 SOP | 纯 Skill (Markdown 指令) |
+| **slim-task** | 结构化 7 阶段任务执行 SOP（多语言 + worktree + Phase 5 盲审反作弊） | 纯 Skill (Markdown 指令) |
 
 ## Monorepo 导航
 
@@ -26,12 +28,16 @@
 ├── dist/                        # 构建产物 (git tracked，供市场安装)
 │   ├── spec-autopilot/          # spec-autopilot 发布产物
 │   ├── parallel-harness/        # parallel-harness 发布产物
-│   └── daily-report/            # daily-report 发布产物
+│   ├── daily-report/            # daily-report 发布产物
+│   ├── figma-handoff/           # figma-handoff 发布产物
+│   └── slim-task/               # slim-task 发布产物
 ├── docs/plans/                  # 设计文档与执行计划
 ├── plugins/                     # 插件源代码 (所有修改在此进行)
 │   ├── spec-autopilot/          # → 有独立 CLAUDE.md
 │   ├── parallel-harness/        # → 有独立 CLAUDE.md
-│   └── daily-report/            # → 有独立 CLAUDE.md
+│   ├── daily-report/            # → 有独立 CLAUDE.md
+│   ├── figma-handoff/           # → 有独立 CLAUDE.md
+│   └── slim-task/               # → 有独立 CLAUDE.md
 ├── scripts/                     # 仓库级脚本 (setup-hooks.sh, check-release-discipline.sh)
 ├── tools/                       # 发版工具 (release.sh)
 ├── Makefile                     # 统一构建入口 — 所有构建/测试/lint 操作的唯一入口

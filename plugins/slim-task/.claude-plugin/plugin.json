@@ -1,7 +1,7 @@
 {
   "name": "slim-task",
   "version": "0.2.0",
-  "description": "Structured 6-phase task execution SOP — requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, quality review, and commit confirmation",
+  "description": "Structured 7-phase task execution SOP with multi-language and worktree support — session init, requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, blind-audit quality review by independent sub-agents, and commit confirmation",
   "author": {
     "name": "lorainwings",
     "url": "https://github.com/lorainwings"
@@ -17,6 +17,9 @@
     "parallel-agents",
     "dag",
     "code-review",
-    "impact-scope"
+    "impact-scope",
+    "i18n",
+    "worktree",
+    "blind-audit"
   ]
 }
