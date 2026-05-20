@@ -12,12 +12,13 @@ user-invocable: true
 1. **主 Agent 禁止直接写代码** — 只做需求澄清、方案设计、任务拆分、派发、汇总、提交确认
 2. **Phase 2 审批前禁止任何代码变更** — 必须先完成需求澄清 + 方案设计 + 用户审批
 3. **影响范围即合约** — 禁止修改影响范围表之外的任何文件
-4. **每阶段必须有用户检查点** — 阶段转换前必须获得用户确认
-5. **禁止未经确认的 commit/push** — Phase 6 必须通过 AskUserQuestion 获得明确授权
+4. **每阶段必须有用户检查点（强制工具调用）** — 阶段转换前**必须调用 `AskUserQuestion` 工具**获得显式授权；禁止用纯文本提问（"要不要 / 是否继续 / 看起来如何"）作为检查点替代
+5. **禁止未经确认的 commit/push** — Phase 6 commit 与 push 必须**分别**调用 `AskUserQuestion`（两次独立决策卡）获得明确授权；用户在历史对话中的笼统指令（如 "提交并推送" "拉个 PR"）**不构成本次授权**，仍须在执行点重新通过 `AskUserQuestion` 二次确认
 6. **UI 改动必检** — 涉及 UI 时必须调用 `frontend-design` 或 `ui-ux-pro-max` Skill
 7. **完全独立** — 本插件不依赖任何其他插件的基础设施或模式
 8. **语言一致性** — 面向用户的对话、AskUserQuestion 选项、生成文档、子 Agent prompt 全部使用 `${LANG}` 配置语言（默认 `zh-CN`）。Conventional Commits 前缀保持英文，commit body 按 `${LANG}`；代码标识符 / API 名 / 框架关键字保持原文
 9. **Worktree 模式硬约束** — 进入 worktree 后禁止 commit `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json`；禁止 auto-merge 回 main 或 push 到 origin/main；只能由用户人工合并
+10. **检查点 AskUserQuestion 标准格式** — 每个检查点的决策卡至少包含三选项：「采纳进入下阶段」「修改后重审」「终止流程」；选项标签按 `${LANG}`；自由文本回复（如用户答"不错"）**不自动视为采纳**，必须再次发起决策卡或显式询问
 
 ## Phase 0: 会话初始化
 
@@ -35,7 +36,7 @@ user-invocable: true
      c. 检查仓库根 `.gitignore` 是否包含 `.claude/worktrees/`，缺失则提示用户补齐
 4. **输出初始化摘要**：`LANG=... | WORKTREE=<path 或 none> | BASE=<branch>`
 
-**检查点**：用户确认初始化结果后进入 Phase 1。
+**检查点（强制 `AskUserQuestion`）**：必须调用 `AskUserQuestion` 决策卡，展示初始化摘要并提供「采纳进入 Phase 1 / 修改语言或 worktree 配置 / 终止」三选项；用户选定「采纳」后进入 Phase 1。
 
 ## Phase 1: 需求澄清
 
@@ -47,7 +48,7 @@ user-invocable: true
 4. 若任务已足够清晰，列出关键假设请用户确认
 5. **输出**：精炼需求摘要（bulleted list，按 `${LANG}`）
 
-**检查点**：用户确认需求摘要后进入 Phase 2。
+**检查点（强制 `AskUserQuestion`）**：必须调用 `AskUserQuestion` 决策卡，展示需求摘要并提供「采纳进入 Phase 2 / 补充澄清问题 / 终止」三选项；自由文本回复不视为采纳。
 
 ## Phase 2: 方案设计
 
@@ -79,7 +80,7 @@ user-invocable: true
 
 1. **依赖影响** + **风险与权衡**
 
-**检查点**：`AskUserQuestion` 请用户审批方案，审批通过后进入 Phase 3。
+**检查点（强制 `AskUserQuestion`）**：必须调用 `AskUserQuestion` 决策卡，展示方案描述 + 影响范围表 + 风险，提供「批准方案进入 Phase 3 / 修改方案 / 终止」三选项；批准通过后进入 Phase 3。
 
 ## Phase 3: 文档固化 + DAG 任务拆分
 
@@ -107,7 +108,7 @@ user-invocable: true
    - **Dependencies**：前置子任务 ID
    - **Output format**：完成标准
 
-**检查点**：向用户展示 DAG 拆分结果，确认后进入 Phase 4。
+**检查点（强制 `AskUserQuestion`）**：必须调用 `AskUserQuestion` 决策卡展示 DAG 拆分结果（含 Layer/Objective/File boundary），提供「采纳并派发 Phase 4 / 修改拆分 / 终止」三选项。
 
 ## Phase 4: DAG 最大化并行执行
 
@@ -144,7 +145,7 @@ Respond in ${LANG}. Code identifiers and English-only conventions
 完成后汇报：修改了哪些文件、做了什么变更、是否有遗留问题。
 ```
 
-**检查点**：所有子 Agent 完成后，汇总结果通知用户，进入 Phase 5。
+**检查点（强制 `AskUserQuestion`）**：所有子 Agent 完成后，必须调用 `AskUserQuestion` 决策卡展示执行汇总，提供「进入 Phase 5 审计 / 回退修复 / 终止」三选项。
 
 ## Phase 5: 质量检查（独立审计 Agent 盲审）
 
@@ -204,26 +205,40 @@ Respond in ${LANG}. Code identifiers and English-only conventions
 - 审计 Agent 与 fixer Agent 均使用 `general-purpose` subagent_type 独立派发
 - 单次 Phase 5 循环上限 3 次（修复 + 复核），超过则停下让用户人工介入
 
-**检查点**：用户审批审计报告后进入 Phase 6。
+**检查点（强制 `AskUserQuestion`）**：必须调用 `AskUserQuestion` 决策卡展示三份 audit.json 综合报告，提供「批准进入 Phase 6 提交 / 派 fixer 修复后复审 / 终止」三选项。
 
 ## Phase 6: 提交确认
 
-目标：获得用户明确授权后执行 commit 和可选的 push。
+目标：获得用户明确授权后执行 commit 和可选的 push / PR。
+
+**核心铁律**：
+
+- 用户在本会话历史中的笼统指令（"提交并推送"、"拉个 PR"、"全部弄完"）**不构成本阶段授权**
+- 每次进入 Phase 6 必须**重新发起**至少 1 次 `AskUserQuestion`（commit 决策）
+- 若用户在 commit 决策卡选「commit + push」，仍需**第二次** `AskUserQuestion` 确认 push 与 PR 范围
+- 严禁主 Agent 自行执行 `git commit` / `git push` / `gh pr create` 后再追溯告知
+
+执行步骤：
 
 1. 展示（按 `${LANG}`）：
    - 变更文件列表 + diff 摘要
    - 提议的 Conventional Commits 格式 commit message（前缀保持英文 `feat:`/`fix:`/...，body 按 `${LANG}`）
 2. **Worktree 模式禁用文件检查**：若处于 worktree，扫描 staged 文件，命中以下任一则拒绝 commit 并提示：
    - `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json`
-3. 使用 `AskUserQuestion` 确认：
-   - 是否 commit（Y/N）
-   - 是否 push（Y/N，独立于 commit）— **worktree 模式下 push 选项禁用**，必须由用户人工合并
-4. **用户确认 commit**：执行 `git add` + `git commit`
-5. **用户确认 push（仅非 worktree 模式）**：执行 `git push`
-6. **Worktree 收尾**：`AskUserQuestion` 是否 `ExitWorktree(action=keep)` 保留 worktree 待用户人工合并；给出合并指引：
+3. **第一次 `AskUserQuestion`（Commit 决策）**，选项至少包含：
+   - 「确认 commit（按提议的 message）」
+   - 「修改 commit message 后再 commit」
+   - 「取消，回到 Phase 5」
+4. 若用户选确认 commit：执行 `git add` + `git commit`，**然后立即发起第二次 `AskUserQuestion`（Push / PR 决策）**，选项至少包含：
+   - 「push 到当前分支并开 PR」
+   - 「仅 push，不开 PR」
+   - 「保留本地不 push（用户稍后人工处理）」
+   - **worktree 模式下「push 到 main」选项必须禁用**
+5. 按用户在第二次决策卡的选择执行；执行后再做最后汇报，不得追加自作主张的动作
+6. **Worktree 收尾**：再发起一次 `AskUserQuestion` 询问是否 `ExitWorktree(action=keep)` 保留 worktree 待用户人工合并；给出合并指引：
 
    ```bash
    git fetch && git checkout main && git merge worktree-slim-<slug>
    ```
 
-7. **用户拒绝 commit**：列出需要手动调整的事项，结束流程
+7. **用户拒绝 commit**：列出需要手动调整的事项，结束流程，不得自动进入 push/PR 步骤

@@ -81,4 +81,11 @@ plugins/slim-task/
 3. **审计产物落盘可追溯**：`.claude/slim-task/audits/{task-slug}/{scope,practice,engineering}-audit.json`
 4. **修复循环上限 3 次**：超过上限必须停下让用户人工介入，禁止无限自洗
 
+### 用户检查点强制工具调用
+
+1. **所有 Phase 检查点必须调用 `AskUserQuestion`**：禁止用纯文本提问（如"要不要继续 / 看起来如何 / 是否 OK"）作为检查点替代；自由文本回复不视为采纳
+2. **检查点决策卡至少 3 选项**：「采纳进入下阶段」「修改后重审」「终止流程」
+3. **Phase 6 双决策卡**：第一次决策卡确认 commit，commit 后立即第二次决策卡确认 push 与 PR；禁止合并为单次询问
+4. **历史指令不构成本次授权**：用户在更早消息中的笼统指令（"提交推送拉 PR"、"全部弄完"）不能跳过 Phase 6 的两次 AskUserQuestion；违反即视为绕过用户授权
+
 <!-- DEV-ONLY-END -->

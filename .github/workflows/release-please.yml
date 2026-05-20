@@ -30,6 +30,14 @@ jobs:
       dr_release_created: ${{ steps.release.outputs['plugins/daily-report--release_created'] }}
       dr_tag_name: ${{ steps.release.outputs['plugins/daily-report--tag_name'] }}
       dr_version: ${{ steps.release.outputs['plugins/daily-report--version'] }}
+      # figma-handoff outputs
+      fh_release_created: ${{ steps.release.outputs['plugins/figma-handoff--release_created'] }}
+      fh_tag_name: ${{ steps.release.outputs['plugins/figma-handoff--tag_name'] }}
+      fh_version: ${{ steps.release.outputs['plugins/figma-handoff--version'] }}
+      # slim-task outputs
+      st_release_created: ${{ steps.release.outputs['plugins/slim-task--release_created'] }}
+      st_tag_name: ${{ steps.release.outputs['plugins/slim-task--tag_name'] }}
+      st_version: ${{ steps.release.outputs['plugins/slim-task--version'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -70,6 +78,14 @@ jobs:
         if: needs.release-please.outputs.dr_release_created == 'true'
         run: bash plugins/daily-report/tools/build-dist.sh
 
+      - name: Build figma-handoff dist
+        if: needs.release-please.outputs.fh_release_created == 'true'
+        run: bash plugins/figma-handoff/tools/build-dist.sh
+
+      - name: Build slim-task dist
+        if: needs.release-please.outputs.st_release_created == 'true'
+        run: bash plugins/slim-task/tools/build-dist.sh
+
       - name: Update plugin README & CLAUDE.md versions
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
@@ -100,6 +116,20 @@ jobs:
             sed -i "s/> 版本: [0-9][0-9.]*/> 版本: ${DR_VER}/" plugins/daily-report/CLAUDE.md
           fi
 
+          # figma-handoff README Version / 版本 line (x-release-please-version markers)
+          FH_VER="${{ needs.release-please.outputs.fh_version }}"
+          if [ -n "$FH_VER" ]; then
+            sed -i "s/\*\*Version\*\*: [0-9][0-9.]* <!-- x-release-please-version -->/**Version**: ${FH_VER} <!-- x-release-please-version -->/" plugins/figma-handoff/README.md
+            sed -i "s/\*\*版本\*\*: [0-9][0-9.]* <!-- x-release-please-version -->/**版本**: ${FH_VER} <!-- x-release-please-version -->/" plugins/figma-handoff/README.zh.md
+          fi
+
+          # slim-task README Version / 版本 line + dist mirror sync
+          ST_VER="${{ needs.release-please.outputs.st_version }}"
+          if [ -n "$ST_VER" ]; then
+            sed -i "s/\*\*Version\*\*: [0-9][0-9.]* <!-- x-release-please-version -->/**Version**: ${ST_VER} <!-- x-release-please-version -->/" plugins/slim-task/README.md
+            sed -i "s/\*\*版本\*\*: [0-9][0-9.]* <!-- x-release-please-version -->/**版本**: ${ST_VER} <!-- x-release-please-version -->/" plugins/slim-task/README.zh.md
+          fi
+
       - name: Update root README version table
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
@@ -121,6 +151,18 @@ jobs:
             sed -i "s/| \[daily-report\](plugins\/daily-report\/README\.zh\.md) | [0-9][0-9.]*\b/| [daily-report](plugins\/daily-report\/README.zh.md) | $DR_VER/" README.zh.md
           fi
 
+          FH_VER="${{ needs.release-please.outputs.fh_version }}"
+          if [ -n "$FH_VER" ]; then
+            sed -i "s/| \[figma-handoff\](plugins\/figma-handoff\/README\.md) | [0-9][0-9.]*\b/| [figma-handoff](plugins\/figma-handoff\/README.md) | $FH_VER/" README.md
+            sed -i "s/| \[figma-handoff\](plugins\/figma-handoff\/README\.zh\.md) | [0-9][0-9.]*\b/| [figma-handoff](plugins\/figma-handoff\/README.zh.md) | $FH_VER/" README.zh.md
+          fi
+
+          ST_VER="${{ needs.release-please.outputs.st_version }}"
+          if [ -n "$ST_VER" ]; then
+            sed -i "s/| \[slim-task\](plugins\/slim-task\/README\.md) | [0-9][0-9.]*\b/| [slim-task](plugins\/slim-task\/README.md) | $ST_VER/" README.md
+            sed -i "s/| \[slim-task\](plugins\/slim-task\/README\.zh\.md) | [0-9][0-9.]*\b/| [slim-task](plugins\/slim-task\/README.zh.md) | $ST_VER/" README.zh.md
+          fi
+
       - name: Update marketplace.json versions
         run: |
           SA_VER="${{ needs.release-please.outputs.sa_version }}"
@@ -138,6 +180,16 @@ jobs:
           DR_VER="${{ needs.release-please.outputs.dr_version }}"
           if [ -n "$DR_VER" ]; then
             jq --arg v "$DR_VER" '(.plugins[] | select(.name == "daily-report")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
+          fi
+
+          FH_VER="${{ needs.release-please.outputs.fh_version }}"
+          if [ -n "$FH_VER" ]; then
+            jq --arg v "$FH_VER" '(.plugins[] | select(.name == "figma-handoff")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
+          fi
+
+          ST_VER="${{ needs.release-please.outputs.st_version }}"
+          if [ -n "$ST_VER" ]; then
+            jq --arg v "$ST_VER" '(.plugins[] | select(.name == "slim-task")).version = $v' "$MARKETPLACE" > tmp.$$.json && mv tmp.$$.json "$MARKETPLACE"
           fi
 
       - name: Update parallel-harness docs version headers
@@ -193,6 +245,26 @@ jobs:
             echo "dist/daily-report structure OK"
           fi
 
+          FH_CREATED="${{ needs.release-please.outputs.fh_release_created }}"
+          if [ "$FH_CREATED" = "true" ]; then
+            echo "Verifying dist/figma-handoff structure..."
+            test -d dist/figma-handoff/.claude-plugin
+            test -f dist/figma-handoff/.claude-plugin/plugin.json
+            test -d dist/figma-handoff/skills
+            test -f dist/figma-handoff/CLAUDE.md
+            echo "dist/figma-handoff structure OK"
+          fi
+
+          ST_CREATED="${{ needs.release-please.outputs.st_release_created }}"
+          if [ "$ST_CREATED" = "true" ]; then
+            echo "Verifying dist/slim-task structure..."
+            test -d dist/slim-task/.claude-plugin
+            test -f dist/slim-task/.claude-plugin/plugin.json
+            test -d dist/slim-task/skills
+            test -f dist/slim-task/CLAUDE.md
+            echo "dist/slim-task structure OK"
+          fi
+
       - name: Commit post-release updates
         run: |
           git config user.name "github-actions[bot]"
@@ -204,6 +276,8 @@ jobs:
             plugins/parallel-harness/docs/ \
             plugins/daily-report/README.md plugins/daily-report/README.zh.md \
             plugins/daily-report/CLAUDE.md \
+            plugins/figma-handoff/README.md plugins/figma-handoff/README.zh.md \
+            plugins/slim-task/README.md plugins/slim-task/README.zh.md \
             README.md README.zh.md \
             .claude-plugin/marketplace.json
           if git diff --cached --quiet; then
@@ -212,10 +286,14 @@ jobs:
             SA_VER="${{ needs.release-please.outputs.sa_version }}"
             PH_VER="${{ needs.release-please.outputs.ph_version }}"
             DR_VER="${{ needs.release-please.outputs.dr_version }}"
+            FH_VER="${{ needs.release-please.outputs.fh_version }}"
+            ST_VER="${{ needs.release-please.outputs.st_version }}"
             COMMIT_MSG="chore: post-release update dist + README versions"
             [ -n "$SA_VER" ] && COMMIT_MSG="$COMMIT_MSG [spec-autopilot@$SA_VER]"
             [ -n "$PH_VER" ] && COMMIT_MSG="$COMMIT_MSG [parallel-harness@$PH_VER]"
             [ -n "$DR_VER" ] && COMMIT_MSG="$COMMIT_MSG [daily-report@$DR_VER]"
+            [ -n "$FH_VER" ] && COMMIT_MSG="$COMMIT_MSG [figma-handoff@$FH_VER]"
+            [ -n "$ST_VER" ] && COMMIT_MSG="$COMMIT_MSG [slim-task@$ST_VER]"
             git commit -m "$COMMIT_MSG"
             # 带重试的 push（处理并发冲突）
             for i in 1 2 3; do
