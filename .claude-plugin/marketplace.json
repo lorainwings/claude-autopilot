@@ -40,9 +40,9 @@
     {
       "name": "slim-task",
       "source": "./dist/slim-task",
-      "description": "Structured 6-phase task execution SOP — requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, quality review, commit confirmation",
+      "description": "Structured 7-phase task execution SOP with multi-language and worktree support — session init, requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, blind-audit quality review by independent sub-agents, commit confirmation",
       "category": "development",
-      "version": "0.1.0"
+      "version": "0.2.0"
     }
   ]
 }

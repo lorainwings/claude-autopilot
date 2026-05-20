@@ -32,6 +32,8 @@
 3. spec-autopilot 变更时: 全量测试 → 测试覆盖检查 → staged lint → 版本一致性校验 → 自动重建 dist
 4. parallel-harness 变更时: 自动重建 dist
 5. daily-report 变更时: 自动重建 dist
+6. figma-handoff 变更时: 构建脚本 shellcheck → 自动重建 dist
+7. slim-task 变更时: 构建脚本 shellcheck → 自动重建 dist
 
 ## Pre-push 执行流程
 

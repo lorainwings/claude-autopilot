@@ -15,7 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/) | 1.9.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 | [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
-| [slim-task](plugins/slim-task/README.md) | 0.1.0 | Structured 6-phase task execution SOP — requirements clarification, impact scoping, DAG-based parallel dispatch, quality review |
+| [slim-task](plugins/slim-task/README.md) | 0.2.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
 
 ## Quick Install
 

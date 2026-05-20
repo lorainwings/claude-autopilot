@@ -16,6 +16,11 @@
 |------|------|------|------|
 | spec-autopilot | `make test` | Bash 测试套件 | 104 文件, 1245+ 断言 |
 | parallel-harness | `make ph-test` | `bun test` | 295 tests, 649 assertions |
+| daily-report | — | 纯 Skill 无运行时 | 仅 `make dr-lint` shellcheck |
+| figma-handoff | — | 纯 Skill 无运行时 | 仅 `make fh-lint` shellcheck |
+| slim-task | — | 纯 Skill 无运行时 | 仅 `make st-lint` shellcheck |
+
+> 纯 Skill 插件（daily-report / figma-handoff / slim-task）只对 `tools/build-dist.sh` 做 shellcheck，**不要求**运行时单测；SOP 与产物质量由各插件 SKILL.md 自带的检查点和 Phase 5 审计（slim-task）等机制保证。
 
 ## 推送前检查清单
 
