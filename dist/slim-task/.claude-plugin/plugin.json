@@ -1,6 +1,6 @@
 {
   "name": "slim-task",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Structured 7-phase task execution SOP with multi-language and worktree support — session init, requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, blind-audit quality review by independent sub-agents, and commit confirmation",
   "author": {
     "name": "lorainwings",
