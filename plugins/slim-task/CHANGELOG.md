@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.3.0...slim-task-v0.3.1) (2026-05-20)
+
+
+### Fixed
+
+* **release:** 同步 post-release sync 补全 FH/ST + slim-task SKILL 护栏强制 AskUserQuestion ([d25407b](https://github.com/lorainwings/claude-autopilot/commit/d25407bb161b1031989520dfc8a4b1ac4f351f7c))
+
 ## [0.3.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.2.0...slim-task-v0.3.0) (2026-05-20)
 
 
