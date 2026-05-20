@@ -15,7 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.9.1 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.3.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 | [figma-handoff](plugins/figma-handoff/README.zh.md) | 0.1.0 | Figma → 前端代码像素级高保真还原工作流 — 强制规格采集、token 映射、转译铁律、像素 diff 硬门禁 |
-| [slim-task](plugins/slim-task/README.zh.md) | 0.2.0 | 结构化 7 阶段任务执行 SOP，支持多语言与 worktree 并行 — 会话初始化、需求澄清、影响范围锁定、DAG 并行子 Agent 派发、独立审计盲审 |
+| [slim-task](plugins/slim-task/README.zh.md) | 0.3.0 | 结构化 7 阶段任务执行 SOP，支持多语言与 worktree 并行 — 会话初始化、需求澄清、影响范围锁定、DAG 并行子 Agent 派发、独立审计盲审 |
 
 ## 快速安装
 
@@ -171,6 +171,32 @@ runtime/
     → 阶段 3 像素 diff → 阶段 4 独立 review
 ```
 
+## 什么是 slim-task？
+
+**slim-task** 是一个纯 Skill 型 Claude Code 插件，为 AI 任务执行提供 7 阶段标准操作流程（SOP）。它解决了 AI 执行编码任务时反复出现的 8 类失败模式——从跳过需求澄清到自己给自己打分——把每个任务变成可审计、可并行、可隔离的工作流。
+
+### 核心特性
+
+- **主检子执** — 主 Agent 只做检查/决策/派发/验证，实现与质量审计始终交给独立子 Agent
+- **多语言配置** — `--lang` 参数 + `.claude/slim-task.json` 持久化；AI 对话、决策卡、生成文档、子 Agent prompt 全部按配置语言输出（默认 `zh-CN`）；Conventional Commits 前缀保持英文
+- **Worktree 隔离** — 可选 `--worktree` / `--base` 把整个流水线运行在独立 git worktree 内（复用 Claude Code 原生 `EnterWorktree`）；commit 永不自动 merge 或 push 到 `main`
+- **DAG 并行派发** — 子任务按依赖关系拆解为 DAG，同层任务全部并行派发，无数量上限
+- **影响范围合约** — 必填的文件级影响范围表先由用户审批，超范围修改被禁止
+- **Phase 5 盲审反作弊** — 质量检查派发三个独立 auditor 子 Agent（`scope-auditor` / `practice-auditor` / `engineering-auditor`）在隔离 context 内执行；写实现的 Agent 不得评自己的代码
+- **7 个用户检查点** — 每个阶段转换都需用户明确确认；commit 还需额外 `AskUserQuestion` 授权
+
+### 工作流
+
+```
+Phase 0 会话初始化（语言 + worktree）
+    → Phase 1 需求澄清
+    → Phase 2 方案设计（调研 + 代码扫描 + 影响范围）
+    → Phase 3 文档固化 + DAG 拆分
+    → Phase 4 最大化并行执行
+    → Phase 5 盲审质量检查（scope / practice / engineering）
+    → Phase 6 提交确认
+```
+
 ## 文档
 
 ### spec-autopilot
@@ -212,6 +238,23 @@ runtime/
 | [插件 README](plugins/daily-report/README.zh.md) | 完整插件文档 |
 | [更新日志](plugins/daily-report/CHANGELOG.md) | 版本历史 |
 
+### figma-handoff
+
+| 文档 | 说明 |
+|------|------|
+| [插件 README](plugins/figma-handoff/README.zh.md) | 完整插件文档 |
+| [CLAUDE.md](plugins/figma-handoff/CLAUDE.md) | 插件工程规则 |
+| [更新日志](plugins/figma-handoff/CHANGELOG.md) | 版本历史 |
+
+### slim-task
+
+| 文档 | 说明 |
+|------|------|
+| [插件 README](plugins/slim-task/README.zh.md) | 完整插件文档、参数说明、worktree 注意事项 |
+| [SKILL.md](plugins/slim-task/skills/slim-task/SKILL.md) | 7 阶段 SOP 定义、子 Agent prompt 模板 |
+| [CLAUDE.md](plugins/slim-task/CLAUDE.md) | 插件工程规则、Worktree 硬约束、Phase 5 反作弊隔离 |
+| [更新日志](plugins/slim-task/CHANGELOG.md) | 版本历史 |
+
 ## 系统要求
 
 - **Claude Code** CLI (v1.0.0+)
@@ -235,7 +278,9 @@ claude-autopilot/
 ├── dist/                    # 构建产出（用于市场安装）
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
-│   └── daily-report/
+│   ├── daily-report/
+│   ├── figma-handoff/
+│   └── slim-task/
 ├── plugins/                 # 插件源码
 │   ├── spec-autopilot/
 │   │   ├── skills/          # 12 个 Skill 定义
@@ -244,15 +289,19 @@ claude-autopilot/
 │   │   ├── gui/             # GUI V2 大盘 (React + Tailwind)
 │   │   ├── tests/           # 104 个测试文件，1245+ 个断言
 │   │   └── docs/            # 完整文档 (中英双语)
-│   └── parallel-harness/
-│       ├── runtime/         # 17 个核心模块 (engine, orchestrator, scheduler 等)
-│       ├── skills/          # Skill 定义 (harness, plan, dispatch, verify)
-│       ├── config/          # 默认配置 + 策略文件
-│       ├── tools/           # CLI 工具和辅助脚本
-│       ├── tests/           # 295 个测试，649 个断言
-│       └── docs/            # 完整文档
-│   └── daily-report/
-│       └── skills/          # Skill 定义 + 初始化引导
+│   ├── parallel-harness/
+│   │   ├── runtime/         # 17 个核心模块 (engine, orchestrator, scheduler 等)
+│   │   ├── skills/          # Skill 定义 (harness, plan, dispatch, verify)
+│   │   ├── config/          # 默认配置 + 策略文件
+│   │   ├── tools/           # CLI 工具和辅助脚本
+│   │   ├── tests/           # 295 个测试，649 个断言
+│   │   └── docs/            # 完整文档
+│   ├── daily-report/
+│   │   └── skills/          # Skill 定义 + 初始化引导
+│   ├── figma-handoff/
+│   │   └── skills/          # Skill 定义 + 各栈 references
+│   └── slim-task/
+│       └── skills/          # 7 阶段 SOP Skill（纯 Markdown，无运行时）
 ├── Makefile                 # 构建、测试、初始化快捷入口
 ├── README.md                # 英文说明
 ├── README.zh.md             # 本文件
