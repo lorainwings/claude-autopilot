@@ -15,7 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/) | 1.9.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 | [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
-| [slim-task](plugins/slim-task/README.md) | 0.2.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
+| [slim-task](plugins/slim-task/README.md) | 0.3.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
 
 ## Quick Install
 
@@ -171,6 +171,32 @@ Stage 0 Spec → Stage 1 Mapping Tables → Stage 2 Translation (skeleton/data/i
     → Stage 3 Pixel Diff → Stage 4 Independent Review
 ```
 
+## What is slim-task?
+
+**slim-task** is a pure-Skill Claude Code plugin that provides a 7-phase Standard Operating Procedure (SOP) for AI task execution. It solves 8 recurring failure modes when AI agents implement coding tasks — from skipping requirements clarification to self-grading the work they just produced — and turns each task into an auditable, parallelizable, isolated workflow.
+
+### Key Features
+
+- **Main-Check-Sub-Execute** — Main agent only inspects/decides/dispatches/verifies; implementation and quality audits are always done by independent sub-agents
+- **Multi-Language Configuration** — `--lang` flag with `.claude/slim-task.json` persistence; all AI dialogue, decision cards, generated docs, and sub-agent prompts respect the configured language (default `zh-CN`); Conventional Commits prefixes stay English
+- **Worktree Isolation** — Optional `--worktree` / `--base` runs the full pipeline inside a dedicated git worktree via Claude Code's native `EnterWorktree`; commits never auto-merge or push to `main`
+- **DAG-Based Parallel Dispatch** — Sub-tasks decomposed into a dependency DAG, same-layer tasks dispatched simultaneously with no concurrency limit
+- **Impact-Scope Contract** — Mandatory file-level impact scope table approved by the user before any code change; out-of-scope edits are forbidden
+- **Phase 5 Blind Audit (Anti-Cheat)** — Quality review delegated to three independent auditor sub-agents (`scope-auditor` / `practice-auditor` / `engineering-auditor`) in isolated context; the implementing agent is forbidden from grading its own work
+- **7 User Checkpoints** — Every phase transition requires explicit user confirmation; commits require an additional `AskUserQuestion` authorization
+
+### Workflow
+
+```
+Phase 0 Session Init (lang + worktree)
+    → Phase 1 Requirements Clarification
+    → Phase 2 Solution Design (research + codebase scan + impact scope)
+    → Phase 3 Documentation + DAG Split
+    → Phase 4 Maximal Parallel Execution
+    → Phase 5 Blind-Audit Quality Review (scope / practice / engineering)
+    → Phase 6 Commit Confirmation
+```
+
 ## Documentation
 
 ### spec-autopilot
@@ -212,6 +238,23 @@ Stage 0 Spec → Stage 1 Mapping Tables → Stage 2 Translation (skeleton/data/i
 | [Plugin README](plugins/daily-report/README.md) | Full plugin documentation |
 | [Changelog](plugins/daily-report/CHANGELOG.md) | Version history |
 
+### figma-handoff
+
+| Document | Description |
+|----------|-------------|
+| [Plugin README](plugins/figma-handoff/README.md) | Full plugin documentation |
+| [CLAUDE.md](plugins/figma-handoff/CLAUDE.md) | Plugin-specific engineering rules |
+| [Changelog](plugins/figma-handoff/CHANGELOG.md) | Version history |
+
+### slim-task
+
+| Document | Description |
+|----------|-------------|
+| [Plugin README](plugins/slim-task/README.md) | Full plugin documentation, parameter reference, worktree notes |
+| [SKILL.md](plugins/slim-task/skills/slim-task/SKILL.md) | 7-phase SOP definition, sub-agent prompt templates |
+| [CLAUDE.md](plugins/slim-task/CLAUDE.md) | Plugin engineering rules, Worktree hard constraints, Phase 5 anti-cheat isolation |
+| [Changelog](plugins/slim-task/CHANGELOG.md) | Version history |
+
 ## Requirements
 
 - **Claude Code** CLI (v1.0.0+)
@@ -235,7 +278,9 @@ claude-autopilot/
 ├── dist/                    # Built plugins (for marketplace install)
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
-│   └── daily-report/
+│   ├── daily-report/
+│   ├── figma-handoff/
+│   └── slim-task/
 ├── plugins/                 # Plugin source code
 │   ├── spec-autopilot/
 │   │   ├── skills/          # 12 Skill definitions
@@ -244,15 +289,19 @@ claude-autopilot/
 │   │   ├── gui/             # GUI V2 dashboard (React + Tailwind)
 │   │   ├── tests/           # 104 test files, 1245+ assertions
 │   │   └── docs/            # Full documentation (EN + ZH)
-│   └── parallel-harness/
-│       ├── runtime/         # 17 core modules (engine, orchestrator, scheduler, etc.)
-│       ├── skills/          # Skill definitions (harness, plan, dispatch, verify)
-│       ├── config/          # Default config + policy files
-│       ├── tools/           # CLI tools and utilities
-│       ├── tests/           # 295 tests, 649 assertions
-│       └── docs/            # Full documentation
-│   └── daily-report/
-│       └── skills/          # Skill definition + setup guide
+│   ├── parallel-harness/
+│   │   ├── runtime/         # 17 core modules (engine, orchestrator, scheduler, etc.)
+│   │   ├── skills/          # Skill definitions (harness, plan, dispatch, verify)
+│   │   ├── config/          # Default config + policy files
+│   │   ├── tools/           # CLI tools and utilities
+│   │   ├── tests/           # 295 tests, 649 assertions
+│   │   └── docs/            # Full documentation
+│   ├── daily-report/
+│   │   └── skills/          # Skill definition + setup guide
+│   ├── figma-handoff/
+│   │   └── skills/          # Skill definition + vendor-specific references
+│   └── slim-task/
+│       └── skills/          # 7-phase SOP Skill (pure Markdown, no runtime)
 ├── Makefile                 # Build, test, setup shortcuts
 ├── README.md                # This file
 ├── LICENSE                  # MIT License
