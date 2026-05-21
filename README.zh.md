@@ -109,23 +109,22 @@ graph TB
 
 ### 架构
 
-```
-runtime/
-├── engine/          — 统一运行时 Orchestrator（入口 API）
-├── orchestrator/    — 任务图、意图分析、复杂度评分、所有权规划
-├── scheduler/       — DAG 批次调度
-├── models/          — 三层模型路由
-├── session/         — 上下文打包
-├── verifiers/       — 验证结果 Schema
-├── observability/   — 事件总线（38 种事件类型）
-├── workers/         — Worker 运行时、重试、降级
-├── guards/          — Merge Guard
-├── gates/           — 门禁系统（9 类门禁）
-├── persistence/     — Session/Run/Audit 持久化
-├── integrations/    — PR/CI 集成（GitHub）
-├── governance/      — RBAC、审批、人工介入
-├── capabilities/    — Skill/Hook/Instruction 扩展层
-└── schemas/         — GA 级数据契约
+```mermaid
+graph LR
+    A[用户意图] --> B[意图分析器]
+    B --> C[任务图构建器]
+    C --> D["TaskGraph (DAG)"]
+    D --> E[所有权规划]
+    E --> F[调度器]
+    F --> G["SchedulePlan (批次)"]
+    G --> H[上下文打包]
+    H --> I[模型路由]
+    I --> J[Worker 运行时]
+    J --> K[门禁系统]
+    K --> L[Merge Guard]
+    L --> M[PR 提供器]
+    M --> N[结果综合器]
+    N --> O[QualityReport]
 ```
 
 ## 什么是 daily-report？
@@ -145,9 +144,29 @@ runtime/
 
 ### 工作流
 
-```
-阶段 0: 初始化（首次）→ 阶段 1: 环境检查 → 阶段 2: 数据采集（5 路并行）
-    → 阶段 3: 生成 + 审核 → 阶段 4: 批量提交
+```mermaid
+flowchart TD
+    START[/daily-report/] --> INIT{首次运行?}
+    INIT -->|是| P0["阶段 0: 初始化<br/>lark-cli + 登录 + git 配置"]
+    INIT -->|否| P1["阶段 1: 环境检查"]
+    P0 --> P1
+    P1 --> TOKEN{Token 过期?}
+    TOKEN -->|是| REFRESH[自动重新登录] --> P2
+    TOKEN -->|否| P2["阶段 2: 数据采集<br/>(5 路并行)"]
+    P2 --> GIT[Agent 1: Git 提交]
+    P2 --> LARK[Agent 2: 飞书消息]
+    P2 --> API1[API: 事项分类]
+    P2 --> API2[API: 部门信息]
+    P2 --> API3[API: 项目信息]
+    GIT & LARK & API1 & API2 & API3 --> P3["阶段 3: 日报生成"]
+    P3 --> CAT[自动分类 + 8h 工时分配] --> REVIEW{AskUserQuestion<br/>确认?}
+    REVIEW -->|通过| P4["阶段 4: 批量提交"]
+    REVIEW -->|修改| P3
+    P4 --> DUP{日期已填?}
+    DUP -->|是| SKIP[自动跳过] --> NEXT
+    DUP -->|否| SUB[API 提交] --> NEXT{还有更多日期?}
+    NEXT -->|是| DUP
+    NEXT -->|否| DONE((完成))
 ```
 
 ## 什么是 figma-handoff？
@@ -166,9 +185,25 @@ runtime/
 
 ### 工作流
 
-```
-阶段 0 规格采集 → 阶段 1 三表映射 → 阶段 2 转译（骨架/数据/交互）
-    → 阶段 3 像素 diff → 阶段 4 独立 review
+```mermaid
+flowchart TD
+    URL["figma.com URL"] --> PRE["阶段 -1<br/>Preflight 能力探测"]
+    PRE --> BLOCK{存在 blocking 项?}
+    BLOCK -->|是| ABORT((修复后重试))
+    BLOCK -->|否| S0["阶段 0<br/>规格采集"]
+    S0 --> META["metadata + variables<br/>+ code-connect + reference<br/>+ screenshot + assets"]
+    META --> S1["阶段 1<br/>三表映射"]
+    S1 --> COV{token 覆盖率 100%?}
+    COV -->|否| FIX1[补全缺失 token] --> COV
+    COV -->|是| S2["阶段 2<br/>转译 (3 步迭代)"]
+    S2 --> SKEL[静态骨架] --> DATA[数据态] --> INTER[交互态]
+    INTER --> S3["阶段 3<br/>像素 diff"]
+    S3 --> DIFF{"diff <= 0.5%?"}
+    DIFF -->|否| FIXDIFF[修复偏差] --> S3
+    DIFF -->|是| S4["阶段 4<br/>独立 review"]
+    S4 --> TRACE{节点溯源 100%?}
+    TRACE -->|否| FIXREV[清零违规] --> S4
+    TRACE -->|是| DONE((交付))
 ```
 
 ## 什么是 slim-task？
@@ -187,14 +222,26 @@ runtime/
 
 ### 工作流
 
-```
-Phase 0 会话初始化（语言 + worktree）
-    → Phase 1 需求澄清
-    → Phase 2 方案设计（调研 + 代码扫描 + 影响范围）
-    → Phase 3 文档固化 + DAG 拆分
-    → Phase 4 最大化并行执行
-    → Phase 5 盲审质量检查（scope / practice / engineering）
-    → Phase 6 提交确认
+```mermaid
+flowchart TD
+    P0["Phase 0<br/>会话初始化"] --> WT{--worktree?}
+    WT -->|是| EW[EnterWorktree 隔离] --> P1
+    WT -->|否| P1["Phase 1<br/>需求澄清"]
+    P1 --> P2["Phase 2<br/>方案设计 + 影响范围"]
+    P2 --> P3["Phase 3<br/>文档固化 + DAG 拆分"]
+    P3 --> DAG{DAG 节点数}
+    DAG -->|单节点| INL[主 Agent 内联执行] --> P5
+    DAG -->|多节点| PAR["Phase 4<br/>并行派发实现 Agent"] --> P5
+    P5["Phase 5<br/>三维盲审"] --> UI{涉及 UI?}
+    UI -->|是| VIS[追加视觉审查 Skill] --> AUD
+    UI -->|否| AUD{三维 audit.json 全 pass?}
+    AUD -->|有 issue, <3 轮| FIX[修复 Agent 独立 context] --> P5
+    AUD -->|3 轮未通过| STOP((停下交人工))
+    AUD -->|全 pass| P6["Phase 6<br/>决策卡 1: commit"]
+    P6 --> COMMIT[执行 commit] --> P6P[决策卡 2: push/PR]
+    P6P --> WTM{Worktree 模式?}
+    WTM -->|是| NOPUSH[禁止 push main] --> END((结束))
+    WTM -->|否| PUSH[按用户选择执行 push/PR] --> END
 ```
 
 ## 文档
