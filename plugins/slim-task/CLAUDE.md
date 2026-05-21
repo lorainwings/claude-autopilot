@@ -48,7 +48,12 @@ plugins/slim-task/
 ├── .claude-plugin/plugin.json    # 插件元数据
 ├── CLAUDE.md                     # 本文件
 ├── skills/slim-task/
-│   └── SKILL.md                  # 核心 SOP 指令
+│   ├── SKILL.md                  # 核心编排器索引（≤100 行）
+│   └── references/               # 详细 SOP / 协议 / 模板
+│       ├── checkpoint-protocol.md
+│       ├── phase-sop.md
+│       ├── phase5-audit-protocol.md
+│       └── subagent-prompt-template.md
 ├── tools/build-dist.sh           # 构建脚本
 ├── version.txt                   # 版本号
 └── CHANGELOG.md                  # 变更日志
@@ -63,9 +68,11 @@ plugins/slim-task/
 
 ### SKILL.md 编写约束
 
-- 控制在 2000 words 以内
-- 只写原则和工作流，不写代码模板
-- 引用文档放在 `references/` 目录
+- 主编排器 SKILL.md 控制在 100 行以内，仅保留护栏 + 阶段索引
+- 详细 SOP、协议、模板下沉到 `references/` 子目录
+- references 单文件超 100 行需添加 `## Contents` 目录
+- references 引用只允许一层，禁止链式跳转
+- 正文不出现版本号/迭代标签（时态中性）
 
 ### 工程红线（Worktree 模式）
 
