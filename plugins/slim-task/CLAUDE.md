@@ -74,12 +74,15 @@ plugins/slim-task/
 - references 引用只允许一层，禁止链式跳转
 - 正文不出现版本号/迭代标签（时态中性）
 
-### 工程红线（Worktree 模式）
+### 工程红线（Worktree / 运行时产物）
 
 1. **禁止 commit 仓库共享配置**：worktree 内 commit 必须排除 `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json`
 2. **禁止 auto-merge**：所有 worktree 分支只能由用户人工合并回 main，禁止主 Agent 自动 merge 或 push 到 origin/main
 3. **禁止 bare 化 worktree**：遵循根 CLAUDE.md `git-worktree.md` 红线
-4. **`.gitignore` 自检**：进入 worktree 前必须确认 `.claude/worktrees/` 已被忽略；缺失则向用户提示补齐
+4. **`.gitignore` 自检**：Phase 0 必须确认仓库 `.gitignore` 已忽略以下三项；缺失则经 `AskUserQuestion` 授权后追加，禁止静默写入
+   - `.claude/slim-task.json`（语言偏好持久化配置）
+   - `.claude/slim-task/`（Phase 5 审计落盘目录）
+   - `.claude/worktrees/`（worktree 模式启用时必检）
 
 ### Phase 5 反作弊隔离
 

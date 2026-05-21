@@ -70,7 +70,7 @@ flowchart TD
 
 ### Phase 0: 会话初始化
 
-解析 `--lang` / `--worktree` / `--base` 参数，确定语言配置（优先级：命令行 > `.claude/slim-task.json` > 默认 `zh-CN`），按需创建 worktree。输出初始化摘要后执行检查点。
+解析 `--lang` / `--worktree` / `--base` 参数，确定语言配置（优先级：命令行 > `.claude/slim-task.json` > 默认 `zh-CN`），首次运行检查 `.gitignore` 是否忽略 `.claude/slim-task.json` 与 `.claude/slim-task/`（缺失则经 `AskUserQuestion` 授权后补齐），按需创建 worktree。输出初始化摘要后执行检查点。
 
 ### Phase 1: 需求澄清
 

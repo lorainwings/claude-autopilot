@@ -20,13 +20,17 @@
 2. **语言决策**（优先级）：
    - 命令行 `--lang` > 仓库 `.claude/slim-task.json` 的 `language` 字段 > 默认 `zh-CN`
    - 首次确定后写入 `.claude/slim-task.json`（若不存在则创建）持久化为后续默认值
-3. **Worktree 决策**：
+3. **`.gitignore` 自检**（首次运行必检）：
+   - 检查仓库 `.gitignore` 是否包含 `.claude/slim-task.json` 与 `.claude/slim-task/`（运行时配置 + Phase 5 审计落盘）
+   - 任一缺失：通过 `AskUserQuestion` 决策卡确认后追加，禁止静默写入；用户拒绝则继续但提示后续 commit 必须人工排除这些路径
+   - 仓库无 `.gitignore` 时：提示用户在仓库根创建并加入上述两条
+4. **Worktree 决策**：
    - 若 `--worktree` 未出现：跳过，保持当前工作树
    - 若 `--worktree` 出现：
      a. `AskUserQuestion` 确认基线分支（默认 `head` 当前分支；可选 `origin/main` 或自定义）
      b. 调用 `EnterWorktree(name=slim-<task-slug>-<timestamp>)`
-     c. 检查 `.gitignore` 是否包含 `.claude/worktrees/`，缺失则提示用户补齐
-4. **输出初始化摘要**：`LANG=... | WORKTREE=<path 或 none> | BASE=<branch>`
+     c. 检查 `.gitignore` 是否包含 `.claude/worktrees/`，缺失则比照 step 3 流程补齐
+5. **输出初始化摘要**：`LANG=... | WORKTREE=<path 或 none> | BASE=<branch> | GITIGNORE=<ok 或 patched/skipped>`
 
 **检查点**：执行标准检查点协议，选项为「采纳 → Phase 1 / 修改配置 / 终止」。
 
