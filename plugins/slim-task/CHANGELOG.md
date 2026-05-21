@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.4.0...slim-task-v0.5.0) (2026-05-21)
+
+
+### Added
+
+* **slim-task:** add gitignore self-check for runtime artifacts in Phase 0 ([653efd3](https://github.com/lorainwings/claude-autopilot/commit/653efd37d2867dff12950e42c2c4ba8476cb1516))
+
 ## [0.4.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.3.1...slim-task-v0.4.0) (2026-05-21)
 
 
