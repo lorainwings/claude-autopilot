@@ -31,15 +31,37 @@ slim-task is a pure-Skill Claude Code plugin that provides a structured Standard
 
 ## 7-Phase SOP
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 0 | Session Init | Parse `--lang` / `--worktree` / `--base`; persist language preference; optionally enter a fresh worktree |
-| 1 | Requirements Clarification | Parse input, identify ambiguities, structured Q&A |
-| 2 | Solution Design | Best-practice research + codebase scan + impact scope |
-| 3 | Documentation + DAG Split | Save task doc (with `.{lang}.md` suffix) + build dependency DAG |
-| 4 | Parallel Execution | Dispatch sub-agents by DAG topological order |
-| 5 | Quality Review (Blind Audit) | Three independent auditor sub-agents — scope / practice / engineering — review the diff without seeing implementation context |
-| 6 | Commit Confirmation | Worktree-mode blacklist check, show changes, confirm commit/push, optional `ExitWorktree(keep)` |
+```mermaid
+flowchart TD
+    P0["Phase 0<br/>Session Init"] --> WT{--worktree?}
+    WT -->|yes| EW[EnterWorktree] --> P1
+    WT -->|no| P1["Phase 1<br/>Requirements Clarification"]
+    P1 --> P2["Phase 2<br/>Solution Design + Impact Scope"]
+    P2 --> P3["Phase 3<br/>Documentation + DAG Split"]
+    P3 --> DAG{DAG nodes}
+    DAG -->|single| INL[Main agent inline] --> P5
+    DAG -->|multiple| PAR["Phase 4<br/>Parallel sub-agent dispatch"] --> P5
+    P5["Phase 5<br/>Blind Audit"] --> UI{UI change?}
+    UI -->|yes| VIS[Visual review Skill] --> AUD
+    UI -->|no| AUD{All 3 audits pass?}
+    AUD -->|issues, <3 rounds| FIX[Fixer agent] --> P5
+    AUD -->|3 rounds failed| STOP((Manual intervention))
+    AUD -->|all pass| P6["Phase 6<br/>Commit decision card"]
+    P6 --> COMMIT[git commit] --> P6P[Push decision card]
+    P6P --> WTM{Worktree mode?}
+    WTM -->|yes| NOPUSH[No push to main] --> END((Done))
+    WTM -->|no| PUSH[Push / PR per user choice] --> END
+```
+
+| Phase | Name | Key Output |
+|-------|------|------------|
+| 0 | Session Init | Language / Worktree config |
+| 1 | Requirements Clarification | Refined requirements summary |
+| 2 | Solution Design | Solution + impact scope table |
+| 3 | Documentation + DAG Split | Task doc + DAG graph |
+| 4 | Parallel Execution | Sub-agent deliverables |
+| 5 | Blind Audit | scope / practice / engineering audit.json |
+| 6 | Commit Confirmation | commit + optional push / PR |
 
 ## Installation
 
