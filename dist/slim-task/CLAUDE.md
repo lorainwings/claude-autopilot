@@ -2,7 +2,7 @@
 
 > 此文件为 slim-task 插件的工程法则。
 > 所有 AI Agent 在执行期间必须遵守。
-> 版本: 0.3.1 <!-- x-release-please-version -->
+> 版本: 0.4.0 <!-- x-release-please-version -->
 
 ## 插件定位
 
