@@ -28,9 +28,30 @@
 
 ## 工作流(6 阶段)
 
+```mermaid
+flowchart TD
+    URL["figma.com URL"] --> PRE["阶段 -1<br/>Preflight 能力探测"]
+    PRE --> BLOCK{存在 blocking 项?}
+    BLOCK -->|是| ABORT((修复后重试))
+    BLOCK -->|否| S0["阶段 0<br/>规格采集"]
+    S0 --> META["metadata + variables<br/>+ code-connect + reference<br/>+ screenshot + assets 六件套"]
+    META --> S1["阶段 1<br/>三表映射"]
+    S1 --> COV{token 覆盖率 100%?}
+    COV -->|否| FIX1[补全缺失 token] --> COV
+    COV -->|是| S2["阶段 2<br/>转译 (3 步迭代)"]
+    S2 --> SKEL[静态骨架] --> DATA[数据态] --> INTER[交互态]
+    INTER --> S3["阶段 3<br/>像素 diff"]
+    S3 --> DIFF{"diff <= 0.5%?"}
+    DIFF -->|否| FIXDIFF[修复偏差] --> S3
+    DIFF -->|是| S4["阶段 4<br/>独立 review"]
+    S4 --> TRACE{节点溯源 100%?}
+    TRACE -->|否| FIXREV[清零违规] --> S4
+    TRACE -->|是| DONE((交付))
+```
+
 | 阶段 | 产物 | 硬门禁 |
 | --- | --- | --- |
-| -1 Preflight | `.cache/figma-handoff/preflight.json` | blocking 项必须清零 |
+| -1 Preflight | `preflight.json` | blocking 项必须清零 |
 | 0 规格采集 | metadata + variables + code-connect + reference + screenshot + assets 六件套 | 顺序不可乱、不可跳 |
 | 1 三表映射 | tokens / node-map / component-policy | token 覆盖率 100% |
 | 2 转译 | 静态骨架 → 数据态 → 交互态 三步迭代 | 每步独立 diff |

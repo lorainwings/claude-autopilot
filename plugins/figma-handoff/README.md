@@ -28,9 +28,30 @@ This skill turns subjective comparison into **objective, falsifiable gates** —
 
 ## Pipeline (6 stages)
 
+```mermaid
+flowchart TD
+    URL["figma.com URL"] --> PRE["Stage -1<br/>Preflight"]
+    PRE --> BLOCK{Blocking items?}
+    BLOCK -->|yes| ABORT((Fix & retry))
+    BLOCK -->|no| S0["Stage 0<br/>Spec Acquisition"]
+    S0 --> META[metadata + variables<br/>+ code-connect + reference<br/>+ screenshot + assets]
+    META --> S1["Stage 1<br/>Three Mapping Tables"]
+    S1 --> COV{100% token coverage?}
+    COV -->|no| FIX1[Fill missing tokens] --> COV
+    COV -->|yes| S2["Stage 2<br/>Translation (3 iterations)"]
+    S2 --> SKEL[Skeleton] --> DATA[Data binding] --> INTER[Interaction]
+    INTER --> S3["Stage 3<br/>Pixel Diff"]
+    S3 --> DIFF{"diff <= 0.5%?"}
+    DIFF -->|no| FIXDIFF[Fix drift] --> S3
+    DIFF -->|yes| S4["Stage 4<br/>Independent Review"]
+    S4 --> TRACE{100% node traceability?}
+    TRACE -->|no| FIXREV[Resolve violations] --> S4
+    TRACE -->|yes| DONE((Deliver))
+```
+
 | Stage | Output | Hard gate |
 | --- | --- | --- |
-| -1 Preflight | `.cache/figma-handoff/preflight.json` | No blocking items |
+| -1 Preflight | `preflight.json` | No blocking items |
 | 0 Spec acquisition | metadata + variables + code-connect + reference + screenshot + assets | Strict order, no skipping |
 | 1 Three mapping tables | tokens / node-map / component-policy | 100% token coverage |
 | 2 Translation | skeleton → data → interaction (3 iterations) | Diff per step |

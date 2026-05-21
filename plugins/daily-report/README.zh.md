@@ -61,34 +61,38 @@ claude plugin install daily-report@lorainwings-plugins --scope project
 
 ## 工作流
 
+```mermaid
+flowchart TD
+    START[/daily-report/] --> INIT{首次运行?}
+    INIT -->|是| P0["阶段 0: 初始化<br/>lark-cli + 登录 + Git 配置"]
+    INIT -->|否| P1["阶段 1: 环境检查"]
+    P0 --> P1
+    P1 --> TOKEN{Token 过期?}
+    TOKEN -->|是| REFRESH[自动重新登录] --> P2
+    TOKEN -->|否| P2["阶段 2: 数据采集<br/>(5 路并行)"]
+    P2 --> GIT[Agent 1: Git 提交记录]
+    P2 --> LARK[Agent 2: 飞书聊天消息]
+    P2 --> API1[API: 事项分类]
+    P2 --> API2[API: 部门列表]
+    P2 --> API3[API: 项目组别]
+    GIT & LARK & API1 & API2 & API3 --> P3["阶段 3: 日报生成"]
+    P3 --> CAT[智能分类 + 8h 工时分配] --> REVIEW{AskUserQuestion<br/>确认?}
+    REVIEW -->|通过| P4["阶段 4: 批量提交"]
+    REVIEW -->|修改| P3
+    P4 --> DUP{已填日期?}
+    DUP -->|是| SKIP[自动跳过] --> NEXT
+    DUP -->|否| SUB[API 提交] --> NEXT{还有更多日期?}
+    NEXT -->|是| DUP
+    NEXT -->|否| DONE((完成))
 ```
-阶段 0: 初始化（仅首次）
-    ├─ lark-cli 安装 + 飞书 OAuth 授权
-    ├─ 内控系统登录 + Token 获取
-    └─ Git 仓库配置
 
-阶段 1: 环境检查
-    ├─ 配置文件校验
-    ├─ lark-cli 状态检查 + 自动配置
-    └─ Token 自动刷新
-
-阶段 2: 数据采集（5 路并行）
-    ├─ Agent 1: Git 提交记录（多仓遍历）
-    ├─ Agent 2: 飞书聊天消息（多群 + 分页）
-    ├─ API: 事项分类列表
-    ├─ API: 部门列表
-    └─ API: 医院/项目组别
-
-阶段 3: 日报生成
-    ├─ 内容合成 + 分类匹配
-    ├─ 工时分配（8h/天）
-    └─ 交互式审核（AskUserQuestion）
-
-阶段 4: 批量提交
-    ├─ 已填日期检测 + 自动跳过
-    ├─ 按天 API 提交
-    └─ 结果汇总
-```
+| 阶段 | 名称 | 关键产出 |
+|------|------|---------|
+| 0 | 初始化（仅首次） | lark-cli OAuth + 登录 Token + Git 配置 |
+| 1 | 环境检查 | 配置校验 + Token 刷新 |
+| 2 | 数据采集 | Git 提交 + 飞书消息 + API 元数据 |
+| 3 | 日报生成 | 分类匹配 + 工时分配 |
+| 4 | 批量提交 | 按天 API 提交 + 结果汇总 |
 
 ## 配置说明
 

@@ -58,34 +58,38 @@ On first run, the plugin guides you through a one-time setup (~3-5 minutes):
 
 ## Workflow
 
+```mermaid
+flowchart TD
+    START[/daily-report/] --> INIT{First run?}
+    INIT -->|yes| P0["Phase 0: Init<br/>lark-cli + login + git config"]
+    INIT -->|no| P1["Phase 1: Env Check"]
+    P0 --> P1
+    P1 --> TOKEN{Token expired?}
+    TOKEN -->|yes| REFRESH[Auto re-login] --> P2
+    TOKEN -->|no| P2["Phase 2: Data Collection<br/>(5-way parallel)"]
+    P2 --> GIT[Agent 1: Git commits]
+    P2 --> LARK[Agent 2: Lark messages]
+    P2 --> API1[API: Categories]
+    P2 --> API2[API: Departments]
+    P2 --> API3[API: Projects]
+    GIT & LARK & API1 & API2 & API3 --> P3["Phase 3: Report Generation"]
+    P3 --> CAT[Auto-categorize + 8h allocation] --> REVIEW{AskUserQuestion<br/>confirm?}
+    REVIEW -->|approve| P4["Phase 4: Batch Submit"]
+    REVIEW -->|edit| P3
+    P4 --> DUP{Duplicate date?}
+    DUP -->|yes| SKIP[Auto-skip] --> NEXT
+    DUP -->|no| SUB[API submit] --> NEXT{More dates?}
+    NEXT -->|yes| DUP
+    NEXT -->|no| DONE((Done))
 ```
-Phase 0: Initialization (first run only)
-    ├─ lark-cli install + Feishu OAuth
-    ├─ Internal system login + token acquisition
-    └─ Git repo configuration
 
-Phase 1: Environment Check
-    ├─ Config validation
-    ├─ lark-cli status + auto-configure
-    └─ Token auto-refresh
-
-Phase 2: Data Collection (5-way parallel)
-    ├─ Agent 1: Git commit history (multi-repo)
-    ├─ Agent 2: Feishu chat messages (multi-group + pagination)
-    ├─ API: Matter categories
-    ├─ API: Department list
-    └─ API: Project categories
-
-Phase 3: Report Generation
-    ├─ Content synthesis + categorization
-    ├─ Work-hour allocation (8h/day)
-    └─ Interactive review (AskUserQuestion)
-
-Phase 4: Batch Submission
-    ├─ Duplicate date check + auto-skip
-    ├─ Per-day API submission
-    └─ Result summary
-```
+| Phase | Name | Key Output |
+|-------|------|------------|
+| 0 | Init (first run only) | lark-cli OAuth + login token + git config |
+| 1 | Env Check | Config validation + token refresh |
+| 2 | Data Collection | Git commits + Lark messages + API metadata |
+| 3 | Report Generation | Categorized report + time allocation |
+| 4 | Batch Submit | Per-day API submission + result summary |
 
 ## Configuration
 
