@@ -31,15 +31,37 @@ slim-task 是一个纯 Skill 型 Claude Code 插件，提供结构化的标准�
 
 ## 7 阶段 SOP
 
-| 阶段 | 名称 | 描述 |
-|------|------|------|
-| 0 | 会话初始化 | 解析 `--lang` / `--worktree` / `--base`；持久化语言偏好；可选进入独立 worktree |
-| 1 | 需求澄清 | 解析输入、识别歧义、结构化问答 |
-| 2 | 方案设计 | 最佳实践调研 + 代码扫描 + 影响范围 |
-| 3 | 文档固化 + DAG 拆分 | 保存任务文档（带 `.{lang}.md` 后缀）+ 构建依赖 DAG |
-| 4 | 最大化并行执行 | 按 DAG 拓扑序逐层派发子 Agent |
-| 5 | 质量检查（盲审） | 三个独立审计子 Agent（scope / practice / engineering）在不知实现过程的情况下审 diff |
-| 6 | 提交确认 | Worktree 模式黑名单文件检查、展示变更、确认 commit/push、可选 `ExitWorktree(keep)` |
+```mermaid
+flowchart TD
+    P0["Phase 0<br/>会话初始化"] --> WT{--worktree?}
+    WT -->|是| EW[EnterWorktree 隔离] --> P1
+    WT -->|否| P1["Phase 1<br/>需求澄清"]
+    P1 --> P2["Phase 2<br/>方案设计 + 影响范围表"]
+    P2 --> P3["Phase 3<br/>文档固化 + DAG 拆分"]
+    P3 --> DAG{DAG 节点数}
+    DAG -->|单节点| INL[主 Agent 内联执行] --> P5
+    DAG -->|多节点| PAR["Phase 4<br/>并行派发实现 Agent"] --> P5
+    P5["Phase 5<br/>三维盲审"] --> UI{涉及 UI?}
+    UI -->|是| VIS[追加视觉审查 Skill] --> AUD
+    UI -->|否| AUD{三维 audit.json 全 pass?}
+    AUD -->|有 issue, <3 轮| FIX[修复 Agent 独立 context] --> P5
+    AUD -->|3 轮未通过| STOP((停下交人工))
+    AUD -->|全 pass| P6["Phase 6<br/>决策卡 1: commit"]
+    P6 --> COMMIT[执行 commit] --> P6P[决策卡 2: push/PR]
+    P6P --> WTM{Worktree 模式?}
+    WTM -->|是| NOPUSH[禁止 push main] --> END((结束))
+    WTM -->|否| PUSH[按用户选择执行 push/PR] --> END
+```
+
+| 阶段 | 名称 | 关键产出 |
+|------|------|---------|
+| 0 | 会话初始化 | 语言 / Worktree 配置 |
+| 1 | 需求澄清 | 精炼需求摘要 |
+| 2 | 方案设计 | 方案 + 影响范围表 |
+| 3 | 文档固化 + DAG 拆分 | 任务文档 + DAG 图 |
+| 4 | 最大化并行执行 | 实现 Agent 交付物 |
+| 5 | 质量检查（盲审） | scope / practice / engineering audit.json |
+| 6 | 提交确认 | commit + 可选 push / PR |
 
 ## 安装
 
