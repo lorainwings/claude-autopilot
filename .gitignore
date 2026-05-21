@@ -73,6 +73,10 @@ plugins/spec-autopilot/logs/
 .claude/worktrees/
 .parallel-harness
 
+# slim-task 运行时产物（语言偏好配置 + Phase 5 审计落盘）
+.claude/slim-task.json
+.claude/slim-task/
+
 # parallel-harness 动态构建产物（由 tools/build-dist.sh 生成）
 plugins/parallel-harness/BUILD_MANIFEST.json
 # dist/parallel-harness/ 是插件市场产物，与 dist/spec-autopilot/ 一样需要跟踪
