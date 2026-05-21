@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.3.1...slim-task-v0.4.0) (2026-05-21)
+
+
+### Added
+
+* **slim-task:** add mermaid flow diagram + Rationalizations anti-cheat table ([9d44f69](https://github.com/lorainwings/claude-autopilot/commit/9d44f69eb7978f8129a69ed5e97051aebb748074))
+
 ## [0.3.1](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.3.0...slim-task-v0.3.1) (2026-05-20)
 
 
