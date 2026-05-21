@@ -109,23 +109,22 @@ graph TB
 
 ### Architecture
 
-```
-runtime/
-├── engine/          — Unified Orchestrator Runtime (entry API)
-├── orchestrator/    — Task Graph, Intent Analysis, Complexity, Ownership
-├── scheduler/       — DAG Batch Scheduling
-├── models/          — 3-Tier Model Router
-├── session/         — Context Packing
-├── verifiers/       — Verification Result Schema
-├── observability/   — Event Bus (38 event types)
-├── workers/         — Worker Runtime, Retry, Downgrade
-├── guards/          — Merge Guard
-├── gates/           — Gate System (9 gate types)
-├── persistence/     — Session/Run/Audit Persistence
-├── integrations/    — PR/CI Integration (GitHub)
-├── governance/      — RBAC, Approval, Human-in-the-loop
-├── capabilities/    — Skill/Hook/Instruction Extension Layer
-└── schemas/         — GA-Level Data Contracts
+```mermaid
+graph LR
+    A[User Intent] --> B[Intent Analyzer]
+    B --> C[Task Graph Builder]
+    C --> D["TaskGraph (DAG)"]
+    D --> E[Ownership Planner]
+    E --> F[Scheduler]
+    F --> G["SchedulePlan (batches)"]
+    G --> H[Context Packager]
+    H --> I[Model Router]
+    I --> J[Worker Runtime]
+    J --> K[Gate System]
+    K --> L[Merge Guard]
+    L --> M[PR Provider]
+    M --> N[Result Synthesizer]
+    N --> O[QualityReport]
 ```
 
 ## What is daily-report?
@@ -145,9 +144,29 @@ runtime/
 
 ### Workflow
 
-```
-Phase 0: Init (first run) → Phase 1: Env Check → Phase 2: Collect (5-way parallel)
-    → Phase 3: Generate + Review → Phase 4: Batch Submit
+```mermaid
+flowchart TD
+    START[/daily-report/] --> INIT{First run?}
+    INIT -->|yes| P0["Phase 0: Init<br/>lark-cli + login + git config"]
+    INIT -->|no| P1["Phase 1: Env Check"]
+    P0 --> P1
+    P1 --> TOKEN{Token expired?}
+    TOKEN -->|yes| REFRESH[Auto re-login] --> P2
+    TOKEN -->|no| P2["Phase 2: Data Collection<br/>(5-way parallel)"]
+    P2 --> GIT[Agent 1: Git commits]
+    P2 --> LARK[Agent 2: Lark messages]
+    P2 --> API1[API: Categories]
+    P2 --> API2[API: Departments]
+    P2 --> API3[API: Projects]
+    GIT & LARK & API1 & API2 & API3 --> P3["Phase 3: Report Generation"]
+    P3 --> CAT[Auto-categorize + 8h allocation] --> REVIEW{AskUserQuestion<br/>confirm?}
+    REVIEW -->|approve| P4["Phase 4: Batch Submit"]
+    REVIEW -->|edit| P3
+    P4 --> DUP{Duplicate date?}
+    DUP -->|yes| SKIP[Auto-skip] --> NEXT
+    DUP -->|no| SUB[API submit] --> NEXT{More dates?}
+    NEXT -->|yes| DUP
+    NEXT -->|no| DONE((Done))
 ```
 
 ## What is figma-handoff?
@@ -166,9 +185,25 @@ Phase 0: Init (first run) → Phase 1: Env Check → Phase 2: Collect (5-way par
 
 ### Workflow
 
-```
-Stage 0 Spec → Stage 1 Mapping Tables → Stage 2 Translation (skeleton/data/interaction)
-    → Stage 3 Pixel Diff → Stage 4 Independent Review
+```mermaid
+flowchart TD
+    URL["figma.com URL"] --> PRE["Stage -1<br/>Preflight"]
+    PRE --> BLOCK{Blocking items?}
+    BLOCK -->|yes| ABORT((Fix & retry))
+    BLOCK -->|no| S0["Stage 0<br/>Spec Acquisition"]
+    S0 --> META[metadata + variables<br/>+ code-connect + reference<br/>+ screenshot + assets]
+    META --> S1["Stage 1<br/>Three Mapping Tables"]
+    S1 --> COV{100% token coverage?}
+    COV -->|no| FIX1[Fill missing tokens] --> COV
+    COV -->|yes| S2["Stage 2<br/>Translation (3 iterations)"]
+    S2 --> SKEL[Skeleton] --> DATA[Data binding] --> INTER[Interaction]
+    INTER --> S3["Stage 3<br/>Pixel Diff"]
+    S3 --> DIFF{"diff <= 0.5%?"}
+    DIFF -->|no| FIXDIFF[Fix drift] --> S3
+    DIFF -->|yes| S4["Stage 4<br/>Independent Review"]
+    S4 --> TRACE{100% node traceability?}
+    TRACE -->|no| FIXREV[Resolve violations] --> S4
+    TRACE -->|yes| DONE((Deliver))
 ```
 
 ## What is slim-task?
@@ -187,14 +222,26 @@ Stage 0 Spec → Stage 1 Mapping Tables → Stage 2 Translation (skeleton/data/i
 
 ### Workflow
 
-```
-Phase 0 Session Init (lang + worktree)
-    → Phase 1 Requirements Clarification
-    → Phase 2 Solution Design (research + codebase scan + impact scope)
-    → Phase 3 Documentation + DAG Split
-    → Phase 4 Maximal Parallel Execution
-    → Phase 5 Blind-Audit Quality Review (scope / practice / engineering)
-    → Phase 6 Commit Confirmation
+```mermaid
+flowchart TD
+    P0["Phase 0<br/>Session Init"] --> WT{--worktree?}
+    WT -->|yes| EW[EnterWorktree] --> P1
+    WT -->|no| P1["Phase 1<br/>Requirements Clarification"]
+    P1 --> P2["Phase 2<br/>Solution Design + Impact Scope"]
+    P2 --> P3["Phase 3<br/>Documentation + DAG Split"]
+    P3 --> DAG{DAG nodes}
+    DAG -->|single| INL[Main agent inline] --> P5
+    DAG -->|multiple| PAR["Phase 4<br/>Parallel sub-agent dispatch"] --> P5
+    P5["Phase 5<br/>Blind Audit"] --> UI{UI change?}
+    UI -->|yes| VIS[Visual review Skill] --> AUD
+    UI -->|no| AUD{All 3 audits pass?}
+    AUD -->|issues, <3 rounds| FIX[Fixer agent] --> P5
+    AUD -->|3 rounds failed| STOP((Manual intervention))
+    AUD -->|all pass| P6["Phase 6<br/>Commit decision card"]
+    P6 --> COMMIT[git commit] --> P6P[Push decision card]
+    P6P --> WTM{Worktree mode?}
+    WTM -->|yes| NOPUSH[No push to main] --> END((Done))
+    WTM -->|no| PUSH[Push / PR per user choice] --> END
 ```
 
 ## Documentation
