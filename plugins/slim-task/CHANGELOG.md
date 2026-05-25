@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.5.0...slim-task-v0.6.0) (2026-05-25)
+
+
+### Added
+
+* **slim-task:** consolidate SKILL.md to self-contained orchestrator + add orchestration stability spec ([5289e4f](https://github.com/lorainwings/claude-autopilot/commit/5289e4f925de124cc26018e1f392e0591ea80d69))
+
 ## [0.5.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.4.0...slim-task-v0.5.0) (2026-05-21)
 
 
