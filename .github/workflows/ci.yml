@@ -35,7 +35,7 @@ jobs:
       run_sa: ${{ steps.summary.outputs.run_sa }}
       run_ph: ${{ steps.summary.outputs.run_ph }}
       run_dr: ${{ steps.summary.outputs.run_dr }}
-      run_fh: ${{ steps.summary.outputs.run_fh }}
+      run_fc: ${{ steps.summary.outputs.run_fc }}
       run_st: ${{ steps.summary.outputs.run_st }}
       affected: ${{ steps.summary.outputs.affected }}
     steps:
@@ -70,7 +70,7 @@ jobs:
             echo "run_sa=true"
             echo "run_ph=true"
             echo "run_dr=true"
-            echo "run_fh=true"
+            echo "run_fc=true"
             echo "run_st=true"
           } >> "$GITHUB_OUTPUT"
 
@@ -89,9 +89,9 @@ jobs:
             daily-report:
               - 'plugins/daily-report/**'
               - 'dist/daily-report/**'
-            figma-handoff:
-              - 'plugins/figma-handoff/**'
-              - 'dist/figma-handoff/**'
+            figma-codegen:
+              - 'plugins/figma-codegen/**'
+              - 'dist/figma-codegen/**'
             slim-task:
               - 'plugins/slim-task/**'
               - 'dist/slim-task/**'
@@ -114,12 +114,12 @@ jobs:
           SHARED="${{ steps.filter.outputs.shared }}"
 
           if [ "$FORCE" = "true" ] || [ "$SHARED" = "true" ]; then
-            SA=true; PH=true; DR=true; FH=true; ST=true
+            SA=true; PH=true; DR=true; FC=true; ST=true
           else
             SA="${{ steps.filter.outputs.spec-autopilot }}"
             PH="${{ steps.filter.outputs.parallel-harness }}"
             DR="${{ steps.filter.outputs.daily-report }}"
-            FH="${{ steps.filter.outputs.figma-handoff }}"
+            FC="${{ steps.filter.outputs.figma-codegen }}"
             ST="${{ steps.filter.outputs.slim-task }}"
           fi
 
@@ -128,7 +128,7 @@ jobs:
             echo "run_sa=$SA"
             echo "run_ph=$PH"
             echo "run_dr=$DR"
-            echo "run_fh=$FH"
+            echo "run_fc=$FC"
             echo "run_st=$ST"
           } >> "$GITHUB_OUTPUT"
 
@@ -136,7 +136,7 @@ jobs:
           [ "$SA" = "true" ] && AFFECTED="spec-autopilot"
           [ "$PH" = "true" ] && AFFECTED="$AFFECTED parallel-harness"
           [ "$DR" = "true" ] && AFFECTED="$AFFECTED daily-report"
-          [ "$FH" = "true" ] && AFFECTED="$AFFECTED figma-handoff"
+          [ "$FC" = "true" ] && AFFECTED="$AFFECTED figma-codegen"
           [ "$ST" = "true" ] && AFFECTED="$AFFECTED slim-task"
           AFFECTED=$(echo "$AFFECTED" | xargs)  # trim
 
@@ -468,14 +468,14 @@ jobs:
           bash scripts/check-dist-freshness.sh daily-report --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
-  # Stage 2: figma-handoff CI
+  # Stage 2: figma-codegen CI
   # ════════════════════════════════════════════════════════════════════
-  fh-lint:
-    name: figma-handoff / Lint
+  fc-lint:
+    name: figma-codegen / Lint
     needs: [detect]
     if: >-
       needs.detect.outputs.skip_ci != 'true' &&
-      needs.detect.outputs.run_fh == 'true'
+      needs.detect.outputs.run_fc == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -485,32 +485,32 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
       - name: Run shellcheck
-        run: make fh-lint
+        run: make fc-lint
 
-  fh-build:
-    name: figma-handoff / Build dist
-    needs: [detect, release-discipline, fh-lint]
+  fc-build:
+    name: figma-codegen / Build dist
+    needs: [detect, release-discipline, fc-lint]
     if: |
       always() &&
       needs.detect.outputs.skip_ci != 'true' &&
-      needs.detect.outputs.run_fh == 'true' &&
+      needs.detect.outputs.run_fc == 'true' &&
       (needs.release-discipline.result == 'success' || needs.release-discipline.result == 'skipped') &&
-      needs.fh-lint.result == 'success'
+      needs.fc-lint.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
       - name: Build dist
-        run: make fh-build
+        run: make fc-build
 
       - name: Verify dist structure
         run: |
-          test -d dist/figma-handoff/.claude-plugin
-          test -f dist/figma-handoff/.claude-plugin/plugin.json
-          test -d dist/figma-handoff/skills
-          test -f dist/figma-handoff/CLAUDE.md
-          echo "dist/figma-handoff structure OK"
+          test -d dist/figma-codegen/.claude-plugin
+          test -f dist/figma-codegen/.claude-plugin/plugin.json
+          test -d dist/figma-codegen/skills
+          test -f dist/figma-codegen/CLAUDE.md
+          echo "dist/figma-codegen structure OK"
 
       - name: Check dist freshness
         if: needs.detect.outputs.skip_dist_stale != 'true'
@@ -520,7 +520,7 @@ jobs:
             echo "ℹ️  release/post-release commit detected at job level — skipping freshness check"
             exit 0
           fi
-          bash scripts/check-dist-freshness.sh figma-handoff --ci-git-check
+          bash scripts/check-dist-freshness.sh figma-codegen --ci-git-check
 
   # ════════════════════════════════════════════════════════════════════
   # Stage 2: slim-task CI
@@ -679,16 +679,16 @@ jobs:
           done
           [ "$FAILED" -eq 0 ] || exit 1
 
-  fh-summary:
-    name: figma-handoff / Summary
-    needs: [detect, release-discipline, fh-lint, fh-build]
-    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_fh == 'true'
+  fc-summary:
+    name: figma-codegen / Summary
+    needs: [detect, release-discipline, fc-lint, fc-build]
+    if: always() && needs.detect.outputs.skip_ci != 'true' && needs.detect.outputs.run_fc == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Evaluate FH results
+      - name: Evaluate FC results
         run: |
-          echo "=== figma-handoff Summary ==="
+          echo "=== figma-codegen Summary ==="
           FAILED=0
 
           RD="${{ needs.release-discipline.result }}"
@@ -697,10 +697,10 @@ jobs:
             FAILED=1
           fi
 
-          for job in fh-lint fh-build; do
+          for job in fc-lint fc-build; do
             case "$job" in
-              fh-lint)  RESULT="${{ needs.fh-lint.result }}" ;;
-              fh-build) RESULT="${{ needs.fh-build.result }}" ;;
+              fc-lint)  RESULT="${{ needs.fc-lint.result }}" ;;
+              fc-build) RESULT="${{ needs.fc-build.result }}" ;;
             esac
             if [ "$RESULT" != "success" ]; then
               echo "❌ $job: $RESULT"
@@ -748,7 +748,7 @@ jobs:
   # ════════════════════════════════════════════════════════════════════
   summary:
     name: CI Summary
-    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary, fh-summary, st-summary]
+    needs: [detect, release-discipline, sa-summary, ph-summary, dr-summary, fc-summary, st-summary]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -825,17 +825,17 @@ jobs:
             echo "⏭️  daily-report: skipped (not affected)"
           fi
 
-          FH="${{ needs.detect.outputs.run_fh }}"
-          if [ "$FH" = "true" ]; then
-            FH_RESULT="${{ needs.fh-summary.result }}"
-            if [ "$FH_RESULT" != "success" ]; then
-              echo "❌ fh-summary: $FH_RESULT"
+          FC="${{ needs.detect.outputs.run_fc }}"
+          if [ "$FC" = "true" ]; then
+            FC_RESULT="${{ needs.fc-summary.result }}"
+            if [ "$FC_RESULT" != "success" ]; then
+              echo "❌ fc-summary: $FC_RESULT"
               FAILED=1
             else
-              echo "✅ fh-summary: $FH_RESULT"
+              echo "✅ fc-summary: $FC_RESULT"
             fi
           else
-            echo "⏭️  figma-handoff: skipped (not affected)"
+            echo "⏭️  figma-codegen: skipped (not affected)"
           fi
 
           ST="${{ needs.detect.outputs.run_st }}"

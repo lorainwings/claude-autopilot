@@ -38,9 +38,9 @@
         "CLAUDE.md"
       ]
     },
-    "plugins/figma-handoff": {
+    "plugins/figma-codegen": {
       "release-type": "simple",
-      "component": "figma-handoff",
+      "component": "figma-codegen",
       "extra-files": [
         { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" },
         "CLAUDE.md"

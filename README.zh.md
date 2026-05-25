@@ -14,7 +14,7 @@
 | [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.15.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.9.1 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.3.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
-| [figma-handoff](plugins/figma-handoff/README.zh.md) | 0.1.0 | Figma → 前端代码像素级高保真还原工作流 — 强制规格采集、token 映射、转译铁律、像素 diff 硬门禁 |
+| [figma-codegen](plugins/figma-codegen/README.zh.md) | 0.1.0 | Figma 设计稿到代码 7 步翻译 SKILL（适配自 OpenAI figma-implement-design），追求 1:1 视觉一致 |
 | [slim-task](plugins/slim-task/README.zh.md) | 0.6.0 | 结构化 7 阶段任务执行 SOP，支持多语言与 worktree 并行 — 会话初始化、需求澄清、影响范围锁定、DAG 并行子 Agent 派发、独立审计盲审 |
 
 ## 快速安装
@@ -32,8 +32,8 @@ claude plugin install parallel-harness@lorainwings-plugins --scope project
 # 4. 安装 daily-report（项目级）
 claude plugin install daily-report@lorainwings-plugins --scope project
 
-# 5. 安装 figma-handoff（项目级）
-claude plugin install figma-handoff@lorainwings-plugins --scope project
+# 5. 安装 figma-codegen（项目级）
+claude plugin install figma-codegen@lorainwings-plugins --scope project
 
 # 6. 安装 slim-task（项目级）
 claude plugin install slim-task@lorainwings-plugins --scope project
@@ -169,9 +169,38 @@ flowchart TD
     NEXT -->|否| DONE((完成))
 ```
 
-## 什么是 figma-handoff？
+## 什么是 figma-codegen？
 
-**figma-handoff** 是一个 Claude Code Skill 插件，把 Figma 设计稿到前端代码的交付过程从"主观对比"变成"客观证伪"。它解决了"Figma MCP 输出看起来像但不对"的常见痛点，用像素 diff 硬门禁替代肉眼审查。
+**figma-codegen** 是一个 Claude Code Skill 插件，把 Figma 设计稿翻译为生产级代码，追求 1:1 视觉一致。它是 OpenAI 官方 [figma-implement-design](https://github.com/openai/skills/tree/main/skills/.curated/figma-implement-design) 在 Claude Code 生态上的忠实适配。
+
+### 核心特性
+
+- **7 步确定性工作流** — 获取 Node ID → 拉取设计上下文 → 截取视觉基准 → 下载资产 → 翻译为项目规范 → 实现 1:1 视觉一致 → 对照 Figma 验证
+- **三种 Figma MCP 模式** — Remote MCP / Figma Desktop MCP / 本地 `figma-developer-mcp`；Desktop 模式支持选区驱动（无需 URL）
+- **Reference vs Final Code** — Figma MCP 输出（通常是 React + Tailwind）作为设计意图参考，utility class 替换为项目 token，复用已有组件
+- **资产硬规则** — `localhost` 资产直接使用；严禁用占位图或第三方 icon 包替代 MCP 返回的资产
+- **设计系统优先** — 优先项目设计 token，允许 spacing/sizing 微调以保留视觉一致
+- **验证清单** — 完工前 7 维清单（布局 / 排版 / 颜色 / 交互 / 响应式 / 资产 / 无障碍）
+- **忠实适配上游** — SKILL.md 与 OpenAI 7 步结构对齐，便于追上游 diff
+
+### 工作流
+
+```mermaid
+flowchart TD
+    URL["Figma URL 或 Desktop 选区"] --> S1["Step 1<br/>获取 Node ID"]
+    S1 --> S2["Step 2<br/>get_design_context"]
+    S2 --> LARGE{响应过大?}
+    LARGE -->|是| META[get_metadata → 子节点逐拉]
+    META --> S2
+    LARGE -->|否| S3["Step 3<br/>get_screenshot"]
+    S3 --> S4["Step 4<br/>下载资产<br/>(禁止占位图)"]
+    S4 --> S5["Step 5<br/>翻译为项目规范<br/>Tailwind → token<br/>复用组件"]
+    S5 --> S6["Step 6<br/>1:1 视觉一致"]
+    S6 --> S7["Step 7<br/>对照 Figma 验证"]
+    S7 --> CHECK{清单通过?}
+    CHECK -->|否| S5
+    CHECK -->|是| DONE((交付))
+```
 
 ### 核心特性
 
@@ -285,13 +314,13 @@ flowchart TD
 | [插件 README](plugins/daily-report/README.zh.md) | 完整插件文档 |
 | [更新日志](plugins/daily-report/CHANGELOG.md) | 版本历史 |
 
-### figma-handoff
+### figma-codegen
 
 | 文档 | 说明 |
 |------|------|
-| [插件 README](plugins/figma-handoff/README.zh.md) | 完整插件文档 |
-| [CLAUDE.md](plugins/figma-handoff/CLAUDE.md) | 插件工程规则 |
-| [更新日志](plugins/figma-handoff/CHANGELOG.md) | 版本历史 |
+| [插件 README](plugins/figma-codegen/README.zh.md) | 完整插件文档 |
+| [CLAUDE.md](plugins/figma-codegen/CLAUDE.md) | 插件工程规则 |
+| [更新日志](plugins/figma-codegen/CHANGELOG.md) | 版本历史 |
 
 ### slim-task
 
@@ -326,7 +355,7 @@ claude-autopilot/
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
 │   ├── daily-report/
-│   ├── figma-handoff/
+│   ├── figma-codegen/
 │   └── slim-task/
 ├── plugins/                 # 插件源码
 │   ├── spec-autopilot/
@@ -345,7 +374,7 @@ claude-autopilot/
 │   │   └── docs/            # 完整文档
 │   ├── daily-report/
 │   │   └── skills/          # Skill 定义 + 初始化引导
-│   ├── figma-handoff/
+│   ├── figma-codegen/
 │   │   └── skills/          # Skill 定义 + 各栈 references
 │   └── slim-task/
 │       └── skills/          # 7 阶段 SOP Skill（纯 Markdown，无运行时）

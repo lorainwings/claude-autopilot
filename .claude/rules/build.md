@@ -6,15 +6,15 @@
 
 所有构建、测试、lint 操作**必须**通过 Makefile target 执行:
 
-| 操作 | spec-autopilot | parallel-harness | daily-report | figma-handoff | slim-task |
+| 操作 | spec-autopilot | parallel-harness | daily-report | figma-codegen | slim-task |
 |------|---------------|-----------------|-------------|---------------|-----------|
 | 初始化 | `make setup` | `make ph-setup` | — | — | — |
 | 测试 | `make test` | `make ph-test` | — | — | — |
-| 构建 dist | `make build` | `make ph-build` | `make dr-build` | `make fh-build` | `make st-build` |
-| Lint | `make lint` | `make ph-lint` | `make dr-lint` | `make fh-lint` | `make st-lint` |
+| 构建 dist | `make build` | `make ph-build` | `make dr-build` | `make fc-build` | `make st-build` |
+| Lint | `make lint` | `make ph-lint` | `make dr-lint` | `make fc-lint` | `make st-lint` |
 | 类型检查 | `make typecheck` | `make ph-typecheck` | — | — | — |
 | 格式检查 | `make format` | — | — | — | — |
-| 完整 CI | `make ci` | `make ph-ci` | `make dr-ci` | `make fh-ci` | `make st-ci` |
+| 完整 CI | `make ci` | `make ph-ci` | `make dr-ci` | `make fc-ci` | `make st-ci` |
 
 ## dist 目录管理
 
