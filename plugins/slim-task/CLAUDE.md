@@ -48,12 +48,7 @@ plugins/slim-task/
 ├── .claude-plugin/plugin.json    # 插件元数据
 ├── CLAUDE.md                     # 本文件
 ├── skills/slim-task/
-│   ├── SKILL.md                  # 核心编排器索引（≤100 行）
-│   └── references/               # 详细 SOP / 协议 / 模板
-│       ├── checkpoint-protocol.md
-│       ├── phase-sop.md
-│       ├── phase5-audit-protocol.md
-│       └── subagent-prompt-template.md
+│   └── SKILL.md                  # 核心 SOP 指令（自包含编排器）
 ├── tools/build-dist.sh           # 构建脚本
 ├── version.txt                   # 版本号
 └── CHANGELOG.md                  # 变更日志
@@ -68,11 +63,12 @@ plugins/slim-task/
 
 ### SKILL.md 编写约束
 
-- 主编排器 SKILL.md 控制在 100 行以内，仅保留护栏 + 阶段索引
-- 详细 SOP、协议、模板下沉到 `references/` 子目录
-- references 单文件超 100 行需添加 `## Contents` 目录
-- references 引用只允许一层，禁止链式跳转
-- 正文不出现版本号/迭代标签（时态中性）
+- 编排器型 SKILL.md 采用**自包含模式**：所有 Phase 详情、检查点协议、子 Agent 模板、审计协议必须**就近写在主文件中**，禁止下沉到 `references/`
+- 选择自包含的根因：references 子文件不会被 Claude 自动加载，导致执行时丢失关键约束（"就近约束失效"反模式，已在实战中观察到效果回退）
+- 行数控制在 500 行以内（官方硬限）；编排器自包含场景下 250-450 行为合理区间
+- 高频执行细节（每 Phase 都用的检查点协议、护栏、模板）优先就近放主文件
+- 仅低频背景资料（如平台工具清单、迁移历史）可放 `references/`
+- 时态中性：正文不出现版本号/迭代标签
 
 ### 工程红线（Worktree / 运行时产物）
 
