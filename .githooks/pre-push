@@ -53,17 +53,17 @@ if [ "$_freshness_ok" = "false" ]; then
   echo "   make build && git add dist/spec-autopilot/"
   echo "   make ph-build-only && git add dist/parallel-harness/"
   echo "   make dr-build && git add dist/daily-report/"
-  echo "   make fh-build && git add dist/figma-handoff/"
+  echo "   make fc-build && git add dist/figma-codegen/"
   echo "   make st-build && git add dist/slim-task/"
   echo "   git commit -m 'chore: rebuild dist'"
   echo ""
-  echo "   Or rebuild all: make build ph-build-only dr-build fh-build st-build && git add dist/ && git commit -m 'chore: rebuild dist'"
+  echo "   Or rebuild all: make build ph-build-only dr-build fc-build st-build && git add dist/ && git commit -m 'chore: rebuild dist'"
   exit 1
 fi
 
 # ── 2. dist 变更是否已提交 (防止 build 了但没 commit) ──
 UNCOMMITTED=0
-for plugin in spec-autopilot parallel-harness daily-report figma-handoff slim-task; do
+for plugin in spec-autopilot parallel-harness daily-report figma-codegen slim-task; do
   if [ -d "dist/$plugin" ]; then
     if ! git diff --quiet -- "dist/$plugin" 2>/dev/null; then
       echo "❌ dist/$plugin has unstaged changes"

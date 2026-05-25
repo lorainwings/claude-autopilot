@@ -5,7 +5,7 @@
 SA  := plugins/spec-autopilot
 PH  := plugins/parallel-harness
 DR  := plugins/daily-report
-FH  := plugins/figma-handoff
+FC  := plugins/figma-codegen
 ST  := plugins/slim-task
 
 # lint 工具版本 — 与 .github/workflows/ci.yml 保持一致
@@ -15,7 +15,7 @@ MYPY_VERSION  := 1.15.0
 .PHONY: hooks setup test build lint format typecheck smoke ci \
         ph-test ph-typecheck ph-build ph-build-only ph-lint ph-setup \
         dr-build dr-lint dr-ci \
-        fh-build fh-lint fh-ci \
+        fc-build fc-lint fc-ci \
         st-build st-lint st-ci \
         release release-dry \
         help
@@ -156,22 +156,22 @@ dr-lint: ## Lint daily-report build script (shellcheck)
 
 dr-ci: dr-lint dr-build ## daily-report CI: lint → build
 
-# ── figma-handoff targets ─────────────────────────────────────────
+# ── figma-codegen targets ─────────────────────────────────────────
 
-fh-build: hooks ## Build figma-handoff dist/ (pure file copy, no compile)
-	@bash $(FH)/tools/build-dist.sh
+fc-build: hooks ## Build figma-codegen dist/ (pure file copy, no compile)
+	@bash $(FC)/tools/build-dist.sh
 
-fh-lint: ## Lint figma-handoff build script (shellcheck)
+fc-lint: ## Lint figma-codegen build script (shellcheck)
 	@export PATH="$(shell pwd)/.tools/bin:$$PATH"; \
-	echo "── shellcheck: figma-handoff ──"; \
+	echo "── shellcheck: figma-codegen ──"; \
 	if command -v shellcheck >/dev/null 2>&1; then \
-	  shellcheck $(FH)/tools/build-dist.sh; \
+	  shellcheck $(FC)/tools/build-dist.sh; \
 	else \
 	  echo "❌ shellcheck not found. Install: brew install shellcheck"; \
 	  exit 1; \
 	fi
 
-fh-ci: fh-lint fh-build ## figma-handoff CI: lint → build
+fc-ci: fc-lint fc-build ## figma-codegen CI: lint → build
 
 # ── slim-task targets ─────────────────────────────────────────────
 

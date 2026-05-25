@@ -58,7 +58,7 @@ if [ "$STAGED_MODE" = "true" ]; then
   # 只导出需要比较的插件路径 (plugins/ + dist/)
   _staged_plugins=()
   if [ "$PLUGIN_NAME" = "all" ]; then
-    _staged_plugins=(spec-autopilot parallel-harness daily-report figma-handoff slim-task)
+    _staged_plugins=(spec-autopilot parallel-harness daily-report figma-codegen slim-task)
   else
     _staged_plugins=("$PLUGIN_NAME")
   fi
@@ -78,7 +78,7 @@ check_plugin_dist() {
   local dst_dir="dist/$plugin"
 
   case "$plugin" in
-    spec-autopilot|parallel-harness|daily-report|figma-handoff|slim-task) ;;
+    spec-autopilot|parallel-harness|daily-report|figma-codegen|slim-task) ;;
     *)
       echo "❌ Unknown plugin: $plugin" >&2
       return 1
@@ -186,7 +186,7 @@ check_plugin_dist() {
       done
       ;;
 
-    figma-handoff)
+    figma-codegen)
       for _dir in skills .claude-plugin; do
         if [ -d "$src_dir/$_dir" ] && ! diff -rq "$src_dir/$_dir" "$dst_dir/$_dir" >/dev/null 2>&1; then
           stale=true
@@ -251,7 +251,7 @@ check_and_maybe_rebuild() {
         spec-autopilot)    make_target="make build" ;;
         parallel-harness)  make_target="make ph-build" ;;
         daily-report)      make_target="make dr-build" ;;
-        figma-handoff)     make_target="make fh-build" ;;
+        figma-codegen)     make_target="make fc-build" ;;
         slim-task)         make_target="make st-build" ;;
         *)                 make_target="make <plugin>-build" ;;
       esac
@@ -298,7 +298,7 @@ check_and_maybe_rebuild() {
     spec-autopilot)    make_target="make build" ;;
     parallel-harness)  make_target="make ph-build" ;;
     daily-report)      make_target="make dr-build" ;;
-    figma-handoff)     make_target="make fh-build" ;;
+    figma-codegen)     make_target="make fc-build" ;;
     *)                 make_target="make <plugin>-build" ;;
   esac
   echo "   Run '$make_target' and commit the result"
@@ -309,7 +309,7 @@ check_and_maybe_rebuild() {
 OVERALL_FAIL=0
 
 if [ "$PLUGIN_NAME" = "all" ]; then
-  for p in spec-autopilot parallel-harness daily-report figma-handoff slim-task; do
+  for p in spec-autopilot parallel-harness daily-report figma-codegen slim-task; do
     if ! check_and_maybe_rebuild "$p"; then
       OVERALL_FAIL=1
     fi

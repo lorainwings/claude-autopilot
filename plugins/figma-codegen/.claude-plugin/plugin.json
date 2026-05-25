@@ -1,0 +1,29 @@
+{
+  "name": "figma-codegen",
+  "version": "0.1.0",
+  "description": "Translate Figma designs into production-ready code with 1:1 visual fidelity. Adapted from OpenAI's official figma-implement-design skill, with Claude Code-native MCP integration and design system token mapping.",
+  "author": {
+    "name": "lorainwings",
+    "url": "https://github.com/lorainwings"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/figma-codegen",
+  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "figma",
+    "figma-mcp",
+    "design-to-code",
+    "codegen",
+    "implement-design",
+    "ui-implementation",
+    "design-system",
+    "design-tokens",
+    "frontend",
+    "react",
+    "vue",
+    "tailwind",
+    "code-connect"
+  ]
+}

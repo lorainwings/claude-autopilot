@@ -13,9 +13,9 @@
 
 以下资源属于仓库级共享，修改需考虑对所有插件的影响:
 
-1. **`.claude-plugin/marketplace.json`**: 市场注册表，版本号由自动化维护（当前 5 插件: spec-autopilot / parallel-harness / daily-report / figma-handoff / slim-task）
+1. **`.claude-plugin/marketplace.json`**: 市场注册表，版本号由自动化维护（当前 5 插件: spec-autopilot / parallel-harness / daily-report / figma-codegen / slim-task）
 2. **`.githooks/pre-commit`**: 统一 pre-commit hook，包含所有插件的检查逻辑
-3. **`Makefile`**: 统一构建入口（前缀: 无 / `ph-` / `dr-` / `fh-` / `st-`）
+3. **`Makefile`**: 统一构建入口（前缀: 无 / `ph-` / `dr-` / `fc-` / `st-`）
 4. **`scripts/`**: 仓库级脚本（hooks setup、release discipline 检查、dist freshness 校验）
 5. **`tools/release.sh`**: 跨插件发版工具
 6. **根目录 `README.md`**: 包含插件版本总表

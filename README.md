@@ -14,7 +14,7 @@
 | [spec-autopilot](plugins/spec-autopilot/) | 5.15.2 | Spec-driven autopilot orchestration for delivery pipelines — 8-phase workflow with 3-layer gate system and crash recovery |
 | [parallel-harness](plugins/parallel-harness/) | 1.9.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
-| [figma-handoff](plugins/figma-handoff/README.md) | 0.1.0 | Pixel-faithful Figma → frontend handoff workflow with forced spec acquisition, token mapping, translation rules and pixel-diff hard gate |
+| [figma-codegen](plugins/figma-codegen/README.md) | 0.1.0 | Translate Figma designs into production-ready code with 1:1 visual fidelity (adapted from OpenAI figma-implement-design) |
 | [slim-task](plugins/slim-task/README.md) | 0.6.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
 
 ## Quick Install
@@ -32,8 +32,8 @@ claude plugin install parallel-harness@lorainwings-plugins --scope project
 # 4. Install daily-report (project-level)
 claude plugin install daily-report@lorainwings-plugins --scope project
 
-# 5. Install figma-handoff (project-level)
-claude plugin install figma-handoff@lorainwings-plugins --scope project
+# 5. Install figma-codegen (project-level)
+claude plugin install figma-codegen@lorainwings-plugins --scope project
 
 # 6. Install slim-task (project-level)
 claude plugin install slim-task@lorainwings-plugins --scope project
@@ -169,41 +169,37 @@ flowchart TD
     NEXT -->|no| DONE((Done))
 ```
 
-## What is figma-handoff?
+## What is figma-codegen?
 
-**figma-handoff** is a Claude Code Skill plugin that turns Figma design handoff into an objective, falsifiable pipeline. It solves the common "Figma MCP output looks similar but wrong" problem by enforcing pixel-diff hard gates instead of subjective visual review.
+**figma-codegen** is a Claude Code Skill plugin that translates Figma designs into production-ready code with 1:1 visual fidelity. It is a faithful adaptation of OpenAI's official [figma-implement-design](https://github.com/openai/skills/tree/main/skills/.curated/figma-implement-design) skill, tuned for the Claude Code ecosystem.
 
 ### Key Features
 
-- **Forced Spec Acquisition** — Strict 5-step Figma MCP order (metadata → variables → code-connect → design-context → screenshot); skipping any step fails the gate
-- **Three Mapping Tables** — `tokens.md` / `node-map.md` / `component-policy.md` enforced before any code is written, with 100% token coverage requirement
-- **Translation Rules** — Stack-agnostic rules to translate React+Tailwind reference into the project stack (Vue/Vant, Element Plus, etc.)
-- **Pixel-Diff Hard Gate** — pixelmatch-based objective comparison (≤ 0.5% diff threshold) replacing subjective visual review
-- **Three-Step Iteration** — Static skeleton → data → interaction; each step independently gated by diff
-- **Independent Review** — Main agent forbidden from self-approving; review subagent dispatched in parallel
-- **Stack-Agnostic Skeleton** — `SKILL.md` is vendor-neutral; per-stack details live in `references/vendor-*.md`
+- **7-Step Deterministic Workflow** — Get Node ID → Fetch Design Context → Capture Screenshot → Download Assets → Translate to Project Conventions → Achieve 1:1 Visual Parity → Validate Against Figma
+- **Three Figma MCP Modes** — Remote MCP / Figma Desktop MCP / local `figma-developer-mcp`; Desktop mode supports selection-based prompting (no URL needed)
+- **Reference vs Final Code** — Treats Figma MCP output (typically React + Tailwind) as design intent reference, replaces utility classes with project tokens, reuses existing components
+- **Asset Hard Rules** — `localhost`-served assets used directly; never replace MCP-returned assets with placeholders or third-party icon packs
+- **Design System First** — Prefers project design tokens over literal Figma values; allows minimal spacing/sizing adjustments to maintain visual fidelity
+- **Validation Checklist** — 7-dimension checklist (layout, typography, colors, interactive states, responsive, assets, accessibility) before completion
+- **Faithful Upstream Adaptation** — SKILL.md mirrors OpenAI's 7-step structure, easy to diff-merge upstream improvements
 
 ### Workflow
 
 ```mermaid
 flowchart TD
-    URL["figma.com URL"] --> PRE["Stage -1<br/>Preflight"]
-    PRE --> BLOCK{Blocking items?}
-    BLOCK -->|yes| ABORT((Fix & retry))
-    BLOCK -->|no| S0["Stage 0<br/>Spec Acquisition"]
-    S0 --> META[metadata + variables<br/>+ code-connect + reference<br/>+ screenshot + assets]
-    META --> S1["Stage 1<br/>Three Mapping Tables"]
-    S1 --> COV{100% token coverage?}
-    COV -->|no| FIX1[Fill missing tokens] --> COV
-    COV -->|yes| S2["Stage 2<br/>Translation (3 iterations)"]
-    S2 --> SKEL[Skeleton] --> DATA[Data binding] --> INTER[Interaction]
-    INTER --> S3["Stage 3<br/>Pixel Diff"]
-    S3 --> DIFF{"diff <= 0.5%?"}
-    DIFF -->|no| FIXDIFF[Fix drift] --> S3
-    DIFF -->|yes| S4["Stage 4<br/>Independent Review"]
-    S4 --> TRACE{100% node traceability?}
-    TRACE -->|no| FIXREV[Resolve violations] --> S4
-    TRACE -->|yes| DONE((Deliver))
+    URL["Figma URL or Desktop selection"] --> S1["Step 1<br/>Get Node ID"]
+    S1 --> S2["Step 2<br/>get_design_context"]
+    S2 --> LARGE{Response too large?}
+    LARGE -->|yes| META[get_metadata → child nodes]
+    META --> S2
+    LARGE -->|no| S3["Step 3<br/>get_screenshot"]
+    S3 --> S4["Step 4<br/>Download assets<br/>(no placeholders)"]
+    S4 --> S5["Step 5<br/>Translate to project conventions<br/>Tailwind → tokens<br/>reuse components"]
+    S5 --> S6["Step 6<br/>1:1 visual parity"]
+    S6 --> S7["Step 7<br/>Validate against Figma"]
+    S7 --> CHECK{Checklist passes?}
+    CHECK -->|no| S5
+    CHECK -->|yes| DONE((Deliver))
 ```
 
 ## What is slim-task?
@@ -285,13 +281,13 @@ flowchart TD
 | [Plugin README](plugins/daily-report/README.md) | Full plugin documentation |
 | [Changelog](plugins/daily-report/CHANGELOG.md) | Version history |
 
-### figma-handoff
+### figma-codegen
 
 | Document | Description |
 |----------|-------------|
-| [Plugin README](plugins/figma-handoff/README.md) | Full plugin documentation |
-| [CLAUDE.md](plugins/figma-handoff/CLAUDE.md) | Plugin-specific engineering rules |
-| [Changelog](plugins/figma-handoff/CHANGELOG.md) | Version history |
+| [Plugin README](plugins/figma-codegen/README.md) | Full plugin documentation |
+| [CLAUDE.md](plugins/figma-codegen/CLAUDE.md) | Plugin-specific engineering rules |
+| [Changelog](plugins/figma-codegen/CHANGELOG.md) | Version history |
 
 ### slim-task
 
@@ -326,7 +322,7 @@ claude-autopilot/
 │   ├── spec-autopilot/
 │   ├── parallel-harness/
 │   ├── daily-report/
-│   ├── figma-handoff/
+│   ├── figma-codegen/
 │   └── slim-task/
 ├── plugins/                 # Plugin source code
 │   ├── spec-autopilot/
@@ -345,7 +341,7 @@ claude-autopilot/
 │   │   └── docs/            # Full documentation
 │   ├── daily-report/
 │   │   └── skills/          # Skill definition + setup guide
-│   ├── figma-handoff/
+│   ├── figma-codegen/
 │   │   └── skills/          # Skill definition + vendor-specific references
 │   └── slim-task/
 │       └── skills/          # 7-phase SOP Skill (pure Markdown, no runtime)
