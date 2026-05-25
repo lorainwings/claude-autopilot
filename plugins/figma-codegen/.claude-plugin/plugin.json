@@ -1,6 +1,6 @@
 {
   "name": "figma-codegen",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Translate Figma designs into production-ready code with 1:1 visual fidelity. Adapted from OpenAI's official figma-implement-design skill, with Claude Code-native MCP integration and design system token mapping.",
   "author": {
     "name": "lorainwings",
