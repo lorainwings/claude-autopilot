@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/StoicAtom/claude-autopilot/compare/slim-task-v0.6.0...slim-task-v0.7.0) (2026-05-28)
+
+
+### Added
+
+* **slim-task:** enhance Phase 6 with branch naming, push target, artifact commit, and impact analysis ([dc27a4b](https://github.com/StoicAtom/claude-autopilot/commit/dc27a4b30c9bed7c3355fb87da6a269a930ad6a5))
+
 ## [0.6.0](https://github.com/lorainwings/claude-autopilot/compare/slim-task-v0.5.0...slim-task-v0.6.0) (2026-05-25)
 
 
