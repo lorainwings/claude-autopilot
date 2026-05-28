@@ -79,6 +79,9 @@ plugins/slim-task/
    - `.claude/slim-task.json`（语言偏好持久化配置）
    - `.claude/slim-task/`（Phase 5 审计落盘目录）
    - `.claude/worktrees/`（worktree 模式启用时必检）
+5. **分支命名强制校验**：Phase 6 commit 前必须校验当前分支名匹配 `^(feat|fix|refactor|docs|chore|test|perf)/[a-z0-9-]+$`，不合规则阻断
+6. **BASE_REF 记录**：Phase 0 必须将基础分支写入 `.claude/slim-task.json` 的 `baseRef` 字段，供 Phase 6 push 决策卡判定可选目标
+7. **副产物必须 commit**：Phase 6 staging 阶段必须包含 `docs/tasks/*.md` 和 `.gitignore` 增量行，禁止遗漏
 
 ### Phase 5 反作弊隔离
 

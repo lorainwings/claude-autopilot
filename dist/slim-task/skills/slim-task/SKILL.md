@@ -19,6 +19,7 @@ user-invocable: true
 8. **语言一致性** — 面向用户的内容全部使用 `${LANG}`（默认 `zh-CN`）；Conventional Commits 前缀保持英文；代码标识符/API 名/框架关键字保持原文
 9. **Worktree 模式硬约束** — 禁止 commit 仓库共享配置文件；禁止 auto-merge 回 main 或 push 到 origin/main
 10. **审计隔离** — 实现 Agent ≠ 审计 Agent；审计 Agent prompt 严禁注入实现 Agent 的对话历史、思考记录、自评结论
+11. **分支命名规范** — 工作分支必须符合 `<type>/<slug>` 格式，type 限定为：`feat` / `fix` / `refactor` / `docs` / `chore` / `test` / `perf`；slug 仅含小写字母、数字、连字符；Phase 6 commit 前强制校验，不合规则阻断并提示重命名
 
 ## 术语约定
 
@@ -111,7 +112,8 @@ flowchart TD
      a. `AskUserQuestion` 确认基线分支（默认 `head` 当前分支；可选 `origin/main` 或自定义）
      b. 调用 `EnterWorktree(name=slim-<task-slug>-<timestamp>)`
      c. 检查 `.gitignore` 是否包含 `.claude/worktrees/`，缺失则比照 step 3 流程补齐
-5. **输出初始化摘要**：`LANG=... | WORKTREE=<path 或 none> | BASE=<branch> | GITIGNORE=<ok 或 patched/skipped>`
+5. **记录 `${BASE_REF}`**：当前工作分支名（非 worktree 模式）或 `--base` 指定分支（worktree 模式），写入 `.claude/slim-task.json` 的 `baseRef` 字段，供 Phase 6 push 决策卡使用
+6. **输出初始化摘要**：`LANG=... | WORKTREE=<path 或 none> | BASE_REF=<branch> | GITIGNORE=<ok 或 patched/skipped>`
 
 **检查点**：执行检查点标准协议，选项为「采纳 → Phase 1 / 修改配置 / 终止」。
 
@@ -155,7 +157,19 @@ flowchart TD
 | 新增 | `src/yyy.ts` | 具体原因 |
 | 不可触碰 | `src/zzz.ts` | 超出范围 |
 
-1. **依赖影响** + **风险与权衡**
+3. **破坏性变更评估**（必须）：
+
+| 维度 | 是否破坏性 | 说明 |
+|------|-----------|------|
+| 公开 API / 接口签名 | 是/否 | 具体影响 |
+| 数据库 schema / 数据格式 | 是/否 | 迁移方案 |
+| 配置文件 / 环境变量 | 是/否 | 兼容策略 |
+| 依赖版本 | 是/否 | 升级路径 |
+| 用户可见行为 | 是/否 | 影响范围 |
+
+4. **业务影响分析**：对现有功能的影响等级（无影响 / 低 / 中 / 高）+ 受影响的上下游模块/调用方
+5. **回滚方案**：若上线后发现问题，如何安全回退（`git revert` 是否充分 / 是否需要数据迁移回退脚本）
+6. **风险与权衡**
 
 **检查点**：执行检查点标准协议，选项为「批准方案 → Phase 3 / 修改方案 / 终止」。
 
@@ -337,18 +351,26 @@ prompt 注入内容：
 
 ### 执行步骤
 
-1. 展示（按 `${LANG}`）：变更文件列表 + diff 摘要 + 提议的 Conventional Commits 格式 commit message
-2. **Worktree 模式禁用文件检查**：staged 文件命中 `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json` 则拒绝 commit
-3. **第一次 `AskUserQuestion`（Commit 决策卡）**：
+1. **分支命名校验**：检查当前分支名是否匹配 `^(feat|fix|refactor|docs|chore|test|perf)/[a-z0-9-]+$`；不合规则通过 `AskUserQuestion` 提示用户重命名（`git branch -m <new-name>`），阻断后续步骤直到合规
+2. **副产物 staging**：自动将本次 slim-task 产出的中间产物加入 staged 区域：
+   - `docs/tasks/{YYYY-MM-DD}/{task-slug}.*` — Phase 3 固化的任务文档
+   - `.gitignore` — 若 Phase 0 追加了忽略规则
+   - 使用 `git add` 精确添加上述路径，禁止 `git add .` 或 `git add -A`
+3. 展示（按 `${LANG}`）：变更文件列表 + diff 摘要 + 提议的 Conventional Commits 格式 commit message
+4. **Worktree 模式禁用文件检查**：staged 文件命中 `release-please-config.json` / `.release-please-manifest.json` / `.claude-plugin/marketplace.json` 则拒绝 commit
+5. **第一次 `AskUserQuestion`（Commit 决策卡）**：
    - 「确认 commit」 / 「修改 message 后再 commit」 / 「取消回 Phase 5」
-4. commit 后**立即第二次 `AskUserQuestion`（Push/PR 决策卡）**：
-   - 「push + 开 PR」 / 「仅 push」 / 「保留本地不 push」
-   - worktree 模式下「push 到 main」选项**必须禁用**
-5. 按决策执行，完成后汇报
-6. **Worktree 收尾**：`AskUserQuestion` 询问是否 `ExitWorktree(action=keep)` 保留 worktree，并给出合并指引：
+6. commit 后**立即第二次 `AskUserQuestion`（Push/PR 决策卡）**，选项：
+   - 「push 到 origin/<current-branch> + 开 PR」
+   - 「push 到 origin/<current-branch>（不开 PR）」
+   - 「push 到 origin/${BASE_REF}（仅当 BASE_REF ≠ main/master 时可选）」
+   - 「保留本地不 push」
+   - worktree 模式下：「push 到 main/master」选项**永远禁用**，不出现在决策卡中
+7. 按决策执行，完成后汇报
+8. **Worktree 收尾**：`AskUserQuestion` 询问是否 `ExitWorktree(action=keep)` 保留 worktree，并给出合并指引：
 
    ```bash
    git fetch && git checkout main && git merge worktree-slim-<slug>
    ```
 
-7. **用户拒绝 commit**：列出手动调整事项，结束流程
+9. **用户拒绝 commit**：列出手动调整事项，结束流程
