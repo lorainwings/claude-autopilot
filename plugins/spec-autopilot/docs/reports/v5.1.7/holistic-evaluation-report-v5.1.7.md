@@ -575,7 +575,7 @@ Bolt.new/v0     ★☆☆☆☆   ★☆☆☆☆    ★★☆☆☆      ★★
 | 版本 | 5.1.7 |
 | 关键字 | 57 |
 | 许可证 | MIT |
-| 仓库 | lorainwings/claude-autopilot |
+| 仓库 | stoicatom/claude-autopilot |
 
 ---
 

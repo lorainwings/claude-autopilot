@@ -9,7 +9,7 @@
 
 当前仓库是一个插件市场仓库，而不是单插件仓库：
 
-- 市场名称：`lorainwings-plugins`
+- 市场名称：`stoicatom-plugins`
 - 当前已有插件：`spec-autopilot`
 - 目标新插件：`parallel-harness`
 
@@ -413,7 +413,7 @@ plugins/parallel-harness/
 新插件 `parallel-harness`
 
 产品定位：
-`parallel-harness` 是一个新的插件，不是 `spec-autopilot vNext`。它要与 `spec-autopilot` 共存，并最终进入同一个插件市场 `lorainwings-plugins`。它的定位是“真正的并行 AI 平台 / AI 软件工程控制面插件”。
+`parallel-harness` 是一个新的插件，不是 `spec-autopilot vNext`。它要与 `spec-autopilot` 共存，并最终进入同一个插件市场 `stoicatom-plugins`。它的定位是“真正的并行 AI 平台 / AI 软件工程控制面插件”。
 
 你必须先阅读并遵循以下文档：
 1. docs/plans/2026-03-19-holistic-architecture-research-report.zh.md

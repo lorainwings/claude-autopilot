@@ -3,12 +3,12 @@
   "version": "1.9.1",
   "description": "Parallel AI engineering control-plane plugin — task-graph scheduling, file ownership isolation, cost-aware model routing, 9-gate quality system, RBAC governance, and audit trail",
   "author": {
-    "name": "lorainwings",
-    "url": "https://github.com/lorainwings"
+    "name": "stoicatom",
+    "url": "https://github.com/stoicatom"
   },
   "license": "MIT",
-  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/parallel-harness",
-  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "homepage": "https://github.com/stoicatom/claude-autopilot/tree/main/plugins/parallel-harness",
+  "repository": "https://github.com/stoicatom/claude-autopilot",
   "keywords": [
     "claude-code",
     "plugin",

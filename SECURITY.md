@@ -15,7 +15,7 @@
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do NOT** open a public GitHub issue
-2. Email the maintainer directly or use [GitHub Security Advisories](https://github.com/lorainwings/claude-autopilot/security/advisories/new)
+2. Email the maintainer directly or use [GitHub Security Advisories](https://github.com/stoicatom/claude-autopilot/security/advisories/new)
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

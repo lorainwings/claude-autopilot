@@ -178,7 +178,7 @@ bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 
 New projects only need a single configuration file to run autopilot:
 
-1. Install plugin: `claude plugin add lorainwings/claude-autopilot`
+1. Install plugin: `claude plugin add stoicatom/claude-autopilot`
 2. Run `Start autopilot [requirement description]`
 3. The plugin auto-detects project structure and generates `.claude/autopilot.config.yaml`
 4. Built-in templates handle all phases automatically — no additional files needed
@@ -186,17 +186,17 @@ New projects only need a single configuration file to run autopilot:
 ### Step 1: Add marketplace
 
 ```bash
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add stoicatom/claude-autopilot
 ```
 
 ### Step 2: Install plugin
 
 ```bash
 # Project-level (recommended)
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # User-level (all projects)
-claude plugin install spec-autopilot@lorainwings-plugins --scope user
+claude plugin install spec-autopilot@stoicatom-plugins --scope user
 ```
 
 ### Step 3: Restart Claude Code
@@ -207,7 +207,7 @@ Restart your Claude Code session to activate the plugin.
 
 ```bash
 claude plugin list
-# Should show: spec-autopilot@lorainwings-plugins
+# Should show: spec-autopilot@stoicatom-plugins
 ```
 
 ## Configuration

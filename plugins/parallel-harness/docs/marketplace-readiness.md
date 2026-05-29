@@ -46,10 +46,10 @@
 ```json
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "lorainwings-plugins",
-  "description": "lorainwings Claude Code plugins",
+  "name": "stoicatom-plugins",
+  "description": "stoicatom Claude Code plugins",
   "owner": {
-    "name": "lorainwings"
+    "name": "stoicatom"
   },
   "plugins": [
     {

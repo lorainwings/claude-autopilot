@@ -11,7 +11,7 @@
 - 名称：`parallel-harness`
 - 位置：`plugins/parallel-harness`
 - 发布路径：`dist/parallel-harness`
-- 市场归属：`lorainwings-plugins`
+- 市场归属：`stoicatom-plugins`
 
 首个可用版本定义：
 
