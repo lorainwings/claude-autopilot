@@ -55,7 +55,7 @@ runtime 包含 17 个核心模块：
 
 ```bash
 # 通过 Claude Code 插件市场安装
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 
 # 手动安装（开发环境）
 cd plugins/parallel-harness

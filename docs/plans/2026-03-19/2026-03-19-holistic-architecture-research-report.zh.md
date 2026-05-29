@@ -1,7 +1,7 @@
 # 插件整体架构多维度并行评审与调研总报告
 
 > 日期：2026-03-19
-> 评审对象：`lorainwings-plugins` 市场中的当前主插件 `spec-autopilot`
+> 评审对象：`stoicatom-plugins` 市场中的当前主插件 `spec-autopilot`
 > 评审目标：从架构、稳定性、竞品能力、AI 极致并行工程四个维度，形成一份总调研报告，并为后续两条产品线提供决策依据。
 
 ## 1. 报告定位
@@ -548,7 +548,7 @@ Planner
 
 - `spec-autopilot` 继续做成熟交付编排插件
 - `parallel-harness` 独立做真正的并行 AI 平台
-- `lorainwings-plugins` 作为统一市场承载插件矩阵
+- `stoicatom-plugins` 作为统一市场承载插件矩阵
 
 这条路线兼顾了三件事：
 

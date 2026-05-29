@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0](https://github.com/lorainwings/claude-autopilot/compare/figma-codegen-v0.1.0...figma-codegen-v1.0.0) (2026-05-25)
+## [1.0.0](https://github.com/stoicatom/claude-autopilot/compare/figma-codegen-v0.1.0...figma-codegen-v1.0.0) (2026-05-25)
 
 
 ### ⚠ BREAKING CHANGES
@@ -9,8 +9,8 @@
 
 ### Added
 
-* **figma-codegen:** port openai figma-implement-design skill, replace figma-handoff ([5475529](https://github.com/lorainwings/claude-autopilot/commit/54755292c6a210aa3bcdd88897847ad6c5295ad3))
-* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/lorainwings/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
+* **figma-codegen:** port openai figma-implement-design skill, replace figma-handoff ([5475529](https://github.com/stoicatom/claude-autopilot/commit/54755292c6a210aa3bcdd88897847ad6c5295ad3))
+* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/stoicatom/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
 
 ## [0.1.0] - 2026-05-25
 

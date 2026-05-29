@@ -18,7 +18,7 @@
 **Method 1: Claude Code Plugin Marketplace**
 
 ```bash
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 ```
 
 **Method 2: Manual Installation (Development)**

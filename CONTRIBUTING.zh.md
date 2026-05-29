@@ -24,7 +24,7 @@
 ### 一键初始化
 
 ```bash
-git clone https://github.com/lorainwings/claude-autopilot.git
+git clone https://github.com/stoicatom/claude-autopilot.git
 cd claude-autopilot
 
 # 此命令将：
@@ -154,7 +154,7 @@ chore: 维护任务
 
 ## 提交 Issue
 
-- 使用 [GitHub Issues](https://github.com/lorainwings/claude-autopilot/issues)
+- 使用 [GitHub Issues](https://github.com/stoicatom/claude-autopilot/issues)
 - 包含：复现步骤、预期行为、实际行为
 - Hook 相关问题：包含 stderr 输出（Claude Code 中按 Ctrl+O）
 

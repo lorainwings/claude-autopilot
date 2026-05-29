@@ -66,7 +66,7 @@ flowchart TD
 ## Installation
 
 ```bash
-claude install lorainwings/claude-autopilot --plugin slim-task
+claude install stoicatom/claude-autopilot --plugin slim-task
 ```
 
 ## Usage

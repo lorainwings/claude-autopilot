@@ -2,9 +2,9 @@
 
 # figma-codegen
 
-[![Plugin Marketplace](https://img.shields.io/badge/Claude_Code-plugin-blue.svg)](https://github.com/lorainwings/claude-autopilot)
+[![Plugin Marketplace](https://img.shields.io/badge/Claude_Code-plugin-blue.svg)](https://github.com/stoicatom/claude-autopilot)
 [![Skill](https://img.shields.io/badge/Skill-figma--codegen-purple.svg)](./skills/figma-codegen/SKILL.md)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/lorainwings/claude-autopilot/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/stoicatom/claude-autopilot/blob/main/LICENSE)
 
 > Translate Figma designs into production-ready code with 1:1 visual fidelity.
 > Adapted from OpenAI's official [figma-implement-design](https://github.com/openai/skills/tree/main/skills/.curated/figma-implement-design) skill, tuned for Claude Code.
@@ -67,14 +67,14 @@ flowchart TD
 
 ## Installation
 
-This plugin ships in the `lorainwings-plugins` Claude Code marketplace.
+This plugin ships in the `stoicatom-plugins` Claude Code marketplace.
 
 ```bash
 # Add the marketplace (one-time setup)
-/plugin marketplace add lorainwings/claude-autopilot
+/plugin marketplace add stoicatom/claude-autopilot
 
 # Install figma-codegen
-/plugin install figma-codegen@lorainwings-plugins
+/plugin install figma-codegen@stoicatom-plugins
 ```
 
 ## Usage
@@ -104,7 +104,7 @@ plugins/figma-codegen/
 
 ## License
 
-- Plugin code: [MIT](https://github.com/lorainwings/claude-autopilot/blob/main/LICENSE)
+- Plugin code: [MIT](https://github.com/stoicatom/claude-autopilot/blob/main/LICENSE)
 - SKILL content adapted from OpenAI: subject to [Figma Developer Terms](https://www.figma.com/legal/developer-terms/)
 
 ## Credits

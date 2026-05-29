@@ -16,7 +16,7 @@
 
 - `spec-autopilot`：现有规范驱动交付插件，继续维护。
 - 新并行 AI 平台插件：另起一个新插件，不替换当前插件。
-- `lorainwings-plugins`：统一插件市场，承载两者共存。
+- `stoicatom-plugins`：统一插件市场，承载两者共存。
 
 ## 2. 当前问题总览
 
@@ -398,7 +398,7 @@ runtime/scripts/
 不应带来安装方式变化：
 
 ```bash
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 ```
 
 对用户的可见变化应仅包括：

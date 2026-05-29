@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Translate Figma designs into production-ready code with 1:1 visual fidelity. Adapted from OpenAI's official figma-implement-design skill, with Claude Code-native MCP integration and design system token mapping.",
   "author": {
-    "name": "lorainwings",
-    "url": "https://github.com/lorainwings"
+    "name": "stoicatom",
+    "url": "https://github.com/stoicatom"
   },
   "license": "MIT",
-  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/figma-codegen",
-  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "homepage": "https://github.com/stoicatom/claude-autopilot/tree/main/plugins/figma-codegen",
+  "repository": "https://github.com/stoicatom/claude-autopilot",
   "keywords": [
     "claude-code",
     "plugin",
