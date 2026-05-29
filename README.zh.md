@@ -15,7 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.9.1 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.3.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 | [figma-codegen](plugins/figma-codegen/README.zh.md) | 1.0.0 | Figma 设计稿到代码 7 步翻译 SKILL（适配自 OpenAI figma-implement-design），追求 1:1 视觉一致 |
-| [slim-task](plugins/slim-task/README.zh.md) | 0.6.0 | 结构化 7 阶段任务执行 SOP，支持多语言与 worktree 并行 — 会话初始化、需求澄清、影响范围锁定、DAG 并行子 Agent 派发、独立审计盲审 |
+| [slim-task](plugins/slim-task/README.zh.md) | 0.7.0 | 结构化 7 阶段任务执行 SOP，支持多语言与 worktree 并行 — 会话初始化、需求澄清、影响范围锁定、DAG 并行子 Agent 派发、独立审计盲审 |
 
 ## 快速安装
 

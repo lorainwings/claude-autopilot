@@ -15,7 +15,7 @@
 | [parallel-harness](plugins/parallel-harness/) | 1.9.1 | Parallel AI engineering control-plane — task-graph scheduling, 9-gate system, RBAC governance, cost-aware model routing |
 | [daily-report](plugins/daily-report/README.md) | 1.3.0 | Auto-generate and submit daily work reports from git commits and Lark chat history |
 | [figma-codegen](plugins/figma-codegen/README.md) | 1.0.0 | Translate Figma designs into production-ready code with 1:1 visual fidelity (adapted from OpenAI figma-implement-design) |
-| [slim-task](plugins/slim-task/README.md) | 0.6.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
+| [slim-task](plugins/slim-task/README.md) | 0.7.0 | Structured 7-phase task execution SOP with multi-language & worktree support — session init, requirements clarification, impact scoping, DAG-based parallel dispatch, blind-audit quality review |
 
 ## Quick Install
 
