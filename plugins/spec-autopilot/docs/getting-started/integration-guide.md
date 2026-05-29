@@ -29,13 +29,13 @@
 
 ```bash
 # Add marketplace (one-time only)
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add StoicAtom/claude-autopilot
 
 # Install to project (recommended)
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # Or install at user level (shared across all projects)
-claude plugin install spec-autopilot@lorainwings-plugins --scope user
+claude plugin install spec-autopilot@stoicatom-plugins --scope user
 ```
 
 Install the openspec dependency (if not already installed):
@@ -49,7 +49,7 @@ Verify installation:
 ```bash
 claude plugin list
 # You should see:
-#   spec-autopilot@lorainwings-plugins (project)
+#   spec-autopilot@stoicatom-plugins (project)
 #   openspec (project)
 ```
 
@@ -114,7 +114,7 @@ project_context:
 Run config validation:
 
 ```bash
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 ```
 
 ### Step 5: (Optional) Advanced Customization
@@ -473,7 +473,7 @@ spec-autopilot is continuously evolving. Below are key upgrade notes for each ve
 
 ```bash
 # Run in Claude Code
-claude plugin update spec-autopilot@lorainwings-plugins
+claude plugin update spec-autopilot@stoicatom-plugins
 ```
 
 Or manually update the cache:
@@ -481,7 +481,7 @@ Or manually update the cache:
 ```bash
 # Update from source
 cp -r ~/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/. \
-  ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/2.2.0/
+  ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/2.2.0/
 ```
 
 #### 2. Add `project_context` to Config
@@ -551,7 +551,7 @@ rm .claude/skills/autopilot/SKILL.md
 
 ```bash
 # Validate config
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 
 # Restart Claude Code and test
 /spec-autopilot:autopilot

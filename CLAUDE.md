@@ -1,13 +1,13 @@
 # claude-autopilot 全局工程法则 (CLAUDE.md)
 
-> 此文件为 **lorainwings-plugins** monorepo 的**全局规则层**。
+> 此文件为 **stoicatom-plugins** monorepo 的**全局规则层**。
 > 所有 AI Agent（主线程 + 子 Agent）在本仓库任何位置操作时**必须**遵守以下法则。
 > 各子插件有独立的 `plugins/<name>/CLAUDE.md`，定义插件特定约束。
 > 冲突时：子插件规则 > 全局规则（仅在子插件目录内生效）。
 
 ## 项目概述
 
-- **仓库**: [lorainwings/claude-autopilot](https://github.com/lorainwings/claude-autopilot)
+- **仓库**: [StoicAtom/claude-autopilot](https://github.com/StoicAtom/claude-autopilot)
 - **定位**: Claude Code 插件市场 monorepo，托管五个独立插件
 - **许可**: MIT License
 

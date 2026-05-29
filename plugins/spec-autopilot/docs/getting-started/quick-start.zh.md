@@ -12,7 +12,7 @@ claude plugins install spec-autopilot
 
 或从 GitHub 直接安装：
 ```bash
-claude plugins install https://github.com/lorainwings/claude-autopilot
+claude plugins install https://github.com/StoicAtom/claude-autopilot
 ```
 
 ## 2. 初始化项目（1 分钟）

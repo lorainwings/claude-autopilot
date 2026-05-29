@@ -25,7 +25,7 @@
 ### Install via Marketplace
 
 ```bash
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 ```
 
 ### Manual Install (Development)

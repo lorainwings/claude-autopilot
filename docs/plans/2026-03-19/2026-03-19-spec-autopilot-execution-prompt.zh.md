@@ -8,7 +8,7 @@
 
 当前仓库不是单插件仓库，而是一个插件市场仓库：
 
-- 市场名称：`lorainwings-plugins`
+- 市场名称：`stoicatom-plugins`
 - 当前主插件：`spec-autopilot`
 - 后续会新增新插件，但本提示词只针对 `spec-autopilot`
 

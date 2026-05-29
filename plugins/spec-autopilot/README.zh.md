@@ -178,7 +178,7 @@ bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 
 新项目只需一个配置文件即可运行 autopilot：
 
-1. 安装插件: `claude plugin add lorainwings/claude-autopilot`
+1. 安装插件: `claude plugin add StoicAtom/claude-autopilot`
 2. 运行 `启动autopilot [需求描述]`
 3. 插件自动检测项目结构，生成 `.claude/autopilot.config.yaml`
 4. 内置模板自动处理所有阶段 — 无需创建额外文件
@@ -186,17 +186,17 @@ bun run plugins/spec-autopilot/runtime/server/autopilot-server.ts
 ### 步骤 1: 添加市场源
 
 ```bash
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add StoicAtom/claude-autopilot
 ```
 
 ### 步骤 2: 安装插件
 
 ```bash
 # 项目级（推荐）
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # 用户级（所有项目）
-claude plugin install spec-autopilot@lorainwings-plugins --scope user
+claude plugin install spec-autopilot@stoicatom-plugins --scope user
 ```
 
 ### 步骤 3: 重启 Claude Code
@@ -207,7 +207,7 @@ claude plugin install spec-autopilot@lorainwings-plugins --scope user
 
 ```bash
 claude plugin list
-# Should show: spec-autopilot@lorainwings-plugins
+# Should show: spec-autopilot@stoicatom-plugins
 ```
 
 ## 配置

@@ -262,7 +262,7 @@ else
 fi
 
 # ── Scenario 12: 人类 actor 重开 bot PR（PR #128 复现）──
-# 真实场景：lorainwings 手动 close → reopen 一个 release-please bot PR，
+# 真实场景：StoicAtom 手动 close → reopen 一个 release-please bot PR，
 # 此时 GITHUB_ACTOR=人类用户名，但分支 tip commit 仍由 bot 创建。
 # 通过 origin/<branch> 的 tip commit 作者回退识别为合法 release-please 上下文。
 echo "--- Scenario 12: human actor reopened bot release-please PR (PR #128 regression) ---"
@@ -276,7 +276,7 @@ git commit -q -m "chore: release main"
 git update-ref "refs/remotes/origin/release-please--branches--main" HEAD
 git checkout -q -
 
-out=$(GITHUB_HEAD_REF=release-please--branches--main GITHUB_ACTOR='lorainwings' \
+out=$(GITHUB_HEAD_REF=release-please--branches--main GITHUB_ACTOR='StoicAtom' \
       bash "$DETECT_SCRIPT" 2>/dev/null || true)
 if echo "$out" | grep -q "^IS_RELEASE_PLEASE_BRANCH=true$"; then
   echo -e "  \033[32mPASS\033[0m: human reopened bot PR → IS_RELEASE_PLEASE_BRANCH=true (branch-tip fallback)"

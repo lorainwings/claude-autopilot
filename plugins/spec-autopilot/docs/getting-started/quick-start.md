@@ -12,7 +12,7 @@ claude plugins install spec-autopilot
 
 Or install directly from GitHub:
 ```bash
-claude plugins install https://github.com/lorainwings/claude-autopilot
+claude plugins install https://github.com/StoicAtom/claude-autopilot
 ```
 
 ## 2. Initialize Project (1 minute)

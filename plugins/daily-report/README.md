@@ -27,7 +27,7 @@
 ### Install
 
 ```bash
-claude plugin install daily-report@lorainwings-plugins --scope project
+claude plugin install daily-report@stoicatom-plugins --scope project
 ```
 
 ### Usage

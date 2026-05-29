@@ -1,10 +1,10 @@
 > [English](README.md) | 中文
 
-# lorainwings-plugins
+# stoicatom-plugins
 
 > Claude Code 插件市场 — 规范驱动的全自动交付流水线编排 + 并行 AI 工程控制面。
 
-[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
+[![CI](https://github.com/StoicAtom/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/StoicAtom/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 插件列表
@@ -21,22 +21,22 @@
 
 ```bash
 # 1. 添加市场
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add StoicAtom/claude-autopilot
 
 # 2. 安装 spec-autopilot（项目级）
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # 3. 安装 parallel-harness（项目级）
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 
 # 4. 安装 daily-report（项目级）
-claude plugin install daily-report@lorainwings-plugins --scope project
+claude plugin install daily-report@stoicatom-plugins --scope project
 
 # 5. 安装 figma-codegen（项目级）
-claude plugin install figma-codegen@lorainwings-plugins --scope project
+claude plugin install figma-codegen@stoicatom-plugins --scope project
 
 # 6. 安装 slim-task（项目级）
-claude plugin install slim-task@lorainwings-plugins --scope project
+claude plugin install slim-task@stoicatom-plugins --scope project
 
 # 7. 重启 Claude Code
 ```
@@ -394,7 +394,7 @@ claude-autopilot/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/lorainwings/claude-autopilot.git
+git clone https://github.com/StoicAtom/claude-autopilot.git
 cd claude-autopilot
 
 # 一键初始化：激活 git hooks

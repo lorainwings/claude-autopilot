@@ -1,6 +1,6 @@
 > **[中文版](CONTRIBUTING.zh.md)** | English (default)
 
-# Contributing to lorainwings-plugins
+# Contributing to stoicatom-plugins
 
 Thank you for your interest in contributing! This guide will help you get started.
 
@@ -22,7 +22,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### One-Command Setup
 
 ```bash
-git clone https://github.com/lorainwings/claude-autopilot.git
+git clone https://github.com/StoicAtom/claude-autopilot.git
 cd claude-autopilot
 
 # This will:
@@ -151,7 +151,7 @@ chore: maintenance tasks
 
 ## Reporting Issues
 
-- Use [GitHub Issues](https://github.com/lorainwings/claude-autopilot/issues)
+- Use [GitHub Issues](https://github.com/StoicAtom/claude-autopilot/issues)
 - Include: steps to reproduce, expected behavior, actual behavior
 - For hook-related issues: include stderr output (Ctrl+O in Claude Code)
 

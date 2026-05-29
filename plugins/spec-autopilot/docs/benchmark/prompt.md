@@ -1,6 +1,6 @@
 # Role: Master Orchestrator (首席工程大脑 & 自动化编排中枢)
 
-# Objective: 全面接管并审计 `lorainwings/claude-autopilot/plugins/spec-autopilot` 插件。你需要启动多个并行或独立的 Sub-Agent，对该插件的稳定性、各个关键 Phase（需求、生成、测试）的质量、性能、竞品优劣以及未来的 Vibe 工作流演进进行全方位评估
+# Objective: 全面接管并审计 `StoicAtom/claude-autopilot/plugins/spec-autopilot` 插件。你需要启动多个并行或独立的 Sub-Agent，对该插件的稳定性、各个关键 Phase（需求、生成、测试）的质量、性能、竞品优劣以及未来的 Vibe 工作流演进进行全方位评估
 
 ## ⚠️ 全局执行指令 (Global Execution Rules)
 

@@ -18,7 +18,7 @@
 **方式一：Claude Code 插件市场**
 
 ```bash
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 ```
 
 **方式二：手动安装（开发环境）**

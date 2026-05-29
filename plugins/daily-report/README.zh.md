@@ -27,7 +27,7 @@
 ### 安装
 
 ```bash
-claude plugin install daily-report@lorainwings-plugins --scope project
+claude plugin install daily-report@stoicatom-plugins --scope project
 ```
 
 ### 使用

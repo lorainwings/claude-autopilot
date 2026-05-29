@@ -1,12 +1,12 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "lorainwings-plugins",
-  "description": "lorainwings Claude Code plugins",
+  "name": "stoicatom-plugins",
+  "description": "StoicAtom Claude Code plugins",
   "metadata": {
     "description": "A Claude Code plugin marketplace hosting spec-autopilot, parallel-harness, and daily-report plugins"
   },
   "owner": {
-    "name": "lorainwings"
+    "name": "StoicAtom"
   },
   "plugins": [
     {

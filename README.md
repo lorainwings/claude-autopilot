@@ -1,10 +1,10 @@
 > **[中文版](README.zh.md)** | English (default)
 
-# lorainwings-plugins
+# stoicatom-plugins
 
 > A Claude Code plugin marketplace — spec-driven autopilot orchestration and parallel AI engineering control-plane.
 
-[![CI](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/lorainwings/claude-autopilot/actions/workflows/ci.yml)
+[![CI](https://github.com/StoicAtom/claude-autopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/StoicAtom/claude-autopilot/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Plugins
@@ -21,22 +21,22 @@
 
 ```bash
 # 1. Add marketplace
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add StoicAtom/claude-autopilot
 
 # 2. Install spec-autopilot (project-level)
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # 3. Install parallel-harness (project-level)
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 
 # 4. Install daily-report (project-level)
-claude plugin install daily-report@lorainwings-plugins --scope project
+claude plugin install daily-report@stoicatom-plugins --scope project
 
 # 5. Install figma-codegen (project-level)
-claude plugin install figma-codegen@lorainwings-plugins --scope project
+claude plugin install figma-codegen@stoicatom-plugins --scope project
 
 # 6. Install slim-task (project-level)
-claude plugin install slim-task@lorainwings-plugins --scope project
+claude plugin install slim-task@stoicatom-plugins --scope project
 
 # 7. Restart Claude Code
 ```
@@ -360,7 +360,7 @@ Plugin-only changes trigger only the matching plugin CI jobs within the unified 
 
 ```bash
 # Clone the repository
-git clone https://github.com/lorainwings/claude-autopilot.git
+git clone https://github.com/StoicAtom/claude-autopilot.git
 cd claude-autopilot
 
 # One-time setup: activate git hooks

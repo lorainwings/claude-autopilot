@@ -7,4 +7,4 @@ These Materials are currently offered as a Beta feature. Figma may modify, suspe
 This skill is adapted from OpenAI's official figma-implement-design skill:
 https://github.com/openai/skills/tree/main/skills/.curated/figma-implement-design
 
-Adapted for Claude Code by lorainwings under the same Figma Developer Terms.
+Adapted for Claude Code by StoicAtom under the same Figma Developer Terms.

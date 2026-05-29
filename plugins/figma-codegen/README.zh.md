@@ -2,9 +2,9 @@
 
 # figma-codegen
 
-[![Plugin Marketplace](https://img.shields.io/badge/Claude_Code-plugin-blue.svg)](https://github.com/lorainwings/claude-autopilot)
+[![Plugin Marketplace](https://img.shields.io/badge/Claude_Code-plugin-blue.svg)](https://github.com/StoicAtom/claude-autopilot)
 [![Skill](https://img.shields.io/badge/Skill-figma--codegen-purple.svg)](./skills/figma-codegen/SKILL.md)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/lorainwings/claude-autopilot/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/StoicAtom/claude-autopilot/blob/main/LICENSE)
 
 > 把 Figma 设计稿翻译为生产级代码,追求像素级视觉一致(1:1 visual parity)。
 > 改编自 OpenAI 官方 [figma-implement-design](https://github.com/openai/skills/tree/main/skills/.curated/figma-implement-design) skill,针对 Claude Code 适配。
@@ -67,14 +67,14 @@ flowchart TD
 
 ## 安装
 
-本插件托管于 `lorainwings-plugins` Claude Code 插件市场。
+本插件托管于 `stoicatom-plugins` Claude Code 插件市场。
 
 ```bash
 # 添加 marketplace(一次性配置)
-/plugin marketplace add lorainwings/claude-autopilot
+/plugin marketplace add StoicAtom/claude-autopilot
 
 # 安装 figma-codegen
-/plugin install figma-codegen@lorainwings-plugins
+/plugin install figma-codegen@stoicatom-plugins
 ```
 
 ## 使用
@@ -104,7 +104,7 @@ plugins/figma-codegen/
 
 ## 许可证
 
-- 插件代码:[MIT](https://github.com/lorainwings/claude-autopilot/blob/main/LICENSE)
+- 插件代码:[MIT](https://github.com/StoicAtom/claude-autopilot/blob/main/LICENSE)
 - SKILL 内容改编自 OpenAI:遵循 [Figma Developer Terms](https://www.figma.com/legal/developer-terms/)
 
 ## 致谢

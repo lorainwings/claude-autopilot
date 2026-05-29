@@ -437,7 +437,7 @@ runtime/
 
 ```json
 {
-  "name": "lorainwings-plugins",
+  "name": "stoicatom-plugins",
   "plugins": [
     {
       "name": "spec-autopilot",
@@ -466,8 +466,8 @@ runtime/
 用户可以按项目特征选择安装：
 
 ```bash
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
-claude plugin install parallel-harness@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
+claude plugin install parallel-harness@stoicatom-plugins --scope project
 ```
 
 未来也可支持同项目共存，但默认建议二选一。
@@ -587,7 +587,7 @@ claude plugin install parallel-harness@lorainwings-plugins --scope project
 
 - 一条线修好并稳住 `spec-autopilot`
 - 一条线独立孵化 `parallel-harness`
-- 两者统一进入 `lorainwings-plugins` 市场
+- 两者统一进入 `stoicatom-plugins` 市场
 
 这样做的收益最大：
 

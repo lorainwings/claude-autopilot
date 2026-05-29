@@ -3,12 +3,12 @@
   "version": "0.6.0",
   "description": "Structured 7-phase task execution SOP with multi-language and worktree support — session init, requirements clarification, best-practice research, impact scoping, DAG-based parallel dispatch, blind-audit quality review by independent sub-agents, and commit confirmation",
   "author": {
-    "name": "lorainwings",
-    "url": "https://github.com/lorainwings"
+    "name": "StoicAtom",
+    "url": "https://github.com/StoicAtom"
   },
   "license": "MIT",
-  "homepage": "https://github.com/lorainwings/claude-autopilot/tree/main/plugins/slim-task",
-  "repository": "https://github.com/lorainwings/claude-autopilot",
+  "homepage": "https://github.com/StoicAtom/claude-autopilot/tree/main/plugins/slim-task",
+  "repository": "https://github.com/StoicAtom/claude-autopilot",
   "keywords": [
     "claude-code",
     "plugin",

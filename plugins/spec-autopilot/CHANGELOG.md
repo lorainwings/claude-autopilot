@@ -1,533 +1,533 @@
 # Changelog
 
-## [5.15.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.1...spec-autopilot-v5.15.2) (2026-05-11)
+## [5.15.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.15.1...spec-autopilot-v5.15.2) (2026-05-11)
 
 
 ### Fixed
 
-* **spec-autopilot:** 确定性脚本封装 checkpoint 写入与目录初始化 ([0683b6b](https://github.com/lorainwings/claude-autopilot/commit/0683b6b6bf477d6ad57ba2c908d60701c27615a8))
+* **spec-autopilot:** 确定性脚本封装 checkpoint 写入与目录初始化 ([0683b6b](https://github.com/StoicAtom/claude-autopilot/commit/0683b6b6bf477d6ad57ba2c908d60701c27615a8))
 
-## [5.15.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.15.0...spec-autopilot-v5.15.1) (2026-04-24)
+## [5.15.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.15.0...spec-autopilot-v5.15.1) (2026-04-24)
 
 
 ### Fixed
 
-* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([9835ddc](https://github.com/lorainwings/claude-autopilot/commit/9835ddc730cb68de1c821e084c39b12dcf10d096))
-* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([f73461c](https://github.com/lorainwings/claude-autopilot/commit/f73461c689911034c40ec64a7f60d401b9f12ac3))
+* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([9835ddc](https://github.com/StoicAtom/claude-autopilot/commit/9835ddc730cb68de1c821e084c39b12dcf10d096))
+* **spec-autopilot:** 隔离 release-discipline 测试的 GitHub Actions 环境变量 ([f73461c](https://github.com/StoicAtom/claude-autopilot/commit/f73461c689911034c40ec64a7f60d401b9f12ac3))
 
 
 ### Changed
 
-* **spec-autopilot:** 收敛 hook 副作用 + 合并会话 jsonl + marker JSON 化 ([5c3a4fe](https://github.com/lorainwings/claude-autopilot/commit/5c3a4fe10c02c486df523b2f60920c9bb46af186))
-* **spec-autopilot:** 收敛 hook 副作用、合并会话 jsonl、active-agent marker JSON 化 ([63e2047](https://github.com/lorainwings/claude-autopilot/commit/63e204756f444effaea31b4c3a768d87e7c8fd14))
+* **spec-autopilot:** 收敛 hook 副作用 + 合并会话 jsonl + marker JSON 化 ([5c3a4fe](https://github.com/StoicAtom/claude-autopilot/commit/5c3a4fe10c02c486df523b2f60920c9bb46af186))
+* **spec-autopilot:** 收敛 hook 副作用、合并会话 jsonl、active-agent marker JSON 化 ([63e2047](https://github.com/StoicAtom/claude-autopilot/commit/63e204756f444effaea31b4c3a768d87e7c8fd14))
 
-## [5.15.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.1...spec-autopilot-v5.15.0) (2026-04-23)
-
-
-### Added
-
-* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([b2ef138](https://github.com/lorainwings/claude-autopilot/commit/b2ef138f4c172e764e2cc3f144fea24fca090a73))
-* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([31f71dd](https://github.com/lorainwings/claude-autopilot/commit/31f71ddb7867526857593f8c64c38b3e8e9eb01f))
-
-
-### Fixed
-
-* **spec-autopilot:** 修复 hook project-root 解析不尊重 AUTOPILOT_PROJECT_ROOT ([3c7c0e1](https://github.com/lorainwings/claude-autopilot/commit/3c7c0e11333bd1efce93604b4d24ca9ed389aa71))
-* **spec-autopilot:** 修复 statusline 安装幂等性与 ANSI 污染 ([32a4e0b](https://github.com/lorainwings/claude-autopilot/commit/32a4e0b567e55ec1839a25d0b10362d2d25a18ad))
-
-## [5.14.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.14.0...spec-autopilot-v5.14.1) (2026-04-23)
-
-
-### Fixed
-
-* **spec-autopilot:** 修复主线程"应派发未派发"+ GUI 遥测顽固空态 ([394aa2f](https://github.com/lorainwings/claude-autopilot/commit/394aa2f2a04ba44f6d83ab7ca5a542d161f5a9b4))
-* **spec-autopilot:** 修复主线程应派发未派发 + GUI 遥测顽固空态 ([c2ca496](https://github.com/lorainwings/claude-autopilot/commit/c2ca49623a2991fdc5f151246fbfafce13a1dbbb))
-
-## [5.14.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.4...spec-autopilot-v5.14.0) (2026-04-22)
+## [5.15.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.14.1...spec-autopilot-v5.15.0) (2026-04-23)
 
 
 ### Added
 
-* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([616c278](https://github.com/lorainwings/claude-autopilot/commit/616c278ace04b3d7b613cd75b5f28b8eab26ba97))
-* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([30ec843](https://github.com/lorainwings/claude-autopilot/commit/30ec843209cbbff16a819f2062b052f7afaf1d08))
-
-## [5.13.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.3...spec-autopilot-v5.13.4) (2026-04-22)
+* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([b2ef138](https://github.com/StoicAtom/claude-autopilot/commit/b2ef138f4c172e764e2cc3f144fea24fca090a73))
+* **spec-autopilot:** Phase 4/5 TDD/7 强制展示 Allure 测试报告 URL ([31f71dd](https://github.com/StoicAtom/claude-autopilot/commit/31f71ddb7867526857593f8c64c38b3e8e9eb01f))
 
 
 ### Fixed
 
-* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([6a5cfb7](https://github.com/lorainwings/claude-autopilot/commit/6a5cfb782c5e2c9a1678b1aa7e657efefb61d38c))
-* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([ada1482](https://github.com/lorainwings/claude-autopilot/commit/ada1482726d17c1c9397f71efe11cc19fd625b18))
-* **spec-autopilot:** ship generate-parallel-plan.sh + emit-parallel-event.sh in dist ([7a495fd](https://github.com/lorainwings/claude-autopilot/commit/7a495fd0ce4cb15346e642402f2d7bc9a29fa639))
-* **spec-autopilot:** statusLine chain mode + health check + GUI hint ([315c75a](https://github.com/lorainwings/claude-autopilot/commit/315c75a471a35d16cf515ef6bf2297a038832075))
+* **spec-autopilot:** 修复 hook project-root 解析不尊重 AUTOPILOT_PROJECT_ROOT ([3c7c0e1](https://github.com/StoicAtom/claude-autopilot/commit/3c7c0e11333bd1efce93604b4d24ca9ed389aa71))
+* **spec-autopilot:** 修复 statusline 安装幂等性与 ANSI 污染 ([32a4e0b](https://github.com/StoicAtom/claude-autopilot/commit/32a4e0b567e55ec1839a25d0b10362d2d25a18ad))
+
+## [5.14.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.14.0...spec-autopilot-v5.14.1) (2026-04-23)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复主线程"应派发未派发"+ GUI 遥测顽固空态 ([394aa2f](https://github.com/StoicAtom/claude-autopilot/commit/394aa2f2a04ba44f6d83ab7ca5a542d161f5a9b4))
+* **spec-autopilot:** 修复主线程应派发未派发 + GUI 遥测顽固空态 ([c2ca496](https://github.com/StoicAtom/claude-autopilot/commit/c2ca49623a2991fdc5f151246fbfafce13a1dbbb))
+
+## [5.14.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.13.4...spec-autopilot-v5.14.0) (2026-04-22)
+
+
+### Added
+
+* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([616c278](https://github.com/StoicAtom/claude-autopilot/commit/616c278ace04b3d7b613cd75b5f28b8eab26ba97))
+* **spec-autopilot:** SessionStart 种子 snapshot 保证 GUI 首屏遥测 ([30ec843](https://github.com/StoicAtom/claude-autopilot/commit/30ec843209cbbff16a819f2062b052f7afaf1d08))
+
+## [5.13.4](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.13.3...spec-autopilot-v5.13.4) (2026-04-22)
+
+
+### Fixed
+
+* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([6a5cfb7](https://github.com/StoicAtom/claude-autopilot/commit/6a5cfb782c5e2c9a1678b1aa7e657efefb61d38c))
+* **spec-autopilot:** eliminate macOS flake in snapshot meta refresh test ([ada1482](https://github.com/StoicAtom/claude-autopilot/commit/ada1482726d17c1c9397f71efe11cc19fd625b18))
+* **spec-autopilot:** ship generate-parallel-plan.sh + emit-parallel-event.sh in dist ([7a495fd](https://github.com/StoicAtom/claude-autopilot/commit/7a495fd0ce4cb15346e642402f2d7bc9a29fa639))
+* **spec-autopilot:** statusLine chain mode + health check + GUI hint ([315c75a](https://github.com/StoicAtom/claude-autopilot/commit/315c75a471a35d16cf515ef6bf2297a038832075))
 
 
 ### Changed
 
-* **spec-autopilot:** skill review fixes for non-phase support skills ([75e2e04](https://github.com/lorainwings/claude-autopilot/commit/75e2e0483533a0d3fb180e988c6932698516a05c))
+* **spec-autopilot:** skill review fixes for non-phase support skills ([75e2e04](https://github.com/StoicAtom/claude-autopilot/commit/75e2e0483533a0d3fb180e988c6932698516a05c))
 
-## [5.13.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.2...spec-autopilot-v5.13.3) (2026-04-22)
-
-
-### Changed
-
-* **spec-autopilot:** comprehensive skill review fixes across all phases ([cda92a8](https://github.com/lorainwings/claude-autopilot/commit/cda92a832bd6b34605e95939267c88bc7871f3e5))
-* **spec-autopilot:** comprehensive skill review fixes across all… ([52ff240](https://github.com/lorainwings/claude-autopilot/commit/52ff24006027b642df30dc98c01aa222a487ff3d))
-
-## [5.13.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.1...spec-autopilot-v5.13.2) (2026-04-21)
+## [5.13.3](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.13.2...spec-autopilot-v5.13.3) (2026-04-22)
 
 
 ### Changed
 
-* **spec-autopilot:** standardize SKILL frontmatter and flatten r… ([75ca00f](https://github.com/lorainwings/claude-autopilot/commit/75ca00f4dc10c2bfe44b927ac6fc5fe89915ed01))
-* **spec-autopilot:** standardize SKILL frontmatter and flatten references per Anthropic spec ([5c115b3](https://github.com/lorainwings/claude-autopilot/commit/5c115b3751690d4088f355c258a59148c4328294))
+* **spec-autopilot:** comprehensive skill review fixes across all phases ([cda92a8](https://github.com/StoicAtom/claude-autopilot/commit/cda92a832bd6b34605e95939267c88bc7871f3e5))
+* **spec-autopilot:** comprehensive skill review fixes across all… ([52ff240](https://github.com/StoicAtom/claude-autopilot/commit/52ff24006027b642df30dc98c01aa222a487ff3d))
 
-## [5.13.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.13.0...spec-autopilot-v5.13.1) (2026-04-21)
-
-
-### Changed
-
-* **spec-autopilot:** align skills with Anthropic standards + hooks community best practices ([7889fee](https://github.com/lorainwings/claude-autopilot/commit/7889feebba2a6ce62b79c35f907c2235eed3af21))
-* **spec-autopilot:** migrate skill-specific references from autopilot/references/ to per-skill directories ([aa6aab4](https://github.com/lorainwings/claude-autopilot/commit/aa6aab4dd1e208a3bd56a3bc70da97703d983441))
-* **spec-autopilot:** slim autopilot-agents SKILL by extracting mode protocols to references/ ([e04771c](https://github.com/lorainwings/claude-autopilot/commit/e04771c02887ec0b27afdcbae6d1092f486c5c3c))
-* **spec-autopilot:** slim autopilot-phase0-init SKILL by extracting execution steps and lock file protocol to references/ ([67407e9](https://github.com/lorainwings/claude-autopilot/commit/67407e9d9b5384f0cf309ea36a96760e3344922c))
-* **spec-autopilot:** slim autopilot-recovery SKILL by extracting recovery flow to references/ ([74b16ef](https://github.com/lorainwings/claude-autopilot/commit/74b16ef4a240137e07c1e4d29504f65f763e9108))
-* **spec-autopilot:** strip version evolution noise from skills and add skill-authoring rule ([33a5fe4](https://github.com/lorainwings/claude-autopilot/commit/33a5fe4debb63c626f0f55c684c8cd18dd9833d9))
-
-## [5.13.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.12.0...spec-autopilot-v5.13.0) (2026-04-20)
-
-
-### Added
-
-* **spec-autopilot:** add synthesizer agent config + deprecate web_search agent ([43e8203](https://github.com/lorainwings/claude-autopilot/commit/43e8203c53470dec4cd5960ad5734804394df682))
-* **spec-autopilot:** add synthesizer verdict JSON schema ([78cae13](https://github.com/lorainwings/claude-autopilot/commit/78cae13fc9724395315d822d363df0318ee4afa6))
-* **spec-autopilot:** adopt [NEEDS CLARIFICATION] protocol from spec-kit ([815b1e6](https://github.com/lorainwings/claude-autopilot/commit/815b1e6bcb6b6eff65e6a95db86b66d581187e3e))
-* **spec-autopilot:** autopilot-agents installs synthesizer role with priority chain ([51a70e1](https://github.com/lorainwings/claude-autopilot/commit/51a70e1e6853f08994aee725cf65eeac32d9ad57))
-* **spec-autopilot:** early interrupt protocol for blocker-class findings ([43e466e](https://github.com/lorainwings/claude-autopilot/commit/43e466e00ab81446c9c513f2e2c27cdd656d7025))
-* **spec-autopilot:** enforce four-field task contract per Anthropic best practice ([99e91c1](https://github.com/lorainwings/claude-autopilot/commit/99e91c1c4a3c6f018555a0607640f7291afb1338))
-* **spec-autopilot:** introduce SynthesizerAgent with structured verdict ([f569ba6](https://github.com/lorainwings/claude-autopilot/commit/f569ba627c52860c2ab65449a8eaf679b13b116e))
-* **spec-autopilot:** L2 hook enforces phase1 envelope schemas ([42e4272](https://github.com/lorainwings/claude-autopilot/commit/42e4272792919092c55acb293a4fee1c9998dc25))
-* **spec-autopilot:** phase1 redesign — synthesizer + clarification protocol ([d9bf335](https://github.com/lorainwings/claude-autopilot/commit/d9bf335d8bd8ebae5c02c5ac7c3353976455a30f))
-* **spec-autopilot:** phase1-&gt;2 gate with triple validation ([564fa94](https://github.com/lorainwings/claude-autopilot/commit/564fa94dbae81f9a9c5742eae4ce040c7e819e0d))
-* **spec-autopilot:** research plan as maturity × project_type matrix ([969b6c4](https://github.com/lorainwings/claude-autopilot/commit/969b6c4d8865afb069cb2287a73eb7031ca8a3fd))
-* **spec-autopilot:** scan envelope carries decision_points and conflicts ([b34a536](https://github.com/lorainwings/claude-autopilot/commit/b34a536c5ede697a4f95846c9fc646c5633aec1f))
-* **spec-autopilot:** synthesizer performs semantic decision_points dedup ([f245d1c](https://github.com/lorainwings/claude-autopilot/commit/f245d1c699f56241a64fa43c383765db42eb4e53))
-
-
-### Fixed
-
-* **spec-autopilot:** address Task 1 review feedback (migration guide + test cleanup) ([74beceb](https://github.com/lorainwings/claude-autopilot/commit/74becebd78fc2b0d2dce540f4212294f9116f2f2))
-* **spec-autopilot:** address Task 4 review — schema stub + doc residuals ([be65038](https://github.com/lorainwings/claude-autopilot/commit/be65038407324fdab4f8de2bb74ac57a47db4042))
-* **spec-autopilot:** address Task 5 review — verdict.json as single source for BA input ([175290a](https://github.com/lorainwings/claude-autopilot/commit/175290afaeb6c0f254e668a41f764b83c4a9b05b))
-* **spec-autopilot:** decouple clarity_score from BA agent output ([f7fa44f](https://github.com/lorainwings/claude-autopilot/commit/f7fa44f4c05922e3a07fe4f675c80ad01e6a401f))
-* **spec-autopilot:** enforce real sha256 match in phase1 e2e integration test ([3d31114](https://github.com/lorainwings/claude-autopilot/commit/3d311142d98032758be5f1b52c5dc4840b7b756f))
-* **spec-autopilot:** relax scan schema required + schemas dist manifest + walker scope note ([fe9a0d9](https://github.com/lorainwings/claude-autopilot/commit/fe9a0d9206025a330b9d3d9e7e441ef81490007d))
-* **spec-autopilot:** unify failure handling to resume + narrowed retry ([767519d](https://github.com/lorainwings/claude-autopilot/commit/767519d4524c4efa47d9f1812451d4f8d7e815a9))
-* **spec-autopilot:** unify requirement-packet contract (sha256 full hex + AC text/testable) ([b33b4a8](https://github.com/lorainwings/claude-autopilot/commit/b33b4a8bdaa566c93518a262fd2699a89a7c75bb))
-* **spec-autopilot:** wire phase1 confidence_threshold config + reject invalid threshold ([44b61b6](https://github.com/lorainwings/claude-autopilot/commit/44b61b669d445f0d1d3cb7c1a1d6e588ae046d25))
+## [5.13.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.13.1...spec-autopilot-v5.13.2) (2026-04-21)
 
 
 ### Changed
 
-* **spec-autopilot:** merge web-search into ResearchAgent as conditional subtask ([df06116](https://github.com/lorainwings/claude-autopilot/commit/df0611684417fa7d682e84dc9dd54057dcbd3625))
-* **spec-autopilot:** packet synthesis moves to dedicated agent (no main-thread compression) ([219fda8](https://github.com/lorainwings/claude-autopilot/commit/219fda8ec9f1aab2d0b74fae0ecf36dc67ba9efb))
+* **spec-autopilot:** standardize SKILL frontmatter and flatten r… ([75ca00f](https://github.com/StoicAtom/claude-autopilot/commit/75ca00f4dc10c2bfe44b927ac6fc5fe89915ed01))
+* **spec-autopilot:** standardize SKILL frontmatter and flatten references per Anthropic spec ([5c115b3](https://github.com/StoicAtom/claude-autopilot/commit/5c115b3751690d4088f355c258a59148c4328294))
 
-## [5.12.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.11.0...spec-autopilot-v5.12.0) (2026-04-19)
-
-
-### Added
-
-* **spec-autopilot:** Phase 1 三路 agent 差异化预设 + Phase 5.5/6 信封强化 ([b427e45](https://github.com/lorainwings/claude-autopilot/commit/b427e45073de6026473f3c782553ed3023f3ef6c))
-* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/lorainwings/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
-
-## [5.11.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.1...spec-autopilot-v5.11.0) (2026-04-18)
-
-
-### Added
-
-* **spec-autopilot:** Phase 1 agent 配置驱动校验（运行时不可偏离 config） ([97fa870](https://github.com/lorainwings/claude-autopilot/commit/97fa87089ff4a2e4a493c8cc4447f6ec7734f878))
-
-
-### Fixed
-
-* **spec-autopilot:** 修复 GUI React error [#310](https://github.com/lorainwings/claude-autopilot/issues/310)（ParallelKanban hooks 顺序违规） ([e4393cd](https://github.com/lorainwings/claude-autopilot/commit/e4393cd7ffd19d76ec95dc7ea0facb9dccb8c6d8))
-
-## [5.10.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.10.0...spec-autopilot-v5.10.1) (2026-04-18)
-
-
-### Fixed
-
-* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([b72a10f](https://github.com/lorainwings/claude-autopilot/commit/b72a10f79b06c680ef7dc65b91559e4def025316))
-* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([61a9895](https://github.com/lorainwings/claude-autopilot/commit/61a9895d3965ad03c3c39c89a2d774af97a99046))
-* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fb2e62f](https://github.com/lorainwings/claude-autopilot/commit/fb2e62f4bde4c2b48b508de212cdafea7cd994df))
-* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fe7f384](https://github.com/lorainwings/claude-autopilot/commit/fe7f3849711d0d633bc697d395a2ada03caf02df))
-
-## [5.10.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.1...spec-autopilot-v5.10.0) (2026-04-18)
-
-
-### Added
-
-* **spec-autopilot:** engineering auto-sync — static doc drift & test rot detection ([74d44c0](https://github.com/lorainwings/claude-autopilot/commit/74d44c03b0b24e730a4f9b1c86d9b2dd9048a002))
-* **spec-autopilot:** round 2 — anchors, fix-skills, audit cleanup, mutation testing ([c35ed36](https://github.com/lorainwings/claude-autopilot/commit/c35ed36db0ab9b6059d21f985ae0926ec0120adf))
-* **spec-autopilot:** sprint auto-upgrade — fix Phase 1 dispatch bug, add risk scanning & active learning ([4e22602](https://github.com/lorainwings/claude-autopilot/commit/4e226022a2278fbba5802935611478630829c24d))
+## [5.13.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.13.0...spec-autopilot-v5.13.1) (2026-04-21)
 
 
 ### Changed
 
-* **repo:** 治理仓库根目录污染、拆分 CLAUDE.md、修复乱码与冗余清理 ([74d3972](https://github.com/lorainwings/claude-autopilot/commit/74d3972c1c26e29a1d90c0886ec1b5231cb9a789))
+* **spec-autopilot:** align skills with Anthropic standards + hooks community best practices ([7889fee](https://github.com/StoicAtom/claude-autopilot/commit/7889feebba2a6ce62b79c35f907c2235eed3af21))
+* **spec-autopilot:** migrate skill-specific references from autopilot/references/ to per-skill directories ([aa6aab4](https://github.com/StoicAtom/claude-autopilot/commit/aa6aab4dd1e208a3bd56a3bc70da97703d983441))
+* **spec-autopilot:** slim autopilot-agents SKILL by extracting mode protocols to references/ ([e04771c](https://github.com/StoicAtom/claude-autopilot/commit/e04771c02887ec0b27afdcbae6d1092f486c5c3c))
+* **spec-autopilot:** slim autopilot-phase0-init SKILL by extracting execution steps and lock file protocol to references/ ([67407e9](https://github.com/StoicAtom/claude-autopilot/commit/67407e9d9b5384f0cf309ea36a96760e3344922c))
+* **spec-autopilot:** slim autopilot-recovery SKILL by extracting recovery flow to references/ ([74b16ef](https://github.com/StoicAtom/claude-autopilot/commit/74b16ef4a240137e07c1e4d29504f65f763e9108))
+* **spec-autopilot:** strip version evolution noise from skills and add skill-authoring rule ([33a5fe4](https://github.com/StoicAtom/claude-autopilot/commit/33a5fe4debb63c626f0f55c684c8cd18dd9833d9))
 
-## [5.9.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.9.0...spec-autopilot-v5.9.1) (2026-04-17)
+## [5.13.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.12.0...spec-autopilot-v5.13.0) (2026-04-20)
+
+
+### Added
+
+* **spec-autopilot:** add synthesizer agent config + deprecate web_search agent ([43e8203](https://github.com/StoicAtom/claude-autopilot/commit/43e8203c53470dec4cd5960ad5734804394df682))
+* **spec-autopilot:** add synthesizer verdict JSON schema ([78cae13](https://github.com/StoicAtom/claude-autopilot/commit/78cae13fc9724395315d822d363df0318ee4afa6))
+* **spec-autopilot:** adopt [NEEDS CLARIFICATION] protocol from spec-kit ([815b1e6](https://github.com/StoicAtom/claude-autopilot/commit/815b1e6bcb6b6eff65e6a95db86b66d581187e3e))
+* **spec-autopilot:** autopilot-agents installs synthesizer role with priority chain ([51a70e1](https://github.com/StoicAtom/claude-autopilot/commit/51a70e1e6853f08994aee725cf65eeac32d9ad57))
+* **spec-autopilot:** early interrupt protocol for blocker-class findings ([43e466e](https://github.com/StoicAtom/claude-autopilot/commit/43e466e00ab81446c9c513f2e2c27cdd656d7025))
+* **spec-autopilot:** enforce four-field task contract per Anthropic best practice ([99e91c1](https://github.com/StoicAtom/claude-autopilot/commit/99e91c1c4a3c6f018555a0607640f7291afb1338))
+* **spec-autopilot:** introduce SynthesizerAgent with structured verdict ([f569ba6](https://github.com/StoicAtom/claude-autopilot/commit/f569ba627c52860c2ab65449a8eaf679b13b116e))
+* **spec-autopilot:** L2 hook enforces phase1 envelope schemas ([42e4272](https://github.com/StoicAtom/claude-autopilot/commit/42e4272792919092c55acb293a4fee1c9998dc25))
+* **spec-autopilot:** phase1 redesign — synthesizer + clarification protocol ([d9bf335](https://github.com/StoicAtom/claude-autopilot/commit/d9bf335d8bd8ebae5c02c5ac7c3353976455a30f))
+* **spec-autopilot:** phase1-&gt;2 gate with triple validation ([564fa94](https://github.com/StoicAtom/claude-autopilot/commit/564fa94dbae81f9a9c5742eae4ce040c7e819e0d))
+* **spec-autopilot:** research plan as maturity × project_type matrix ([969b6c4](https://github.com/StoicAtom/claude-autopilot/commit/969b6c4d8865afb069cb2287a73eb7031ca8a3fd))
+* **spec-autopilot:** scan envelope carries decision_points and conflicts ([b34a536](https://github.com/StoicAtom/claude-autopilot/commit/b34a536c5ede697a4f95846c9fc646c5633aec1f))
+* **spec-autopilot:** synthesizer performs semantic decision_points dedup ([f245d1c](https://github.com/StoicAtom/claude-autopilot/commit/f245d1c699f56241a64fa43c383765db42eb4e53))
+
+
+### Fixed
+
+* **spec-autopilot:** address Task 1 review feedback (migration guide + test cleanup) ([74beceb](https://github.com/StoicAtom/claude-autopilot/commit/74becebd78fc2b0d2dce540f4212294f9116f2f2))
+* **spec-autopilot:** address Task 4 review — schema stub + doc residuals ([be65038](https://github.com/StoicAtom/claude-autopilot/commit/be65038407324fdab4f8de2bb74ac57a47db4042))
+* **spec-autopilot:** address Task 5 review — verdict.json as single source for BA input ([175290a](https://github.com/StoicAtom/claude-autopilot/commit/175290afaeb6c0f254e668a41f764b83c4a9b05b))
+* **spec-autopilot:** decouple clarity_score from BA agent output ([f7fa44f](https://github.com/StoicAtom/claude-autopilot/commit/f7fa44f4c05922e3a07fe4f675c80ad01e6a401f))
+* **spec-autopilot:** enforce real sha256 match in phase1 e2e integration test ([3d31114](https://github.com/StoicAtom/claude-autopilot/commit/3d311142d98032758be5f1b52c5dc4840b7b756f))
+* **spec-autopilot:** relax scan schema required + schemas dist manifest + walker scope note ([fe9a0d9](https://github.com/StoicAtom/claude-autopilot/commit/fe9a0d9206025a330b9d3d9e7e441ef81490007d))
+* **spec-autopilot:** unify failure handling to resume + narrowed retry ([767519d](https://github.com/StoicAtom/claude-autopilot/commit/767519d4524c4efa47d9f1812451d4f8d7e815a9))
+* **spec-autopilot:** unify requirement-packet contract (sha256 full hex + AC text/testable) ([b33b4a8](https://github.com/StoicAtom/claude-autopilot/commit/b33b4a8bdaa566c93518a262fd2699a89a7c75bb))
+* **spec-autopilot:** wire phase1 confidence_threshold config + reject invalid threshold ([44b61b6](https://github.com/StoicAtom/claude-autopilot/commit/44b61b669d445f0d1d3cb7c1a1d6e588ae046d25))
 
 
 ### Changed
 
-* **spec-autopilot:** 全量清理编排流程中的硬编码 Agent 名 ([82ffb7a](https://github.com/lorainwings/claude-autopilot/commit/82ffb7a14bf6d2d3aa9dfaa2209407241f97739e))
+* **spec-autopilot:** merge web-search into ResearchAgent as conditional subtask ([df06116](https://github.com/StoicAtom/claude-autopilot/commit/df0611684417fa7d682e84dc9dd54057dcbd3625))
+* **spec-autopilot:** packet synthesis moves to dedicated agent (no main-thread compression) ([219fda8](https://github.com/StoicAtom/claude-autopilot/commit/219fda8ec9f1aab2d0b74fae0ecf36dc67ba9efb))
 
-## [5.9.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.8.1...spec-autopilot-v5.9.0) (2026-04-16)
+## [5.12.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.11.0...spec-autopilot-v5.12.0) (2026-04-19)
 
 
 ### Added
 
-* Allure 报告即时展示、GUI 动态地址、技能命名优化 ([c31bb09](https://github.com/lorainwings/claude-autopilot/commit/c31bb09920d414a80b1104594c06368dff5375e3))
-* dynamic agent configuration, enhanced model routing, legacy cleanup ([46d1641](https://github.com/lorainwings/claude-autopilot/commit/46d1641624efe0123ed5c64fdf5f7377a5e3f114))
-* **parallel-harness,spec-autopilot:** 优化持久化目录结构 + Phase 6 Allure 服务前移 ([a35fa54](https://github.com/lorainwings/claude-autopilot/commit/a35fa544b4956643c3f588b0736fc5db2a070ea3))
-* **spec-autopilot:** GUI 可观测性增强 — 新面板、事件系统扩展、代码审查修复 ([d9242bf](https://github.com/lorainwings/claude-autopilot/commit/d9242bf0fb919a1b571b6ac91b9cdf9f1e35cfd0))
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/lorainwings/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/lorainwings/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
-* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/lorainwings/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
-* **spec-autopilot:** 优化 autopilot-setup 覆盖 domain_agents 域级 Agent 配置 ([37f2533](https://github.com/lorainwings/claude-autopilot/commit/37f25332709590f7da209c68c2dbb63748b04b8c))
-* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/lorainwings/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
+* **spec-autopilot:** Phase 1 三路 agent 差异化预设 + Phase 5.5/6 信封强化 ([b427e45](https://github.com/StoicAtom/claude-autopilot/commit/b427e45073de6026473f3c782553ed3023f3ef6c))
+* **spec-autopilot:** Phase 1 三路调研独立 agent 配置（auto_scan/research/web_search） ([487858c](https://github.com/StoicAtom/claude-autopilot/commit/487858c01612a888049dd300838319fc3f4a8657))
+
+## [5.11.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.10.1...spec-autopilot-v5.11.0) (2026-04-18)
+
+
+### Added
+
+* **spec-autopilot:** Phase 1 agent 配置驱动校验（运行时不可偏离 config） ([97fa870](https://github.com/StoicAtom/claude-autopilot/commit/97fa87089ff4a2e4a493c8cc4447f6ec7734f878))
 
 
 ### Fixed
 
-* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/lorainwings/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
-* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/lorainwings/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
-* codex 评审 4 项问题修复 ([0598ea4](https://github.com/lorainwings/claude-autopilot/commit/0598ea4db62efc5c3fd3c7a141878486eb98feef))
-* codex 评审第三轮 3 项问题修复 ([d77ec54](https://github.com/lorainwings/claude-autopilot/commit/d77ec54d7117088d33bf8dd10db42d0ed7e66322))
-* codex 评审第二轮 4 项问题修复 ([8607247](https://github.com/lorainwings/claude-autopilot/commit/860724703fd1cf553b16f83d46c0d529f0d9056a))
-* codex 评审第四轮 3 项问题修复 ([c37a011](https://github.com/lorainwings/claude-autopilot/commit/c37a011f4010447d069992aa0882ab9315beedcc))
-* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/lorainwings/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
-* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/lorainwings/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
-* regex fallback 支持 YAML inline mapping 格式 ([ef6096e](https://github.com/lorainwings/claude-autopilot/commit/ef6096e815787615e8286d7e891e339d28755488))
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/lorainwings/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/lorainwings/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/lorainwings/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/lorainwings/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
-* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/lorainwings/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
-* **spec-autopilot,parallel-harness:** 修复 5 项插件污染与配置问题 ([9e696c2](https://github.com/lorainwings/claude-autopilot/commit/9e696c2d05e0410c4d4f84a272696a5331eb25f2))
-* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/lorainwings/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
-* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/lorainwings/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
-* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([70a00d3](https://github.com/lorainwings/claude-autopilot/commit/70a00d35d18fa4eca12640ce2a3e13c3e0aab444))
-* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/lorainwings/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
-* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([52c96ae](https://github.com/lorainwings/claude-autopilot/commit/52c96ae77953d3c455add28aeaecf114e3b38e0a))
-* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([29e3b8c](https://github.com/lorainwings/claude-autopilot/commit/29e3b8c47ad4f5b38d6b35a2e8bd54bd81c2dc47))
-* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/lorainwings/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
-* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/lorainwings/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
-* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/lorainwings/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
-* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/lorainwings/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
-* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/lorainwings/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
-* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/lorainwings/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
-* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/lorainwings/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
-* **spec-autopilot:** statusline_configured 移除路径验证，修复 CI stale 检测 ([14cccdf](https://github.com/lorainwings/claude-autopilot/commit/14cccdf7afbc848abd45bb8fc6c512e7a68bc993))
-* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/lorainwings/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
-* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/lorainwings/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
-* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/lorainwings/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
-* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/lorainwings/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
-* **spec-autopilot:** 修复 hooks 项目感知保护在 CI 环境下的误判 ([4503ddf](https://github.com/lorainwings/claude-autopilot/commit/4503ddf56e38545090beee71ee5efe38a841a7b9))
-* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/lorainwings/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
-* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/lorainwings/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
-* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/lorainwings/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
-* **spec-autopilot:** 修复 TDD 效果评估、Allure 集成、Phase4/TDD 流程与 autosquash 四项缺陷 ([fe3f1f6](https://github.com/lorainwings/claude-autopilot/commit/fe3f1f6dd54d025e63cb441e1d6318dce7df8828))
-* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/lorainwings/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
-* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/lorainwings/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
-* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/lorainwings/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
-* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/lorainwings/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
-* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/lorainwings/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
-* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/lorainwings/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
+* **spec-autopilot:** 修复 GUI React error [#310](https://github.com/StoicAtom/claude-autopilot/issues/310)（ParallelKanban hooks 顺序违规） ([e4393cd](https://github.com/StoicAtom/claude-autopilot/commit/e4393cd7ffd19d76ec95dc7ea0facb9dccb8c6d8))
+
+## [5.10.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.10.0...spec-autopilot-v5.10.1) (2026-04-18)
+
+
+### Fixed
+
+* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([b72a10f](https://github.com/StoicAtom/claude-autopilot/commit/b72a10f79b06c680ef7dc65b91559e4def025316))
+* **spec-autopilot:** GUI server 脱离父 shell + dispatch 脚本帮助化 ([61a9895](https://github.com/StoicAtom/claude-autopilot/commit/61a9895d3965ad03c3c39c89a2d774af97a99046))
+* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fb2e62f](https://github.com/StoicAtom/claude-autopilot/commit/fb2e62f4bde4c2b48b508de212cdafea7cd994df))
+* **spec-autopilot:** Phase 7 Summary Box Allure URL 确定性自愈 ([fe7f384](https://github.com/StoicAtom/claude-autopilot/commit/fe7f3849711d0d633bc697d395a2ada03caf02df))
+
+## [5.10.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.9.1...spec-autopilot-v5.10.0) (2026-04-18)
+
+
+### Added
+
+* **spec-autopilot:** engineering auto-sync — static doc drift & test rot detection ([74d44c0](https://github.com/StoicAtom/claude-autopilot/commit/74d44c03b0b24e730a4f9b1c86d9b2dd9048a002))
+* **spec-autopilot:** round 2 — anchors, fix-skills, audit cleanup, mutation testing ([c35ed36](https://github.com/StoicAtom/claude-autopilot/commit/c35ed36db0ab9b6059d21f985ae0926ec0120adf))
+* **spec-autopilot:** sprint auto-upgrade — fix Phase 1 dispatch bug, add risk scanning & active learning ([4e22602](https://github.com/StoicAtom/claude-autopilot/commit/4e226022a2278fbba5802935611478630829c24d))
 
 
 ### Changed
 
-* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([a83834a](https://github.com/lorainwings/claude-autopilot/commit/a83834a648c410daf0e8faed2ec7b2fd1c47b99f))
-* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([daa405f](https://github.com/lorainwings/claude-autopilot/commit/daa405fe73df95e18394bf94dac58dbdfbe92a89))
-* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/lorainwings/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
-* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/lorainwings/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
-* **spec-autopilot:** 清除 SKILL/references/CLAUDE.md/README 中的内部版本标注 ([0ee63db](https://github.com/lorainwings/claude-autopilot/commit/0ee63db4f155e2947e9fca32425ea6712ba54ac3))
+* **repo:** 治理仓库根目录污染、拆分 CLAUDE.md、修复乱码与冗余清理 ([74d3972](https://github.com/StoicAtom/claude-autopilot/commit/74d3972c1c26e29a1d90c0886ec1b5231cb9a789))
 
-## [5.8.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.8.0...spec-autopilot-v5.8.1) (2026-04-16)
-
-
-### Fixed
-
-* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([52c96ae](https://github.com/lorainwings/claude-autopilot/commit/52c96ae77953d3c455add28aeaecf114e3b38e0a))
-* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([29e3b8c](https://github.com/lorainwings/claude-autopilot/commit/29e3b8c47ad4f5b38d6b35a2e8bd54bd81c2dc47))
-* **spec-autopilot:** statusline_configured 移除路径验证，修复 CI stale 检测 ([14cccdf](https://github.com/lorainwings/claude-autopilot/commit/14cccdf7afbc848abd45bb8fc6c512e7a68bc993))
-
-## [5.8.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.7.0...spec-autopilot-v5.8.0) (2026-04-16)
-
-
-### Added
-
-* **spec-autopilot:** GUI 可观测性增强 — 新面板、事件系统扩展、代码审查修复 ([d9242bf](https://github.com/lorainwings/claude-autopilot/commit/d9242bf0fb919a1b571b6ac91b9cdf9f1e35cfd0))
-
-## [5.7.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.6.0...spec-autopilot-v5.7.0) (2026-04-16)
-
-
-### Added
-
-* **spec-autopilot:** 优化 autopilot-setup 覆盖 domain_agents 域级 Agent 配置 ([37f2533](https://github.com/lorainwings/claude-autopilot/commit/37f25332709590f7da209c68c2dbb63748b04b8c))
-
-
-### Fixed
-
-* **spec-autopilot:** 修复 TDD 效果评估、Allure 集成、Phase4/TDD 流程与 autosquash 四项缺陷 ([fe3f1f6](https://github.com/lorainwings/claude-autopilot/commit/fe3f1f6dd54d025e63cb441e1d6318dce7df8828))
-
-## [5.6.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.2...spec-autopilot-v5.6.0) (2026-04-14)
-
-
-### Added
-
-* **parallel-harness,spec-autopilot:** 优化持久化目录结构 + Phase 6 Allure 服务前移 ([a35fa54](https://github.com/lorainwings/claude-autopilot/commit/a35fa544b4956643c3f588b0736fc5db2a070ea3))
-
-
-### Fixed
-
-* **spec-autopilot,parallel-harness:** 修复 5 项插件污染与配置问题 ([9e696c2](https://github.com/lorainwings/claude-autopilot/commit/9e696c2d05e0410c4d4f84a272696a5331eb25f2))
-
-## [5.5.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.1...spec-autopilot-v5.5.2) (2026-04-14)
+## [5.9.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.9.0...spec-autopilot-v5.9.1) (2026-04-17)
 
 
 ### Changed
 
-* **spec-autopilot:** 清除 SKILL/references/CLAUDE.md/README 中的内部版本标注 ([0ee63db](https://github.com/lorainwings/claude-autopilot/commit/0ee63db4f155e2947e9fca32425ea6712ba54ac3))
+* **spec-autopilot:** 全量清理编排流程中的硬编码 Agent 名 ([82ffb7a](https://github.com/StoicAtom/claude-autopilot/commit/82ffb7a14bf6d2d3aa9dfaa2209407241f97739e))
 
-## [5.5.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.5.0...spec-autopilot-v5.5.1) (2026-04-14)
+## [5.9.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.8.1...spec-autopilot-v5.9.0) (2026-04-16)
+
+
+### Added
+
+* Allure 报告即时展示、GUI 动态地址、技能命名优化 ([c31bb09](https://github.com/StoicAtom/claude-autopilot/commit/c31bb09920d414a80b1104594c06368dff5375e3))
+* dynamic agent configuration, enhanced model routing, legacy cleanup ([46d1641](https://github.com/StoicAtom/claude-autopilot/commit/46d1641624efe0123ed5c64fdf5f7377a5e3f114))
+* **parallel-harness,spec-autopilot:** 优化持久化目录结构 + Phase 6 Allure 服务前移 ([a35fa54](https://github.com/StoicAtom/claude-autopilot/commit/a35fa544b4956643c3f588b0736fc5db2a070ea3))
+* **spec-autopilot:** GUI 可观测性增强 — 新面板、事件系统扩展、代码审查修复 ([d9242bf](https://github.com/StoicAtom/claude-autopilot/commit/d9242bf0fb919a1b571b6ac91b9cdf9f1e35cfd0))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/StoicAtom/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/StoicAtom/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
+* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/StoicAtom/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
+* **spec-autopilot:** 优化 autopilot-setup 覆盖 domain_agents 域级 Agent 配置 ([37f2533](https://github.com/StoicAtom/claude-autopilot/commit/37f25332709590f7da209c68c2dbb63748b04b8c))
+* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/StoicAtom/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
 
 
 ### Fixed
 
-* **spec-autopilot:** 修复 hooks 项目感知保护在 CI 环境下的误判 ([4503ddf](https://github.com/lorainwings/claude-autopilot/commit/4503ddf56e38545090beee71ee5efe38a841a7b9))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/StoicAtom/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/StoicAtom/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
+* codex 评审 4 项问题修复 ([0598ea4](https://github.com/StoicAtom/claude-autopilot/commit/0598ea4db62efc5c3fd3c7a141878486eb98feef))
+* codex 评审第三轮 3 项问题修复 ([d77ec54](https://github.com/StoicAtom/claude-autopilot/commit/d77ec54d7117088d33bf8dd10db42d0ed7e66322))
+* codex 评审第二轮 4 项问题修复 ([8607247](https://github.com/StoicAtom/claude-autopilot/commit/860724703fd1cf553b16f83d46c0d529f0d9056a))
+* codex 评审第四轮 3 项问题修复 ([c37a011](https://github.com/StoicAtom/claude-autopilot/commit/c37a011f4010447d069992aa0882ab9315beedcc))
+* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/StoicAtom/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
+* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/StoicAtom/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
+* regex fallback 支持 YAML inline mapping 格式 ([ef6096e](https://github.com/StoicAtom/claude-autopilot/commit/ef6096e815787615e8286d7e891e339d28755488))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/StoicAtom/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/StoicAtom/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/StoicAtom/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/StoicAtom/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
+* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/StoicAtom/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
+* **spec-autopilot,parallel-harness:** 修复 5 项插件污染与配置问题 ([9e696c2](https://github.com/StoicAtom/claude-autopilot/commit/9e696c2d05e0410c4d4f84a272696a5331eb25f2))
+* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/StoicAtom/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/StoicAtom/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([70a00d3](https://github.com/StoicAtom/claude-autopilot/commit/70a00d35d18fa4eca12640ce2a3e13c3e0aab444))
+* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/StoicAtom/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([52c96ae](https://github.com/StoicAtom/claude-autopilot/commit/52c96ae77953d3c455add28aeaecf114e3b38e0a))
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([29e3b8c](https://github.com/StoicAtom/claude-autopilot/commit/29e3b8c47ad4f5b38d6b35a2e8bd54bd81c2dc47))
+* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/StoicAtom/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
+* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/StoicAtom/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
+* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/StoicAtom/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
+* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/StoicAtom/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
+* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/StoicAtom/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
+* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/StoicAtom/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
+* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/StoicAtom/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
+* **spec-autopilot:** statusline_configured 移除路径验证，修复 CI stale 检测 ([14cccdf](https://github.com/StoicAtom/claude-autopilot/commit/14cccdf7afbc848abd45bb8fc6c512e7a68bc993))
+* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/StoicAtom/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
+* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/StoicAtom/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
+* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/StoicAtom/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
+* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/StoicAtom/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
+* **spec-autopilot:** 修复 hooks 项目感知保护在 CI 环境下的误判 ([4503ddf](https://github.com/StoicAtom/claude-autopilot/commit/4503ddf56e38545090beee71ee5efe38a841a7b9))
+* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/StoicAtom/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
+* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/StoicAtom/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
+* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/StoicAtom/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
+* **spec-autopilot:** 修复 TDD 效果评估、Allure 集成、Phase4/TDD 流程与 autosquash 四项缺陷 ([fe3f1f6](https://github.com/StoicAtom/claude-autopilot/commit/fe3f1f6dd54d025e63cb441e1d6318dce7df8828))
+* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/StoicAtom/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
+* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/StoicAtom/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
+* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/StoicAtom/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
+* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/StoicAtom/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
+* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/StoicAtom/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
+* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/StoicAtom/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
 
 
 ### Changed
 
-* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([a83834a](https://github.com/lorainwings/claude-autopilot/commit/a83834a648c410daf0e8faed2ec7b2fd1c47b99f))
-* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([daa405f](https://github.com/lorainwings/claude-autopilot/commit/daa405fe73df95e18394bf94dac58dbdfbe92a89))
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([a83834a](https://github.com/StoicAtom/claude-autopilot/commit/a83834a648c410daf0e8faed2ec7b2fd1c47b99f))
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([daa405f](https://github.com/StoicAtom/claude-autopilot/commit/daa405fe73df95e18394bf94dac58dbdfbe92a89))
+* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/StoicAtom/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
+* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/StoicAtom/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+* **spec-autopilot:** 清除 SKILL/references/CLAUDE.md/README 中的内部版本标注 ([0ee63db](https://github.com/StoicAtom/claude-autopilot/commit/0ee63db4f155e2947e9fca32425ea6712ba54ac3))
 
-## [5.5.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.5...spec-autopilot-v5.5.0) (2026-04-12)
-
-
-### Added
-
-* Allure 报告即时展示、GUI 动态地址、技能命名优化 ([c31bb09](https://github.com/lorainwings/claude-autopilot/commit/c31bb09920d414a80b1104594c06368dff5375e3))
-* dynamic agent configuration, enhanced model routing, legacy cleanup ([46d1641](https://github.com/lorainwings/claude-autopilot/commit/46d1641624efe0123ed5c64fdf5f7377a5e3f114))
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/lorainwings/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/lorainwings/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
-* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/lorainwings/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
-* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/lorainwings/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
+## [5.8.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.8.0...spec-autopilot-v5.8.1) (2026-04-16)
 
 
 ### Fixed
 
-* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/lorainwings/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
-* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/lorainwings/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
-* codex 评审 4 项问题修复 ([0598ea4](https://github.com/lorainwings/claude-autopilot/commit/0598ea4db62efc5c3fd3c7a141878486eb98feef))
-* codex 评审第三轮 3 项问题修复 ([d77ec54](https://github.com/lorainwings/claude-autopilot/commit/d77ec54d7117088d33bf8dd10db42d0ed7e66322))
-* codex 评审第二轮 4 项问题修复 ([8607247](https://github.com/lorainwings/claude-autopilot/commit/860724703fd1cf553b16f83d46c0d529f0d9056a))
-* codex 评审第四轮 3 项问题修复 ([c37a011](https://github.com/lorainwings/claude-autopilot/commit/c37a011f4010447d069992aa0882ab9315beedcc))
-* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/lorainwings/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
-* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/lorainwings/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
-* regex fallback 支持 YAML inline mapping 格式 ([ef6096e](https://github.com/lorainwings/claude-autopilot/commit/ef6096e815787615e8286d7e891e339d28755488))
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/lorainwings/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/lorainwings/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/lorainwings/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/lorainwings/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
-* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/lorainwings/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
-* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/lorainwings/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
-* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/lorainwings/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
-* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([70a00d3](https://github.com/lorainwings/claude-autopilot/commit/70a00d35d18fa4eca12640ce2a3e13c3e0aab444))
-* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/lorainwings/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
-* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/lorainwings/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
-* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/lorainwings/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
-* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/lorainwings/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
-* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/lorainwings/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
-* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/lorainwings/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
-* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/lorainwings/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
-* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/lorainwings/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
-* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/lorainwings/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
-* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/lorainwings/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
-* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/lorainwings/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
-* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/lorainwings/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
-* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/lorainwings/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
-* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/lorainwings/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
-* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/lorainwings/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
-* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/lorainwings/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
-* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/lorainwings/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
-* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/lorainwings/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
-* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/lorainwings/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
-* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/lorainwings/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
-* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/lorainwings/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([52c96ae](https://github.com/StoicAtom/claude-autopilot/commit/52c96ae77953d3c455add28aeaecf114e3b38e0a))
+* **spec-autopilot:** do_install 安装成功即视为成功，健康检查降级为日志 ([29e3b8c](https://github.com/StoicAtom/claude-autopilot/commit/29e3b8c47ad4f5b38d6b35a2e8bd54bd81c2dc47))
+* **spec-autopilot:** statusline_configured 移除路径验证，修复 CI stale 检测 ([14cccdf](https://github.com/StoicAtom/claude-autopilot/commit/14cccdf7afbc848abd45bb8fc6c512e7a68bc993))
+
+## [5.8.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.7.0...spec-autopilot-v5.8.0) (2026-04-16)
+
+
+### Added
+
+* **spec-autopilot:** GUI 可观测性增强 — 新面板、事件系统扩展、代码审查修复 ([d9242bf](https://github.com/StoicAtom/claude-autopilot/commit/d9242bf0fb919a1b571b6ac91b9cdf9f1e35cfd0))
+
+## [5.7.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.6.0...spec-autopilot-v5.7.0) (2026-04-16)
+
+
+### Added
+
+* **spec-autopilot:** 优化 autopilot-setup 覆盖 domain_agents 域级 Agent 配置 ([37f2533](https://github.com/StoicAtom/claude-autopilot/commit/37f25332709590f7da209c68c2dbb63748b04b8c))
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 TDD 效果评估、Allure 集成、Phase4/TDD 流程与 autosquash 四项缺陷 ([fe3f1f6](https://github.com/StoicAtom/claude-autopilot/commit/fe3f1f6dd54d025e63cb441e1d6318dce7df8828))
+
+## [5.6.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.5.2...spec-autopilot-v5.6.0) (2026-04-14)
+
+
+### Added
+
+* **parallel-harness,spec-autopilot:** 优化持久化目录结构 + Phase 6 Allure 服务前移 ([a35fa54](https://github.com/StoicAtom/claude-autopilot/commit/a35fa544b4956643c3f588b0736fc5db2a070ea3))
+
+
+### Fixed
+
+* **spec-autopilot,parallel-harness:** 修复 5 项插件污染与配置问题 ([9e696c2](https://github.com/StoicAtom/claude-autopilot/commit/9e696c2d05e0410c4d4f84a272696a5331eb25f2))
+
+## [5.5.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.5.1...spec-autopilot-v5.5.2) (2026-04-14)
 
 
 ### Changed
 
-* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/lorainwings/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
-* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/lorainwings/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+* **spec-autopilot:** 清除 SKILL/references/CLAUDE.md/README 中的内部版本标注 ([0ee63db](https://github.com/StoicAtom/claude-autopilot/commit/0ee63db4f155e2947e9fca32425ea6712ba54ac3))
 
-## [5.4.5](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.4...spec-autopilot-v5.4.5) (2026-04-12)
-
-
-### Fixed
-
-* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/lorainwings/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
-* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/lorainwings/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
-
-## [5.4.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.3...spec-autopilot-v5.4.4) (2026-04-11)
+## [5.5.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.5.0...spec-autopilot-v5.5.1) (2026-04-14)
 
 
 ### Fixed
 
-* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/lorainwings/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
-
-## [5.4.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.2...spec-autopilot-v5.4.3) (2026-04-11)
-
-
-### Fixed
-
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/lorainwings/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
-* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/lorainwings/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
-
-## [5.4.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.1...spec-autopilot-v5.4.2) (2026-04-10)
-
-
-### Fixed
-
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/lorainwings/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
-* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/lorainwings/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
-
-## [5.4.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.4.0...spec-autopilot-v5.4.1) (2026-04-10)
-
-
-### Fixed
-
-* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/lorainwings/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
-* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/lorainwings/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
-
-## [5.4.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.6...spec-autopilot-v5.4.0) (2026-04-09)
-
-
-### Added
-
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/lorainwings/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
-* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/lorainwings/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
-
-## [5.3.6](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.5...spec-autopilot-v5.3.6) (2026-04-09)
+* **spec-autopilot:** 修复 hooks 项目感知保护在 CI 环境下的误判 ([4503ddf](https://github.com/StoicAtom/claude-autopilot/commit/4503ddf56e38545090beee71ee5efe38a841a7b9))
 
 
 ### Changed
 
-* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/lorainwings/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
-* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/lorainwings/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([a83834a](https://github.com/StoicAtom/claude-autopilot/commit/a83834a648c410daf0e8faed2ec7b2fd1c47b99f))
+* **spec-autopilot:** hooks 隔离 + SKILL 拆分 + Allure 流程增强 ([daa405f](https://github.com/StoicAtom/claude-autopilot/commit/daa405fe73df95e18394bf94dac58dbdfbe92a89))
 
-## [5.3.5](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.4...spec-autopilot-v5.3.5) (2026-04-08)
-
-
-### Fixed
-
-* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/lorainwings/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
-* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/lorainwings/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
-
-## [5.3.4](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.3...spec-autopilot-v5.3.4) (2026-04-07)
-
-
-### Fixed
-
-* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/lorainwings/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
-
-## [5.3.3](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.2...spec-autopilot-v5.3.3) (2026-04-03)
-
-
-### Fixed
-
-* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/lorainwings/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
-* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/lorainwings/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
-
-## [5.3.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.1...spec-autopilot-v5.3.2) (2026-04-03)
-
-
-### Fixed
-
-* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/lorainwings/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
-
-## [5.3.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.3.0...spec-autopilot-v5.3.1) (2026-04-03)
-
-
-### Fixed
-
-* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/lorainwings/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
-
-## [5.3.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.2...spec-autopilot-v5.3.0) (2026-04-02)
+## [5.5.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.5...spec-autopilot-v5.5.0) (2026-04-12)
 
 
 ### Added
 
-* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/lorainwings/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
+* Allure 报告即时展示、GUI 动态地址、技能命名优化 ([c31bb09](https://github.com/StoicAtom/claude-autopilot/commit/c31bb09920d414a80b1104594c06368dff5375e3))
+* dynamic agent configuration, enhanced model routing, legacy cleanup ([46d1641](https://github.com/StoicAtom/claude-autopilot/commit/46d1641624efe0123ed5c64fdf5f7377a5e3f114))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/StoicAtom/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/StoicAtom/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
+* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/StoicAtom/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
+* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/StoicAtom/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
 
 
 ### Fixed
 
-* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/lorainwings/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
-* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/lorainwings/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/StoicAtom/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/StoicAtom/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
+* codex 评审 4 项问题修复 ([0598ea4](https://github.com/StoicAtom/claude-autopilot/commit/0598ea4db62efc5c3fd3c7a141878486eb98feef))
+* codex 评审第三轮 3 项问题修复 ([d77ec54](https://github.com/StoicAtom/claude-autopilot/commit/d77ec54d7117088d33bf8dd10db42d0ed7e66322))
+* codex 评审第二轮 4 项问题修复 ([8607247](https://github.com/StoicAtom/claude-autopilot/commit/860724703fd1cf553b16f83d46c0d529f0d9056a))
+* codex 评审第四轮 3 项问题修复 ([c37a011](https://github.com/StoicAtom/claude-autopilot/commit/c37a011f4010447d069992aa0882ab9315beedcc))
+* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/StoicAtom/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
+* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/StoicAtom/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
+* regex fallback 支持 YAML inline mapping 格式 ([ef6096e](https://github.com/StoicAtom/claude-autopilot/commit/ef6096e815787615e8286d7e891e339d28755488))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/StoicAtom/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/StoicAtom/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/StoicAtom/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/StoicAtom/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
+* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/StoicAtom/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
+* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/StoicAtom/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/StoicAtom/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([70a00d3](https://github.com/StoicAtom/claude-autopilot/commit/70a00d35d18fa4eca12640ce2a3e13c3e0aab444))
+* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/StoicAtom/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
+* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/StoicAtom/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
+* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/StoicAtom/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
+* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/StoicAtom/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
+* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/StoicAtom/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
+* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/StoicAtom/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
+* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/StoicAtom/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
+* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/StoicAtom/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
+* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/StoicAtom/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
+* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/StoicAtom/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
+* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/StoicAtom/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
+* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/StoicAtom/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
+* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/StoicAtom/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
+* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/StoicAtom/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
+* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/StoicAtom/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
+* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/StoicAtom/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
+* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/StoicAtom/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
+* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/StoicAtom/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
+* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/StoicAtom/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
+* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/StoicAtom/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
+* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/StoicAtom/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
 
-## [5.2.2](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.1...spec-autopilot-v5.2.2) (2026-03-30)
+
+### Changed
+
+* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/StoicAtom/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
+* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/StoicAtom/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+
+## [5.4.5](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.4...spec-autopilot-v5.4.5) (2026-04-12)
 
 
 ### Fixed
 
-* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/lorainwings/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
-* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/lorainwings/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
+* prevent statusline auto-install from polluting unrelated projects ([68d219d](https://github.com/StoicAtom/claude-autopilot/commit/68d219d5915bfddf07be8b643f0c5939bd953b09))
+* prevent statusline auto-install from polluting unrelated projects ([621b4a2](https://github.com/StoicAtom/claude-autopilot/commit/621b4a21176815c682e846de19c8399ecad3611e))
 
-## [5.2.1](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.2.0...spec-autopilot-v5.2.1) (2026-03-29)
+## [5.4.4](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.3...spec-autopilot-v5.4.4) (2026-04-11)
 
 
 ### Fixed
 
-* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/lorainwings/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
-* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/lorainwings/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
-* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/lorainwings/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
-* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/lorainwings/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
+* resolve phase 2/3 slowness, eliminate confirmation prompts, reduce main-thread context pollution ([e5bf9fe](https://github.com/StoicAtom/claude-autopilot/commit/e5bf9fed699f478870c51ce080baf7ef75643f25))
 
-## [5.2.0](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.64...spec-autopilot-v5.2.0) (2026-03-28)
+## [5.4.3](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.2...spec-autopilot-v5.4.3) (2026-04-11)
+
+
+### Fixed
+
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([6729411](https://github.com/StoicAtom/claude-autopilot/commit/6729411050c3ce186cac55fe3ee06f0f1d9f85e8))
+* replace empty-needle assertions in L3b/L3c/L3d contract tests ([f99a21c](https://github.com/StoicAtom/claude-autopilot/commit/f99a21c789ff2b888bb63aab8d617f2a144df521))
+
+## [5.4.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.1...spec-autopilot-v5.4.2) (2026-04-10)
+
+
+### Fixed
+
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-la… ([3cca2f0](https://github.com/StoicAtom/claude-autopilot/commit/3cca2f072056c418aa4bcafde105c20a1b5a965c))
+* resolve Explore agent + Phase 4 TDD detection bugs with multi-layer defense ([133b29c](https://github.com/StoicAtom/claude-autopilot/commit/133b29c8eb0d6f6b23996a677610dc0c6d28e935))
+
+## [5.4.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.4.0...spec-autopilot-v5.4.1) (2026-04-10)
+
+
+### Fixed
+
+* close v7.1 clarity metrics runtime loop and fix test isolation ([f0923aa](https://github.com/StoicAtom/claude-autopilot/commit/f0923aa1d7136ff181a492da17c1cd277b342870))
+* close v7.1 clarity metrics runtime loop and fix test isolation ([5593e14](https://github.com/StoicAtom/claude-autopilot/commit/5593e14a6e47f3cfc869d32a91728f9a6cef4021))
+
+## [5.4.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.6...spec-autopilot-v5.4.0) (2026-04-09)
 
 
 ### Added
 
-* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/lorainwings/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([a31162d](https://github.com/StoicAtom/claude-autopilot/commit/a31162dd3b42ca65e8e0b6cd124fc634f6aa89de))
+* **spec-autopilot:** Phase 1 弹性收敛重构 — 清晰度评分 + 挑战代理 + 一次一问 + 端到端闭环 ([f2fd087](https://github.com/StoicAtom/claude-autopilot/commit/f2fd087a9742cb87db7dabbcc2f798b882908f97))
+
+## [5.3.6](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.5...spec-autopilot-v5.3.6) (2026-04-09)
+
+
+### Changed
+
+* **spec-autopilot:** rename autopilot-init to autopilot-setup an… ([76d8847](https://github.com/StoicAtom/claude-autopilot/commit/76d8847f0b9859fb777181faf71f27a2575c77ce))
+* **spec-autopilot:** rename autopilot-init to autopilot-setup and slim down autopilot-recovery ([f83d282](https://github.com/StoicAtom/claude-autopilot/commit/f83d282d69fb4a8b567a30b553dd7262b5840ca1))
+
+## [5.3.5](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.4...spec-autopilot-v5.3.5) (2026-04-08)
 
 
 ### Fixed
 
-* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/lorainwings/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
-* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/lorainwings/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
-* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/lorainwings/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
-* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/lorainwings/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
-* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/lorainwings/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
+* **spec-autopilot:** Allure 本地预览确定性兜底 + Phase 5 非 TDD L2 测试驱动闭环 ([729bafd](https://github.com/StoicAtom/claude-autopilot/commit/729bafd1fc96e268d4e3328cb0724fbe106505a0))
+* **spec-autopilot:** PyYAML 布尔输出大小写不一致导致 TDD 前驱判定在 CI 失败 ([edecccf](https://github.com/StoicAtom/claude-autopilot/commit/edecccf8ef1195ce4953dc4962d8276bfdc197da))
 
-## [5.1.64](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.63...spec-autopilot-v5.1.64) (2026-03-26)
+## [5.3.4](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.3...spec-autopilot-v5.3.4) (2026-04-07)
 
 
 ### Fixed
 
-* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/lorainwings/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
+* **spec-autopilot:** 子 Agent 前置 checkpoint 校验确定性化 + mode-aware 前驱计算 ([f24b551](https://github.com/StoicAtom/claude-autopilot/commit/f24b551b06ab6e7a6ebe9d12759474dd18b2a1e0))
 
-## [5.1.63](https://github.com/lorainwings/claude-autopilot/compare/spec-autopilot-v5.1.62...spec-autopilot-v5.1.63) (2026-03-26)
+## [5.3.3](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.2...spec-autopilot-v5.3.3) (2026-04-03)
 
 
 ### Fixed
 
-* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/lorainwings/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
-* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/lorainwings/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
+* **spec-autopilot:** Phase 6 报告数据源优化 + Allure 多路径兼容 ([97dce1b](https://github.com/StoicAtom/claude-autopilot/commit/97dce1bb53cfd74337400fb944413bd0f273e63e))
+* **spec-autopilot:** 增加 poll-gate-decision 测试超时余量修复 CI 竞态失败 ([e72681e](https://github.com/StoicAtom/claude-autopilot/commit/e72681e4785495a35ef48b1e199fc0a36318f2b9))
+
+## [5.3.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.1...spec-autopilot-v5.3.2) (2026-04-03)
+
+
+### Fixed
+
+* **spec-autopilot:** Allure 本地服务展示 + Phase 5 测试驱动开发流程 ([67e1fca](https://github.com/StoicAtom/claude-autopilot/commit/67e1fca1abb2196ffde32b3498b8e2c2c6a8c42f))
+
+## [5.3.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.3.0...spec-autopilot-v5.3.1) (2026-04-03)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复子Agent async_launched阻断、GUI版本同步和statusLine自动安装 ([600a79f](https://github.com/StoicAtom/claude-autopilot/commit/600a79fe3c6d086401780d3c704a7cf717192805))
+
+## [5.3.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.2.2...spec-autopilot-v5.3.0) (2026-04-02)
+
+
+### Added
+
+* **spec-autopilot:** 全量修复 — 从提示词编排器升级为控制面编排器 (v7.0) ([36372b7](https://github.com/StoicAtom/claude-autopilot/commit/36372b7c14aca6eb8bf8049bfadb67ac2c0a0dd2))
+
+
+### Fixed
+
+* **spec-autopilot:** Phase 1 强制 AskUserQuestion 确认 + Task 创建顺序修正 (v7.0.1) ([98fbcc5](https://github.com/StoicAtom/claude-autopilot/commit/98fbcc5e3f543b6f632c3af0af943e140c3c447d))
+* **spec-autopilot:** 修复 phase1-requirements.md 中弯引号导致测试断言失败 ([685d6aa](https://github.com/StoicAtom/claude-autopilot/commit/685d6aa6ecad5a69551445ee36ae45648c2754b7))
+
+## [5.2.2](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.2.1...spec-autopilot-v5.2.2) (2026-03-30)
+
+
+### Fixed
+
+* **spec-autopilot:** 修复 ubuntu CI 上 echo 转义导致 test_auto_continue 失败 ([aa31375](https://github.com/StoicAtom/claude-autopilot/commit/aa31375832fea69b0cce00237523740f5f346a2b))
+* **spec-autopilot:** 强制连续执行硬约束，消除阶段间无谓停顿 ([ac4128f](https://github.com/StoicAtom/claude-autopilot/commit/ac4128f7c3f1d68e5712775210f70911983988cb))
+
+## [5.2.1](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.2.0...spec-autopilot-v5.2.1) (2026-03-29)
+
+
+### Fixed
+
+* **spec-autopilot:** meta-refresh 测试改用真实 server + 清除旧归档语义残留 ([f14d4f0](https://github.com/StoicAtom/claude-autopilot/commit/f14d4f037dd068d4f0e2253c61afeec937deb504))
+* **spec-autopilot:** 修复 _post_task_validator.py ruff E501 + format ([88a3673](https://github.com/StoicAtom/claude-autopilot/commit/88a367385ab14e443f1001e274ce37572490a9a2))
+* **spec-autopilot:** 修复 Round 3 复核的三个遗漏问题 ([eb54392](https://github.com/StoicAtom/claude-autopilot/commit/eb543920a810c3982256ba367cdde148d3132013))
+* **spec-autopilot:** 清除当前生效文档中残留的旧归档确认语义 ([42a0633](https://github.com/StoicAtom/claude-autopilot/commit/42a0633262bbceb06e8a30f28ec912e84b497aed))
+
+## [5.2.0](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.1.64...spec-autopilot-v5.2.0) (2026-03-28)
+
+
+### Added
+
+* **spec-autopilot:** v6.0 全量稳定性修复 — 13 项验收矩阵全部通过 ([810dcb3](https://github.com/StoicAtom/claude-autopilot/commit/810dcb3ac903ef6e64b69a972c57c628ef98b8d2))
+
+
+### Fixed
+
+* **spec-autopilot:** ruff format 自动格式化 _post_task_validator.py ([1d6c6d3](https://github.com/StoicAtom/claude-autopilot/commit/1d6c6d390a1b5692cd2fd15f73b5ad959a9c0276))
+* **spec-autopilot:** TS 测试前先 bun install 确保 CI 环境有类型依赖 ([4912d41](https://github.com/StoicAtom/claude-autopilot/commit/4912d412670fa1427a76f575abf442dded2ba59e))
+* **spec-autopilot:** v6.0 遗漏缺口修复 — agent 精确关联 + GUI/Server 闭环 + 文档一致性 ([f2b6573](https://github.com/StoicAtom/claude-autopilot/commit/f2b6573c91a900905018ca63561dbddd5ca0b155))
+* **spec-autopilot:** 修复 _post_task_validator.py 两处 E501 行过长 ([669172d](https://github.com/StoicAtom/claude-autopilot/commit/669172de20ca0debf86c0d58de38ffda0e190228))
+* **spec-autopilot:** 修复 shfmt 格式问题（反斜杠续行、heredoc 空格） ([984152a](https://github.com/StoicAtom/claude-autopilot/commit/984152af1d16c8a62211207f4a74b156e7a698c3))
+
+## [5.1.64](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.1.63...spec-autopilot-v5.1.64) (2026-03-26)
+
+
+### Fixed
+
+* **spec-autopilot:** GUI 构建产物使用稳定文件名 ([81ecdb4](https://github.com/StoicAtom/claude-autopilot/commit/81ecdb47be26717027906b476ec7fc59fefd65ea))
+
+## [5.1.63](https://github.com/StoicAtom/claude-autopilot/compare/spec-autopilot-v5.1.62...spec-autopilot-v5.1.63) (2026-03-26)
+
+
+### Fixed
+
+* **spec-autopilot:** codex 评审 12 项问题修复 + 17 个回归测试 ([94eb667](https://github.com/StoicAtom/claude-autopilot/commit/94eb6672c79229f99cd7511ba8e782d0e47915b6))
+* **spec-autopilot:** Phase 6.5 checkpoint 协议全分支落盘 + blocked 降级定义 ([68e7325](https://github.com/StoicAtom/claude-autopilot/commit/68e73258e8125939b1cc6370c45168827c74fe12))
 
 ## [Unreleased]
 

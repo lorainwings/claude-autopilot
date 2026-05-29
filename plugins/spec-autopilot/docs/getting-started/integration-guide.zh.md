@@ -29,13 +29,13 @@
 
 ```bash
 # 添加市场（仅需一次）
-claude plugin marketplace add lorainwings/claude-autopilot
+claude plugin marketplace add StoicAtom/claude-autopilot
 
 # 安装到项目（推荐）
-claude plugin install spec-autopilot@lorainwings-plugins --scope project
+claude plugin install spec-autopilot@stoicatom-plugins --scope project
 
 # 或安装到用户级别（所有项目共享）
-claude plugin install spec-autopilot@lorainwings-plugins --scope user
+claude plugin install spec-autopilot@stoicatom-plugins --scope user
 ```
 
 安装 openspec 依赖（如未安装）：
@@ -49,7 +49,7 @@ claude plugin install openspec --scope project
 ```bash
 claude plugin list
 # 应看到:
-#   spec-autopilot@lorainwings-plugins (project)
+#   spec-autopilot@stoicatom-plugins (project)
 #   openspec (project)
 ```
 
@@ -114,7 +114,7 @@ project_context:
 运行配置验证：
 
 ```bash
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 ```
 
 ### Step 5:（可选）高级自定义
@@ -473,7 +473,7 @@ spec-autopilot 持续迭代，以下为各版本升级要点。
 
 ```bash
 # 在 Claude Code 中执行
-claude plugin update spec-autopilot@lorainwings-plugins
+claude plugin update spec-autopilot@stoicatom-plugins
 ```
 
 或手动更新缓存：
@@ -481,7 +481,7 @@ claude plugin update spec-autopilot@lorainwings-plugins
 ```bash
 # 从源码更新
 cp -r ~/Coding/Huihao/claude-autopilot/plugins/spec-autopilot/. \
-  ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/2.2.0/
+  ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/2.2.0/
 ```
 
 #### 2. 在 config 中添加 `project_context`
@@ -551,7 +551,7 @@ rm .claude/skills/autopilot/SKILL.md
 
 ```bash
 # 验证 config
-bash ~/.claude/plugins/cache/lorainwings-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
+bash ~/.claude/plugins/cache/stoicatom-plugins/spec-autopilot/*/runtime/scripts/validate-config.sh
 
 # 重启 Claude Code 后测试
 /spec-autopilot:autopilot
