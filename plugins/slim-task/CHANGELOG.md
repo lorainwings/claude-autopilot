@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/stoicatom/claude-autopilot/compare/slim-task-v0.7.0...slim-task-v0.8.0) (2026-06-03)
+
+
+### Added
+
+* **slim-task:** upgrade Phase 1 to iterative clarification loop + Phase 3 doc self-review ([f1034a4](https://github.com/stoicatom/claude-autopilot/commit/f1034a4ba9bfb36c4a7c05b6ad875205d7cdbf24))
+
 ## [0.7.0](https://github.com/StoicAtom/claude-autopilot/compare/slim-task-v0.6.0...slim-task-v0.7.0) (2026-05-28)
 
 
