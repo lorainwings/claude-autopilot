@@ -22,6 +22,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
 # 标准 phase marker 命中 → 直接走完整校验
 # 未命中但属于 Phase 6 advisory 路径（code review / quality scan）→ 走轻量信封校验
 if ! has_phase_marker; then
+  # advisory 白名单前复检活跃会话（防误拦截非 autopilot 项目中含相似文件名的 Task）
+  has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
   # Phase 6 路径 B/C advisory 白名单：当 prompt 引用以下产物时强制轻量信封校验
   # 设计意图：advisory agent 不含 autopilot-phase marker（无法走完整 5+1 校验），
   # 但其结构化输出（findings[]）是 Phase 7 archive readiness 的输入，

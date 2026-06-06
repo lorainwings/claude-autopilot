@@ -56,7 +56,7 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
    - 进度写入：`bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase-progress.sh 1 research_dispatched in_progress`
    - **maturity 退化分支**（Step 1.2.2）：当 `verdict.maturity == "mature"` 或 ScanAgent envelope `maturity != "fresh"` 时，**mature 仅跑 ScanAgent**（跳过 ResearchAgent 派发，直接进入 SynthesizerAgent）
    - **早停 interrupt 协议**：ScanAgent / ResearchAgent envelope 可携带可选字段 `interrupt: { severity, reason }`：
-     - 当 `severity == "blocker"` 时：**立即中断未完成路**（对剩余 `run_in_background: true` 任务执行 Task abort），跳过 SynthesizerAgent，直接 AskUserQuestion 使用 `interrupt.reason` 原文询问用户
+     - 当 `severity == "blocker"` 时：**立即中断未完成路**（主线程放弃等待剩余后台 Task 结果；注意：Claude Code 不提供 Task abort API，后台 Task 会继续运行直到自然完成，但主线程忽略其输出，不执行 Task abort），跳过 SynthesizerAgent，直接 AskUserQuestion 使用 `interrupt.reason` 原文询问用户
      - 当 `severity == "warning"` 时：**仅记录**到 SynthesizerAgent 输入与最终 `verdict.rationale`，不中断流程
      - **禁止行为**：禁止忽略 interrupt 字段、禁止 blocker interrupt 收到后继续派发 SynthesizerAgent
    - verdict 中间 checkpoint 等其他细节均在 references/phase1-requirements.md
