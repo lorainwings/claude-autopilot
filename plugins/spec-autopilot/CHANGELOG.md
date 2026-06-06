@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.15.3](https://github.com/stoicatom/claude-autopilot/compare/spec-autopilot-v5.15.2...spec-autopilot-v5.15.3) (2026-06-06)
+
+
+### Fixed
+
+* **spec-autopilot:** full audit fix — P0/P1/P2 issues from end-to-end eval ([5dbcfa9](https://github.com/stoicatom/claude-autopilot/commit/5dbcfa9582688954bd6346dc18f0675f9fb626a1))
+
 ## [5.15.2](https://github.com/stoicatom/claude-autopilot/compare/spec-autopilot-v5.15.1...spec-autopilot-v5.15.2) (2026-05-11)
 
 
