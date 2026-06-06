@@ -57,6 +57,8 @@ resolve-model-routing.sh
 rules-scanner.sh
 save-phase-context.sh
 start-allure-serve.sh
+read-allure-port.sh
+write-phase5-start-time.sh
 start-gui-server.sh
 statusline-collector.sh
 stop-gui-on-session-end.sh

@@ -36,6 +36,11 @@ if [ -z "$PROJECT_ROOT_QUICK" ]; then
   PROJECT_ROOT_QUICK="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
+# --- Layer 0a project-recognition guard: non-autopilot projects exit early ---
+is_autopilot_project "$PROJECT_ROOT_QUICK" || exit 0
+# --- Layer 0 bypass: no active autopilot session ---
+has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
+
 # --- Pre-marker Guard: Phase 1 三路调研任务必须匹配 autopilot.config.yaml 中独立 agent 配置 ---
 # 设计意图（配置驱动 + 三路独立解析，不硬编码 agent 名）：
 #   1. setup SKILL 期间用户分别选择已安装的 agent 写入：
@@ -47,6 +52,8 @@ fi
 #      - prompt 引用 research-findings.md（不含 web 前缀） → research.agent
 #      - prompt 引用 project-context.md / existing-patterns.md / tech-constraints.md → auto_scan.agent
 #   3. config 缺失/字段未配置/subagent_type 不一致 → 阻断
+#   注意：本 Guard 在 Layer 0 之后执行，确保非 autopilot 项目和无活跃会话时提前退出，
+#   避免 TOCTOU 竞态（Phase 0 刚写入 config 时）误阻断 Phase 1 首次派发。
 _PRE_SUBAGENT=""
 _PRE_HAS_FIELD=false
 if [[ "$STDIN_DATA" =~ \"subagent_type\"[[:space:]]*:[[:space:]]*\"([^\"]*)\" ]]; then
@@ -94,11 +101,6 @@ if [ -n "$_EXPECTED_KEY" ]; then
     exit 0
   fi
 fi
-
-# --- Layer 0a project-recognition guard: non-autopilot projects exit early ---
-is_autopilot_project "$PROJECT_ROOT_QUICK" || exit 0
-# --- Layer 0 bypass: no active autopilot session ---
-has_active_autopilot "$PROJECT_ROOT_QUICK" || exit 0
 
 # --- Layer 1: Check for autopilot phase marker ---
 if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then

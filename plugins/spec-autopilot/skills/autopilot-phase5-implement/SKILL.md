@@ -101,6 +101,12 @@ END FOR
 
 ## 执行模式决策（互斥分支）
 
+> **Phase 5 开始计时（强制）**：进入任意路径前必须执行：
+> ```bash
+> bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/write-phase5-start-time.sh \
+>   "openspec/changes/{change_name}"
+> ```
+
 读取 `config.phases.implementation.parallel.enabled` + `tdd_mode`，按 autopilot skill 的 mode-routing-table § 4 确定路径：
 
 ### 【路径 A — 并行模式】（`parallel.enabled = true`）
@@ -128,7 +134,8 @@ END FOR
 
 ```bash
 # 在每个 task dispatch 前（与 Gate Step 5.5 相同逻辑）
-CLAUDE_MD_MTIME=$(stat -f "%m" "${session_cwd}/CLAUDE.md" 2>/dev/null || echo 0)
+CLAUDE_MD_MTIME=$(python3 -c "import os,sys; print(int(os.path.getmtime(sys.argv[1])))" \
+  "${session_cwd}/CLAUDE.md" 2>/dev/null || echo 0)
 CACHED_MTIME=$(cat "${change_dir}context/.rules-scan-mtime" 2>/dev/null || echo 0)
 if [ "$CLAUDE_MD_MTIME" != "$CACHED_MTIME" ]; then
   # 重新扫描规则并更新缓存
@@ -158,7 +165,7 @@ TDD 护栏：先测试后实现 | RED 必须失败 | GREEN 必须通过 | 测试
 CHANGE_DIR="openspec/changes/{change_name}"
 TDD_DIR="$CHANGE_DIR/reports/allure-results/tdd"
 MERGED_DIR="$CHANGE_DIR/reports/allure-results"
-BASE_PORT=$(python3 -c "import yaml; cfg=yaml.safe_load(open('.claude/autopilot.config.yaml')); print(cfg.get('phases',{}).get('reporting',{}).get('allure',{}).get('serve_port',4040))" 2>/dev/null || echo 4040)
+BASE_PORT=$(bash "${CLAUDE_PLUGIN_ROOT}/runtime/scripts/read-allure-port.sh")
 
 # 合并 TDD 各阶段产物到统一 allure-results（供 start-allure-serve.sh 找到）
 if [[ -d "$TDD_DIR" ]]; then

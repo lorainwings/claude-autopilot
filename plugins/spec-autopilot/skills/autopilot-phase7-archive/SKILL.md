@@ -35,7 +35,11 @@ Bash('bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/emit-phase-event.sh phase_start
 
 ### Step 0.5: 主动学习 — Episodes 写入与候选晋升扫描
 
-归档前，对本次 autopilot 全部 phase 写入 episode 并触发 L2/L3 学习：
+> **执行位置**：以下 Bash 脚本在子 Agent 内执行（无 Task 工具依赖）。
+> `Skill(spec-autopilot:autopilot-learn)` 的 L2/L3 聚合由**主线程**在接收本子 Agent 信封后执行（见 Summary Box 渲染后的「主线程学习聚合」强制 Step）。
+> 子 Agent 内禁止调用 Skill(autopilot-learn)，因为子 Agent 无 Task 工具。
+
+归档前，对本次 autopilot 全部 phase 写入 episode：
 
 ```bash
 # 1) 为 Phase 1-6 每个 phase 写 episode（status/mode 由脚本从 checkpoint JSON 自动解析）
@@ -45,16 +49,14 @@ for N in 1 2 3 4 5 6; do
     --phase phase${N} --checkpoint "$CKPT" --version {version} || true
 done
 
-# 2) 触发 L2 聚合 + L3 候选晋升扫描
-Skill(spec-autopilot:autopilot-learn)
-
-# 3) 候选晋升扫描产物：docs/learned/candidates/*.md（待人工/下一轮 gate 审阅）
+# 2) 候选晋升扫描（脚本层，无 Task 依赖）
 bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-promote-candidate.sh \
   --episodes-root docs/reports \
   --out-dir docs/learned/candidates || true
 ```
 
 不阻断归档流程（学习失败 stderr 提示但 exit 0）。详见 `skills/autopilot-learn/SKILL.md`。
+L2/L3 聚合由主线程在 Summary Box 渲染完成后调用（见下方「主线程学习聚合」步骤）。
 
 ### Step 1: 派发汇总子 Agent
 
@@ -62,7 +64,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/learn-promote-candidate.sh \
 
 ```
 # 主线程先解析配置（subagent_type 必须为字面量字符串）
-RESOLVED_AGENT=$(yq '.phases.archive.agent' .claude/autopilot.config.yaml)
+RESOLVED_AGENT=$(bash -c "source \${CLAUDE_PLUGIN_ROOT}/runtime/scripts/_common.sh && read_config_value \"\$(pwd)\" 'phases.archive.agent' 'general-purpose'")
+if [ -z "$RESOLVED_AGENT" ]; then
+  echo "[ERROR] phases.archive.agent 未配置，请运行 /autopilot-setup 重新配置" >&2
+  exit 1
+fi
 
 # 然后用字面量调用 Task
 Task(subagent_type: <RESOLVED_AGENT 字面量>, prompt: "
@@ -99,7 +105,11 @@ Task(subagent_type: <RESOLVED_AGENT 字面量>, prompt: "
 
 ### Step 1.6: 知识提取（后台子 Agent）
 
-- 主线程先解析 `RESOLVED_AGENT=$(yq '.phases.archive.agent' .claude/autopilot.config.yaml)`
+- 主线程先解析 `RESOLVED_AGENT=$(bash -c "source \${CLAUDE_PLUGIN_ROOT}/runtime/scripts/_common.sh && read_config_value \"\$(pwd)\" 'phases.archive.agent' 'general-purpose'")
+if [ -z "$RESOLVED_AGENT" ]; then
+  echo "[ERROR] phases.archive.agent 未配置，请运行 /autopilot-setup 重新配置" >&2
+  exit 1
+fi`
 - 派发后台 Agent：`Task(subagent_type: <RESOLVED_AGENT 字面量>, run_in_background: true)`（subagent_type 必须为字面量字符串，不得直接传 `config.phases.archive.agent`）
 - Agent 任务：读取 autopilot skill 的 knowledge-accumulation 章节 → 遍历 phase-results → 提取知识 → 写入 `openspec/.autopilot-knowledge.json`
 - 主线程同时继续执行步骤 2，不阻塞
@@ -109,7 +119,10 @@ Task(subagent_type: <RESOLVED_AGENT 字面量>, prompt: "
 
 > **仅 full/lite 模式**。minimal 模式跳过此步骤（无 Phase 6），直接进入步骤 3。
 
-**等待机制**：阻塞等待路径 A/B/C 的后台 Agent 完成或超时（`config.background_agent_timeout_minutes`，默认 30 分钟）。超时自动标记 `"timeout"`，不阻断 Phase 7 流程。
+**等待机制**：阻塞等待路径 A/B/C 的后台 Agent 完成或超时（`config.background_agent_timeout_minutes`，默认 30 分钟）。超时处理规则：
+- 路径 B（代码审查）/ 路径 C（质量扫描）超时 → 标记 `"timeout"`，不阻断归档
+- **路径 A（测试执行）超时 → `archive-readiness.json` 中 `test_execution_available` 字段设为 `false`；fail-closed 规则：`test_execution_available=false` 等价于测试结果缺失，硬阻断归档并提示用户：**
+  > "Phase 6 测试执行超时，无法验证测试结果。请手动运行 `config.test_suites` 中的测试套件后重试 Phase 7。"
 
 a0. **Phase 6 测试执行**（路径 A，后台 Task）：
 
@@ -190,8 +203,14 @@ git tag -d autopilot-phase5-start 2>/dev/null
 # 脚本职责：读取 PID 文件 + allure-preview.json + phase-6 checkpoint，输出 [ALLURE] 提示行
 # 当前保留内联实现直至脚本落地。
 Bash('
-  PID_FILE="openspec/changes/{change_name}/context/allure-serve.pid"
-  PREVIEW_FILE="openspec/changes/{change_name}/context/allure-preview.json"
+  LOCK_FILE="${AUTOPILOT_PROJECT_ROOT:-$(pwd)}/openspec/changes/.autopilot-active"
+  CHANGE_NAME=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get(\"change\",\"\"))" "$LOCK_FILE" 2>/dev/null || echo "")
+  if [ -z "$CHANGE_NAME" ] || [ "$CHANGE_NAME" = "pending" ]; then
+    echo "[ALLURE] 无法确定 change_name，跳过 Allure 状态检查"
+    exit 0
+  fi
+  PID_FILE="openspec/changes/${CHANGE_NAME}/context/allure-serve.pid"
+  PREVIEW_FILE="openspec/changes/${CHANGE_NAME}/context/allure-preview.json"
   if [ -f "$PID_FILE" ]; then
     ALLURE_PID=$(cat "$PID_FILE")
     if kill -0 "$ALLURE_PID" 2>/dev/null; then
@@ -226,7 +245,7 @@ Phase 7 汇总展示时，输出 Summary Box（遵循 `references/log-format.md`
 
 ```bash
 CHANGE_DIR="openspec/changes/{change_name}"
-BASE_PORT=$(python3 -c "import yaml; cfg=yaml.safe_load(open('.claude/autopilot.config.yaml')); print(cfg.get('phases',{}).get('reporting',{}).get('allure',{}).get('serve_port',4040))" 2>/dev/null || echo 4040)
+BASE_PORT=$(bash "${CLAUDE_PLUGIN_ROOT}/runtime/scripts/read-allure-port.sh")
 
 # Step S1: 确定性地址收集（含 Allure 自愈）
 URLS_JSON=$(bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/collect-summary-urls.sh "$CHANGE_DIR" "$BASE_PORT")
@@ -247,3 +266,10 @@ print('[SUMMARY-URLS] allure=' + allure + ' gui=' + gui + ' services=' + str(len
 > **设计意图（根因修复）**：原方案把 `collect-summary-urls.sh` 调用埋在 references/summary-box.md 的代码块中，依赖 AI "执行前读取" 后是否真的执行。现把调用提升为 SKILL.md 顶层强制 Step，且把 `CHANGE_DIR` 提取为变量显式传入，避免 `{change_name}` 占位符未被替换时静默失败。
 
 > Summary Box 完整模板渲染（含 Phase 状态行、Quick Links 子框）：见 `references/summary-box.md`。AI 仍需按照该模板组装最终 Summary Box，但 Allure URL / GUI URL / Services 字段**必须**来自上方 `URLS_JSON` 的解析结果，禁止再独立读取 `allure-preview.json`。
+
+## 主线程学习聚合（强制 Step，子 Agent 信封解析后执行）
+
+> **执行位置**：主线程，解析子 Agent 信封后、Archive Readiness 判定前执行。
+> **禁止**在子 Agent 内调用本 Skill（子 Agent 无 Task 工具）。
+
+Skill(spec-autopilot:autopilot-learn)

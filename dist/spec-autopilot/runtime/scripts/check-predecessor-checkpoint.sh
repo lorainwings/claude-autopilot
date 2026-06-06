@@ -150,8 +150,8 @@ get_last_checkpoint_phase() {
       local status
       status=$(read_checkpoint_status "$checkpoint_file")
       if [ "$status" = "error" ]; then
-        # Corrupted checkpoint: deny with explicit error
-        deny "Checkpoint file $(basename "$checkpoint_file") contains invalid JSON. Possible file corruption. Please inspect and fix or delete the file, then retry."
+        # 返回 CORRUPT 标记，由调用方处理（子 shell 中 deny/exit 不传播到父 shell）
+        echo "CORRUPT:$(basename "$checkpoint_file")"
         return
       fi
       if [ "$status" = "ok" ] || [ "$status" = "warning" ]; then
@@ -198,7 +198,11 @@ if [ ! -d "$phase_results_dir" ]; then
   fi
 fi
 
-last_phase=$(get_last_checkpoint_phase "$phase_results_dir")
+last_phase_result=$(get_last_checkpoint_phase "$phase_results_dir")
+if [[ "$last_phase_result" == CORRUPT:* ]]; then
+  deny "Checkpoint file ${last_phase_result#CORRUPT:} contains invalid JSON. Possible file corruption. Please inspect and fix or delete the file, then retry."
+fi
+last_phase="$last_phase_result"
 
 # --- Read execution mode (full/lite/minimal) ---
 EXEC_MODE=$(get_autopilot_mode "$CHANGES_DIR")

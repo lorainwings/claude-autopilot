@@ -18,7 +18,11 @@
 > **subagent_type 必须为字面量字符串**（CLAUDE.md §子 Agent 约束 第 10 条），由主线程先解析配置：
 
 ```
-RESOLVED_AGENT=$(yq '.phases.archive.agent' .claude/autopilot.config.yaml)
+RESOLVED_AGENT=$(bash -c "source \${CLAUDE_PLUGIN_ROOT}/runtime/scripts/_common.sh && read_config_value \"\$(pwd)\" 'phases.archive.agent' 'general-purpose'")
+if [ -z "$RESOLVED_AGENT" ]; then
+  echo "[ERROR] phases.archive.agent 未配置，请运行 /autopilot-setup 重新配置" >&2
+  exit 1
+fi
 
 Task(subagent_type: <RESOLVED_AGENT 字面量>, prompt: "
   你是 Allure 预览服务验证子 Agent。按以下步骤执行：
