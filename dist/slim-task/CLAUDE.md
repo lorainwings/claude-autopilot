@@ -14,7 +14,7 @@
 1. **主检子执**: 主 Agent 只做检查/决策/派发/验证，子 Agent 做实际编码与质量审计
 2. **影响范围即合约**: 禁止修改 Phase 2 审批的影响范围表之外的文件
 3. **DAG 无上限并行**: 同层无依赖任务全部并行派发，不限数量
-4. **阶段门控**: 每个阶段转换必须有用户检查点
+4. **审批点前置收敛**: 人工决策集中在 Phase 1（需求）、Phase 2（方案+DAG）、Phase 6（commit+push）三处关键 gate；Phase 3-5 执行段默认自动推进，仅异常暂停；`--interactive` 模式恢复每阶段检查点
 5. **提交须授权**: commit/push 必须通过 AskUserQuestion 获得用户明确确认
 6. **语言一致性**: AI 对话、决策卡、生成文档、子 Agent prompt 按 `${LANG}` 配置输出（默认 `zh-CN`），Conventional Commits 前缀保持英文
 7. **Worktree 隔离可选**: 可通过 `--worktree` 开启独立 worktree 执行，禁止 auto-merge 回 main
