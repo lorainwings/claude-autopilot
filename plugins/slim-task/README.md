@@ -27,7 +27,11 @@ slim-task is a pure-Skill Claude Code plugin that provides a structured Standard
 - **Blind-Audit Phase 5**: Quality review delegated to independent auditor sub-agents in isolated context — the implementing agent never grades its own work
 - **Multi-Language**: All AI dialogue, decision cards, generated docs, and sub-agent prompts respect a configured language (default `zh-CN`); Conventional Commits prefixes stay English
 - **Worktree Isolation**: Optional `--worktree` mode runs the full pipeline inside a dedicated git worktree, enabling true multi-task parallelism without staging conflicts
-- **7 User Checkpoints**: Every phase transition requires explicit user confirmation
+- **Converged Approval Gates**: Human decisions converge at three key gates (requirements / plan / commit); after Phase 2 approval the execution stage (doc → parallel impl → blind audit) runs autonomously, pausing only on anomalies; `--interactive` restores per-phase confirmation
+- **Deterministic Orchestration**: When DAG node count ≥ 4, invokes the Workflow tool so the JS engine deterministically enforces per-layer parallel barriers, mandatory three-dimension audit parallelism, and a hard-counted fix loop (≤3 rounds), eliminating orchestration-layer step-skipping
+- **Crash Recovery**: The execution stage checkpoints state at every key node; after a session interruption or context compaction it resumes from the breakpoint — skipping completed layers and preserving the fix-round counter — without rerunning from scratch
+- **Controllable Execution**: Auto-advance stays fully transparent (per-layer / per-round progress), the user can pause at any time, and each of the 7 anomaly types carries explicit actionable options plus auto-rollback — never silent, never a dead stop
+- **Hard Boundary Isolation**: Implementation sub-agents are schema-forced to report actually-modified files, checked live against the impact-scope whitelist with out-of-bound changes intercepted; audit diffs are sanitized of implementation traces to guarantee blind-audit independence
 
 ## 7-Phase SOP
 
@@ -36,29 +40,26 @@ flowchart TD
     P0["Phase 0<br/>Session Init"] --> WT{--worktree?}
     WT -->|yes| EW[EnterWorktree] --> P1
     WT -->|no| P1["Phase 1<br/>Requirements Clarification"]
-    P1 --> P2["Phase 2<br/>Solution Design + Impact Scope"]
-    P2 --> P3["Phase 3<br/>Documentation + DAG Split"]
-    P3 --> DAG{DAG nodes}
-    DAG -->|single| INL[Main agent inline] --> P5
-    DAG -->|multiple| PAR["Phase 4<br/>Parallel sub-agent dispatch"] --> P5
-    P5["Phase 5<br/>Blind Audit"] --> UI{UI change?}
-    UI -->|yes| VIS[Visual review Skill] --> AUD
-    UI -->|no| AUD{All 3 audits pass?}
-    AUD -->|issues, <3 rounds| FIX[Fixer agent] --> P5
+    P1 --> G1{{Approval gate: requirements}}
+    G1 --> P2["Phase 2<br/>Solution Design + DAG Preview"]
+    P2 --> G2{{Approval gate: plan + DAG}}
+    G2 --> P3["Phase 3<br/>Documentation"]
+    P3 --> P4["Phase 4<br/>DAG Parallel Execution"]
+    P4 --> P5["Phase 5<br/>Blind Audit"]
+    P5 --> AUD{All 3 audits pass?}
+    AUD -->|issues, <3 rounds| FIX[Auto-fix agent, isolated context] --> P5
     AUD -->|3 rounds failed| STOP((Manual intervention))
-    AUD -->|all pass| P6["Phase 6<br/>Commit decision card"]
-    P6 --> COMMIT[git commit] --> P6P[Push decision card]
-    P6P --> WTM{Worktree mode?}
-    WTM -->|yes| NOPUSH[No push to main] --> END((Done))
-    WTM -->|no| PUSH[Push / PR per user choice] --> END
+    AUD -->|all pass| P6["Phase 6<br/>commit/push double gate"]
 ```
+
+> Note: Phase 4 execution mode splits by DAG node count — 1 node uses single-agent dispatch, 2-3 nodes use instruction-driven fan-out, ≥4 nodes invoke the Workflow tool for deterministic orchestration. See SKILL.md for details.
 
 | Phase | Name | Key Output |
 |-------|------|------------|
 | 0 | Session Init | Language / Worktree config |
 | 1 | Requirements Clarification | Refined requirements summary |
-| 2 | Solution Design | Solution + impact scope table |
-| 3 | Documentation + DAG Split | Task doc + DAG graph |
+| 2 | Solution Design + DAG Preview | Solution + impact scope table + DAG graph |
+| 3 | Documentation | Task doc |
 | 4 | Parallel Execution | Sub-agent deliverables |
 | 5 | Blind Audit | scope / practice / engineering audit.json |
 | 6 | Commit Confirmation | commit + optional push / PR |
