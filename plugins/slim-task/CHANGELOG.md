@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/stoicatom/claude-autopilot/compare/slim-task-v0.8.0...slim-task-v0.8.1) (2026-06-12)
+
+
+### Changed
+
+* **slim-task:** 按官方渐进式披露法则拆分 SKILL 并理顺执行段双轨 ([5cc17c2](https://github.com/stoicatom/claude-autopilot/commit/5cc17c2806e72c37b566f6f868633dc3e059d38c))
+
 ## [0.8.0](https://github.com/stoicatom/claude-autopilot/compare/slim-task-v0.7.0...slim-task-v0.8.0) (2026-06-03)
 
 
