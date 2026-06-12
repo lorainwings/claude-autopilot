@@ -11,7 +11,7 @@
 
 | 插件 | 版本 | 说明 |
 |------|------|------|
-| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.15.2 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
+| [spec-autopilot](plugins/spec-autopilot/README.zh.md) | 5.15.3 | 规范驱动的交付流水线编排 — 8 阶段工作流 + 三层门禁 + 崩溃恢复 |
 | [parallel-harness](plugins/parallel-harness/README.zh.md) | 1.9.1 | 并行 AI 工程控制面 — 任务图调度、9 类门禁、RBAC 治理、成本感知模型路由 |
 | [daily-report](plugins/daily-report/README.zh.md) | 1.3.0 | 基于 git 提交和飞书聊天记录，自动生成并提交内控日报 |
 | [figma-codegen](plugins/figma-codegen/README.zh.md) | 1.0.0 | Figma 设计稿到代码 7 步翻译 SKILL（适配自 OpenAI figma-implement-design），追求 1:1 视觉一致 |
