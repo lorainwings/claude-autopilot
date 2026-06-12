@@ -4,7 +4,7 @@
 
 > 结构化 7 阶段 AI 任务执行 SOP，支持多语言与 worktree 并行
 
-**版本**: 0.8.0 <!-- x-release-please-version -->
+**版本**: 0.8.1 <!-- x-release-please-version -->
 
 ## 概述
 
