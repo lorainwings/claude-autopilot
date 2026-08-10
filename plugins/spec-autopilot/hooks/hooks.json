@@ -40,6 +40,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "^(Write|Edit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/unified-write-edit-check.sh PreToolUse",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -83,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/unified-write-edit-check.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/runtime/scripts/unified-write-edit-check.sh PostToolUse",
             "timeout": 15
           }
         ]

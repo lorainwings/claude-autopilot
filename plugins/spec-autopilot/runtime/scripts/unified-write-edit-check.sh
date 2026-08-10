@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # unified-write-edit-check.sh
-# v5.1 Unified PostToolUse(Write|Edit) Hook
-# Purpose: Single entry point combining 3 previously separate hooks into one process,
+# Unified Write|Edit guard — runs on both PreToolUse and PostToolUse.
+# Purpose: Single entry point combining several checks into one process,
 #          reducing fork overhead from ~35s (3 serial hooks) to ~5s (1 hook).
 #
 # Combines:
@@ -10,11 +10,57 @@
 #   3. assertion-quality-check.sh      → Tautological assertion detection (Phase 4/5/6)
 #   4. TDD phase isolation             → RED/GREEN file type enforcement (Phase 5 TDD)
 #
-# Output: PostToolUse decision: "block" on first violation found.
-# Performance: Single preamble + shared phase detection + sequential checks.
+# Event routing (argv[1], defaults to PostToolUse for backward compatibility):
+#   PreToolUse   →真正的阻断。输出 hookSpecificOutput.permissionDecision=deny，
+#                  在写入发生*之前*拒绝，内容取自 tool_input（磁盘上还没有新内容）。
+#   PostToolUse  → 事后反馈。官方语义为 "the tool already ran"，无法回滚，
+#                  故此路径仅承担 advisory 与遥测，不再假装能阻断。
+#
+# 为何拆双轨: PostToolUse 的 {"decision":"block"} 只把 reason 反馈给模型，文件已落盘。
+# 状态隔离、TDD 阶段隔离、占位符禁令这类约束必须在 PreToolUse 才有意义。
 
 # --- Common preamble: stdin read, SCRIPT_DIR, _common.sh, Layer 0 bypass ---
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_hook_preamble.sh"
+
+# --- Event routing ---
+HOOK_EVENT="${1:-PostToolUse}"
+case "$HOOK_EVENT" in
+  PreToolUse | PostToolUse) ;;
+  *) HOOK_EVENT="PostToolUse" ;;
+esac
+
+# emit_block <reason> [fix_suggestion]
+# PreToolUse  → permissionDecision=deny（真阻断）
+# PostToolUse → decision=block（advisory，模型可见但文件已写）
+# 两者均 exit 0：官方约定 exit 2 与 JSON 决策互斥，本仓库统一走 JSON。
+emit_block() {
+  local reason="$1"
+  local fix="${2:-}"
+  if [ "$HOOK_EVENT" = "PreToolUse" ]; then
+    _JSON_REASON="$reason" _JSON_FIX="$fix" python3 -c '
+import json, os
+reason = os.environ.get("_JSON_REASON", "")
+fix = os.environ.get("_JSON_FIX", "")
+if fix:
+    reason = reason + " | Fix: " + fix
+print(json.dumps({"hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": reason,
+}}))
+' 2>/dev/null || printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"guard violation (reason unavailable: python3 missing)"}}\n'
+  else
+    _JSON_REASON="$reason" _JSON_FIX="$fix" python3 -c '
+import json, os
+out = {"decision": "block", "reason": os.environ.get("_JSON_REASON", "")}
+fix = os.environ.get("_JSON_FIX", "")
+if fix:
+    out["fix_suggestion"] = fix
+print(json.dumps(out))
+' 2>/dev/null || printf '{"decision":"block","reason":"guard violation (reason unavailable: python3 missing)"}\n'
+  fi
+  exit 0
+}
 
 # ============================================================
 # SHARED PHASE DETECTION (run once for all checks)
@@ -96,6 +142,52 @@ BASENAME=$(basename "$FILE_PATH")
 # This avoids Python startup and regex overhead for config/doc files.
 # ============================================================
 
+# ============================================================
+# SHARED CONTENT RESOLUTION
+# PreToolUse: 文件尚未写入（或仍是旧内容），必须从 tool_input 取待写内容，
+#             否则检查的是上一版内容 —— 既漏放新违规，又误拦已修好的文件。
+# PostToolUse: 文件已落盘，直接读磁盘。
+# CONTENT_FILE 为供内容型检查 grep 的目标路径；空值表示无内容可查。
+# ============================================================
+
+CONTENT_FILE=""
+CONTENT_TMP=""
+cleanup_content_tmp() { [ -n "$CONTENT_TMP" ] && rm -f "$CONTENT_TMP"; }
+trap cleanup_content_tmp EXIT
+
+if [ "$HOOK_EVENT" = "PreToolUse" ]; then
+  # Write 用 content；Edit 用 new_string；MultiEdit 取所有 new_string 拼接。
+  CONTENT_TMP=$(mktemp 2>/dev/null || echo "")
+  if [ -n "$CONTENT_TMP" ]; then
+    if printf '%s' "$STDIN_DATA" | _OUT="$CONTENT_TMP" python3 -c '
+import json, os, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+ti = data.get("tool_input") or {}
+parts = []
+if isinstance(ti.get("content"), str):
+    parts.append(ti["content"])
+if isinstance(ti.get("new_string"), str):
+    parts.append(ti["new_string"])
+edits = ti.get("edits")
+if isinstance(edits, list):
+    for e in edits:
+        if isinstance(e, dict) and isinstance(e.get("new_string"), str):
+            parts.append(e["new_string"])
+if not parts:
+    sys.exit(1)
+with open(os.environ["_OUT"], "w", encoding="utf-8") as f:
+    f.write("\n".join(parts))
+' 2>/dev/null; then
+      CONTENT_FILE="$CONTENT_TMP"
+    fi
+  fi
+else
+  [ -f "$FILE_PATH" ] && CONTENT_FILE="$FILE_PATH"
+fi
+
 SKIP_HEAVY_CHECKS="no"
 case "$FILE_PATH" in
   *.md)
@@ -114,35 +206,28 @@ esac
 
 # ============================================================
 # CHECK 0: Sub-Agent State Isolation (v5.1 SA-2 fix, pure bash, ~1ms)
-# Blocks Phase 5 sub-agent writes to openspec/ and checkpoint paths.
+# Blocks sub-agent writes to openspec/ checkpoint paths across all phases.
 # Checkpoint writers use Bash tool (not Write), so they bypass this hook.
 # ============================================================
 
-if [ "$IN_PHASE5" = "yes" ]; then
-  PROTECTED_PATH_HIT="no"
-  case "$FILE_PATH" in
-    # Block writes to checkpoint / phase-results
-    *context/phase-results/*) PROTECTED_PATH_HIT="yes" ;;
-    # Block writes to openspec internal state (but NOT tasks.md which sub-agents may mark)
-    *openspec/changes/*/context/*.json) PROTECTED_PATH_HIT="yes" ;;
-    *openspec/changes/*/.autopilot-active) PROTECTED_PATH_HIT="yes" ;;
-  esac
+PROTECTED_PATH_HIT="no"
+case "$FILE_PATH" in
+  # Block writes to checkpoint / phase-results
+  *context/phase-results/*) PROTECTED_PATH_HIT="yes" ;;
+  # Block writes to openspec internal state (but NOT tasks.md which sub-agents may mark)
+  *openspec/changes/*/context/*.json) PROTECTED_PATH_HIT="yes" ;;
+  *openspec/changes/*/.autopilot-active) PROTECTED_PATH_HIT="yes" ;;
+esac
 
-  # Narrow exception: .tdd-stage is written by main thread via Bash, but just in case
-  case "$FILE_PATH" in
-    *context/.tdd-stage) PROTECTED_PATH_HIT="no" ;;
-  esac
+# Narrow exception: .tdd-stage is written by main thread via Bash, but just in case
+case "$FILE_PATH" in
+  *context/.tdd-stage) PROTECTED_PATH_HIT="no" ;;
+esac
 
-  if [ "$PROTECTED_PATH_HIT" = "yes" ]; then
-    cat <<EOF
-{
-  "decision": "block",
-  "reason": "State isolation violation: Write to protected path '${BASENAME}' blocked during Phase 5. Sub-agents must NOT modify openspec/ or checkpoint files. Only the main orchestrator (via checkpoint-writer Bash commands) may write to these paths.",
-  "fix_suggestion": "Write implementation code to the project's source directories, not to openspec/ or phase-results/. Checkpoint management is handled by the orchestrator."
-}
-EOF
-    exit 0
-  fi
+if [ "$PROTECTED_PATH_HIT" = "yes" ]; then
+  emit_block \
+    "State isolation violation: Write to protected path '${BASENAME}' blocked. Sub-agents must NOT modify openspec/ or checkpoint files. Only the main orchestrator (via checkpoint-writer Bash commands) may write to these paths." \
+    "Write implementation code to the project's source directories, not to openspec/ or phase-results/. Checkpoint management is handled by the orchestrator."
 fi
 
 # ============================================================
@@ -182,14 +267,9 @@ if [ "$IN_PHASE5" = "yes" ]; then
       if [ -f "$OWNERSHIP_FILE" ]; then
         # Check that FILE_PATH appears in the owned_files array
         if ! grep -qF "\"$FILE_PATH\"" "$OWNERSHIP_FILE" 2>/dev/null; then
-          cat <<EOF
-{
-  "decision": "block",
-  "reason": "File ownership violation (parallel Phase 5): Agent '${CURRENT_AGENT_ID}' attempted to modify '${FILE_PATH}', which is not in its owned_files assignment. In parallel mode each agent may only modify files within its assigned domain.",
-  "fix_suggestion": "Only modify files listed in your owned_files assignment. If this file needs to change, coordinate with the orchestrator to update domain boundaries."
-}
-EOF
-          exit 0
+          emit_block \
+            "File ownership violation (parallel Phase 5): Agent '${CURRENT_AGENT_ID}' attempted to modify '${FILE_PATH}', which is not in its owned_files assignment. In parallel mode each agent may only modify files within its assigned domain." \
+            "Only modify files listed in your owned_files assignment. If this file needs to change, coordinate with the orchestrator to update domain boundaries."
         fi
       fi
     fi
@@ -216,14 +296,12 @@ if [ "$IN_PHASE5" = "yes" ]; then
     case "$TDD_STAGE" in
       red)
         if [ "$IS_TEST_FILE" = "no" ]; then
-          echo '{"decision":"block","reason":"TDD RED stage violation: only test files can be written during RED. File '"$BASENAME"' appears to be an implementation file. Move to GREEN stage before writing implementation code."}'
-          exit 0
+          emit_block "TDD RED stage violation: only test files can be written during RED. File ${BASENAME} appears to be an implementation file. Move to GREEN stage before writing implementation code."
         fi
         ;;
       green)
         if [ "$IS_TEST_FILE" = "yes" ]; then
-          echo '{"decision":"block","reason":"TDD GREEN stage violation: test files cannot be modified during GREEN. File '"$BASENAME"' appears to be a test file. Fix the implementation to make tests pass — do NOT modify the test."}'
-          exit 0
+          emit_block "TDD GREEN stage violation: test files cannot be modified during GREEN. File ${BASENAME} appears to be a test file. Fix the implementation to make tests pass — do NOT modify the test."
         fi
         ;;
       refactor)
@@ -239,19 +317,14 @@ fi
 # CHECK 2: Banned Patterns — TODO/FIXME/HACK (pure grep, ~2ms)
 # ============================================================
 
-if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ -f "$FILE_PATH" ]; then
-  MATCHES=$(grep -inE '(TODO:|FIXME:|HACK:)' "$FILE_PATH" 2>/dev/null | head -5)
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ -n "$CONTENT_FILE" ]; then
+  MATCHES=$(grep -inE '(TODO:|FIXME:|HACK:)' "$CONTENT_FILE" 2>/dev/null | head -5)
   if [ -n "$MATCHES" ]; then
-    MATCH_COUNT=$(grep -cinE '(TODO:|FIXME:|HACK:)' "$FILE_PATH" 2>/dev/null || echo 0)
-    MATCHES_ESCAPED=$(echo "$MATCHES" | head -3 | sed 's/"/\\"/g' | tr '\n' '; ' | sed 's/; $//')
-    cat <<EOF
-{
-  "decision": "block",
-  "reason": "Banned placeholder patterns detected (${MATCH_COUNT} occurrences) in ${BASENAME}: ${MATCHES_ESCAPED}. Remove all TODO:/FIXME:/HACK: placeholders and implement the actual logic.",
-  "fix_suggestion": "Delete TODO/FIXME/HACK comments and implement the actual functionality. Autopilot sub-agents must not leave placeholder code."
-}
-EOF
-    exit 0
+    MATCH_COUNT=$(grep -cinE '(TODO:|FIXME:|HACK:)' "$CONTENT_FILE" 2>/dev/null || echo 0)
+    MATCHES_ESCAPED=$(echo "$MATCHES" | head -3 | tr '\n' ';' | tr -d '\r')
+    emit_block \
+      "Banned placeholder patterns detected (${MATCH_COUNT} occurrences) in ${BASENAME}: ${MATCHES_ESCAPED}. Remove all TODO:/FIXME:/HACK: placeholders and implement the actual logic." \
+      "Delete TODO/FIXME/HACK comments and implement the actual functionality. Autopilot sub-agents must not leave placeholder code."
   fi
 fi
 
@@ -266,38 +339,33 @@ case "$FILE_PATH" in
     ;;
 esac
 
-if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -n "$CONTENT_FILE" ]; then
   VIOLATIONS=""
 
   # JavaScript/TypeScript tautologies
-  JS_TAUTOLOGY=$(grep -nE 'expect\((true|false|1|0|"[^"]*"|'\''[^'\'']*'\'')\)\.(toBe|toEqual|toStrictEqual)\(\1\)' "$FILE_PATH" 2>/dev/null | head -3)
+  JS_TAUTOLOGY=$(grep -nE 'expect\((true|false|1|0|"[^"]*"|'\''[^'\'']*'\'')\)\.(toBe|toEqual|toStrictEqual)\(\1\)' "$CONTENT_FILE" 2>/dev/null | head -3)
   [ -n "$JS_TAUTOLOGY" ] && VIOLATIONS="${VIOLATIONS}${JS_TAUTOLOGY}; "
 
-  JS_TRUTHY=$(grep -nE 'expect\(true\)\.toBeTruthy\(\)|expect\(false\)\.toBeFalsy\(\)' "$FILE_PATH" 2>/dev/null | head -3)
+  JS_TRUTHY=$(grep -nE 'expect\(true\)\.toBeTruthy\(\)|expect\(false\)\.toBeFalsy\(\)' "$CONTENT_FILE" 2>/dev/null | head -3)
   [ -n "$JS_TRUTHY" ] && VIOLATIONS="${VIOLATIONS}${JS_TRUTHY}; "
 
   # Python tautologies
-  PY_TAUTOLOGY=$(grep -nE '^\s*(assert\s+True|assert\s+not\s+False|self\.assert(True|Equal)\s*\(\s*(True|1|0)\s*,?\s*(True|1|0)?\s*\))' "$FILE_PATH" 2>/dev/null | head -3)
+  PY_TAUTOLOGY=$(grep -nE '^\s*(assert\s+True|assert\s+not\s+False|self\.assert(True|Equal)\s*\(\s*(True|1|0)\s*,?\s*(True|1|0)?\s*\))' "$CONTENT_FILE" 2>/dev/null | head -3)
   [ -n "$PY_TAUTOLOGY" ] && VIOLATIONS="${VIOLATIONS}${PY_TAUTOLOGY}; "
 
   # Java/Kotlin tautologies
-  JAVA_TAUTOLOGY=$(grep -nE '(assertEquals|assertSame)\s*\(\s*(true|false|1|0|"[^"]*")\s*,\s*\2\s*\)|assertTrue\s*\(\s*true\s*\)|assertFalse\s*\(\s*false\s*\)' "$FILE_PATH" 2>/dev/null | head -3)
+  JAVA_TAUTOLOGY=$(grep -nE '(assertEquals|assertSame)\s*\(\s*(true|false|1|0|"[^"]*")\s*,\s*\2\s*\)|assertTrue\s*\(\s*true\s*\)|assertFalse\s*\(\s*false\s*\)' "$CONTENT_FILE" 2>/dev/null | head -3)
   [ -n "$JAVA_TAUTOLOGY" ] && VIOLATIONS="${VIOLATIONS}${JAVA_TAUTOLOGY}; "
 
   # Generic tautologies
-  GENERIC_TAUTOLOGY=$(grep -nE '(assert|expect|check).*\b(true\s*==\s*true|false\s*==\s*false|1\s*==\s*1|0\s*==\s*0)\b' "$FILE_PATH" 2>/dev/null | head -3)
+  GENERIC_TAUTOLOGY=$(grep -nE '(assert|expect|check).*\b(true\s*==\s*true|false\s*==\s*false|1\s*==\s*1|0\s*==\s*0)\b' "$CONTENT_FILE" 2>/dev/null | head -3)
   [ -n "$GENERIC_TAUTOLOGY" ] && VIOLATIONS="${VIOLATIONS}${GENERIC_TAUTOLOGY}; "
 
   if [ -n "$VIOLATIONS" ]; then
-    VIOLATIONS_SHORT=$(echo "$VIOLATIONS" | head -c 400 | sed 's/"/\\"/g' | tr '\n' ' ')
-    cat <<EOF
-{
-  "decision": "block",
-  "reason": "Tautological assertions detected in ${BASENAME}: ${VIOLATIONS_SHORT}. These assertions test nothing and create a false sense of coverage. Replace with meaningful assertions that verify actual behavior.",
-  "fix_suggestion": "Replace tautological assertions with real tests: assert the return value of function calls, check state changes, verify side effects."
-}
-EOF
-    exit 0
+    VIOLATIONS_SHORT=$(echo "$VIOLATIONS" | head -c 400 | tr '\n' ' ')
+    emit_block \
+      "Tautological assertions detected in ${BASENAME}: ${VIOLATIONS_SHORT}. These assertions test nothing and create a false sense of coverage. Replace with meaningful assertions that verify actual behavior." \
+      "Replace tautological assertions with real tests: assert the return value of function calls, check state changes, verify side effects."
   fi
 fi
 
@@ -307,23 +375,23 @@ fi
 # These tests "cover" code but verify nothing — inflating coverage.
 # ============================================================
 
-if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH" ]; then
+if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -n "$CONTENT_FILE" ]; then
   ASSERTION_FREE_BLOCKS=""
 
   # JavaScript/TypeScript: detect it/test blocks without expect/assert
   # Strategy: count test blocks and assertion calls; if blocks > assertions, flag
   # NOTE: grep -c outputs "0" on no match but exits 1; || true absorbs exit code
   # without appending extra output (|| echo 0 would produce "0\n0" breaking arithmetic)
-  JS_TEST_BLOCKS=$(grep -cE '^\s*(it|test)\s*\(' "$FILE_PATH" 2>/dev/null) || true
-  JS_ASSERTIONS=$(grep -cE '(expect\s*\(|assert\s*[\.(]|should\s*[\.(])' "$FILE_PATH" 2>/dev/null) || true
+  JS_TEST_BLOCKS=$(grep -cE '^\s*(it|test)\s*\(' "$CONTENT_FILE" 2>/dev/null) || true
+  JS_ASSERTIONS=$(grep -cE '(expect\s*\(|assert\s*[\.(]|should\s*[\.(])' "$CONTENT_FILE" 2>/dev/null) || true
 
   # Python: detect def test_ functions without assert
-  PY_TEST_FUNCS=$(grep -cE '^\s*def\s+test_' "$FILE_PATH" 2>/dev/null) || true
-  PY_ASSERTIONS=$(grep -cE '(self\.assert|assert\s+|pytest\.raises)' "$FILE_PATH" 2>/dev/null) || true
+  PY_TEST_FUNCS=$(grep -cE '^\s*def\s+test_' "$CONTENT_FILE" 2>/dev/null) || true
+  PY_ASSERTIONS=$(grep -cE '(self\.assert|assert\s+|pytest\.raises)' "$CONTENT_FILE" 2>/dev/null) || true
 
   # Java/Kotlin: detect @Test methods without assert
-  JAVA_TEST_METHODS=$(grep -cE '@Test' "$FILE_PATH" 2>/dev/null) || true
-  JAVA_ASSERTIONS=$(grep -cE '(assert(True|False|Equals|NotNull|Throws|That)|verify\s*\()' "$FILE_PATH" 2>/dev/null) || true
+  JAVA_TEST_METHODS=$(grep -cE '@Test' "$CONTENT_FILE" 2>/dev/null) || true
+  JAVA_ASSERTIONS=$(grep -cE '(assert(True|False|Equals|NotNull|Throws|That)|verify\s*\()' "$CONTENT_FILE" 2>/dev/null) || true
 
   # Default empty to 0 (grep -c on non-existent file returns empty)
   : "${JS_TEST_BLOCKS:=0}" "${JS_ASSERTIONS:=0}"
@@ -337,23 +405,13 @@ if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IS_TEST" = "yes" ] && [ -f "$FILE_PATH
   # Flag if there are test blocks but zero assertions, or if test blocks significantly exceed assertions
   # (e.g., 5 test blocks but only 1 assertion means 4 tests are assertion-free)
   if [ "$TOTAL_TEST_BLOCKS" -gt 0 ] && [ "$TOTAL_ASSERTIONS" -eq 0 ]; then
-    cat <<EOF
-{
-  "decision": "block",
-  "reason": "Assertion-free tests detected in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) found but 0 assertions. Tests must contain meaningful assertions that verify behavior. Calling code without asserting results creates a false sense of test coverage.",
-  "fix_suggestion": "Add assertions (expect/assert/should) to each test block that verify the return values, state changes, or side effects of the code under test."
-}
-EOF
-    exit 0
+    emit_block \
+      "Assertion-free tests detected in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) found but 0 assertions. Tests must contain meaningful assertions that verify behavior. Calling code without asserting results creates a false sense of test coverage." \
+      "Add assertions (expect/assert/should) to each test block that verify the return values, state changes, or side effects of the code under test."
   elif [ "$TOTAL_TEST_BLOCKS" -gt 1 ] && [ "$TOTAL_ASSERTIONS" -gt 0 ] && [ "$TOTAL_TEST_BLOCKS" -gt $((TOTAL_ASSERTIONS * 2)) ]; then
-    cat <<EOF
-{
-  "decision": "block",
-  "reason": "Insufficient assertions in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) but only ${TOTAL_ASSERTIONS} assertion(s). Most test blocks appear to lack assertions. Each test should contain at least one meaningful assertion.",
-  "fix_suggestion": "Add assertions (expect/assert/should) to each test block. Currently ${TOTAL_TEST_BLOCKS} test blocks share only ${TOTAL_ASSERTIONS} assertions — at least $((TOTAL_TEST_BLOCKS - TOTAL_ASSERTIONS)) blocks likely have no assertions."
-}
-EOF
-    exit 0
+    emit_block \
+      "Insufficient assertions in ${BASENAME}: ${TOTAL_TEST_BLOCKS} test block(s) but only ${TOTAL_ASSERTIONS} assertion(s). Most test blocks appear to lack assertions. Each test should contain at least one meaningful assertion." \
+      "Add assertions (expect/assert/should) to each test block. Currently ${TOTAL_TEST_BLOCKS} test blocks share only ${TOTAL_ASSERTIONS} assertions — at least $((TOTAL_TEST_BLOCKS - TOTAL_ASSERTIONS)) blocks likely have no assertions."
   fi
 fi
 
@@ -362,9 +420,20 @@ fi
 # ============================================================
 
 if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IN_DELIVERY_PHASE" = "yes" ]; then
-  require_python3 || exit 0
+  # ============================================================
+  # CHECK 5: Code Constraints (Phase 5, ~100ms on init parse)
+  # ============================================================
 
-  python3 -c "
+  if [ "$IN_PHASE5" = "yes" ]; then
+    require_python3 || exit 0
+
+    # 读待写内容供 python 用（PreToolUse 需要），空值表示无内容（回退磁盘读）
+    _CONTENT_DATA=""
+    if [ -n "$CONTENT_FILE" ]; then
+      _CONTENT_DATA=$(cat "$CONTENT_FILE" 2>/dev/null || true)
+    fi
+
+    _VIOLATION=$(_CONTENT="$_CONTENT_DATA" python3 -c "
 import importlib.util, json, os, sys
 
 _script_dir = os.environ.get('SCRIPT_DIR', '.')
@@ -374,6 +443,9 @@ _spec.loader.exec_module(_cl)
 
 file_path = '''$FILE_PATH'''
 root = '''$PROJECT_ROOT_QUICK'''
+content_override = os.environ.get('_CONTENT')
+if not content_override:
+    content_override = None
 
 constraints = _cl.load_constraints(root)
 scanner = _cl.load_scanner_constraints(root)
@@ -381,17 +453,20 @@ constraints = _cl.merge_constraints(constraints, scanner)
 if not constraints['found'] and not constraints['forbidden_files'] and not constraints['forbidden_patterns']:
     sys.exit(0)
 
-violations = _cl.check_file_violations(file_path, root, constraints)
+violations = _cl.check_file_violations(file_path, root, constraints, content_override)
 if violations:
     shown = violations[:5]
     extra = f' (+{len(violations)-5} more)' if len(violations) > 5 else ''
-    print(json.dumps({
-        'decision': 'block',
-        'reason': f'Write/Edit constraint violations ({len(violations)}): ' + '; '.join(shown) + extra + '. Fix before proceeding.'
-    }))
+    print('; '.join(shown) + extra)
 
 sys.exit(0)
-"
-fi
+" 2>&1)
+
+    if [ -n "$_VIOLATION" ]; then
+      emit_block "Write/Edit constraint violations: ${_VIOLATION}. Fix before proceeding."
+    fi
+  fi
+
+fi # end if IN_DELIVERY_PHASE (CHECK 4 wrapper)
 
 exit 0
