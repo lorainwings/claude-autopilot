@@ -121,7 +121,10 @@ actual_record = {
     'plan_available': plan is not None,
     'diffs': diffs,
     'diff_count': len(diffs),
-    'reconcile_status': 'ok' if len(diffs) == 0 else 'drift',
+    # 'ok' 只在真的比对过 plan 且无差异时给出。plan 缺失时 diffs 必然为空，
+    # 旧逻辑因此报 'ok' —— 上游 100% 崩溃、下游却显示对帐通过（fail-open）。
+    # 无 plan 可比 → 'unavailable'，消费方须视作未通过。
+    'reconcile_status': ('ok' if len(diffs) == 0 else 'drift') if plan is not None else 'unavailable',
 }
 
 # 写入文件

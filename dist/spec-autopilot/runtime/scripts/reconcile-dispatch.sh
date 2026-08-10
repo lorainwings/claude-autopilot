@@ -31,7 +31,7 @@ fi
 CONTEXT_DIR="$PROJECT_ROOT/openspec/changes/$CHANGE_NAME/context"
 
 if [ ! -d "$CONTEXT_DIR" ]; then
-  echo '{"status": "ok", "summary": "context 目录不存在，跳过 reconcile"}'
+  echo '{"status": "unavailable", "summary": "context 目录不存在，无法 reconcile（未验证 ≠ 通过）"}'
   exit 0
 fi
 
@@ -52,8 +52,9 @@ actual_files = sorted(glob.glob(os.path.join(context_dir, 'dispatch-actual*.json
 # 如果没有 plan 文件，视为无 dispatch 流程，直接通过
 if not plan_files:
     result = {
-        'status': 'ok',
-        'summary': '无 dispatch plan 文件，跳过 reconcile',
+        # 无 plan 文件时不能报 ok：那等于把「没验证」当成「验证通过」。
+        'status': 'unavailable',
+        'summary': '无 dispatch plan 文件，无法 reconcile（未验证 ≠ 通过）',
         'reconciled_at': datetime.now(timezone.utc).isoformat(),
         'plan_count': 0,
         'actual_count': len(actual_files),

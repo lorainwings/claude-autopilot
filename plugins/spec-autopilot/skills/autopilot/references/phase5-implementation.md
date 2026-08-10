@@ -298,7 +298,7 @@ IF 用户在 AskUserQuestion 选择 "切换串行" → 全域改用前台 Task �
 
 ## 并行合并验证 (Hook 级保障)
 
-`parallel-merge-guard.sh` 作为 PostToolUse(Task) hook，在每次 worktree merge 后自动触发，提供确定性的合并质量验证。
+合并质量验证由 `post-task-validator.sh`（PostToolUse(Task) 统一入口）中的 `_post_task_validator.py` VALIDATOR 4 承担，在每次 worktree merge 后自动触发，提供确定性的合并质量验证。
 
 ### 触发条件
 
