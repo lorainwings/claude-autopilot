@@ -420,20 +420,20 @@ fi
 # ============================================================
 
 if [ "$SKIP_HEAVY_CHECKS" = "no" ] && [ "$IN_DELIVERY_PHASE" = "yes" ]; then
-# ============================================================
-# CHECK 5: Code Constraints (Phase 5, ~100ms on init parse)
-# ============================================================
+  # ============================================================
+  # CHECK 5: Code Constraints (Phase 5, ~100ms on init parse)
+  # ============================================================
 
-if [ "$IN_PHASE5" = "yes" ]; then
-  require_python3 || exit 0
+  if [ "$IN_PHASE5" = "yes" ]; then
+    require_python3 || exit 0
 
-  # 读待写内容供 python 用（PreToolUse 需要），空值表示无内容（回退磁盘读）
-  _CONTENT_DATA=""
-  if [ -n "$CONTENT_FILE" ]; then
-    _CONTENT_DATA=$(cat "$CONTENT_FILE" 2>/dev/null || true)
-  fi
+    # 读待写内容供 python 用（PreToolUse 需要），空值表示无内容（回退磁盘读）
+    _CONTENT_DATA=""
+    if [ -n "$CONTENT_FILE" ]; then
+      _CONTENT_DATA=$(cat "$CONTENT_FILE" 2>/dev/null || true)
+    fi
 
-  _VIOLATION=$(_CONTENT="$_CONTENT_DATA" python3 -c "
+    _VIOLATION=$(_CONTENT="$_CONTENT_DATA" python3 -c "
 import importlib.util, json, os, sys
 
 _script_dir = os.environ.get('SCRIPT_DIR', '.')
@@ -462,11 +462,11 @@ if violations:
 sys.exit(0)
 " 2>&1)
 
-  if [ -n "$_VIOLATION" ]; then
-    emit_block "Write/Edit constraint violations: ${_VIOLATION}. Fix before proceeding."
+    if [ -n "$_VIOLATION" ]; then
+      emit_block "Write/Edit constraint violations: ${_VIOLATION}. Fix before proceeding."
+    fi
   fi
-fi
 
-fi  # end if IN_DELIVERY_PHASE (CHECK 4 wrapper)
+fi # end if IN_DELIVERY_PHASE (CHECK 4 wrapper)
 
 exit 0

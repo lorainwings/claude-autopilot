@@ -378,18 +378,41 @@ fi
 if [ "$TARGET_PHASE" -eq 5 ] && [ "$EXEC_MODE" = "full" ] && [ "$(_get_tdd_mode)" != "true" ]; then
   task_checkpoints_dir="${change_dir}context/phase-results/phase5-tasks"
   if [ -d "$task_checkpoints_dir" ]; then
-    # Find the highest-numbered task checkpoint (the most recently completed task)
-    last_task_file=$(ls "$task_checkpoints_dir"/task-*.json 2>/dev/null | sort -t- -k2 -n | tail -1)
-    if [ -n "$last_task_file" ] && [ -f "$last_task_file" ]; then
-      # Run verify-test-driven-l2.sh to check L2 evidence
-      verify_result=$(bash "$SCRIPT_DIR/verify-test-driven-l2.sh" "$last_task_file" 2>/dev/null || echo '{"status":"warn","message":"verify script failed"}')
-      verify_status=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','warn'))" 2>/dev/null || echo "warn")
-      if [ "$verify_status" = "warn" ]; then
-        verify_message=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
-        echo "[L2-AUDIT] Previous task checkpoint $(basename "$last_task_file"): $verify_message" >&2
-        # Warn only — does not deny. The audit trail ensures visibility even if
-        # the main thread prompt skipped the verify call.
+    # 全量校验每个 task checkpoint。
+    # 旧实现只取 `tail -1`（编号最大的那个），前面所有 task 的 RED/GREEN 证据
+    # 从不检查；且 warn 仅 echo 到 stderr，等于没有门禁。
+    # 现在：任一 task 未通过 → deny；校验脚本本身失败 → 同样 deny（fail-closed，
+    # 因为"无法验证"不等于"验证通过"）。
+    l2_failures=""
+    l2_failure_count=0
+    while IFS= read -r task_file; do
+      [ -n "$task_file" ] || continue
+      [ -f "$task_file" ] || continue
+
+      if ! verify_result=$(bash "$SCRIPT_DIR/verify-test-driven-l2.sh" "$task_file" 2>/dev/null); then
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): L2 verify script failed (unable to verify); "
+        continue
       fi
+
+      verify_status=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','warn'))" 2>/dev/null) || verify_status=""
+      if [ -z "$verify_status" ]; then
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): unparseable L2 verify output (unable to verify); "
+        continue
+      fi
+
+      if [ "$verify_status" != "ok" ]; then
+        verify_message=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): ${verify_message}; "
+      fi
+    done <<EOF
+$(ls "$task_checkpoints_dir"/task-*.json 2>/dev/null | sort -t- -k2 -n)
+EOF
+
+    if [ "$l2_failure_count" -gt 0 ]; then
+      deny "Phase 5 L2 test-driven evidence missing or unverifiable in ${l2_failure_count} task checkpoint(s): ${l2_failures}Every task must carry verified RED/GREEN evidence before Phase ${TARGET_PHASE} can start."
     fi
   fi
 fi
