@@ -150,14 +150,17 @@ superpowers `CLAUDE.md`：「If you are not sure whether your integration loads 
 
 ### 总览
 
-| # | 严重级别 | 问题 | 违反 |
-|---|---|---|---|
-| A | **P0** | TDD 守卫与占位符禁令挂 PostToolUse，拦不住已落盘写入 | P4 |
-| B | **P0** | L2 测试验证只 warn 不 deny，且只查最后一个 task | P2, P5 |
-| E | **P0** | 门禁依赖模型自填 prompt 标记，漏写即静默失效 | P1 |
-| C | **P1** | 派发审计三脚本为死代码，且输入缺失时报 `reconcile_status: "ok"` | P2, P8 |
-| D | **P1** | `emit-phase-event.sh` 无幂等，恢复时重复发 `phase_start 0` | P9 |
-| F | P2 | `parallel-merge-guard.sh` 为重构遗留孤儿，测试仍在跑它 | P19 |
+| # | 严重级别 | 问题 | 违反 | 状态 |
+|---|---|---|---|---|
+| A | **P0** | TDD 守卫与占位符禁令挂 PostToolUse，拦不住已落盘写入 | P4 | ✅ 已修 `2c2eff7f` |
+| B | **P0** | L2 测试验证只 warn 不 deny，且只查最后一个 task | P2, P5 | ✅ 已修 `66e036cb` |
+| E | **P0** | 门禁依赖模型自填 prompt 标记，漏写即静默失效 | P1 | ✅ 已修 `fb15be78` |
+| C | **P1** | 派发审计三脚本为死代码，且输入缺失时报 `reconcile_status: "ok"` | P2, P8 | ✅ 已修 `ffc950ff` |
+| D | **P1** | `emit-phase-event.sh` 无幂等，恢复时重复发 `phase_start 0` | P9 | ✅ 已修 `fb15be78` |
+| F | P2 | `parallel-merge-guard.sh` 为重构遗留孤儿，测试仍在跑它 | P19 | ✅ 已修 `ffc950ff` |
+
+> 修复后基线：155 测试文件 / 2388 断言全绿（修复前 150 / 2301），`make lint`、`make build` 均通过。
+> 新增 90 条断言，全部针对此前零覆盖的失效模式。
 
 ### BUG-A（P0）｜TDD 守卫与占位符禁令是事后反馈，无法拦截
 
