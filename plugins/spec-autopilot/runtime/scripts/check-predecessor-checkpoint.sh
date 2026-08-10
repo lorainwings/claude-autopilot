@@ -41,10 +41,58 @@ if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
   exit 0
 fi
 
-# --- Fast bypass Layer 1: prompt 首行标记检测 ---
-# 仅匹配 JSON 中 prompt 字段以标记开头的情况（dispatch 协议规定标记在 prompt 开头）。
-# 排除：prompt 文本内容中引用标记（代码示例、文档等）造成的误判。
-if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
+# --- Fast bypass Layer 1: 双通道判定「本次 Task 是否属于 autopilot 派发」---
+# 通道 A（marker）: prompt 首行的 <!-- autopilot-phase:N -->。
+#   仅匹配 prompt 字段以标记开头的情况，排除正文引用标记造成的误判。
+#   缺陷：标记由模型写入，漏写即整条 L2 防线静默失效。
+# 通道 B（sentinel）: emit-phase-event.sh 在 phase_start 时确定性写入的
+#   .autopilot-dispatch-sentinel.json。它不依赖模型记得加注释。
+# 任一命中即进入完整审计；两者皆无但会话活跃 → 交由用户裁决（ask），不再静默放行。
+HAS_MARKER=no
+if echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
+  HAS_MARKER=yes
+fi
+
+SENTINEL_FILE="$PROJECT_ROOT_QUICK/openspec/changes/.autopilot-dispatch-sentinel.json"
+SENTINEL_PHASE=""
+if [ -f "$SENTINEL_FILE" ]; then
+  # 新鲜度窗口 30 分钟：过期的 sentinel 视为不适用（而非仅仅"旧"），
+  # 避免上一个 phase 的记录为当前派发背书。
+  SENTINEL_PHASE=$(_SF="$SENTINEL_FILE" python3 -c '
+import json, os, sys
+from datetime import datetime, timezone
+try:
+    with open(os.environ["_SF"], encoding="utf-8") as f:
+        d = json.load(f)
+    ts = datetime.fromisoformat(d["written_at"])
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - ts).total_seconds()
+    if 0 <= age <= 1800:
+        print(d.get("phase", ""))
+except Exception:
+    pass
+' 2>/dev/null)
+fi
+
+if [ "$HAS_MARKER" != "yes" ] && [ -z "$SENTINEL_PHASE" ]; then
+  # 非 autopilot 的普通 Task 派发走这里 —— 正常放行，不打扰用户。
+  exit 0
+fi
+
+if [ "$HAS_MARKER" != "yes" ]; then
+  # sentinel 说当前处于 autopilot phase，但派发 prompt 没带 marker：
+  # 要么模型漏写（门禁本会失效），要么是 autopilot 运行期间的无关派发。
+  # 无法确定性区分 → 交给用户，而不是替他决定放行。
+  cat <<ASK_JSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "Autopilot Phase ${SENTINEL_PHASE} is active but this Task dispatch carries no <!-- autopilot-phase:N --> marker, so the L2 predecessor-checkpoint gate cannot evaluate it. Confirm this dispatch is intentional, or add the phase marker so the gate can run."
+  }
+}
+ASK_JSON
   exit 0
 fi
 
