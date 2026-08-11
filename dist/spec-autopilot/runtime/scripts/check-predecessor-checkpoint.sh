@@ -41,10 +41,58 @@ if ! has_active_autopilot "$PROJECT_ROOT_QUICK"; then
   exit 0
 fi
 
-# --- Fast bypass Layer 1: prompt 首行标记检测 ---
-# 仅匹配 JSON 中 prompt 字段以标记开头的情况（dispatch 协议规定标记在 prompt 开头）。
-# 排除：prompt 文本内容中引用标记（代码示例、文档等）造成的误判。
-if ! echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
+# --- Fast bypass Layer 1: 双通道判定「本次 Task 是否属于 autopilot 派发」---
+# 通道 A（marker）: prompt 首行的 <!-- autopilot-phase:N -->。
+#   仅匹配 prompt 字段以标记开头的情况，排除正文引用标记造成的误判。
+#   缺陷：标记由模型写入，漏写即整条 L2 防线静默失效。
+# 通道 B（sentinel）: emit-phase-event.sh 在 phase_start 时确定性写入的
+#   .autopilot-dispatch-sentinel.json。它不依赖模型记得加注释。
+# 任一命中即进入完整审计；两者皆无但会话活跃 → 交由用户裁决（ask），不再静默放行。
+HAS_MARKER=no
+if echo "$STDIN_DATA" | grep -q '"prompt"[[:space:]]*:[[:space:]]*"<!-- autopilot-phase:[0-9]'; then
+  HAS_MARKER=yes
+fi
+
+SENTINEL_FILE="$PROJECT_ROOT_QUICK/openspec/changes/.autopilot-dispatch-sentinel.json"
+SENTINEL_PHASE=""
+if [ -f "$SENTINEL_FILE" ]; then
+  # 新鲜度窗口 30 分钟：过期的 sentinel 视为不适用（而非仅仅"旧"），
+  # 避免上一个 phase 的记录为当前派发背书。
+  SENTINEL_PHASE=$(_SF="$SENTINEL_FILE" python3 -c '
+import json, os, sys
+from datetime import datetime, timezone
+try:
+    with open(os.environ["_SF"], encoding="utf-8") as f:
+        d = json.load(f)
+    ts = datetime.fromisoformat(d["written_at"])
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - ts).total_seconds()
+    if 0 <= age <= 1800:
+        print(d.get("phase", ""))
+except Exception:
+    pass
+' 2>/dev/null)
+fi
+
+if [ "$HAS_MARKER" != "yes" ] && [ -z "$SENTINEL_PHASE" ]; then
+  # 非 autopilot 的普通 Task 派发走这里 —— 正常放行，不打扰用户。
+  exit 0
+fi
+
+if [ "$HAS_MARKER" != "yes" ]; then
+  # sentinel 说当前处于 autopilot phase，但派发 prompt 没带 marker：
+  # 要么模型漏写（门禁本会失效），要么是 autopilot 运行期间的无关派发。
+  # 无法确定性区分 → 交给用户，而不是替他决定放行。
+  cat <<ASK_JSON
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "Autopilot Phase ${SENTINEL_PHASE} is active but this Task dispatch carries no <!-- autopilot-phase:N --> marker, so the L2 predecessor-checkpoint gate cannot evaluate it. Confirm this dispatch is intentional, or add the phase marker so the gate can run."
+  }
+}
+ASK_JSON
   exit 0
 fi
 
@@ -378,18 +426,41 @@ fi
 if [ "$TARGET_PHASE" -eq 5 ] && [ "$EXEC_MODE" = "full" ] && [ "$(_get_tdd_mode)" != "true" ]; then
   task_checkpoints_dir="${change_dir}context/phase-results/phase5-tasks"
   if [ -d "$task_checkpoints_dir" ]; then
-    # Find the highest-numbered task checkpoint (the most recently completed task)
-    last_task_file=$(ls "$task_checkpoints_dir"/task-*.json 2>/dev/null | sort -t- -k2 -n | tail -1)
-    if [ -n "$last_task_file" ] && [ -f "$last_task_file" ]; then
-      # Run verify-test-driven-l2.sh to check L2 evidence
-      verify_result=$(bash "$SCRIPT_DIR/verify-test-driven-l2.sh" "$last_task_file" 2>/dev/null || echo '{"status":"warn","message":"verify script failed"}')
-      verify_status=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','warn'))" 2>/dev/null || echo "warn")
-      if [ "$verify_status" = "warn" ]; then
-        verify_message=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
-        echo "[L2-AUDIT] Previous task checkpoint $(basename "$last_task_file"): $verify_message" >&2
-        # Warn only — does not deny. The audit trail ensures visibility even if
-        # the main thread prompt skipped the verify call.
+    # 全量校验每个 task checkpoint。
+    # 旧实现只取 `tail -1`（编号最大的那个），前面所有 task 的 RED/GREEN 证据
+    # 从不检查；且 warn 仅 echo 到 stderr，等于没有门禁。
+    # 现在：任一 task 未通过 → deny；校验脚本本身失败 → 同样 deny（fail-closed，
+    # 因为"无法验证"不等于"验证通过"）。
+    l2_failures=""
+    l2_failure_count=0
+    while IFS= read -r task_file; do
+      [ -n "$task_file" ] || continue
+      [ -f "$task_file" ] || continue
+
+      if ! verify_result=$(bash "$SCRIPT_DIR/verify-test-driven-l2.sh" "$task_file" 2>/dev/null); then
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): L2 verify script failed (unable to verify); "
+        continue
       fi
+
+      verify_status=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','warn'))" 2>/dev/null) || verify_status=""
+      if [ -z "$verify_status" ]; then
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): unparseable L2 verify output (unable to verify); "
+        continue
+      fi
+
+      if [ "$verify_status" != "ok" ]; then
+        verify_message=$(echo "$verify_result" | python3 -c "import json,sys; print(json.load(sys.stdin).get('message',''))" 2>/dev/null || echo "")
+        l2_failure_count=$((l2_failure_count + 1))
+        l2_failures="${l2_failures}$(basename "$task_file"): ${verify_message}; "
+      fi
+    done <<EOF
+$(ls "$task_checkpoints_dir"/task-*.json 2>/dev/null | sort -t- -k2 -n)
+EOF
+
+    if [ "$l2_failure_count" -gt 0 ]; then
+      deny "Phase 5 L2 test-driven evidence missing or unverifiable in ${l2_failure_count} task checkpoint(s): ${l2_failures}Every task must carry verified RED/GREEN evidence before Phase ${TARGET_PHASE} can start."
     fi
   fi
 fi

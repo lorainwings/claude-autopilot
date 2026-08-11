@@ -250,10 +250,12 @@ data = {
 print(json.dumps(data))
 ")
 output=$(echo "$HOOK_INPUT" | AUTOPILOT_PROJECT_ROOT="$TMPDIR_TEST/e2e7" bash "$SCRIPT_DIR/check-predecessor-checkpoint.sh" 2>"$TMPDIR_TEST/e2e7_stderr.txt") || exit_code=$?
-assert_exit "E2E-7. Phase 5 dispatch with L1 evidence → exit 0 (allow)" 0 $exit_code
-stderr_content=$(cat "$TMPDIR_TEST/e2e7_stderr.txt")
-assert_contains "E2E-7. stderr has L2-AUDIT warning" "$stderr_content" "L2-AUDIT"
-assert_contains "E2E-7. mentions L1 layer issue" "$stderr_content" "L1"
+assert_exit "E2E-7. Phase 5 dispatch with L1 evidence → exit 0" 0 $exit_code
+# L1_sub_agent 证据是子 Agent 自证，verify-test-driven-l2.sh 自己就判定
+# "L1 evidence cannot close L2 loop"。此前该情形仅写一条 stderr 警告即放行，
+# 等于接受自证 —— 现在必须 deny。
+assert_contains "E2E-7. L1-only evidence → deny (self-attestation is not proof)" "$output" "deny"
+assert_contains "E2E-7. deny explains the L2 evidence requirement" "$output" "L2 test-driven evidence"
 
 # E2E-8. Same setup but with L2 evidence → no L2-AUDIT warning
 setup_change "$TMPDIR_TEST/e2e8" "feat"

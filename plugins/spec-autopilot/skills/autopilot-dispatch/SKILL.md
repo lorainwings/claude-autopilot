@@ -75,9 +75,22 @@ LESSONS=$(cat "$PROJECT_ROOT/openspec/changes/.autopilot-lessons.json" 2>/dev/nu
 PRIOR_RISKS=$(bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/feedback-loop-inject.sh" \
   --change-root "$CHANGE_DIR" --phase "$((PHASE - 1))" 2>/dev/null || echo "[]")
 
-# 4. 构造 Task（字符串字面量 + 注入 prior_risks + lessons）
+# 4. 记录派发计划（审计轨迹上半段）
+bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/generate-dispatch-plan.sh" \
+  "$PROJECT_ROOT" "$CHANGE_NAME" "$AGENT_NAME" "$PHASE"
+
+# 5. 构造 Task（字符串字面量 + 注入 prior_risks + lessons）
 Task(subagent_type: "$AGENT_NAME", prompt: "...含 prior_risks / lessons 注入...")
+
+# 6. 记录实际结果并与计划对帐（审计轨迹下半段）
+bash "$CLAUDE_PLUGIN_ROOT/runtime/scripts/generate-dispatch-actual.sh" \
+  "$PROJECT_ROOT" "$CHANGE_NAME" "$ACTUAL_AGENT" "$PHASE"
 ```
+
+> **审计轨迹为何必须成对调用**：`generate-dispatch-plan.sh` 记录"打算派发谁"，
+> `generate-dispatch-actual.sh` 记录"实际派发了谁"并输出 `reconcile_status`。
+> 只调用后者时 plan 缺失，`reconcile_status` 为 `unavailable` —— 表示未验证，
+> **不等于**通过。消费方（如归档前检查）须把 `unavailable` 与 `drift` 同等对待。
 
 ### Task Envelope 扩展字段
 

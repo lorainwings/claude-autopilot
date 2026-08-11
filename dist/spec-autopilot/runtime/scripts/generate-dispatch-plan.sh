@@ -72,7 +72,8 @@ mkdir -p "$CONTEXT_DIR" 2>/dev/null || true
 OUTPUT_FILE="$CONTEXT_DIR/dispatch-plan.json"
 
 # --- Agent 解析与优先级计算 (Python3) ---
-python3 -c "
+# AUTOPILOT_SCRIPT_DIR: python3 -c 下没有 __file__，插件根目录只能由 bash 侧传入
+AUTOPILOT_SCRIPT_DIR="$SCRIPT_DIR" python3 -c "
 import json, sys, os
 from datetime import datetime, timezone
 
@@ -105,9 +106,14 @@ except (json.JSONDecodeError, ValueError):
 def resolve_agent(project_root, requested):
     \"\"\"解析 agent 名称，按优先级查找 .claude/agents 目录。\"\"\"
     # 优先级顺序: project > plugin > builtin
+    # NOTE: __file__ is undefined under \`python3 -c\`, which made this function
+    # raise NameError on every call. The plugin root is passed in from bash via
+    # AUTOPILOT_SCRIPT_DIR instead.
+    _script_dir = os.environ.get('AUTOPILOT_SCRIPT_DIR', '')
+    _plugin_agents = os.path.join(os.path.dirname(os.path.dirname(_script_dir)), 'agents') if _script_dir else ''
     search_paths = [
         ('project', os.path.join(project_root, '.claude', 'agents')),
-        ('plugin', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'agents')),
+        ('plugin', _plugin_agents),
     ]
 
     resolved = requested

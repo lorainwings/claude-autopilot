@@ -43,11 +43,6 @@ RC45d=$?
 assert_exit "code-constraint: background agent → exit 0" 0 "$RC45d"
 assert_not_contains "code-constraint: background agent → no block" "$OUT45d" "block"
 
-# 45e: parallel-merge-guard bypasses background agent
-OUT45e=$(echo "$BG_STDIN" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null)
-RC45e=$?
-assert_exit "merge-guard: background agent → exit 0" 0 "$RC45e"
-assert_not_contains "merge-guard: background agent → no block" "$OUT45e" "block"
 
 # 45f: validate-decision-format bypasses background agent
 BG_STDIN_P1='{"tool_name":"Agent","tool_input":{"prompt":"<!-- autopilot-phase:1 --> requirements","run_in_background":true},"tool_response":"Running in background","cwd":"'"$TMPDIR_BG"'"}'

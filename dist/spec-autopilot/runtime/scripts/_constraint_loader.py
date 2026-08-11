@@ -227,13 +227,17 @@ def merge_constraints(base, scanner):
     return merged
 
 
-def check_file_violations(file_path, root, constraints):
+def check_file_violations(file_path, root, constraints, content_override=None):
     """Check a single file against loaded constraints.
 
     Args:
         file_path: relative or absolute path to the file
         root: project root directory
         constraints: dict from load_constraints() or merge_constraints()
+        content_override: 待写入的内容。PreToolUse 场景下目标文件可能尚不存在，
+            或磁盘上仍是旧内容；传入此参数则内容型约束
+            (max_lines / forbidden_patterns / required_patterns)
+            针对待写内容求值，而非磁盘现状。None 表示沿用磁盘内容。
 
     Returns list of violation strings (empty if compliant).
     """
@@ -280,31 +284,37 @@ def check_file_violations(file_path, root, constraints):
             if name_part and not re.match(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$", name_part):
                 violations.append(f"Naming convention violation: {rel} (expected {naming})")
 
-    # File line count + forbidden patterns + required patterns (only for existing files)
-    if os.path.isfile(abs_path):
+    # File line count + forbidden patterns + required patterns
+    # 优先使用 content_override（PreToolUse），否则从磁盘读（PostToolUse）
+    content = None
+    if content_override is not None:
+        content = content_override
+    elif os.path.isfile(abs_path):
         try:
             with open(abs_path, "r", errors="ignore") as f:
                 content = f.read(100_000)
-            lc = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
-            if lc > max_lines:
-                violations.append(f"File too long: {rel} ({lc} lines > {max_lines})")
-            for pat in forbidden_patterns:
-                try:
-                    if re.search(pat, content):
-                        violations.append(f'Forbidden pattern "{pat}" in {rel}')
-                except re.error:
-                    # Fallback to literal match if pattern is invalid regex
-                    if pat in content:
-                        violations.append(f'Forbidden pattern "{pat}" in {rel}')
-            # Required patterns: file content must contain these patterns
-            for pat in required_patterns:
-                try:
-                    if not re.search(pat, content):
-                        violations.append(f'Required pattern "{pat}" not found in {rel}')
-                except re.error:
-                    if pat not in content:
-                        violations.append(f'Required pattern "{pat}" not found in {rel}')
         except Exception:
             pass
+
+    if content is not None:
+        lc = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
+        if lc > max_lines:
+            violations.append(f"File too long: {rel} ({lc} lines > {max_lines})")
+        for pat in forbidden_patterns:
+            try:
+                if re.search(pat, content):
+                    violations.append(f'Forbidden pattern "{pat}" in {rel}')
+            except re.error:
+                # Fallback to literal match if pattern is invalid regex
+                if pat in content:
+                    violations.append(f'Forbidden pattern "{pat}" in {rel}')
+        # Required patterns: file content must contain these patterns
+        for pat in required_patterns:
+            try:
+                if not re.search(pat, content):
+                    violations.append(f'Required pattern "{pat}" not found in {rel}')
+            except re.error:
+                if pat not in content:
+                    violations.append(f'Required pattern "{pat}" not found in {rel}')
 
     return violations

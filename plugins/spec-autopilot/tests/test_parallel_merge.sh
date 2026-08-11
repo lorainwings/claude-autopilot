@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# test_parallel_merge.sh — Section 39: parallel-merge-guard.sh anchor_sha diff base
+# test_parallel_merge.sh — Section 39: worktree merge validation (VALIDATOR 4) anchor_sha diff base
+# 被测对象为实际注册的 post-task-validator.sh（内含 _post_task_validator.py VALIDATOR 4）。
+# 此前测的是未注册的 parallel-merge-guard.sh — 测试全绿但被测代码不在运行路径上。
 set -uo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DIR="$(cd "$TEST_DIR/../runtime/scripts" && pwd)"
 source "$TEST_DIR/_test_helpers.sh"
 source "$TEST_DIR/_fixtures.sh"
 
-echo "--- 39. parallel-merge-guard.sh anchor_sha diff base ---"
+echo "--- 39. worktree merge validation (VALIDATOR 4) anchor_sha diff base ---"
 setup_autopilot_fixture
 
 # 构建真实 git repo 用于 anchor_sha 测试
@@ -43,12 +45,14 @@ echo "{\"change\":\"test-change\",\"anchor_sha\":\"$ANCHOR_SHA\"}" >"$ANCHOR_TES
 # 注意：必须用 printf + 单引号避免 bash 解释 JSON 转义（如 \n, \"）
 mk_merge_input() {
   local cwd="$1"
-  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5 impl","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Foo.java\"]}","cwd":"'"$cwd"'"}'
+  # 经统一入口 post-task-validator.sh 时，VALIDATOR 1（信封校验）先于 VALIDATOR 4 运行，
+  # 因此信封须带齐 Phase 5 必需字段，否则测不到合并校验。
+  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5 impl","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Foo.java\"],\"test_results_path\":\"reports/junit.xml\",\"tasks_completed\":1,\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$cwd"'"}'
 }
 
 # 39a. 有效 anchor_sha → diff 覆盖锚定点之后全部 commit → 检测到 scope 外文件
 exit_code=0
-output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/post-task-validator.sh" 2>/dev/null) || exit_code=$?
 assert_exit "anchor_sha valid → exit 0" 0 $exit_code
 assert_contains "anchor_sha valid → scope violation detected" "$output" "outside task scope"
 assert_contains "anchor_sha valid → unrelated.txt flagged" "$output" "unrelated.txt"
@@ -57,7 +61,7 @@ assert_contains "anchor_sha valid → unrelated.txt flagged" "$output" "unrelate
 echo '{"change":"test-change","anchor_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}' \
   >"$ANCHOR_TEST_DIR/openspec/changes/.autopilot-active"
 exit_code=0
-output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/post-task-validator.sh" 2>/dev/null) || exit_code=$?
 assert_exit "anchor_sha invalid → exit 0 (fallback HEAD~1)" 0 $exit_code
 # HEAD~1 只看最后一个 commit（unrelated.txt），仍能检测到 scope 外
 assert_contains "anchor_sha invalid → fallback still detects scope" "$output" "outside task scope"
@@ -66,7 +70,7 @@ assert_contains "anchor_sha invalid → fallback still detects scope" "$output" 
 echo '{"change":"test-change","anchor_sha":""}' \
   >"$ANCHOR_TEST_DIR/openspec/changes/.autopilot-active"
 exit_code=0
-output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+output=$(mk_merge_input "$ANCHOR_TEST_DIR" | bash "$SCRIPT_DIR/post-task-validator.sh" 2>/dev/null) || exit_code=$?
 assert_exit "anchor_sha empty → exit 0 (fallback HEAD~1)" 0 $exit_code
 assert_contains "anchor_sha empty → fallback detects scope" "$output" "outside task scope"
 
@@ -78,7 +82,7 @@ rm "$ANCHOR_TEST_DIR/openspec/changes/.autopilot-active"
 exit_code=0
 output=$(AUTOPILOT_PROJECT_ROOT="$ANCHOR_TEST_DIR" \
   mk_merge_input "$ANCHOR_TEST_DIR" |
-  AUTOPILOT_PROJECT_ROOT="$ANCHOR_TEST_DIR" bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+  AUTOPILOT_PROJECT_ROOT="$ANCHOR_TEST_DIR" bash "$SCRIPT_DIR/post-task-validator.sh" 2>/dev/null) || exit_code=$?
 assert_exit "no lock file → exit 0 (bypass)" 0 $exit_code
 assert_not_contains "no lock file → no block" "$output" "block"
 
@@ -104,10 +108,10 @@ mkdir -p "$SCOPE_TEST_DIR/.claude"
 mkdir -p "$SCOPE_TEST_DIR/openspec/changes/scope-test/context/phase-results"
 echo "{\"change\":\"scope-test\",\"anchor_sha\":\"$SCOPE_ANCHOR\"}" >"$SCOPE_TEST_DIR/openspec/changes/.autopilot-active"
 mk_scope_input() {
-  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Bar.java\"]}","cwd":"'"$1"'"}'
+  printf '%s' '{"tool_name":"Task","tool_input":{"prompt":"<!-- autopilot-phase:5 -->\nPhase 5","subagent_type":"general-purpose"},"tool_response":"{\"status\":\"ok\",\"summary\":\"worktree merge done\",\"artifacts\":[\"backend/src/Bar.java\"],\"test_results_path\":\"reports/junit.xml\",\"tasks_completed\":1,\"zero_skip_check\":{\"passed\":true}}","cwd":"'"$1"'"}'
 }
 exit_code=0
-output=$(mk_scope_input "$SCOPE_TEST_DIR" | bash "$SCRIPT_DIR/parallel-merge-guard.sh" 2>/dev/null) || exit_code=$?
+output=$(mk_scope_input "$SCOPE_TEST_DIR" | bash "$SCRIPT_DIR/post-task-validator.sh" 2>/dev/null) || exit_code=$?
 assert_exit "anchor_sha valid + all in scope → exit 0" 0 $exit_code
 assert_not_contains "anchor_sha valid + all in scope → no block" "$output" "block"
 

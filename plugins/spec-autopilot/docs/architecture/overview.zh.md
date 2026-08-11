@@ -236,7 +236,7 @@ tasks.md → dependency_analysis → 域分组
   ├── backend Agent  →  owned_files: backend/**
   ├── frontend Agent →  owned_files: frontend/**
   └── node Agent     →  owned_files: node/**
-每组完成 → parallel-merge-guard.sh → 批量 code review → 合并
+每组完成 → post-task-validator.sh (VALIDATOR 4) → 批量 code review → 合并
 ```
 
 ### 降级策略
